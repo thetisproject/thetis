@@ -10,6 +10,8 @@ from . import implicitexplicit
 from . import coupled_timeintegrator_2d
 from . import tracer_eq_2d
 from . import conservative_tracer_eq_2d
+from . import sediment_eq_2d
+from . import exner_eq
 import weakref
 import time as time_mod
 import numpy as np
@@ -130,7 +132,10 @@ class FlowSolver2d(FrozenClass):
         self.export_initial_state = True
         """Do export initial state. False if continuing a simulation"""
 
-        self.bnd_functions = {'shallow_water': {}, 'tracer': {}}
+        self.sediment_model = None
+        """set up option for sediment model"""
+
+        self.bnd_functions = {'shallow_water': {}, 'tracer': {}, 'sediment': {}}
 
         self._isfrozen = True
 
@@ -232,15 +237,19 @@ class FlowSolver2d(FrozenClass):
                     print_output("Using default SIPG parameter for shallow water equations")
 
             # Penalty parameter for tracers
-            if self.options.solve_tracer:
+            if self.options.solve_tracer or self.options.sediment_model_options.solve_suspended_sediment:
+                if self.options.solve_tracer:
+                    tracer_kind = 'tracer'
+                elif self.options.sediment_model_options.solve_suspended_sediment:
+                    tracer_kind = 'sediment'
                 nu = self.options.horizontal_diffusivity
                 if nu is not None:
                     alpha_tracer = alpha_tracer*get_sipg_ratio(nu)*cot_theta
                     self.options.sipg_parameter_tracer = interpolate(alpha_tracer, P0)
                     max_sipg = self.options.sipg_parameter_tracer.vector().gather().max()
-                    print_output("Maximum tracer SIPG value: {:.2f}".format(max_sipg))
+                    print_output("Maximum {} SIPG value: {:.2f}".format(tracer_kind, max_sipg))
                 else:
-                    print_output("Using default SIPG parameter for tracer equation")
+                    print_output("Using default SIPG parameter for {} equation".format(tracer_kind))
         else:
             print_output("Using default SIPG parameters")
             self.options.sipg_parameter.assign(alpha)
@@ -319,6 +328,29 @@ class FlowSolver2d(FrozenClass):
             else:
                 self.tracer_limiter = None
 
+        sediment_options = self.options.sediment_model_options
+        if sediment_options.solve_suspended_sediment or sediment_options.solve_exner:
+            uv_2d, elev_2d = self.fields.solution_2d.split()
+            sediment_model_class = self.options.sediment_model_options.sediment_model_class
+            self.sediment_model = sediment_model_class(
+                self.options, self.mesh2d, uv_2d, elev_2d, self.depth)
+        if sediment_options.solve_suspended_sediment:
+            self.fields.sediment_2d = Function(self.function_spaces.Q_2d, name='sediment_2d')
+            self.eq_sediment = sediment_eq_2d.SedimentEquation2D(
+                self.function_spaces.Q_2d, self.depth, self.sediment_model,
+                use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                sipg_parameter=self.options.sipg_parameter_tracer,
+                conservative=sediment_options.use_sediment_conservative_form)
+            if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
+                self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
+            else:
+                self.tracer_limiter = None
+
+        if sediment_options.solve_exner:
+            self.eq_exner = exner_eq.ExnerEquation(
+                self.fields.bathymetry_2d.function_space(), self.depth,
+                depth_integrated_sediment=sediment_options.use_sediment_conservative_form, sediment_model=self.sediment_model)
+
         self._isfrozen = True  # disallow creating new attributes
 
     def get_swe_timestepper(self, integrator):
@@ -329,6 +361,7 @@ class FlowSolver2d(FrozenClass):
             'linear_drag_coefficient': self.options.linear_drag_coefficient,
             'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
             'manning_drag_coefficient': self.options.manning_drag_coefficient,
+            'nikuradse_bed_roughness': self.options.nikuradse_bed_roughness,
             'viscosity_h': self.options.horizontal_viscosity,
             'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
             'coriolis': self.options.coriolis_frequency,
@@ -398,6 +431,56 @@ class FlowSolver2d(FrozenClass):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta
         return integrator(*args, **kwargs)
 
+    def get_sediment_timestepper(self, integrator):
+        """
+        Gets sediment timestepper object with appropriate parameters
+        """
+        uv, elev = self.fields.solution_2d.split()
+        fields = {
+            'elev_2d': elev,
+            'uv_2d': uv,
+            'diffusivity_h': self.options.horizontal_diffusivity,
+            'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
+            'tracer_advective_velocity_factor': self.sediment_model.get_advective_velocity_correction_factor(),
+        }
+
+        args = (self.eq_sediment, self.fields.sediment_2d, fields, self.dt, )
+        kwargs = {
+            'bnd_conditions': self.bnd_functions['sediment'],
+            'solver_parameters': self.options.timestepper_options.solver_parameters_sediment,
+        }
+        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
+            kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
+        if hasattr(self.options.timestepper_options, 'implicitness_theta'):
+            kwargs['theta'] = self.options.timestepper_options.implicitness_theta
+        return integrator(*args, **kwargs)
+
+    def get_exner_timestepper(self, integrator):
+        """
+        Gets exner timestepper object with appropriate parameters
+        """
+        uv, elev = self.fields.solution_2d.split()
+        if not self.options.sediment_model_options.solve_suspended_sediment:
+            self.fields.sediment_2d = Function(elev.function_space()).interpolate(Constant(0.0))
+        fields = {
+            'elev_2d': elev,
+            'sediment': self.fields.sediment_2d,
+            'morfac': self.options.sediment_model_options.morphological_acceleration_factor,
+            'porosity': self.options.sediment_model_options.porosity,
+        }
+
+        args = (self.eq_exner, self.fields.bathymetry_2d, fields, self.dt, )
+        kwargs = {
+            # only pass SWE bcs, used to determine closed boundaries in bedload term
+            'bnd_conditions': self.bnd_functions['shallow_water'],
+            'solver_parameters': self.options.timestepper_options.solver_parameters_exner,
+        }
+        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
+            kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
+        if hasattr(self.options.timestepper_options, 'implicitness_theta'):
+            kwargs['theta'] = self.options.timestepper_options.implicitness_theta
+        return integrator(*args, **kwargs)
+
     def create_timestepper(self):
         """
         Creates time stepper instance
@@ -436,6 +519,14 @@ class FlowSolver2d(FrozenClass):
                 assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState')
             except AssertionError:
                 raise NotImplementedError("2D tracer model currently only supports SSPRK33, ForwardEuler, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
+            self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
+                weakref.proxy(self), steppers[self.options.timestepper_type],
+            )
+        elif self.options.sediment_model_options.solve_suspended_sediment or self.options.sediment_model_options.solve_exner:
+            try:
+                assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState')
+            except AssertionError:
+                raise NotImplementedError("2D sediment model currently only supports SSPRK33, ForwardEuler, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
             self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
                 weakref.proxy(self), steppers[self.options.timestepper_type],
             )
@@ -489,7 +580,7 @@ class FlowSolver2d(FrozenClass):
             self.create_exporters()
         self._initialized = True
 
-    def assign_initial_conditions(self, elev=None, uv=None, tracer=None):
+    def assign_initial_conditions(self, elev=None, uv=None, tracer=None, sediment=None):
         """
         Assigns initial conditions
 
@@ -507,6 +598,19 @@ class FlowSolver2d(FrozenClass):
             uv_2d.project(uv)
         if tracer is not None and self.options.solve_tracer:
             self.fields.tracer_2d.project(tracer)
+
+        sediment_options = self.options.sediment_model_options
+        if self.sediment_model is not None:
+            # update sediment model based on initial conditions for uv and elev
+            self.sediment_model.update()
+        if sediment_options.solve_suspended_sediment:
+            if sediment is not None:
+                self.fields.sediment_2d.project(sediment)
+            else:
+                sediment = self.sediment_model.get_equilibrium_tracer()
+                if sediment_options.use_sediment_conservative_form:
+                    sediment = sediment * self.depth.get_total_depth(elev_2d)
+                self.fields.sediment_2d.project(sediment)
 
         self.timestepper.initialize(self.fields.solution_2d)
 
@@ -646,14 +750,38 @@ class FlowSolver2d(FrozenClass):
             self.add_callback(c)
 
         if self.options.check_tracer_conservation:
-            c = callback.TracerMassConservation2DCallback('tracer_2d',
-                                                          self,
-                                                          export_to_hdf5=dump_hdf5,
-                                                          append_to_log=True)
+            if self.options.use_tracer_conservative_form:
+                c = callback.ConservativeTracerMassConservation2DCallback('tracer_2d',
+                                                                          self,
+                                                                          export_to_hdf5=dump_hdf5,
+                                                                          append_to_log=True)
+            else:
+                c = callback.TracerMassConservation2DCallback('tracer_2d',
+                                                              self,
+                                                              export_to_hdf5=dump_hdf5,
+                                                              append_to_log=True)
+            self.add_callback(c, eval_interval='export')
+        if self.options.sediment_model_options.check_sediment_conservation:
+            if self.options.sediment_model_options.use_sediment_conservative_form:
+                c = callback.ConservativeTracerMassConservation2DCallback('sediment_2d',
+                                                                          self,
+                                                                          export_to_hdf5=dump_hdf5,
+                                                                          append_to_log=True)
+            else:
+                c = callback.TracerMassConservation2DCallback('sediment_2d',
+                                                              self,
+                                                              export_to_hdf5=dump_hdf5,
+                                                              append_to_log=True)
             self.add_callback(c, eval_interval='export')
 
         if self.options.check_tracer_overshoot:
             c = callback.TracerOvershootCallBack('tracer_2d',
+                                                 self,
+                                                 export_to_hdf5=dump_hdf5,
+                                                 append_to_log=True)
+            self.add_callback(c, eval_interval='export')
+        if self.options.sediment_model_options.check_sediment_overshoot:
+            c = callback.TracerOvershootCallBack('sediment_2d',
                                                  self,
                                                  export_to_hdf5=dump_hdf5,
                                                  append_to_log=True)
@@ -672,7 +800,6 @@ class FlowSolver2d(FrozenClass):
         internal_iteration = 0
 
         while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
-
             self.timestepper.advance(self.simulation_time, update_forcings)
 
             # Move to next time step

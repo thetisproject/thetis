@@ -19,13 +19,6 @@ from thetis.options import TidalTurbineFarmOptions  # NOQA
 import os  # NOQA
 import datetime  # NOQA
 
-# non-hydrostatic (nh) extension
-import thetis.nh_extension.nhsolver_ale as nhsolver_ale # direct nh extension based upon ale
-import thetis.nh_extension.nhsolver_sigma as nhsolver_sigma # nh solver in sigma coordinate
-import thetis.nh_extension.nhsolver_ml as nhsolver_ml  # multi-layer nh extension
-import thetis.nh_extension.nhsolver_cf as nhsolver_cf  # sigma solver in conservative form, w.r.t granular landslise
-import thetis.nh_extension.nhsolver2d_cf as nhsolver2d_cf  # multi-layer solver in conservative form, w.r.t granular landslise
-
 __version__ = get_versions()['version']
 del get_versions
 

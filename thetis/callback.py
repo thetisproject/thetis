@@ -350,15 +350,33 @@ class TracerMassConservation2DCallback(ScalarConservationCallback):
         """
         self.name = tracer_name + ' mass'  # override name for given tracer
 
-        if solver_obj.options.use_tracer_conservative_form:
-            def mass():
-                # tracer is depth-integrated already, so just integrate over domain
-                return assemble(solver_obj.fields[tracer_name]*dx)
-        else:
-            def mass():
-                H = solver_obj.depth.get_total_depth(solver_obj.fields.elev_2d)
-                return comp_tracer_mass_2d(solver_obj.fields[tracer_name], H)
+        def mass():
+            H = solver_obj.depth.get_total_depth(solver_obj.fields.elev_2d)
+            return comp_tracer_mass_2d(solver_obj.fields[tracer_name], H)
         super(TracerMassConservation2DCallback, self).__init__(mass, solver_obj, **kwargs)
+
+
+class ConservativeTracerMassConservation2DCallback(ScalarConservationCallback):
+    """
+    Checks conservation of conservative tracer mass which is depth integrated.
+    """
+    name = 'tracer mass'
+
+    def __init__(self, tracer_name, solver_obj, **kwargs):
+        """
+        :arg tracer_name: Name of the tracer. Use canonical field names as in
+            :class:`.FieldDict`.
+        :arg solver_obj: Thetis solver object
+        :arg kwargs: any additional keyword arguments, see
+            :class:`.DiagnosticCallback`.
+        """
+        self.name = tracer_name + ' mass'  # override name for given tracer
+
+        def mass():
+            # tracer is depth-integrated already, so just integrate over domain
+            return assemble(solver_obj.fields[tracer_name]*dx)
+
+        super(ConservativeTracerMassConservation2DCallback, self).__init__(mass, solver_obj, **kwargs)
 
 
 class TracerMassConservationCallback(ScalarConservationCallback):

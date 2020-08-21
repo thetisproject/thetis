@@ -113,9 +113,7 @@ class FieldDict(AttrDict):
 def get_functionspace(mesh, h_family, h_degree, v_family=None, v_degree=None,
                       vector=False, hdiv=False, variant=None, **kwargs):
     gdim = mesh.geometric_dimension()
-    #assert gdim in [2, 3] # previously for hydrostatic thetis
-    mesh_is_extruded = (mesh.ufl_cell() not in (ufl.Cell('triangle'), ufl.Cell('interval'))) # TODO check
-    assert gdim in [1, 2, 3] # vertical 2D case (gdim=1) is considered, WPan 2020-02-09
+    assert gdim in [2, 3]
     if variant is None:
         if h_family.upper() == 'RT' or h_family.lower() == 'raviart-thomas':
             variant = 'point'
@@ -124,8 +122,7 @@ def get_functionspace(mesh, h_family, h_degree, v_family=None, v_degree=None,
         v_variant = 'equispaced'
     else:
         v_variant = variant
-    #if gdim == 3: # previously for hydrostatic thetis
-    if gdim == 3 or (gdim == 2 and mesh_is_extruded): # TODO check
+    if gdim == 3:
         if v_family is None:
             v_family = h_family
         if v_degree is None:
