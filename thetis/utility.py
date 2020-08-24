@@ -1250,6 +1250,7 @@ def get_cell_widths_2d(mesh2d):
                   widths[0] = fmax(widths[0], fabs(coords[2*i] - coords[(2*i+2)%6]));
                   widths[1] = fmax(widths[1], fabs(coords[2*i+1] - coords[(2*i+3)%6]));
                 }""", dx, {'coords': (mesh2d.coordinates, READ), 'widths': (cell_widths, RW)})
+    assert cell_widths.vector().gather().min() >= 0.0  # TODO: TEMPORARY
     return cell_widths
 
 

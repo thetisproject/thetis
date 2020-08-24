@@ -274,17 +274,31 @@ class FlowSolver2d(FrozenClass):
         if not self.options.use_wetting_and_drying:
             return
         if self.options.use_automatic_wetting_and_drying_alpha:
-            alpha = dot(get_cell_widths_2d(self.mesh2d), abs(grad(self.fields.bathymetry_2d)))
             max_alpha = self.options.wetting_and_drying_alpha_max
-            self.options.wetting_and_drying_alpha = Function(self.function_spaces.P1_2d)
-            self.options.wetting_and_drying_alpha.project(min_value(max_alpha, alpha))
 
-            msg = "Using automatic wetting and drying parameter (min {:.2f} max {:.2f})"
-            with self.options.wetting_and_drying_alpha.dat.vec_ro as v:
-                print_output(msg.format(v.min()[1], v.max()[1]))
+            # Take the dot product
+            alpha = dot(get_cell_widths_2d(self.mesh2d), abs(grad(self.fields.bathymetry_2d)))
+
+            # Interpolate into P1 space
+            self.options.wetting_and_drying_alpha = Function(self.function_spaces.P1_2d)
+            # self.options.wetting_and_drying_alpha.project(min_value(max_alpha, alpha))
+            self.options.wetting_and_drying_alpha.interpolate(min_value(max_alpha, alpha))
+
+        # Print to screen and check validity
+        alpha = self.options.wetting_and_drying_alpha
+        if isinstance(alpha, Constant):
+            msg = "Using constant wetting and drying parameter (value {:.2f})"
+            assert alpha.values()[0] >= 0.0
+            print_output(msg.format(alpha.values()[0]))
+        elif isinstance(alpha, Function):
+            msg = "Using spatially varying wetting and drying parameter (min {:.2f} max {:.2f})"
+            with alpha.dat.vec_ro as v:
+                alpha_min, alpha_max = v.min()[1], v.max()[1]
+                assert alpha_min >= 0.0
+                print_output(msg.format(alpha_min, alpha_max))
         else:
-            alpha = self.options.wetting_and_drying_alpha.values()[0]
-            print_output("Using user-specified wetting and drying parameter {:.2f}".format(alpha))
+            msg = "Wetting and drying parameter of type '{:}' not supported"
+            raise TypeError(msg.format(alpha.__class__.__name__))
 
     def create_function_spaces(self):
         """
