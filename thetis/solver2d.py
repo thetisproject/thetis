@@ -268,21 +268,30 @@ class FlowSolver2d(FrozenClass):
         where :math:`L_x` is the horizontal length scale of the mesh elements at the wet-dry
         front and :math:`h` is the bathymetry profile.
 
-        NOTE: The maximum value at which to cap the alpha parameter may be specified via
+        This expression is interpolated into :math:`\mathbb P1` space in order to remove noise. Note
+        that we use the `interpolate` method, rather than the `project` method, in order to avoid
+        introducing new extrema.
+
+        NOTE: The minimum and maximum values at which to cap the alpha parameter may be specified via
+        :attr:`ModelOptions2d.wetting_and_drying_alpha_min` and
         :attr:`ModelOptions2d.wetting_and_drying_alpha_max`.
         """
         if not self.options.use_wetting_and_drying:
             return
         if self.options.use_automatic_wetting_and_drying_alpha:
+            min_alpha = self.options.wetting_and_drying_alpha_min
             max_alpha = self.options.wetting_and_drying_alpha_max
 
-            # Take the dot product
+            # Take the dot product and threshold it
             alpha = dot(get_cell_widths_2d(self.mesh2d), abs(grad(self.fields.bathymetry_2d)))
+            if max_alpha is not None:
+                alpha = min_value(max_alpha, alpha)
+            if min_alpha is not None:
+                alpha = max_value(min_alpha, alpha)
 
             # Interpolate into P1 space
             self.options.wetting_and_drying_alpha = Function(self.function_spaces.P1_2d)
-            # self.options.wetting_and_drying_alpha.project(min_value(max_alpha, alpha))
-            self.options.wetting_and_drying_alpha.interpolate(min_value(max_alpha, alpha))
+            self.options.wetting_and_drying_alpha.interpolate(alpha)
 
         # Print to screen and check validity
         alpha = self.options.wetting_and_drying_alpha
