@@ -540,6 +540,14 @@ class FlowSolver2d(FrozenClass):
             self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
                 weakref.proxy(self), steppers[self.options.timestepper_type],
             )
+        elif self.options.solve_exner:
+            try:
+                assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState')
+            except AssertionError:
+                raise NotImplementedError("2D exner model currently only supports SSPRK33, ForwardEuler, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
+            self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
+                weakref.proxy(self), steppers[self.options.timestepper_type],
+            )
         else:
             self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))

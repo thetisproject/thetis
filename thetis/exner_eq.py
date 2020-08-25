@@ -44,7 +44,6 @@ class ExnerTerm(Term):
         super(ExnerTerm, self).__init__(function_space)
         self.n = FacetNormal(self.mesh)
         self.depth = depth
-
         self.sed_model = sed_model
 
         # define measures with a reasonable quadrature degree
@@ -70,7 +69,6 @@ class ExnerSourceTerm(ExnerTerm):
 
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-
         f = 0
         sediment = fields.get('sediment')
         source = fields.get('source')
@@ -79,7 +77,6 @@ class ExnerSourceTerm(ExnerTerm):
         depth_int_sink = fields.get('depth_integrated_sink')
         morfac = fields.get('morfac')
         porosity = fields.get('porosity')
-
         if morfac.dat.data[:] <= 0:
             raise ValueError("Morphological acceleration factor must be strictly positive")
         fac = Constant(morfac/(1.0-porosity))
@@ -172,7 +169,7 @@ class ExnerEquation(Equation):
 
         if sed_model is None:
             raise ValueError('To use the exner equation must define a sediment model')
-
+        self.depth = depth
         args = (function_space, depth, sed_model, conservative)
         if sed_model.suspendedload:
             self.add_term(ExnerSourceTerm(*args), 'source')

@@ -220,7 +220,6 @@ class SedimentModel(object):
                 self.options.tracer_advective_velocity_factor = self.corr_factor_model.corr_vel_factor
         else:
             self.options.solve_tracer = False
-
         if self.bedload:
             # calculate angle of flow
             self.calfa = Function(self.V).interpolate(self.horizontal_velocity/sqrt(self.unorm))
