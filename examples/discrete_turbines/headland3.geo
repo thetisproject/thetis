@@ -48,6 +48,6 @@ Line Loop(10010) = {10006, -10008, -10005, 10007};
 Plane Surface(10011) = {10004, 10010};
 Physical Line(1) = {10001};
 Physical Line(2) = {10003};
-Physical Line(3) = {10000, 10002};
+Physical Line(3) = {9999, 10000, 10002};
 Physical Surface(1) = {10011};
 Physical Surface(2) = {10009};
