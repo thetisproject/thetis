@@ -40,7 +40,7 @@ class TurbineFarm(object):
         :arg float dt: used for time-integration."""
         turbine_density = farm_options.turbine_density
         C_T = farm_options.turbine_options.thrust_coefficient
-        A_T = pi*(farm_options.turbine_options.diameter/2.)**2
+        A_T = farm_options.turbine_options.get_turbine_area()
         C_D = C_T*A_T/2.*turbine_density
         self.power_integral = C_D * (u*u + v*v)**1.5 * dx(subdomain_id)
         # cost integral is n/o turbines = \int turbine_density

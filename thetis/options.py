@@ -5,7 +5,7 @@ All options are type-checked and they are stored in traitlets Configurable
 objects.
 """
 from .configuration import *
-from firedrake import Constant
+from firedrake import Constant, pi
 from .sediment_model import SedimentModel
 
 
@@ -351,6 +351,11 @@ class TidalTurbineOptions(FrozenHasTraits):
         0.8, help='Thrust coefficient C_T').tag(config=True)
     diameter = PositiveFloat(
         18., help='Turbine diameter').tag(config=True)
+    area = PositiveFloat(
+        None, allow_none=True, help='Custom turbine area (overrides diameter)').tag(config=True)
+
+    def get_turbine_area(self):
+        return self.area or pi*(0.5*self.diameter)**2
 
 
 class TidalTurbineFarmOptions(FrozenHasTraits, TraitType):
