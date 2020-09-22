@@ -528,8 +528,8 @@ class SedimentModelOptions(FrozenHasTraits):
     use_angle_correction = Bool(True, help='Switch to use slope effect angle correction').tag(config=True)
     use_slope_mag_correction = Bool(True, help='Switch to use slope effect magnitude correction').tag(config=True)
     use_secondary_current = Bool(False, help='Switch to use secondary current for helical flow effect').tag(config=True)
-    average_sediment_size = NonNegativeFloat(allow_none=False, help='Average sediment size').tag(config=True)
-    bed_reference_height = NonNegativeFloat(allow_none=False, help='Bottom bed reference height').tag(config=True)
+    average_sediment_size = FiredrakeConstantTraitlet(None, allow_none=True, help='Average sediment size').tag(config=True)
+    bed_reference_height = FiredrakeConstantTraitlet(None, allow_none=True, help='Bottom bed reference height').tag(config=True)
     use_advective_velocity_correction = Bool(True, help="""
         Switch to apply correction to advective velocity used in sediment equation
 

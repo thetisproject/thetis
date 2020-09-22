@@ -106,6 +106,7 @@ class SedimentModel(object):
         # define function spaces
         self.P1DG_2d = get_functionspace(mesh2d, "DG", 1)
         self.P1_2d = get_functionspace(mesh2d, "CG", 1)
+        self.R_1d = get_functionspace(mesh2d, "R", 0)
         self.P1v_2d = VectorFunctionSpace(mesh2d, "CG", 1)
 
         # define parameters
@@ -128,34 +129,25 @@ class SedimentModel(object):
         self.alpha_secc = self.options.sediment_model_options.secondary_current_parameter
 
         # calculate critical shields parameter thetacr
-        self.R = Constant(self.rhos/self.rhow - 1)
+        self.R = self.rhos/self.rhow - Constant(1)
 
-        self.dstar = Constant(self.average_size*((self.g*self.R)/(self.viscosity**2))**(1/3))
-        if max(self.dstar.dat.data[:] < 1):
+        self.dstar = self.average_size*((self.g*self.R)/(self.viscosity**2))**(1/3)
+
+        if float(self.dstar) < 1:
             raise ValueError('dstar value less than 1')
-        elif max(self.dstar.dat.data[:] < 4):
-            self.thetacr = Constant(0.24*(self.dstar**(-1)))
-        elif max(self.dstar.dat.data[:] < 10):
-            self.thetacr = Constant(0.14*(self.dstar**(-0.64)))
-        elif max(self.dstar.dat.data[:] < 20):
-            self.thetacr = Constant(0.04*(self.dstar**(-0.1)))
-        elif max(self.dstar.dat.data[:] < 150):
-            self.thetacr = Constant(0.013*(self.dstar**(0.29)))
-        else:
-            self.thetacr = Constant(0.055)
+        self.thetacr = Function(self.R_1d).assign(conditional(self.dstar < 4, 0.24*(self.dstar**(-1)),
+                                                              conditional(self.dstar < 10, 0.14*(self.dstar**(-0.64)),
+                                                                          conditional(self.dstar < 20, 0.04*(self.dstar**(-0.1)),
+                                                                                      conditional(self.dstar < 150, 0.013*(self.dstar**(0.29)), 0.055)))))
 
         # critical bed shear stress
-        self.taucr = Constant((self.rhos-self.rhow)*self.g*self.average_size*self.thetacr)
+        self.taucr = Function(self.R_1d).assign((self.rhos-self.rhow)*self.g*self.average_size*self.thetacr)
 
         # calculate settling velocity
-        if self.average_size <= 1e-04:
-            self.settling_velocity = Constant(self.g*(self.average_size**2)*self.R/(18*self.viscosity))
-        elif self.average_size <= 1e-03:
-            self.settling_velocity = Constant((10*self.viscosity/self.average_size)
-                                              * (sqrt(1 + 0.01*((self.R*self.g*(self.average_size**3))
-                                                 / (self.viscosity**2)))-1))
-        else:
-            self.settling_velocity = Constant(1.1*sqrt(self.g*self.average_size*self.R))
+        self.settling_velocity = Function(self.R_1d).assign(conditional(self.average_size <= 1e-04, self.g*(self.average_size**2)*self.R/(18*self.viscosity),
+                                                                        conditional(self.average_size <= 1e-03, (10*self.viscosity/self.average_size)
+                                                                                    * (sqrt(1 + 0.01*((self.R*self.g*(self.average_size**3))
+                                                                                       / (self.viscosity**2)))-1), 1.1*sqrt(self.g*self.average_size*self.R))))
 
         # dictionary of steps (interpolate/project) to perform in order in update()
         self.update_steps = OrderedDict()
@@ -163,11 +155,10 @@ class SedimentModel(object):
         self.fields = AttrDict()
 
         # first step: project velocity to CG
-        self.fields.uv_cg = Function(self.P1v_2d)
-        self.update_steps['uv_cg'] = Projector(uv, self.fields.uv_cg).project
+        self._add_projection_step('uv_cg', uv, V=self.P1v_2d)
 
         self._add_interpolation_step('old_bathymetry_2d', self.depth.bathymetry_2d)
-        self._add_interpolation_step('depth', self.depth.get_total_depth(elev))
+        self._add_projection_step('depth', self.depth.get_total_depth(elev))
 
         self.u = self.fields.uv_cg[0]
         self.v = self.fields.uv_cg[1]
@@ -237,6 +228,15 @@ class SedimentModel(object):
         :kwarg V: FunctionSpace for new field (default is self.P1_2d)"""
         self.fields[field_name] = Function(V or self.P1_2d, name=field_name)
         self.update_steps[field_name] = Interpolator(expr, self.fields[field_name]).interpolate
+
+    def _add_projection_step(self, field_name, expr, V=None):
+        """Add projection step to update
+
+        :arg field_name: str name of new field to project into, stored in self.fields
+        :arg expr: UFL expression to interpolate
+        :kwarg V: FunctionSpace for new field (default is self.P1_2d)"""
+        self.fields[field_name] = Function(V or self.P1_2d, name=field_name)
+        self.update_steps[field_name] = Projector(expr, self.fields[field_name]).project
 
     def get_bedload_term(self, bathymetry):
         """
