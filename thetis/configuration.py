@@ -204,7 +204,6 @@ class FiredrakeVectorExpression(TraitType):
 
 class PETScSolverParameters(Dict):
     """PETSc solver options dictionary"""
-    default_value = None
     info_text = 'a PETSc solver options dictionary'
 
     def validate(self, obj, value):
@@ -331,8 +330,8 @@ def attach_paired_options(name, name_trait, value_trait):
         if hasattr(name_trait, 'default_value') and name_trait.default_value is not None:
             return name_trait.paired_defaults[name_trait.default_value]()
 
-    obs_handler = ObserveHandler(name, type="change")
-    def_handler = DefaultHandler(name_trait.paired_name)
+    obs_handler = observe(name, type="change")
+    def_handler = default(name_trait.paired_name)
 
     def update_class(cls):
         "Programmatically update the class"

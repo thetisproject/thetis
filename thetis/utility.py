@@ -387,6 +387,8 @@ class VerticalVelocitySolver(object):
         solver_parameters.setdefault('pc_type', 'bjacobi')
         solver_parameters.setdefault('sub_ksp_type', 'preonly')
         solver_parameters.setdefault('sub_pc_type', 'ilu')
+        solver_parameters.setdefault('sub_pc_factor_shift_type', 'inblocks')
+
         fs = solution.function_space()
         mesh = fs.mesh()
         test = TestFunction(fs)
