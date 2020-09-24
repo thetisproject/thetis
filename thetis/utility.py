@@ -437,8 +437,6 @@ class VerticalVelocitySolver(object):
                                              constant_jacobian=True)
         self.solver = LinearVariationalSolver(self.prob,
                                               solver_parameters=solver_parameters)
-        print('provided:', solver_parameters)
-        print('solver:', self.solver.parameters)
 
     def solve(self):
         """Compute w"""
