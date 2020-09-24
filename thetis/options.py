@@ -84,13 +84,11 @@ class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
             'pc_python_type': 'thetis.AssembledSchurPC',
             'schur_ksp_type': 'gmres',
             'schur_ksp_max_it': 100,
-            'schur_ksp_converged_reason': False,
             'schur_pc_type': 'gamg',
         },
     }).tag(config=True)
     solver_parameters_momentum = PETScSolverParameters({
         'ksp_type': 'gmres',
-        'ksp_converged_reason': False,
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'sor',
