@@ -371,7 +371,7 @@ class NonhydrostaticModelOptions(FrozenHasTraits):
     update_free_surface = Bool(True, help='Update free surface elevetion').tag(config=True)
     n_layers = NonNegativeInteger(1, help='Number of vertical layers').tag(config=True)
     alpha_nh = List(
-        default_value=[], 
+        default_value=[],
         help="Ratio of layer thickness to the total water depth; the default `[]` implies uniform layers").tag(config=True)
 
 

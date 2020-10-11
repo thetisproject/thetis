@@ -72,4 +72,4 @@ solver_obj.iterate()
 # error show
 anal_elev = Function(solver_obj.function_spaces.H_2d).interpolate(elev_amp*cos(2*pi*x/lx)*cos(sqrt(9.81*2*pi/lx)*t_end))
 L2_elev = errornorm(anal_elev, solver_obj.fields.elev_2d)/sqrt(lx*ly)
-print (L2_elev)
+print('L2 error is ', L2_elev)

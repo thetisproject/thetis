@@ -7,28 +7,12 @@ from . import shallowwater_eq
 from . import timeintegrator
 from . import rungekutta
 from . import implicitexplicit
-from . import coupled_timeintegrator_2d
 from . import timestepper_nh
-from . import tracer_eq_2d
-from . import conservative_tracer_eq_2d
-from . import sediment_eq_2d
-from . import exner_eq
 import weakref
-import time as time_mod
-import numpy as np
-from mpi4py import MPI
-from . import exporter
-from .field_defs import field_metadata
-from .options import ModelOptions2d
-from . import callback
 from .log import *
-from collections import OrderedDict
-import thetis.limiter as limiter
 from .solver2d import FlowSolver2d
 from .solver import FlowSolver
 
-
-rho_0 = physical_constants['rho0']
 
 class FlowSolverNH(FlowSolver2d, FlowSolver):
     """
@@ -83,7 +67,7 @@ class FlowSolverNH(FlowSolver2d, FlowSolver):
 
     See the manual for more complex examples.
     """
-    def __init__(self, mesh2d, bathymetry_2d, n_layers, 
+    def __init__(self, mesh2d, bathymetry_2d, n_layers,
                  use_2d_solver=True, options=None):
         """
         :arg mesh2d: :class:`Mesh` object of the 2D mesh
@@ -92,7 +76,7 @@ class FlowSolverNH(FlowSolver2d, FlowSolver):
         :type bathymetry_2d: :class:`Function`
         :arg int n_layers: Number of layers in the vertical direction.
             Elements are distributed uniformly over the vertical.
-        :arg bool use_2d_solver: `True` stands for the use of solver with 
+        :arg bool use_2d_solver: `True` stands for the use of solver with
             the 2D mesh only.
         :kwarg options: Model options (optional). Model options can also be
             changed directly via the :attr:`.options` class property.
@@ -151,6 +135,7 @@ class FlowSolverNH(FlowSolver2d, FlowSolver):
         :arg q: Non-hydrostatic pressure to be solved and output
         :type q: scalar function 3D or 2D :class:`Function`
         """
+        rho_0 = physical_constants['rho0']
         fs_q = q.function_space()
         test_q = TestFunction(fs_q)
         normal = FacetNormal(fs_q.mesh())
@@ -162,7 +147,7 @@ class FlowSolverNH(FlowSolver2d, FlowSolver):
             w_2d = self.w_2d
             bath_2d = self.fields.bathymetry_2d
             h_star = self.depth.get_total_depth(elev_2d)
-            w_b = -dot(uv_2d, grad(bath_2d)) # TODO account for bed movement
+            w_b = -dot(uv_2d, grad(bath_2d))  # TODO account for bed movement
 
             A = grad(elev_2d - bath_2d)/h_star
             B = div(A) - 4./(h_star**2)
@@ -175,7 +160,7 @@ class FlowSolverNH(FlowSolver2d, FlowSolver):
             for bnd_marker in boundary_markers:
                 func = self.bnd_functions['shallow_water'].get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker))
-                if func is not None: # e.g. inlet flow, TODO be more precise
+                if func is not None:  # e.g. inlet flow, TODO be more precise
                     bc = DirichletBC(fs_q, 0., int(bnd_marker))
                     bcs.append(bc)
                 else:
@@ -207,7 +192,7 @@ class FlowSolverNH(FlowSolver2d, FlowSolver):
             solver_w = LinearVariationalSolver(prob_w)
 
         else:
-            q_3d = q
+            # q_3d = q
             raise NotImplementedError("3D Poisson equation has not been implemented currently in master branch.")
 
         return solver_q, solver_u, solver_w
@@ -223,8 +208,8 @@ class FlowSolverNH(FlowSolver2d, FlowSolver):
                 print_output('... using 2D mesh based solver')
                 self._isfrozen = False
                 fs_q = get_functionspace(self.mesh2d, 'CG', self.options.polynomial_degree)
-                self.fields.q_2d = Function(fs_q) # 2d non-hydrostatic pressure at bottom
-                self.w_2d = Function(self.function_spaces.H_2d) # depth-averaged vertical velocity
+                self.fields.q_2d = Function(fs_q)  # 2d non-hydrostatic pressure at bottom
+                self.w_2d = Function(self.function_spaces.H_2d)  # depth-averaged vertical velocity
                 # free surface equation
                 self.eq_free_surface = shallowwater_eq.FreeSurfaceEquation(
                     TestFunction(self.function_spaces.H_2d), self.function_spaces.H_2d, self.function_spaces.U_2d,
@@ -264,28 +249,3 @@ class FlowSolverNH(FlowSolver2d, FlowSolver):
             self.solver_q, self.solver_u, self.solver_w = self.poisson_solver(self.fields.q_2d)
 
             self._isfrozen = True
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

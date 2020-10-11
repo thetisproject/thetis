@@ -928,7 +928,7 @@ class FreeSurfaceEquation(BaseShallowWaterEquation):
 
     def mass_term(self, solution):
         f = super(FreeSurfaceEquation, self).mass_term(solution)
-        f += -self.bathymetry_displacement_mass_term.residual([0, solution]) # self configure a list
+        f += -self.bathymetry_displacement_mass_term.residual([0, solution])  # self configure a list
         return f
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):

@@ -68,7 +68,7 @@ class NonhydrostaticTimeStepper(timeintegrator.TimeIntegratorBase):
                 'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
                 'wind_stress': self.fields.get('wind_stress_3d'),
                 'bottom_roughness': self.options.bottom_roughness,
-            } # TODO add implicit vertical diffusion option
+            }  # TODO add implicit vertical diffusion option
             self.timesteppers.mom3d = self.mom_integrator(
                 solver.eq_momentum, solver.fields.uv_3d, fields_mom, solver.dt,
                 bnd_conditions=solver.bnd_functions['momentum'],
@@ -150,8 +150,8 @@ class TimeStepper3d(NonhydrostaticTimeStepper):
     Non-hydrostatic timestepper based on 3D sover
     """
     def __init__(self, solver, integrator2d, integrator3d):
-        self.fs_integrator = integrator2d#timeintegrator.CrankNicolson
-        self.mom_integrator = integrator3d#timeintegrator.SSPRK22ALE
+        self.fs_integrator = integrator2d  # timeintegrator.CrankNicolson
+        self.mom_integrator = integrator3d  # timeintegrator.SSPRK22ALE
         # TODO add integrator for tracer
         super(TimeStepper3d, self).__init__(solver)
         assert (not self.options_nh.use_2d_solver)
@@ -161,7 +161,7 @@ class TimeStepper3d(NonhydrostaticTimeStepper):
         Assign initial conditions for 3D timestepping
         """
 
-        pass # TODO
+        pass  # TODO
 
     def advance(self, t, update_forcings=None, update_forcings3d=None):
         """
@@ -175,4 +175,4 @@ class TimeStepper3d(NonhydrostaticTimeStepper):
             boundary conditions of the 3D equations
         """
 
-        pass # TODO
+        pass  # TODO
