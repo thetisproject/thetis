@@ -244,3 +244,9 @@ field_metadata['hcc_metric_3d'] = {
     'unit': '-',
     'filename': 'HCCMetric3d',
 }
+field_metadata['q_2d'] = {
+    'name': 'Non-hydrostatic pressure at bottom',
+    'shortname': 'NH pressure',
+    'unit': 'Pa',
+    'filename': 'nh_pressure_2d',
+}

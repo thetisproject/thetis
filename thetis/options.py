@@ -361,9 +361,24 @@ class TidalTurbineFarmOptions(FrozenHasTraits, TraitType):
         0.0, help='Average power production per turbine required to break even')
 
 
+class NonhydrostaticModelOptions(FrozenHasTraits):
+    """Options for non-hydrostatic models"""
+    name = 'Non-hydrostatic 2D/3D models'
+    solve_nonhydrostatic_pressure = Bool(False, help='Solve equations with the non-hydrostatic pressure').tag(config=True)
+    use_2d_solver = Bool(True, help='Use a 2D depth-integrated/multi-layer non-hydrostatic model').tag(config=True)
+    # use_3d_ale_nh = Bool(False, help='Use a 3D ALE non-hydrostatic model accounting for vertical mesh movement').tag(config=True)
+    # use_3d_sigma_nh = Bool(False, help='Use a 3D sigma-coordinate non-hydrostatic model in a fixed domain').tag(config=True)
+    update_free_surface = Bool(True, help='Update free surface elevetion').tag(config=True)
+    n_layers = NonNegativeInteger(1, help='Number of vertical layers').tag(config=True)
+    alpha_nh = List(
+        default_value=[], 
+        help="Ratio of layer thickness to the total water depth; the default `[]` implies uniform layers").tag(config=True)
+
+
 class CommonModelOptions(FrozenConfigurable):
     """Options that are common for both 2d and 3d models"""
     name = 'Model options'
+    nh_model_options = Instance(NonhydrostaticModelOptions, args=()).tag(config=True)
     polynomial_degree = NonNegativeInteger(1, help='Polynomial degree of elements').tag(config=True)
     element_family = Enum(
         ['dg-dg', 'rt-dg', 'dg-cg'],
