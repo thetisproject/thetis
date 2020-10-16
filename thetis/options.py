@@ -365,7 +365,6 @@ class NonhydrostaticModelOptions(FrozenHasTraits):
     """Options for non-hydrostatic models"""
     name = 'Non-hydrostatic 2D/3D models'
     solve_nonhydrostatic_pressure = Bool(False, help='Solve equations with the non-hydrostatic pressure').tag(config=True)
-    use_2d_solver = Bool(True, help='Use a 2D depth-integrated/multi-layer non-hydrostatic model').tag(config=True)
     # use_3d_ale_nh = Bool(False, help='Use a 3D ALE non-hydrostatic model accounting for vertical mesh movement').tag(config=True)
     # use_3d_sigma_nh = Bool(False, help='Use a 3D sigma-coordinate non-hydrostatic model in a fixed domain').tag(config=True)
     update_free_surface = Bool(True, help='Update free surface elevetion').tag(config=True)

@@ -13,38 +13,8 @@ lx = 35.0
 ly = 1
 nx = 700
 ny = 1
-
-outputdir = 'outputs_bbbar_2d'
-
-use_multi_resolution = not True
-if use_multi_resolution:  # higher resolution within x = 10 -- 22
-    # x at interfaces including ends; dx within ranges
-    x_mr = [0., 10., 22., 35.]
-    dx_mr = [0.5, 0.1, 0.5]
-    assert len(x_mr) == len(dx_mr) + 1
-    # sum number of elements before interfaces
-    nx_mr = []
-    sum_nx = 0
-    for i in range(len(dx_mr)):
-        sum_nx += int((x_mr[i+1] - x_mr[i])/dx_mr[i])
-        nx_mr.append(sum_nx)
-    # total number of elements in x-direction
-    nx = nx_mr[len(dx_mr) - 1]
-    # x in unit mesh at interface
-    x_unit_mr = [0.]
-    x_unit_mr.extend([nxi/nx for nxi in nx_mr])
-
 mesh = RectangleMesh(nx, ny, lx, ly)
-if use_multi_resolution:
-    mesh = UnitSquareMesh(nx, 1)
-    coords = mesh.coordinates
-    tmp = [c for c in coords.dat.data[:, 0]]
-    for i, x in enumerate(coords.dat.data[:, 0]):
-        for ii in range(len(dx_mr)):
-            if x <= x_unit_mr[ii+1] and x >= x_unit_mr[ii]:
-                tmp[i] = (coords.dat.data[i, 0] - x_unit_mr[ii])/(x_unit_mr[ii+1] - x_unit_mr[ii])*(x_mr[ii+1] - x_mr[ii]) + x_mr[ii]
-    coords.dat.data[:, 0] = tmp[:]
-    coords.dat.data[:, 1] = coords.dat.data[:, 1]*ly
+outputdir = 'outputs_bbbar_2d'
 
 # --- bathymetry ---
 P1_2d = FunctionSpace(mesh, 'CG', 1)
@@ -84,11 +54,9 @@ t_end = 40
 
 # choose if using non-hydrostatic model
 solve_nonhydrostatic_pressure = True
-use_2d_solver = True
-n_layers = 1
 
 # --- create solver ---
-solver_obj = solver_nh.FlowSolverNH(mesh, bathymetry_2d, n_layers, use_2d_solver)
+solver_obj = solver2d.FlowSolver2d(mesh, bathymetry_2d)
 options = solver_obj.options
 options.element_family = 'dg-dg'
 options.polynomial_degree = 1
@@ -106,8 +74,6 @@ options.fields_to_export = ['uv_2d', 'elev_2d']
 if solve_nonhydrostatic_pressure:
     options_nh = options.nh_model_options
     options_nh.solve_nonhydrostatic_pressure = solve_nonhydrostatic_pressure
-    options_nh.use_2d_solver = use_2d_solver
-    options_nh.n_layers = n_layers
 
 # need to call creator to create the function spaces
 solver_obj.create_equations()

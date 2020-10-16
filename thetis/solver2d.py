@@ -351,6 +351,18 @@ class FlowSolver2d(FrozenClass):
                 self.fields.bathymetry_2d.function_space(), self.depth,
                 depth_integrated_sediment=sediment_options.use_sediment_conservative_form, sediment_model=self.sediment_model)
 
+        if self.options.nh_model_options.solve_nonhydrostatic_pressure:
+            print_output('Using non-hydrostatic model with {:} vertical layer'.format(self.options.nh_model_options.n_layers))
+            print_output('... using 2D mesh based solver ...')
+            fs_q = get_functionspace(self.mesh2d, 'CG', self.options.polynomial_degree)
+            self.fields.q_2d = Function(fs_q)  # 2D non-hydrostatic pressure at bottom
+            self.w_2d = Function(self.function_spaces.H_2d)  # depth-averaged vertical velocity
+            # free surface equation
+            self.eq_free_surface = shallowwater_eq.FreeSurfaceEquation(
+                TestFunction(self.function_spaces.H_2d), self.function_spaces.H_2d, self.function_spaces.U_2d,
+                self.depth, self.options)
+            self.eq_free_surface.bnd_functions = self.bnd_functions['shallow_water']
+
         self._isfrozen = True  # disallow creating new attributes
 
     def get_swe_timestepper(self, integrator):
@@ -514,7 +526,7 @@ class FlowSolver2d(FrozenClass):
             assert self.options.timestepper_type in steppers
         except AssertionError:
             raise Exception('Unknown time integrator type: {:s}'.format(self.options.timestepper_type))
-        if self.options.solve_tracer:
+        if self.options.solve_tracer or self.options.nh_model_options.solve_nonhydrostatic_pressure:
             try:
                 assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState')
             except AssertionError:
@@ -533,6 +545,11 @@ class FlowSolver2d(FrozenClass):
         else:
             self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
+
+        if self.options.nh_model_options.solve_nonhydrostatic_pressure:
+            # solvers for 2D Poisson equation and subsequent update of velocities
+            self.poisson_solver = DepthIntegratedPoissonSolver(self)
+
         self._isfrozen = True  # disallow creating new attributes
 
     def create_exporters(self):

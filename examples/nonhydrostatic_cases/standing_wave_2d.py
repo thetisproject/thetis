@@ -32,11 +32,9 @@ t_end = 20.
 
 # choose if using non-hydrostatic model
 solve_nonhydrostatic_pressure = True
-use_2d_solver = True
-n_layers = 1
 
 # --- create solver ---
-solver_obj = solver_nh.FlowSolverNH(mesh2d, bathymetry_2d, n_layers, use_2d_solver)
+solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
 options.element_family = 'dg-dg'
 options.polynomial_degree = 2
@@ -55,8 +53,6 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
 if solve_nonhydrostatic_pressure:
     options_nh = options.nh_model_options
     options_nh.solve_nonhydrostatic_pressure = solve_nonhydrostatic_pressure
-    options_nh.use_2d_solver = use_2d_solver
-    options_nh.n_layers = n_layers
 
 # need to call creator to create the function spaces
 solver_obj.create_equations()

@@ -51,6 +51,16 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         Creates all time integrators with the correct arguments
         """
         self.timesteppers.swe2d = self.solver.get_swe_timestepper(self.swe_integrator)
+        if self.options.nh_model_options.solve_nonhydrostatic_pressure:
+            fields_fs = {
+                'uv': self.solver.fields.solution_2d.sub(0),
+                'volume_source': self.options.volume_source_2d,
+            }
+            self.timesteppers.fs2d = timeintegrator.CrankNicolson(
+                self.solver.eq_free_surface, self.solver.fields.solution_2d.sub(1), fields_fs, self.solver.dt,
+                bnd_conditions=self.solver.bnd_functions['shallow_water'],
+                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+                theta=self.options.timestepper_options.implicitness_theta)
         if self.solver.options.solve_tracer:
             self.timesteppers.tracer = self.solver.get_tracer_timestepper(self.tracer_integrator)
         if self.solver.options.sediment_model_options.solve_suspended_sediment:
@@ -79,6 +89,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         assert solution2d == self.fields.solution_2d
 
         self.timesteppers.swe2d.initialize(self.fields.solution_2d)
+        if self.options.nh_model_options.solve_nonhydrostatic_pressure:
+            self.timesteppers.fs2d.initialize(self.fields.elev_2d)
         if self.options.solve_tracer:
             self.timesteppers.tracer.initialize(self.fields.tracer_2d)
         if self.options.sediment_model_options.solve_suspended_sediment:
@@ -89,8 +101,17 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self._initialized = True
 
     def advance(self, t, update_forcings=None):
+        if self.options.nh_model_options.solve_nonhydrostatic_pressure:
+            self.elev_old.assign(self.fields.elev_2d)
         if not self.options.tracer_only:
             self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
+        if self.options.nh_model_options.solve_nonhydrostatic_pressure:
+            # solve non-hydrostatic pressure q and update velocities
+            self.solver.poisson_solver.solve()
+            # update free surface elevation
+            if self.options.nh_model_options.update_free_surface:
+                self.fields.elev_2d.assign(self.elev_old)
+                self.timesteppers.fs2d.advance(t, update_forcings=update_forcings)
         if self.options.solve_tracer:
             self.timesteppers.tracer.advance(t, update_forcings=update_forcings)
             if self.options.use_limiter_for_tracers:
@@ -108,6 +129,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
 class CoupledMatchingTimeIntegrator2D(CoupledTimeIntegrator2D):
     def __init__(self, solver, integrator):
         self.swe_integrator = integrator
+        if solver.options.nh_model_options.solve_nonhydrostatic_pressure:
+            self.elev_old = Function(solver.fields.solution_2d.sub(1))
         if solver.options.solve_tracer:
             self.tracer_integrator = integrator
         if solver.options.sediment_model_options.solve_suspended_sediment:
