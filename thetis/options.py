@@ -381,6 +381,16 @@ class TidalTurbineFarmOptions(FrozenHasTraits, TraitType):
     break_even_wattage = NonNegativeFloat(
         0.0, help='Average power production per turbine required to break even')
 
+class DiscreteTidalTurbineFarmOptions(FrozenHasTraits, TraitType):
+    """Tidal turbine farm options"""
+    from thetis.turbines import BaseTurbine,ThrustTurbine
+    name = 'Farm options'
+    turbine_options = ThrustTurbine()
+    turbine_density = FiredrakeScalarExpression(
+        Constant(0.0), help='Density of turbines within the farm')
+    break_even_wattage = NonNegativeFloat(
+        0.0, help='Average power production per turbine required to break even')
+
 
 class TracerFieldOptions(FrozenHasTraits):
     """Tracer field options"""
@@ -711,6 +721,11 @@ class ModelOptions2d(CommonModelOptions):
         """).tag(config=True)
     tidal_turbine_farms = Dict(trait=TidalTurbineFarmOptions(),
                                default_value={}, help='Dictionary mapping subdomain ids to the options of the corresponding farm')
+
+
+    discrete_tidal_turbine_farms = Dict(trait=TidalTurbineFarmOptions(),
+                               default_value={}, help='Dictionary mapping subdomain ids to the options of the corresponding farm')
+
     check_tracer_conservation = Bool(
         False, help="""
         Compute total tracer mass at every export
