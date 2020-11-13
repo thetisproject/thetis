@@ -111,17 +111,21 @@ class FieldDict(AttrDict):
 
 
 def get_functionspace(mesh, h_family, h_degree, v_family=None, v_degree=None,
-                      vector=False, hdiv=False, variant=None, **kwargs):
+                      vector=False, hdiv=False, variant=None, v_variant=None,
+                      **kwargs):
     gdim = mesh.geometric_dimension()
     assert gdim in [2, 3]
+    hdiv_families = [
+        'RT', 'RTF', 'RTCF', 'RAVIART-THOMAS',
+        'BDM', 'BDMF', 'BDMCF', 'BREZZI-DOUGLAS-MARINI',
+    ]
     if variant is None:
-        if h_family.upper() == 'RT' or h_family.lower() == 'raviart-thomas':
+        if h_family.upper() in hdiv_families:
             variant = 'point'
         else:
             variant = 'equispaced'
+    if v_variant is None:
         v_variant = 'equispaced'
-    else:
-        v_variant = variant
     if gdim == 3:
         if v_family is None:
             v_family = h_family
