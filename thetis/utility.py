@@ -474,18 +474,21 @@ class VerticalIntegrator(object):
         :kwarg elevation: 3D field defining the free surface elevation
         :kwarg dict solver_parameters: PETSc solver options
         """
-        if solver_parameters is None:
-            solver_parameters = {}
-        solver_parameters.setdefault('snes_type', 'ksponly')
-        solver_parameters.setdefault('ksp_type', 'preonly')
-        solver_parameters.setdefault('pc_type', 'bjacobi')
-        solver_parameters.setdefault('sub_ksp_type', 'preonly')
-        solver_parameters.setdefault('sub_pc_type', 'ilu')
-
         self.output = output
         space = output.function_space()
         mesh = space.mesh()
-        vertical_is_dg = element_continuity(space.ufl_element()).vertical in ['dg', 'hdiv']
+        e_continuity = element_continuity(space.ufl_element())
+        vertical_is_dg = e_continuity.vertical in ['dg', 'hdiv']
+
+        if solver_parameters is None:
+            solver_parameters = {}
+        solver_parameters.setdefault('snes_type', 'ksponly')
+        if e_continuity.vertical != 'hdiv':
+            solver_parameters.setdefault('ksp_type', 'preonly')
+            solver_parameters.setdefault('pc_type', 'bjacobi')
+            solver_parameters.setdefault('sub_ksp_type', 'preonly')
+            solver_parameters.setdefault('sub_pc_type', 'ilu')
+
         tri = TrialFunction(space)
         phi = TestFunction(space)
         normal = FacetNormal(mesh)
