@@ -44,7 +44,7 @@ class TimeIntegrator(TimeIntegratorBase):
     """
     Base class for all time integrator objects that march a single equation
     """
-    def __init__(self, equation, solution, fields, dt, solver_parameters={}):
+    def __init__(self, equation, solution, fields, dt, solver_parameters=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -66,7 +66,8 @@ class TimeIntegrator(TimeIntegratorBase):
         self.name = '-'.join([self.__class__.__name__,
                               self.equation.__class__.__name__])
         self.solver_parameters = {}
-        self.solver_parameters.update(solver_parameters)
+        if solver_parameters is not None:
+            self.solver_parameters.update(solver_parameters)
 
     def set_dt(self, dt):
         """Update time step"""
@@ -78,7 +79,7 @@ class ForwardEuler(TimeIntegrator):
     """Standard forward Euler time integration scheme."""
     cfl_coeff = 1.0
 
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -138,7 +139,7 @@ class CrankNicolson(TimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, theta=0.5, semi_implicit=False):
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters=None, theta=0.5, semi_implicit=False):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -225,7 +226,7 @@ class SteadyState(TimeIntegrator):
     """
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -273,8 +274,8 @@ class PressureProjectionPicard(TimeIntegrator):
 
     # TODO add more documentation
     def __init__(self, equation, equation_mom, solution, fields, dt,
-                 bnd_conditions=None, solver_parameters={},
-                 solver_parameters_mom={}, theta=0.5, semi_implicit=False,
+                 bnd_conditions=None, solver_parameters=None,
+                 solver_parameters_mom=None, theta=0.5, semi_implicit=False,
                  iterations=2):
         """
         :arg equation: free surface equation
@@ -295,7 +296,9 @@ class PressureProjectionPicard(TimeIntegrator):
         super(PressureProjectionPicard, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         self.equation_mom = equation_mom
-        self.solver_parameters_mom = solver_parameters_mom
+        self.solver_parameters_mom = {}
+        if solver_parameters_mom is not None:
+            self.solver_parameters_mom.update(solver_parameters_mom)
         if semi_implicit:
             # solve a preliminary linearized momentum equation before
             # solving the linearized wave equation terms in a coupled system
@@ -448,7 +451,7 @@ class LeapFrogAM3(TimeIntegrator):
     cfl_coeff = 1.5874
 
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
-                 solver_parameters={}, terms_to_add='all'):
+                 solver_parameters=None, terms_to_add='all'):
         """
         :arg equation: equation to solve
         :type equation: :class:`Equation` object
@@ -583,7 +586,7 @@ class SSPRK22ALE(TimeIntegrator):
     cfl_coeff = 1.0
 
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
-                 solver_parameters={}, terms_to_add='all'):
+                 solver_parameters=None, terms_to_add='all'):
         """
         :arg equation: equation to solve
         :type equation: :class:`Equation` object

@@ -333,13 +333,15 @@ def comp_tracer_mass_3d(scalar_func):
     return val
 
 
-def get_zcoord_from_mesh(zcoord, solver_parameters={}):
+def get_zcoord_from_mesh(zcoord, solver_parameters=None):
     """
     Evaluates z coordinates from the 3D mesh
 
     :arg zcoord: scalar :class:`Function` where coordinates will be stored
     """
     # TODO coordinates should probably be interpolated instead
+    if solver_parameters is None:
+        solver_parameters = {}
     solver_parameters.setdefault('ksp_atol', 1e-12)
     solver_parameters.setdefault('ksp_rtol', 1e-16)
     fs = zcoord.function_space()
@@ -382,7 +384,7 @@ class VerticalVelocitySolver(object):
     condition.
     """
     def __init__(self, solution, uv, bathymetry, boundary_funcs={},
-                 solver_parameters={}):
+                 solver_parameters=None):
         """
         :arg solution: w :class:`Function`
         :arg uv: horizontal velocity :class:`Function`
@@ -391,6 +393,8 @@ class VerticalVelocitySolver(object):
             equation. Provides external values of uv (if any).
         :kwarg dict solver_parameters: PETSc solver options
         """
+        if solver_parameters is None:
+            solver_parameters = {}
         solver_parameters.setdefault('snes_type', 'ksponly')
         solver_parameters.setdefault('ksp_type', 'preonly')
         solver_parameters.setdefault('pc_type', 'bjacobi')
@@ -459,7 +463,7 @@ class VerticalIntegrator(object):
     """
     def __init__(self, input, output, bottom_to_top=True,
                  bnd_value=Constant(0.0), average=False,
-                 bathymetry=None, elevation=None, solver_parameters={}):
+                 bathymetry=None, elevation=None, solver_parameters=None):
         """
         :arg input: 3D field to integrate
         :arg output: 3D field where the integral is stored
@@ -470,6 +474,8 @@ class VerticalIntegrator(object):
         :kwarg elevation: 3D field defining the free surface elevation
         :kwarg dict solver_parameters: PETSc solver options
         """
+        if solver_parameters is None:
+            solver_parameters = {}
         solver_parameters.setdefault('snes_type', 'ksponly')
         solver_parameters.setdefault('ksp_type', 'preonly')
         solver_parameters.setdefault('pc_type', 'bjacobi')
@@ -661,7 +667,7 @@ class VelocityMagnitudeSolver(object):
     Computes magnitude of (u[0],u[1],w) and stores it in solution
     """
     def __init__(self, solution, u=None, w=None, min_val=1e-6,
-                 solver_parameters={}):
+                 solver_parameters=None):
         """
         :arg solution: scalar field for velocity magnitude scalar :class:`Function`
         :type solution: :class:`Function`
@@ -1547,7 +1553,7 @@ class SmagorinskyViscosity(object):
     http://dx.doi.org/10.1175/1520-0493(2000)128%3C2935:BFWASL%3E2.0.CO;2
     """
     def __init__(self, uv, output, c_s, h_elem_size, max_val, min_val=1e-10,
-                 weak_form=True, solver_parameters={}):
+                 weak_form=True, solver_parameters=None):
         """
         :arg uv_3d: horizontal velocity
         :type uv_3d: 3D vector :class:`Function`
@@ -1565,6 +1571,8 @@ class SmagorinskyViscosity(object):
             Necessary for some function spaces (e.g. P0).
         :kwarg dict solver_parameters: PETSc solver options
         """
+        if solver_parameters is None:
+            solver_parameters = {}
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
         assert max_val.function_space() == output.function_space(), \
