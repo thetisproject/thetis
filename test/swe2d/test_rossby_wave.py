@@ -168,10 +168,11 @@ def run(refinement_level, **model_options):
     options.horizontal_viscosity = None
     solver_obj.create_function_spaces()
     options.coriolis_frequency = interpolate(y, solver_obj.function_spaces.P1_2d)
-    options.update(model_options)
     options.timestepper_options.solver_parameters['ksp_rtol'] = 1.0e-04
     if hasattr(options.timestepper_options, 'use_automatic_timestep'):
         options.timestepper_options.use_automatic_timestep = False
+    options.no_exports = True
+    options.update(model_options)
 
     # Apply boundary conditions
     for tag in mesh2d.exterior_facets.unique_markers:

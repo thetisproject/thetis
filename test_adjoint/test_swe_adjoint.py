@@ -13,6 +13,7 @@ op2.init(log_level=INFO)
 
 velocity_u = 2.0
 
+
 def basic_setup():
     lx = 100.0
     ly = 50.0
@@ -40,6 +41,7 @@ def basic_setup():
     options.timestepper_type = 'CrankNicolson'
     options.timestep = timestep
     options.horizontal_viscosity = Constant(2.0)
+    options.no_exports = True
 
     # create function spaces
     solver_obj.create_function_spaces()
