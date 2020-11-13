@@ -197,7 +197,9 @@ def warped(request):
                          [('dg-dg', 0),
                           ('dg-dg', 1),
                           pytest.param('rt-dg', 0, marks=pytest.mark.skip(reason='rt-0 still broken')),
-                          ('rt-dg', 1)])
+                          ('rt-dg', 1),
+                          ('bdm-dg', 1)],
+                         )
 def test_horizontal_viscosity(warped, polynomial_degree, family, stepper, use_ale):
     run_convergence([1, 2, 3], polynomial_degree=polynomial_degree, warped_mesh=warped,
                     element_family=family, timestepper_type=stepper,

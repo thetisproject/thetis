@@ -245,7 +245,7 @@ def stepper(request):
     return request.param
 
 
-@pytest.fixture(params=['dg-dg', 'dg-cg', 'rt-dg'])
+@pytest.fixture(params=['dg-dg', 'dg-cg', 'rt-dg', 'bdm-dg'])
 def family(request):
     return request.param
 

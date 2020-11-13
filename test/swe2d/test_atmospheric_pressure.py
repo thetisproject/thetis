@@ -16,7 +16,7 @@ import numpy as np
 
 
 @pytest.mark.parametrize("element_family", [
-    'dg-dg', 'rt-dg', 'dg-cg', ])
+    'dg-dg', 'rt-dg', 'dg-cg', 'bdm-dg'])
 @pytest.mark.parametrize("timestepper", [
     'CrankNicolson', 'SSPRK33', ])
 def test_pressure_forcing(element_family, timestepper):

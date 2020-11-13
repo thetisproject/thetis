@@ -311,6 +311,24 @@ def test_int_pg(pg_test_setup):
         'geometry': 'warped',
         'target': 5e-4,
     },
+    {
+        'element_family': 'bdm-dg',
+        'use_quadratic_pressure': True,
+        'use_quadratic_density': True,
+        'lin_strat': False,
+        'equation_of_state_type': 'full',
+        'geometry': 'warped',
+        'target': 80e3,
+    },
+    {
+        'element_family': 'bdm-dg',
+        'use_quadratic_pressure': True,
+        'use_quadratic_density': False,
+        'lin_strat': True,
+        'equation_of_state_type': 'linear',
+        'geometry': 'warped',
+        'target': 5e-4,
+    },
 ],)
 def stability_setup(request):
     return request.param

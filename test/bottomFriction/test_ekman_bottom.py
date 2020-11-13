@@ -96,7 +96,7 @@ def run_test(layers=25, tolerance=0.05, verify=True, **model_options):
     return solver_obj
 
 
-@pytest.fixture(params=['dg-dg', 'rt-dg'])
+@pytest.fixture(params=['dg-dg', 'rt-dg', 'bdm-dg'])
 def element_family(request):
     return request.param
 

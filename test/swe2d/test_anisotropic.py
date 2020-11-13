@@ -129,7 +129,7 @@ def run(**model_options):
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=['dg-cg', 'dg-dg', 'rt-dg'])
+@pytest.fixture(params=['dg-cg', 'dg-dg', 'rt-dg', 'bdm-dg'])
 def family(request):
     return request.param
 

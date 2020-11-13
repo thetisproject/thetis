@@ -4,13 +4,18 @@ import numpy
 import pytest
 
 
-@pytest.mark.parametrize("options", [
-    {"no_exports": True, "element_family": "rt-dg", "use_automatic_sipg_parameter": False},
-    {"no_exports": True, "element_family": "rt-dg", "use_automatic_sipg_parameter": True},
-    {"no_exports": True, "element_family": "dg-cg", "use_automatic_sipg_parameter": False},
-    {"no_exports": True, "element_family": "dg-cg", "use_automatic_sipg_parameter": True},
-], ids=["rt-dg", "dg-cg", "rt-dg_auto", "dg-cg_auto"])
-def test_steady_state_channel_mms(options):
+@pytest.fixture(params=['rt-dg', 'dg-dg', 'dg-cg', 'bdm-dg'])
+def element_family(request):
+    return request.param
+
+
+@pytest.fixture(params=[True, False])
+def automatic_sipg(request):
+    return request.param
+
+
+def test_steady_state_channel_mms(element_family, automatic_sipg,
+                                  do_exports=False):
     lx = 5e3
     ly = 1e3
 
@@ -29,8 +34,6 @@ def test_steady_state_channel_mms(options):
     C_D = 0.0025  # quadratic drag coefficient
 
     xhat = Identity(2)[0, :]
-
-    do_exports = not options['no_exports']
 
     eta_errs = []
     u_errs = []
@@ -53,6 +56,8 @@ def test_steady_state_channel_mms(options):
 
         # --- create solver ---
         solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
+        solver_obj.options.element_family = element_family
+        solver_obj.options.use_automatic_sipg_parameter = automatic_sipg
         solver_obj.options.polynomial_degree = order
         solver_obj.options.use_nonlinear_equations = True
         solver_obj.options.quadratic_drag_coefficient = Constant(C_D)
@@ -69,7 +74,7 @@ def test_steady_state_channel_mms(options):
         if hasattr(solver_obj.options.timestepper_options, 'use_automatic_timestep'):
             solver_obj.options.timestepper_options.use_automatic_timestep = False
         solver_obj.options.timestep = dt
-        solver_obj.options.update(options)
+        solver_obj.options.no_exports = not do_exports
 
         # boundary conditions
         inflow_tag = 1
@@ -128,4 +133,4 @@ def test_steady_state_channel_mms(options):
 
 
 if __name__ == '__main__':
-    test_steady_state_channel_mms({"no_exports": True, "element_family": "dg-cg"})
+    test_steady_state_channel_mms('dg-cg', False)
