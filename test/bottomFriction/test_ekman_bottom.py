@@ -108,7 +108,7 @@ def timestepper_type(request):
 
 
 @pytest.mark.parametrize("nlayers,max_err",
-                         [(25, 0.035), (5, 0.065)],
+                         [(25, 0.04), (5, 0.065)],
                          ids=['nz25', 'nz5'])
 def test_bottom_friction(nlayers, max_err, element_family, timestepper_type):
     run_test(nlayers, tolerance=max_err, verify=True,
