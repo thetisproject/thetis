@@ -868,8 +868,9 @@ class FlowSolver(FrozenClass):
                                                      bathymetry=self.fields.bathymetry_2d.view_3d,
                                                      elevation=self.fields.elev_cg_2d.view_3d)
             self.int_pg_calculator = momentum_eq.InternalPressureGradientCalculator(
-                self.fields, self.fields.bathymetry_2d.view_3d, self.options,
+                self.fields, self.fields.bathymetry_2d.view_3d,
                 self.bnd_functions['momentum'],
+                internal_pg_scalar=self.options.internal_pg_scalar,
                 solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
         self.extract_surf_dav_uv = SubFunctionExtractor(self.fields.uv_dav_3d,
                                                         self.fields.uv_dav_2d,

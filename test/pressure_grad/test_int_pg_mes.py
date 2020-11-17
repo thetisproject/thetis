@@ -94,12 +94,10 @@ def compute_l2_error(refinement=1, quadratic=False, no_exports=True):
     fields = FieldDict()
     fields.baroc_head_3d = baroc_head_3d
     fields.int_pg_3d = int_pg_3d
-    options = None
     bnd_functions = {}
     int_pg_solver = InternalPressureGradientCalculator(
         fields,
         bathymetry_3d,
-        options,
         bnd_functions,
         solver_parameters=None)
     int_pg_solver.solve()
