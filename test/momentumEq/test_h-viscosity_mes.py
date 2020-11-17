@@ -46,7 +46,7 @@ def run(refinement, **model_options):
     solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     options = solverobj.options
     options.use_nonlinear_equations = False
-    options.use_ale_moving_mesh = False
+    options.use_ale_moving_mesh = True
     options.horizontal_velocity_scale = Constant(1.0)
     options.no_exports = True
     options.output_directory = outputdir
@@ -126,7 +126,7 @@ def run(refinement, **model_options):
     return l2_err
 
 
-def run_convergence(ref_list, saveplot=False, **options):
+def run_convergence(ref_list, expected_rate=None, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
     polynomial_degree = options.get('polynomial_degree', 1)
     space_str = options.get('element_family')
@@ -138,7 +138,6 @@ def run_convergence(ref_list, saveplot=False, **options):
     setup_name = 'h-viscosity'
 
     def check_convergence(x_log, y_log, expected_slope, field_str, saveplot):
-        slope_rtol = 0.20
         slope, intercept, r_value, p_value, std_err = stats.linregress(x_log, y_log)
         if saveplot:
             import matplotlib.pyplot as plt
@@ -169,41 +168,39 @@ def run_convergence(ref_list, saveplot=False, **options):
             plt.savefig(imgfile, dpi=200, bbox_inches='tight')
         if expected_slope is not None:
             err_msg = '{:}: Wrong convergence rate {:.4f}, expected {:.4f}'.format(setup_name, slope, expected_slope)
-            assert slope > expected_slope*(1 - slope_rtol), err_msg
+            assert slope > expected_slope, err_msg
             print_output('{:}: convergence rate {:.4f} PASSED'.format(setup_name, slope))
         else:
             print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
-    check_convergence(x_log, y_log, polynomial_degree+1, 'uv', saveplot)
+    if expected_rate is None:
+        expected_rate = polynomial_degree+1
+    check_convergence(x_log, y_log, expected_rate, 'uv', saveplot)
 
 # ---------------------------
 # standard tests for pytest
 # ---------------------------
 
-# NOTE mimetic elements do not converge optimally, rate is 1.48
 
-
-@pytest.fixture(params=[True, False], ids=['warped',
-                                           'regular'])
-def warped(request):
-    return request.param
-
-
-@pytest.mark.parametrize(('stepper', 'use_ale'),
-                         [('LeapFrog', True),
-                          ('SSPRK22', True)])
-@pytest.mark.parametrize(('family', 'polynomial_degree'),
-                         [('dg-dg', 0),
-                          ('dg-dg', 1),
-                          pytest.param('rt-dg', 0, marks=pytest.mark.skip(reason='rt-0 still broken')),
-                          ('rt-dg', 1),
-                          ('bdm-dg', 1)],
-                         )
-def test_horizontal_viscosity(warped, polynomial_degree, family, stepper, use_ale):
-    run_convergence([1, 2, 3], polynomial_degree=polynomial_degree, warped_mesh=warped,
-                    element_family=family, timestepper_type=stepper,
-                    use_ale_moving_mesh=use_ale)
+@pytest.mark.parametrize(
+    ('stepper', 'family', 'polynomial_degree', 'warped', 'expected_rate'),
+    [
+        ('SSPRK22', 'dg-dg', 1, False, 1.6),
+        ('SSPRK22', 'dg-dg', 1, True, 1.6),
+        ('SSPRK22', 'rt-dg', 1, False, 1.7),
+        ('SSPRK22', 'rt-dg', 1, True, 1.7),
+        ('SSPRK22', 'bdm-dg', 1, False, 1.9),
+        ('SSPRK22', 'bdm-dg', 1, True, 1.5),
+    ]
+)
+def test_horizontal_viscosity(stepper, family, polynomial_degree, warped,
+                              expected_rate):
+    run_convergence(
+        [1, 2, 3], expected_rate=expected_rate,
+        polynomial_degree=polynomial_degree, warped_mesh=warped,
+        element_family=family, timestepper_type=stepper,
+    )
 
 # ---------------------------
 # run individual setup for debugging
@@ -215,5 +212,4 @@ if __name__ == '__main__':
                     warped_mesh=True,
                     element_family='dg-dg',
                     timestepper_type='SSPRK22',
-                    use_ale_moving_mesh=True,
                     no_exports=False, saveplot=True)

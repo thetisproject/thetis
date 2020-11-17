@@ -274,8 +274,10 @@ class FlowSolver(FrozenClass):
             nu = nu_scale.dat.data[0]
         min_dx = self.fields.h_elem_size_2d.dat.data.min()
         factor = 2.0
+        if self.options.element_family == 'bdm-dg':
+            factor = 1.8
         if self.options.timestepper_type == 'LeapFrog':
-            factor = 1.2
+            factor *= 0.6
         min_dx *= factor*self.compute_dx_factor()
         dt = (min_dx)**2/nu
         dt = self.comm.allreduce(dt, op=MPI.MIN)
