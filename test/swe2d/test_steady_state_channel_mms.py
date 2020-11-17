@@ -21,7 +21,7 @@ def test_steady_state_channel_mms(element_family, automatic_sipg,
 
     order = 1
     # minimum resolution
-    min_cells = 16
+    min_cells = 48
     n = 1  # number of timesteps
     dt = 1.
     g = physical_constants['g_grav'].dat.data[0]
@@ -37,7 +37,7 @@ def test_steady_state_channel_mms(element_family, automatic_sipg,
 
     eta_errs = []
     u_errs = []
-    for i in range(5):
+    for i in range(4):
         mesh2d = RectangleMesh(min_cells*2**i, 1, lx, ly)
         x = mesh2d.coordinates
         eta_expr = eta0*cos(k*x[0])
