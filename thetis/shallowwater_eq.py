@@ -219,6 +219,9 @@ class ShallowWaterTerm(Term):
         # mesh dependent variables
         self.cellsize = CellSize(self.mesh)
 
+        assert self.mesh.cell_dimension() == 2
+        self.on_the_sphere = self.mesh.geometric_dimension() == 3
+
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
         self.quad_degree = 2*p + 1
@@ -446,24 +449,12 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
         horiz_advection_by_parts = True
 
         if horiz_advection_by_parts:
-            # f = -inner(nabla_div(outer(uv, self.u_test)), uv)
-            f = -(Dx(uv_old[0]*self.u_test[0], 0)*uv[0]
-                  + Dx(uv_old[0]*self.u_test[1], 0)*uv[1]
-                  + Dx(uv_old[1]*self.u_test[0], 1)*uv[0]
-                  + Dx(uv_old[1]*self.u_test[1], 1)*uv[1])*self.dx
+            f = -inner(div(outer(self.u_test, uv)), uv)*self.dx
             if self.u_continuity in ['dg', 'hdiv']:
                 un_av = dot(avg(uv_old), self.normal('-'))
-                # NOTE solver can stagnate
-                # s = 0.5*(sign(un_av) + 1.0)
-                # NOTE smooth sign change between [-0.02, 0.02], slow
-                # s = 0.5*tanh(100.0*un_av) + 0.5
-                # uv_up = uv('-')*s + uv('+')*(1-s)
                 # NOTE mean flux
-                uv_up = avg(uv)
-                f += (uv_up[0]*jump(self.u_test[0], uv_old[0]*self.normal[0])
-                      + uv_up[1]*jump(self.u_test[1], uv_old[0]*self.normal[0])
-                      + uv_up[0]*jump(self.u_test[0], uv_old[1]*self.normal[1])
-                      + uv_up[1]*jump(self.u_test[1], uv_old[1]*self.normal[1]))*self.dS
+                uv_avg = avg(uv)
+                f += inner(uv_avg, jump(outer(self.u_test, uv), self.normal))*self.dS
                 # Lax-Friedrichs stabilization
                 if self.options.use_lax_friedrichs_velocity:
                     uv_lax_friedrichs = fields_old.get('lax_friedrichs_velocity_scaling_factor')
@@ -489,8 +480,7 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
                     total_h = self.depth.get_total_depth(eta_old)
                     un_rie = 0.5*inner(uv_old + uv_ext_old, self.normal) + sqrt(g_grav/total_h)*eta_jump
                     uv_av = 0.5*(uv_ext + uv)
-                    f += (uv_av[0]*self.u_test[0]*un_rie
-                          + uv_av[1]*self.u_test[1]*un_rie)*ds_bnd
+                    f += un_rie*inner(uv_av, self.u_test)*ds_bnd
         return -f
 
 
@@ -601,7 +591,13 @@ class CoriolisTerm(ShallowWaterMomentumTerm):
         coriolis = fields_old.get('coriolis')
         f = 0
         if coriolis is not None:
-            f += coriolis*(-uv[1]*self.u_test[0] + uv[0]*self.u_test[1])*self.dx
+            if self.on_the_sphere:
+                outward_normals = CellNormal(self.mesh)
+                u = cross(outward_normals, uv)
+                f = coriolis*inner(self.u_test, u)*self.dx
+            else:
+                ez_x_uv = -uv[1]*self.u_test[0] + uv[0]*self.u_test[1]
+                f += coriolis*ez_x_uv*self.dx
         return -f
 
 
