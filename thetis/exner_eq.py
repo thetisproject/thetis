@@ -111,8 +111,18 @@ class ExnerBedloadTerm(ExnerTerm):
 
         # bnd_conditions are the shallow water bcs, any boundary for which
         # nothing is specified is assumed closed
+
         for bnd_marker in (bnd_conditions or []):
-            f += -self.test*(fac*qbx*self.n[0] + fac*qby*self.n[1])*self.ds(bnd_marker)
+            bc = bnd_conditions[bnd_marker]
+
+            keys = [*bc.keys()]
+            values = [*bc.values()]
+
+            for i in range(len(values)):
+                if float(values[i]) != 0.0:
+                    f += -self.test*(fac*qbx*self.n[0] + fac*qby*self.n[1])*self.ds(bnd_marker)
+                elif keys[i] == 'elev':
+                    f += -self.test*(fac*qbx*self.n[0] + fac*qby*self.n[1])*self.ds(bnd_marker)
 
         f += (fac*qbx*self.test.dx(0) + fac*qby*self.test.dx(1))*self.dx
 

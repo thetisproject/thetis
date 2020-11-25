@@ -130,11 +130,10 @@ class SedimentModel(object):
         # calculate critical shields parameter thetacr
         self.R = self.rhos/self.rhow - Constant(1)
 
-        self.dstar = self.average_size*((self.g*self.R)/(self.viscosity**2))**(1/3)
-
-        if float(self.dstar) < 1:
+        self.dstar = Function(self.R_1d).assign(self.average_size*((self.g*self.R)/(self.viscosity**2))**(1/3))
+        if float(self.dstar.dat.data[:]) < 1:
             raise ValueError('dstar value less than 1')
-        self.thetacr = Function(self.R_1d).assign(conditional(self.dstar < 4, 0.24*(self.dstar**(-1)),
+        self.thetacr = Function(self.R_1d).project(conditional(self.dstar < 4, 0.24*(self.dstar**(-1)),
                                                               conditional(self.dstar < 10, 0.14*(self.dstar**(-0.64)),
                                                                           conditional(self.dstar < 20, 0.04*(self.dstar**(-0.1)),
                                                                                       conditional(self.dstar < 150, 0.013*(self.dstar**(0.29)), 0.055)))))
@@ -189,7 +188,7 @@ class SedimentModel(object):
                                                 (self.rhow*Constant(0.5)*self.qfc*self.unorm*self.mu - self.taucr)/self.taucr,
                                                 Constant(-1))
 
-            self.erosion_concentration= Function(self.P1DG_2d).interpolate(Constant(0.015)*(self.average_size/self.a)
+            self.erosion_concentration= Function(self.P1DG_2d).project(Constant(0.015)*(self.average_size/self.a)
                                          * ((max_value(self.transport_stage_param, Constant(0)))**1.5)
                                          / (self.dstar**0.3))
 
@@ -205,8 +204,9 @@ class SedimentModel(object):
 
         if self.use_bedload:
             # calculate angle of flow
-            self.calfa = Function(self.P1_2d)
-            self.salfa = Function(self.P1_2d)
+            self.calfa = Function(self.P1_2d).interpolate(self.uv_cg[0]/sqrt(self.unorm))
+            self.salfa = Function(self.P1_2d).interpolate(self.uv_cg[1]/sqrt(self.unorm))
+
             if self.use_angle_correction:
                 # slope effect angle correction due to gravity
                 self.stress = Function(self.P1DG_2d).interpolate(self.rhow*Constant(0.5)*self.qfc*self.unorm)
@@ -343,10 +343,12 @@ class SedimentModel(object):
         self.old_bathymetry_2d.interpolate(self.depth.bathymetry_2d)
         self.depth_tot.project(self.depth.get_total_depth(self.elev))
 
+        #self.unorm.interpolate((self.u**2) + (self.v**2))
+
         self.bed_stress.interpolate(self.rhow*Constant(0.5)*self.qfc*self.unorm)
 
         if self.solve_suspended_sediment:
-            self.erosion_concentration.interpolate(Constant(0.015)*(self.average_size/self.a)
+            self.erosion_concentration.project(Constant(0.015)*(self.average_size/self.a)
                                          * ((max_value(self.transport_stage_param, Constant(0)))**1.5)
                                          / (self.dstar**0.3))
 
@@ -356,8 +358,10 @@ class SedimentModel(object):
             # calculate angle of flow
             self.calfa.interpolate(self.uv_cg[0]/sqrt(self.unorm))
             self.salfa.interpolate(self.uv_cg[1]/sqrt(self.unorm))
+
             if self.use_angle_correction:
                 # slope effect angle correction due to gravity
                 self.stress.interpolate(self.rhow*Constant(0.5)*self.qfc*self.unorm)
 
-        self.correction_factor_model.update()
+        if self.use_advective_velocity_correction:
+            self.correction_factor_model.update()
