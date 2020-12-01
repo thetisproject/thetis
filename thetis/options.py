@@ -637,6 +637,26 @@ class ModelOptions2d(CommonModelOptions):
 
         Used in bathymetry displacement function that ensures positive water depths. Unit is meters.
         """).tag(config=True)
+    use_automatic_wetting_and_drying_alpha = Bool(False, help=r"""
+        Toggle automatic computation of the alpha parameter used in wetting and drying schemes.
+
+        By default, this parameter is set to 0.5.
+
+        For problems whose bathymetry varies wildly in coastal regions, it is advisable to use the
+        automatic wetting and drying parameter, rather than the default.
+        """).tag(config=True)
+    wetting_and_drying_alpha_min = FiredrakeScalarExpression(
+        None, allow_none=True, help=r"""
+        Minimum value to be taken by wetting and drying parameter :math:`\alpha`.
+
+        Note this is only relevant if `use_automatic_wetting_and_drying_alpha` is set to ``True``.
+        """).tag(config=True)
+    wetting_and_drying_alpha_max = FiredrakeScalarExpression(
+        Constant(2.0), allow_none=True, help=r"""
+        Maximum value to be taken by wetting and drying parameter :math:`\alpha`.
+
+        Note this is only relevant if `use_automatic_wetting_and_drying_alpha` is set to ``True``.
+        """).tag(config=True)
     tidal_turbine_farms = Dict(trait=TidalTurbineFarmOptions(),
                                default_value={}, help='Dictionary mapping subdomain ids to the options of the corresponding farm')
     check_tracer_conservation = Bool(

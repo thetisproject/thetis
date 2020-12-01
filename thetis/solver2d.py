@@ -255,6 +255,60 @@ class FlowSolver2d(FrozenClass):
             self.options.sipg_parameter.assign(alpha)
             self.options.sipg_parameter_tracer.assign(alpha_tracer)
 
+    def set_wetting_and_drying_alpha(self):
+        r"""
+        Compute a wetting and drying parameter :math:`\alpha` which ensures positive water
+        depth using the approximate method suggested by Karna et al. (2011).
+
+        This method takes
+
+      ..math::
+            \alpha \approx |L_x \nabla h|,
+
+        where :math:`L_x` is the horizontal length scale of the mesh elements at the wet-dry
+        front and :math:`h` is the bathymetry profile.
+
+        This expression is interpolated into :math:`\mathbb P1` space in order to remove noise. Note
+        that we use the `interpolate` method, rather than the `project` method, in order to avoid
+        introducing new extrema.
+
+        NOTE: The minimum and maximum values at which to cap the alpha parameter may be specified via
+        :attr:`ModelOptions2d.wetting_and_drying_alpha_min` and
+        :attr:`ModelOptions2d.wetting_and_drying_alpha_max`.
+        """
+        if not self.options.use_wetting_and_drying:
+            return
+        if self.options.use_automatic_wetting_and_drying_alpha:
+            min_alpha = self.options.wetting_and_drying_alpha_min
+            max_alpha = self.options.wetting_and_drying_alpha_max
+
+            # Take the dot product and threshold it
+            alpha = dot(get_cell_widths_2d(self.mesh2d), abs(grad(self.fields.bathymetry_2d)))
+            if max_alpha is not None:
+                alpha = min_value(max_alpha, alpha)
+            if min_alpha is not None:
+                alpha = max_value(min_alpha, alpha)
+
+            # Interpolate into P1 space
+            self.options.wetting_and_drying_alpha = Function(self.function_spaces.P1_2d)
+            self.options.wetting_and_drying_alpha.interpolate(alpha)
+
+        # Print to screen and check validity
+        alpha = self.options.wetting_and_drying_alpha
+        if isinstance(alpha, Constant):
+            msg = "Using constant wetting and drying parameter (value {:.2f})"
+            assert alpha.values()[0] >= 0.0
+            print_output(msg.format(alpha.values()[0]))
+        elif isinstance(alpha, Function):
+            msg = "Using spatially varying wetting and drying parameter (min {:.2f} max {:.2f})"
+            with alpha.dat.vec_ro as v:
+                alpha_min, alpha_max = v.min()[1], v.max()[1]
+                assert alpha_min >= 0.0
+                print_output(msg.format(alpha_min, alpha_max))
+        else:
+            msg = "Wetting and drying parameter of type '{:}' not supported"
+            raise TypeError(msg.format(alpha.__class__.__name__))
+
     def create_function_spaces(self):
         """
         Creates function spaces
@@ -303,6 +357,7 @@ class FlowSolver2d(FrozenClass):
         self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
         get_horizontal_elem_size_2d(self.fields.h_elem_size_2d)
         self.set_sipg_parameter()
+        self.set_wetting_and_drying_alpha()
         self.depth = DepthExpression(self.fields.bathymetry_2d,
                                      use_nonlinear_equations=self.options.use_nonlinear_equations,
                                      use_wetting_and_drying=self.options.use_wetting_and_drying,
