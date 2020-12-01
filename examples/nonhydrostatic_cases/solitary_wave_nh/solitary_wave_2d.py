@@ -1,34 +1,35 @@
 """
-Standing wave test case
-=======================
+Solitary wave propagation test case
+===================================
 
-Solves a standing wave using wave equation with non-hydrostatic pressure.
+Solves a solitary wave propagating in a constant-depth channel.
 
-Initial condition for elevation corresponds to a standing wave.
+Initial condition for elevation and velocity fields by Boussinesq solution.
 
-This example tests dispersion of surface waves.
+This example tests solitary wave propagation.
 """
+import numpy as np
 from thetis import *
 
-lx = 20.0
-ly = 2.0
-nx = 10
+lx = 1000.0
+ly = 2.
+nx = 500
 ny = 1
 mesh2d = RectangleMesh(nx, ny, lx, ly)
-depth = 80.
-elev_amp = 0.1
+depth = 10.0
 
-outputdir = 'outputs_standing_wave_2d'
+outputdir = 'outputs_solitary_wave_2d'
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
+P1v_2d = VectorFunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
 bathymetry_2d.assign(depth)
 
 # set time step, export interval and run duration
-dt = 0.01
+dt = 0.1
 t_export = 0.1
-t_end = 20.
+t_end = 50.
 
 # choose if using non-hydrostatic model
 solve_nonhydrostatic_pressure = True
@@ -57,16 +58,26 @@ if solve_nonhydrostatic_pressure:
 # --- create equations ---
 solver_obj.create_equations()
 
-# set initial elevation
+# set initial elevation and velocity
+g_grav = 9.81
+e = 0.2  # e = H/depth
+H = e*depth  # soliatry wave height
+x0 = 200
+c = np.sqrt(g_grav*(depth + H))
+alpha = np.sqrt(3./4.*H/depth**3)
+
 elev_init = Function(solver_obj.function_spaces.H_2d)
+uv_init = Function(solver_obj.function_spaces.U_2d)
 x, y = SpatialCoordinate(mesh2d)
-elev_init.interpolate(elev_amp*cos(2*pi*x/lx))
-solver_obj.assign_initial_conditions(elev=elev_init)
+t = 0
+elev_init.interpolate(H*cosh(alpha*(x - x0 - c*t))**(-2))
+uv_init.dat.data[:, 0] = np.sqrt(g_grav*depth)*elev_init.dat.data[:]/depth
+solver_obj.assign_initial_conditions(elev=elev_init, uv=uv_init)
 
 solver_obj.iterate()
 
 # error show
 anal_elev = Function(solver_obj.function_spaces.H_2d)
-anal_elev.interpolate(elev_amp*cos(2*pi*x/lx)*cos(sqrt(9.81*2*pi/lx)*t_end))
+anal_elev.interpolate(H*cosh(alpha*(x - x0 - c*t_end))**(-2))
 L2_elev = errornorm(anal_elev, solver_obj.fields.elev_2d)/sqrt(lx*ly)
 print('L2 error for surface elevation is ', L2_elev)

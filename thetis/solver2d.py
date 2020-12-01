@@ -609,17 +609,15 @@ class FlowSolver2d(FrozenClass):
             self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
                 weakref.proxy(self), steppers[self.options.timestepper_type],
             )
+            if solve_nh_pressure:
+                self.poisson_solver = DepthIntegratedPoissonSolver(
+                    self.fields.q_2d, self.fields.uv_2d, self.fields.w_2d,
+                    self.fields.elev_2d, self.depth, self.dt, self.bnd_functions,
+                    solver_parameters=self.options.nh_model_options.solver_parameters
+                )
         else:
             self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
-
-        if self.options.nh_model_options.solve_nonhydrostatic_pressure:
-            # solvers for 2D Poisson equation and subsequent update of velocities
-            self.poisson_solver = DepthIntegratedPoissonSolver(
-                self.fields.q_2d, self.fields.uv_2d, self.fields.w_2d, self.fields.elev_2d,
-                self.depth, self.dt, self.bnd_functions,
-                solver_parameters=self.options.nh_model_options.solver_parameters
-            )
 
         self._isfrozen = True  # disallow creating new attributes
 

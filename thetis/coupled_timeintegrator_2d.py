@@ -43,7 +43,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         if self.options.sediment_model_options.solve_exner:
             print_output('  Exner time integrator: {:}'.format(self.exner_integrator.__name__))
         if solver.options.nh_model_options.solve_nonhydrostatic_pressure:
-            self.elev_old = Function(solver.fields.solution_2d.sub(1))
+            self.elev_old = Function(solver.fields.elev_2d)
         self._initialized = False
 
         self._create_integrators()
@@ -54,7 +54,6 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         """
         self.timesteppers.swe2d = self.solver.get_swe_timestepper(self.swe_integrator)
         if self.options.nh_model_options.solve_nonhydrostatic_pressure:
-            # timestepper for the free surface correction
             self.timesteppers.fs2d = self.solver.get_free_surface_correction_timestepper(self.swe_integrator)
         if self.solver.options.solve_tracer:
             self.timesteppers.tracer = self.solver.get_tracer_timestepper(self.tracer_integrator)
