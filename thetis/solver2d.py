@@ -296,6 +296,10 @@ class FlowSolver2d(FrozenClass):
         self._isfrozen = False
         # ----- fields
         self.fields.solution_2d = Function(self.function_spaces.V_2d, name='solution_2d')
+        # correct treatment of the split 2d functions
+        uv_2d, elev_2d = self.fields.solution_2d.split()
+        self.fields.uv_2d = uv_2d
+        self.fields.elev_2d = elev_2d
         self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
         get_horizontal_elem_size_2d(self.fields.h_elem_size_2d)
         self.set_sipg_parameter()
@@ -355,8 +359,8 @@ class FlowSolver2d(FrozenClass):
             print_output('Using non-hydrostatic model with {:} vertical layer'.format(self.options.nh_model_options.n_layers))
             print_output('... using 2D mesh based solver ...')
             fs_q = get_functionspace(self.mesh2d, 'CG', self.options.polynomial_degree)
-            self.fields.q_2d = Function(fs_q)  # 2D non-hydrostatic pressure at bottom
-            self.w_2d = Function(self.function_spaces.H_2d)  # depth-averaged vertical velocity
+            self.fields.q_2d = Function(fs_q, name='q_2d')  # 2D non-hydrostatic pressure at bottom
+            self.fields.w_2d = Function(self.function_spaces.H_2d, name='w_2d')  # depth-averaged vertical velocity
             # free surface equation
             self.eq_free_surface = shallowwater_eq.FreeSurfaceEquation(
                 TestFunction(self.function_spaces.H_2d), self.function_spaces.H_2d, self.function_spaces.U_2d,
@@ -493,6 +497,22 @@ class FlowSolver2d(FrozenClass):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta
         return integrator(*args, **kwargs)
 
+    def get_free_surface_correction_timestepper(self, integrator):
+        """
+        Gets free-surface correction timestepper object with appropriate parameters
+        """
+        fields_fs = {
+            'uv': self.fields.uv_2d,
+            'volume_source': self.options.volume_source_2d,
+        }
+        args = (self.eq_free_surface, self.fields.elev_2d, fields_fs, self.dt, )
+        kwargs = {'bnd_conditions': self.bnd_functions['shallow_water']}
+        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
+            kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
+        if hasattr(self.options.timestepper_options, 'implicitness_theta'):
+            kwargs['theta'] = self.options.timestepper_options.implicitness_theta
+        return integrator(*args, **kwargs)
+
     def create_timestepper(self):
         """
         Creates time stepper instance
@@ -526,19 +546,11 @@ class FlowSolver2d(FrozenClass):
             assert self.options.timestepper_type in steppers
         except AssertionError:
             raise Exception('Unknown time integrator type: {:s}'.format(self.options.timestepper_type))
-        if self.options.solve_tracer or self.options.nh_model_options.solve_nonhydrostatic_pressure:
-            try:
-                assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState')
-            except AssertionError:
-                raise NotImplementedError("2D tracer model currently only supports SSPRK33, ForwardEuler, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
-            self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
-                weakref.proxy(self), steppers[self.options.timestepper_type],
-            )
-        elif self.options.sediment_model_options.solve_suspended_sediment or self.options.sediment_model_options.solve_exner:
-            try:
-                assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState')
-            except AssertionError:
-                raise NotImplementedError("2D sediment model currently only supports SSPRK33, ForwardEuler, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
+        use_sediment_model = self.options.sediment_model_options.solve_suspended_sediment or self.options.sediment_model_options.solve_exner
+        solve_nh_pressure = self.options.nh_model_options.solve_nonhydrostatic_pressure
+        if self.options.solve_tracer or use_sediment_model or solve_nh_pressure:
+            assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState'), \
+                "2D model with tracer, nh pressure or sediments currently only supports SSPRK33, ForwardEuler, BackwardEuler"
             self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
                 weakref.proxy(self), steppers[self.options.timestepper_type],
             )
@@ -548,7 +560,11 @@ class FlowSolver2d(FrozenClass):
 
         if self.options.nh_model_options.solve_nonhydrostatic_pressure:
             # solvers for 2D Poisson equation and subsequent update of velocities
-            self.poisson_solver = DepthIntegratedPoissonSolver(self)
+            self.poisson_solver = DepthIntegratedPoissonSolver(
+                self.fields.q_2d, self.fields.uv_2d, self.fields.w_2d, self.fields.elev_2d,
+                self.depth, self.dt, self.bnd_functions,
+                solver_parameters=self.options.nh_model_options.solver_parameters
+            )
 
         self._isfrozen = True  # disallow creating new attributes
 
@@ -559,10 +575,6 @@ class FlowSolver2d(FrozenClass):
         if not hasattr(self, 'timestepper'):
             self.create_timestepper()
         self._isfrozen = False
-        # correct treatment of the split 2d functions
-        uv_2d, elev_2d = self.fields.solution_2d.split()
-        self.fields.uv_2d = uv_2d
-        self.fields.elev_2d = elev_2d
         self.exporters = OrderedDict()
         if not self.options.no_exports:
             e = exporter.ExportManager(self.options.output_directory,

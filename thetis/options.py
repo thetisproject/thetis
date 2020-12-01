@@ -372,6 +372,12 @@ class NonhydrostaticModelOptions(FrozenHasTraits):
     alpha_nh = List(
         default_value=[],
         help="Ratio of layer thickness to the total water depth; the default `[]` implies uniform layers").tag(config=True)
+    solver_parameters = PETScSolverParameters({
+        'snes_type': 'ksponly',
+        'ksp_type': 'preonly',
+        'mat_type': 'aij',
+        'pc_type': 'lu',
+    }).tag(config=True)
 
 
 class CommonModelOptions(FrozenConfigurable):

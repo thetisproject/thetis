@@ -250,3 +250,9 @@ field_metadata['q_2d'] = {
     'unit': 'Pa',
     'filename': 'nh_pressure_2d',
 }
+field_metadata['w_2d'] = {
+    'name': 'Depth averaged vertical velocity',
+    'shortname': 'Depth averaged vertical velocity',
+    'unit': 'm s-1',
+    'filename': 'VertVelo2d',
+}

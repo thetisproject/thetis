@@ -1903,7 +1903,11 @@ class DepthIntegratedPoissonSolver(object):
     Construct solvers for Poisson equation and subsequently updating velocities
 
     Generic form:
-       2D: `div(grad(q^{n+1/2})) + inner(A, grad(q^{n+1/2})) + B*q^{n+1/2} = C`
+        2D: `div(grad(q^{n+1/2})) + inner(A, grad(q^{n+1/2})) + B*q^{n+1/2} + C = 0`
+    where
+        A = grad(self.elev_2d - bath_2d)/h_star
+        B = div(A) - 4./(h_star**2)
+        C = -2.*rho_0/self.dt*(div(self.uv_2d) + (self.w_2d - w_b)/(0.5*h_star))
 
     :arg A, B and C: Known functions, constants or expressions
     :type A: vector, B: scalar, C: scalar (3D: div terms). Valued :class:`Function`, `Constant`, or an expression
@@ -1911,31 +1915,43 @@ class DepthIntegratedPoissonSolver(object):
     :type q: scalar function :class:`Function`
     """
 
-    def __init__(self, solver):
+    def __init__(self, q_2d, uv_2d, w_2d, elev_2d, depth, dt, bnd_functions=None, solver_parameters=None):
+        if solver_parameters is None:
+            solver_parameters = {'snes_type': 'ksponly',
+                                 'ksp_type': 'preonly',
+                                 'mat_type': 'aij',
+                                 'pc_type': 'lu'}
         rho_0 = physical_constants['rho0']
-        self.fields = solver.fields
-        self.depth = solver.depth
-        self.dt = solver.dt
-        self.bnd_functions = solver.bnd_functions
+        self.q_2d = q_2d
+        self.uv_2d = uv_2d
+        self.w_2d = w_2d
+        self.elev_2d = elev_2d
+        self.depth = depth
+        self.dt = dt
+        self.bnd_functions = bnd_functions
 
-        q_2d = self.fields.q_2d
-        fs_q = q_2d.function_space()
+        fs_q = self.q_2d.function_space()
         test_q = TestFunction(fs_q)
         normal = FacetNormal(fs_q.mesh())
         boundary_markers = fs_q.mesh().exterior_facets.unique_markers
 
-        uv_2d, elev_2d = self.fields.solution_2d.split()
-        w_2d = solver.w_2d
-        bath_2d = self.fields.bathymetry_2d
-        h_star = self.depth.get_total_depth(elev_2d)
-        w_b = -dot(uv_2d, grad(bath_2d))  # TODO account for bed movement
+        bath_2d = self.depth.bathymetry_2d
+        h_star = self.depth.get_total_depth(self.elev_2d)
+        w_b = -dot(self.uv_2d, grad(bath_2d))  # TODO account for bed movement
 
-        A = grad(elev_2d - bath_2d)/h_star
-        B = div(A) - 4./(h_star**2)
-        C = 2.*rho_0/self.dt*(div(uv_2d) + (w_2d - w_b)/(0.5*h_star))
+        # weak form of `div(grad(q^{n+1/2}))`
+        f = -dot(grad(self.q_2d), grad(test_q))*dx
+        # weak form of `dot(grad(self.elev_2d - bath_2d)/h_star, grad(q^{n+1/2}))`
+        grad_hori = grad(self.elev_2d - bath_2d)
+        f += dot(grad_hori/h_star, grad(self.q_2d))*test_q*dx
+        # weak form of `q^{n+1/2}*div(grad(self.elev_2d - bath_2d))/h_star`
+        f += -dot(grad(self.q_2d*test_q/h_star), grad_hori)*dx
+        # weak form of `-q^{n+1/2}*(dot(grad(self.elev_2d - bath_2d), grad(h_star)) + 4)/h_star**2`
+        f += -(dot(grad_hori, grad(h_star)) + 4)/h_star**2*self.q_2d*test_q*dx
+        # weak form of `-2.*rho_0/self.dt*(div(self.uv_2d) + (self.w_2d - w_b)/(0.5*h_star))`
+        const = 2.*rho_0/self.dt
+        f += const*(dot(grad(test_q), self.uv_2d)*dx - (self.w_2d - w_b)/(0.5*h_star)*test_q*dx)
 
-        # weak forms
-        f = -dot(grad(q_2d), grad(test_q))*dx - q_2d*div(A*test_q)*dx + B*q_2d*test_q*dx - C*test_q*dx
         # boundary conditions
         bcs = []
         for bnd_marker in boundary_markers:
@@ -1944,34 +1960,30 @@ class DepthIntegratedPoissonSolver(object):
             if func is not None:  # e.g. inlet flow, TODO be more precise
                 bc = DirichletBC(fs_q, 0., int(bnd_marker))
                 bcs.append(bc)
-            else:
-                # Neumann boundary condition => inner(grad(q_2d), normal)=0.
-                f += (q_2d*inner(A, normal))*test_q*ds_bnd
+                f += self.q_2d*test_q/h_star*dot(grad_hori, normal)*ds_bnd
+                f += -const*dot(self.uv_2d, normal)*test_q*ds_bnd
 
-        prob_q = NonlinearVariationalProblem(f, q_2d)
+        prob_q = NonlinearVariationalProblem(f, self.q_2d)
         self.solver_q = NonlinearVariationalSolver(
             prob_q,
-            solver_parameters={'snes_type': 'ksponly',
-                               'ksp_type': 'preonly',
-                               'mat_type': 'aij',
-                               'pc_type': 'lu'},
-            options_prefix='poisson_solver')
-
+            solver_parameters=solver_parameters,
+            options_prefix='poisson_solver'
+        )
         # horizontal velocity updator
-        fs_u = uv_2d.function_space()
+        fs_u = self.uv_2d.function_space()
         tri_u = TrialFunction(fs_u)
         test_u = TestFunction(fs_u)
         a_u = inner(tri_u, test_u)*dx
-        l_u = dot(uv_2d - 0.5*self.dt/rho_0*(grad(q_2d) + A*q_2d), test_u)*dx
-        prob_u = LinearVariationalProblem(a_u, l_u, uv_2d)
+        l_u = dot(self.uv_2d - 0.5*self.dt/rho_0*(grad(self.q_2d) + grad_hori/h_star*self.q_2d), test_u)*dx
+        prob_u = LinearVariationalProblem(a_u, l_u, self.uv_2d)
         self.solver_u = LinearVariationalSolver(prob_u)
         # vertical velocity updator
-        fs_w = w_2d.function_space()
+        fs_w = self.w_2d.function_space()
         tri_w = TrialFunction(fs_w)
         test_w = TestFunction(fs_w)
         a_w = inner(tri_w, test_w)*dx
-        l_w = dot(w_2d + self.dt/rho_0*(q_2d/h_star), test_w)*dx
-        prob_w = LinearVariationalProblem(a_w, l_w, w_2d)
+        l_w = dot(self.w_2d + self.dt/rho_0*(self.q_2d/h_star), test_w)*dx
+        prob_w = LinearVariationalProblem(a_w, l_w, self.w_2d)
         self.solver_w = LinearVariationalSolver(prob_w)
 
     def solve(self):

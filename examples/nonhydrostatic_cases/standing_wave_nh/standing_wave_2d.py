@@ -47,14 +47,14 @@ options.simulation_export_time = t_export
 options.simulation_end_time = t_end
 # output
 options.output_directory = outputdir
-options.fields_to_export = ['uv_2d', 'elev_2d']
-options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
+options.fields_to_export = ['uv_2d', 'elev_2d', 'q_2d']
+options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'q_2d']
 # non-hydrostatic
 if solve_nonhydrostatic_pressure:
     options_nh = options.nh_model_options
     options_nh.solve_nonhydrostatic_pressure = solve_nonhydrostatic_pressure
 
-# need to call creator to create the function spaces
+# --- create equations ---
 solver_obj.create_equations()
 
 # set initial elevation
@@ -66,6 +66,7 @@ solver_obj.assign_initial_conditions(elev=elev_init)
 solver_obj.iterate()
 
 # error show
-anal_elev = Function(solver_obj.function_spaces.H_2d).interpolate(elev_amp*cos(2*pi*x/lx)*cos(sqrt(9.81*2*pi/lx)*t_end))
+anal_elev = Function(solver_obj.function_spaces.H_2d)
+anal_elev.interpolate(elev_amp*cos(2*pi*x/lx)*cos(sqrt(9.81*2*pi/lx)*t_end))
 L2_elev = errornorm(anal_elev, solver_obj.fields.elev_2d)/sqrt(lx*ly)
 print('L2 error is ', L2_elev)

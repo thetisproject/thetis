@@ -3,8 +3,13 @@ Wave over submerged bar test case
 =================================
 
 A regular wave inlets from left boundary with amplitude of 1 cm and period of 2.02 s.
+Experimental setup [1].
 
 This example represents wave shoaling after interaction with uneven bottom.
+
+[1] Beji, S., Battjes, J.A. (1994). Numerical simulation of nonlinear
+    wave propagation over a bar. Coastal Engineering 23, 1–16.
+    https://doi.org/10.1016/0378-3839(94)90012-4
 """
 from thetis import *
 import numpy as np
@@ -48,7 +53,7 @@ def get_bathymetry():
 bathymetry_2d = get_bathymetry()
 
 # set time step, export interval and run duration
-dt = 0.005
+dt = 0.01
 t_export = 0.1
 t_end = 40
 
@@ -69,14 +74,21 @@ options.simulation_export_time = t_export
 options.simulation_end_time = t_end
 # output
 options.output_directory = outputdir
-options.fields_to_export = ['uv_2d', 'elev_2d']
+options.fields_to_export = ['uv_2d', 'elev_2d', 'q_2d']
+options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'q_2d']
 # non-hydrostatic
 if solve_nonhydrostatic_pressure:
     options_nh = options.nh_model_options
     options_nh.solve_nonhydrostatic_pressure = solve_nonhydrostatic_pressure
 
-# need to call creator to create the function spaces
+# --- create equations ---
 solver_obj.create_equations()
+
+# detectors
+xy = [[10.5, 0.], [12.5, 0.], [13.5, 0.], [14.5, 0.],
+      [15.69999999, 0.], [17.3, 0.], [19.0, 0.], [21.0, 0.]]
+cb = DetectorsCallback(solver_obj, xy, ['elev_2d'], name='gauges', append_to_log=False)
+solver_obj.add_callback(cb)
 
 # --- input wave ---
 pi = 4*np.arctan(1.)
@@ -91,7 +103,7 @@ def get_inputelevation(t):
 # --- boundary condition ---
 t = 0.
 H_2d = solver_obj.function_spaces.H_2d
-ele_bc = Function(H_2d, name="boundary elevation").assign(get_inputelevation(t))
+ele_bc = Constant(0.)
 inflow_tag = 1
 solver_obj.bnd_functions['shallow_water'] = {inflow_tag: {'elev': ele_bc}}
 
