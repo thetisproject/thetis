@@ -201,7 +201,7 @@ def run_convergence(ref_list, saveplot=False, **options):
 # ---------------------------
 
 
-@pytest.fixture(params=['rt-dg', 'dg-dg'])
+@pytest.fixture(params=['rt-dg', 'dg-dg', 'bdm-dg'])
 def element_family(request):
     return request.param
 

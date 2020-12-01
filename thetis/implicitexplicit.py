@@ -31,7 +31,7 @@ class IMEXGeneric(TimeIntegrator):
         pass
 
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
-                 solver_parameters={}, solver_parameters_dirk={}):
+                 solver_parameters=None, solver_parameters_dirk=None):
         super(IMEXGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
         """
         :arg equation: equation to solve

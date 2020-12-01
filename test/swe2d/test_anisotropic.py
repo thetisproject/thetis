@@ -69,6 +69,7 @@ def run(**model_options):
     options.use_lax_friedrichs_velocity = True
     options.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
     options.use_grad_depth_viscosity_term = False
+    options.no_exports = True
     options.update(model_options)
     solver_obj.create_equations()
 
@@ -129,13 +130,13 @@ def run(**model_options):
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=['dg-cg', 'dg-dg', 'rt-dg'])
+@pytest.fixture(params=['dg-cg', 'dg-dg', 'rt-dg', 'bdm-dg'])
 def family(request):
     return request.param
 
 
 def test_sipg(family):
-    options = {'element_family': family, 'no_exports': True}
+    options = {'element_family': family}
     snes_it_auto = run(use_automatic_sipg_parameter=True, **options)
     try:
         snes_it_default = run(use_automatic_sipg_parameter=False, **options)

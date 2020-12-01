@@ -326,21 +326,22 @@ def setup(request):
     return request.param
 
 
-@pytest.fixture(params=[
-    {'element_family': 'dg-dg',
-     'timestepper_type': 'CrankNicolson'},
-    {'element_family': 'rt-dg',
-     'timestepper_type': 'CrankNicolson'},
-    {'element_family': 'dg-cg',
-     'timestepper_type': 'CrankNicolson'}],
-    ids=["dg-dg", "rt-dg", "dg-cg"]
-)
-def options(request):
+@pytest.fixture(params=['rt-dg', 'dg-dg', 'dg-cg', 'bdm-dg'])
+def element_family(request):
     return request.param
 
 
-def test_steady_state_basin_convergence(setup, options):
+@pytest.fixture(params=['CrankNicolson'])
+def timestepper_type(request):
+    return request.param
+
+
+def test_steady_state_basin_convergence(setup, element_family, timestepper_type):
     sp = {'ksp_type': 'preonly', 'pc_type': 'lu', 'snes_monitor': None,
           'mat_type': 'aij'}
+    options = {
+        'element_family': element_family,
+        'timestepper_type': timestepper_type
+    }
     run_convergence(setup, [1, 2, 4, 6], 1, options=options,
                     solver_parameters=sp, save_plot=False)

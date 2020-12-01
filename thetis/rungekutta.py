@@ -447,7 +447,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
     :attr:`b`, :attr:`c`.
     """
     def __init__(self, equation, solution, fields, dt,
-                 bnd_conditions=None, solver_parameters={}, terms_to_add='all'):
+                 bnd_conditions=None, solver_parameters=None, terms_to_add='all'):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -562,7 +562,7 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
     def __init__(self, equation, solution, fields, dt,
-                 bnd_conditions=None, solver_parameters={}, terms_to_add='all',
+                 bnd_conditions=None, solver_parameters=None, terms_to_add='all',
                  semi_implicit=False):
         """
         :arg equation: the equation to solve
@@ -743,7 +743,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
     Implements the Butcher form. All terms in the equation are treated explicitly.
     """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
-                 solver_parameters={}, terms_to_add='all'):
+                 solver_parameters=None, terms_to_add='all'):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -843,7 +843,7 @@ class ERKGenericShuOsher(TimeIntegrator):
 
     Implements the Shu-Osher form.
     """
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, terms_to_add='all'):
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters=None, terms_to_add='all'):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object

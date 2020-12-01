@@ -131,7 +131,7 @@ def run_katophillips(**model_options):
     print_output('Mixed layer depth: {:.2f} (target: {:.2f}) PASSED'.format(ml_depth, target))
 
 
-@pytest.fixture(params=['rt-dg', 'dg-dg'])
+@pytest.fixture(params=['rt-dg', 'dg-dg', 'bdm-dg'])
 def element_family(request):
     return request.param
 
