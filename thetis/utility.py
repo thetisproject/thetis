@@ -1235,6 +1235,25 @@ def get_minimum_angles_2d(mesh2d):
     return min_angles
 
 
+def get_cell_widths_2d(mesh2d):
+    """
+    Compute widths of mesh elements in each coordinate direction as the maximum distance
+    between components of vertex coordinates.
+    """
+    try:
+        assert mesh2d.topological_dimension() == 2
+        assert mesh2d.ufl_cell() == ufl.triangle
+    except AssertionError:
+        raise NotImplementedError("Cell widths only currently implemented for triangles.")
+    cell_widths = Function(VectorFunctionSpace(mesh2d, "DG", 0)).assign(np.finfo(0.0).min)
+    par_loop("""for (int i=0; i<coords.dofs; i++) {
+                  widths[0] = fmax(widths[0], fabs(coords[2*i] - coords[(2*i+2)%6]));
+                  widths[1] = fmax(widths[1], fabs(coords[2*i+1] - coords[(2*i+3)%6]));
+                }""", dx, {'coords': (mesh2d.coordinates, READ), 'widths': (cell_widths, RW)})
+    assert cell_widths.vector().gather().min() >= 0.0  # TODO: TEMPORARY
+    return cell_widths
+
+
 def get_sipg_ratio(nu):
     """
     Compute the ratio between the maximum of `nu` and the minimum of `nu` in each element. If `nu`
