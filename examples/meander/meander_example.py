@@ -86,7 +86,7 @@ end_time = 5*3600
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
     # the example is being run as a test
     # run the spin-up by importing it
-    import trench_hydro  # NOQA
+    import meander_hydro  # NOQA
     end_time = 3600.
 
 viscosity_hydro = Constant(5*10**(-2))
