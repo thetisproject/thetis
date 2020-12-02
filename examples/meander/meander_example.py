@@ -1,19 +1,26 @@
-from thetis import *
+"""
+Meander Test case
+=======================
 
-import pandas as pd
-import numpy as np
-import pylab as plt
+Solves the test case of a meander.
+
+We use this test case to validate the implementation of the mathematical and
+numerical methods used in Thetis to model sediment transport and morphological changes.
+Specifically this test case tests the secondary current implementation.
+
+For more details, see
+[1] Clare et al. 2020. “Hydro-morphodynamics 2D Modelling Using a Discontinuous
+    Galerkin Discretisation.” EarthArXiv. January 9. doi:10.31223/osf.io/tpqvy.
+"""
+
+from thetis import *
 
 import time
 import datetime
 
-def update_forcings_bnd(t_new):
+# Note it is necessary to run meander_hydro first to get the hydrodynamics simulation
 
-    gradient_flux = (-0.053 + 0.02)/6000
-    gradient_flux2 = (-0.02+0.053)/(18000-6000)
-    gradient_elev = (10.04414- 9.9955)/6000
-    gradient_elev2 = (9.9955-10.04414)/(18000-6000)
-    elev_init_const = (-max(initial_bathymetry_2d.dat.data[:]) + 0.05436)
+def update_forcings_bnd(t_new):
 
     if t_new != t_old.dat.data[:]:
         # update boundary condtions
@@ -51,16 +58,13 @@ final = min(bathymetry_2d1.dat.data[:])
 bathymetry_2d2 = Function(V).interpolate(conditional(x <= 5, conditional(y<=2.5, -9.97072 + gradient*abs(y - 2.5) + init, 0), conditional(y<=2.5, -9.97072 -gradient*abs(y - 2.5) + final, 0)))
 bathymetry_2d = Function(V).interpolate(-bathymetry_2d1 - bathymetry_2d2)
 
+# record initial bathymetry before it evolves
 initial_bathymetry_2d = Function(V).interpolate(bathymetry_2d)
-diff_bathy = Function(V).interpolate(Constant(0.0))
 
 # choose directory to output results
 ts = time.time()
 st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
 outputdir = 'outputs'+ st
-
-diff_bathy_file = File(outputdir + "/diff_bathy.pvd")
-diff_bathy_file.write(diff_bathy)
 
 # initialise velocity and elevation
 chk = DumbCheckpoint("hydrodynamics_meander/elevation", mode=FILE_READ)
@@ -75,15 +79,21 @@ chk.close()
 
 morfac = 50
 dt = 2
-end_time = 18000
+end_time = 5*3600
 
-diffusivity = 0.15
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    # the example is being run as a test
+    # run the spin-up by importing it
+    import trench_hydro  # NOQA
+    end_time = 3600.
+
 viscosity_hydro = Constant(5*10**(-2))
 
 # set up solver
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
 
+# this test case only uses bedload transport but using all slope effect corrections and secondary current
 options.sediment_model_options.solve_suspended_sediment = False
 options.sediment_model_options.use_bedload = True
 options.sediment_model_options.solve_exner = True
@@ -98,7 +108,7 @@ options.sediment_model_options.bed_reference_height = Constant(0.003)
 options.sediment_model_options.morphological_acceleration_factor = Constant(morfac)
 
 options.simulation_end_time = end_time/morfac
-options.simulation_export_time = options.simulation_end_time/90
+options.simulation_export_time = options.simulation_end_time/45
 
 options.output_directory = outputdir
 options.check_volume_conservation_2d = True
@@ -108,8 +118,7 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'bathymetry_2d']
 # using nikuradse friction
 options.nikuradse_bed_roughness = Constant(3*options.sediment_model_options.average_sediment_size)
 
-# set horizontal diffusivity parameter
-options.horizontal_diffusivity = Constant(diffusivity)
+# set horizontal viscosity parameter
 options.horizontal_viscosity = Constant(viscosity_hydro)
 
 # crank-nicholson used to integrate in time system of ODEs resulting from application of galerkin FEM
@@ -139,6 +148,7 @@ swe_bnd[right_bnd_id] = {'elev': elev_constant}
 
 solver_obj.bnd_functions['shallow_water'] = swe_bnd
 
+# set initial conditions
 solver_obj.assign_initial_conditions(uv=uv, elev=elev)
 
 # run model

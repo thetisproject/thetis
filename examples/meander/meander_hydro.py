@@ -1,3 +1,18 @@
+"""
+Meander Test case
+=======================
+
+Solves the initial hydrodynamics simulation of a meander.
+
+Note this is not the main run-file and is just used to create an initial checkpoint for
+the morphodynamic simulation.
+
+For more details of the test case set-up see
+[1] Clare et al. 2020. “Hydro-morphodynamics 2D Modelling Using a Discontinuous
+    Galerkin Discretisation.” EarthArXiv. January 9. doi:10.31223/osf.io/tpqvy.
+
+"""
+
 from thetis import *
 
 import numpy as np
@@ -28,9 +43,6 @@ final = min(bathymetry_2d1.dat.data[:])
 bathymetry_2d2 = Function(V).interpolate(conditional(x <= 5, conditional(y<=2.5, -9.97072 + gradient*abs(y - 2.5) + init, 0), conditional(y<=2.5, -9.97072 -gradient*abs(y - 2.5) + final, 0)))
 bathymetry_2d = Function(V).interpolate(-bathymetry_2d1 - bathymetry_2d2)
 
-input_bathymetry_2d = Function(V).interpolate(bathymetry_2d)
-initial_bathymetry_2d = Function(V).interpolate(bathymetry_2d)
-
 # simulate initial hydrodynamics
 # define initial elevation
 elev_init = Function(P1_2d).interpolate(0.0544 - bathymetry_2d)
@@ -45,6 +57,10 @@ outputdir = 'outputs' + st
 print_output('Exporting to '+outputdir)
 
 t_end = 200
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    # run as tests, not sufficient for proper spin up
+    # but we simply want a run-through-without-error test
+    t_end = 50
 
 # export interval in seconds
 t_export = np.round(t_end/40, 0)
@@ -85,10 +101,6 @@ right_bnd_id = 2
 
 swe_bnd = {}
 
-gradient_flux = (-0.053 + 0.02)/6000
-gradient_flux2 = (-0.02+0.053)/(18000-6000)
-gradient_elev = (10.04414- 9.9955)/6000
-gradient_elev2 = (9.9955-10.04414)/(18000-6000)
 elev_init_const = (-max(bathymetry_2d.dat.data[:]) + 0.05436)
 
 swe_bnd[3] = {'un': Constant(0.0)}
@@ -102,6 +114,7 @@ solver_obj.assign_initial_conditions(uv=uv_init, elev=elev_init)
 # run model
 solver_obj.iterate()
 
+# store hydrodynamics for next simulation
 uv, elev = solver_obj.fields.solution_2d.split()
 
 checkpoint_dir = "hydrodynamics_meander"
@@ -114,9 +127,3 @@ chk.close()
 chk = DumbCheckpoint(checkpoint_dir + "/elevation", mode=FILE_CREATE)
 chk.store(elev, name="elevation")
 chk.close()
-
-elev_file = File(checkpoint_dir + '/elev.pvd')
-elev_file.write(elev)
-
-uv_file = File(checkpoint_dir + '/uv.pvd')
-uv_file.write(uv)
