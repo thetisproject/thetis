@@ -20,6 +20,7 @@ import datetime
 
 # Note it is necessary to run meander_hydro first to get the hydrodynamics simulation
 
+
 def update_forcings_bnd(t_new):
 
     if t_new != t_old.dat.data[:]:
@@ -32,11 +33,12 @@ def update_forcings_bnd(t_new):
             elev_constant.assign(gradient_elev2*(t_new*morfac-18000) + elev_init_const)
         t_old.assign(t_new)
 
+
 t_old = Constant(0.0)
 
 # define mesh
 mesh2d = Mesh("meander.msh")
-x,y = SpatialCoordinate(mesh2d)
+x, y = SpatialCoordinate(mesh2d)
 
 # define function spaces
 V = FunctionSpace(mesh2d, 'CG', 1)
@@ -49,13 +51,13 @@ bathymetry_2d = Function(V, name='Bathymetry')
 
 gradient = Constant(0.0035)
 
-L_function= Function(V).interpolate(conditional(x > 5, pi*4*((pi/2)-acos((x-5)/(sqrt((x-5)**2+(y-2.5)**2))))/pi, pi*4*((pi/2)-acos((-x+5)/(sqrt((x-5)**2+(y-2.5)**2))))/pi))
+L_function = Function(V).interpolate(conditional(x > 5, pi*4*((pi/2)-acos((x-5)/(sqrt((x-5)**2+(y-2.5)**2))))/pi, pi*4*((pi/2)-acos((-x+5)/(sqrt((x-5)**2+(y-2.5)**2))))/pi))
 bathymetry_2d1 = Function(V).interpolate(conditional(y > 2.5, conditional(x < 5, (L_function*gradient) + 9.97072, -(L_function*gradient) + 9.97072), 9.97072))
 
 init = max(bathymetry_2d1.dat.data[:])
 final = min(bathymetry_2d1.dat.data[:])
 
-bathymetry_2d2 = Function(V).interpolate(conditional(x <= 5, conditional(y<=2.5, -9.97072 + gradient*abs(y - 2.5) + init, 0), conditional(y<=2.5, -9.97072 -gradient*abs(y - 2.5) + final, 0)))
+bathymetry_2d2 = Function(V).interpolate(conditional(x <= 5, conditional(y <= 2.5, -9.97072 + gradient*abs(y - 2.5) + init, 0), conditional(y <= 2.5, -9.97072 - gradient*abs(y - 2.5) + final, 0)))
 bathymetry_2d = Function(V).interpolate(-bathymetry_2d1 - bathymetry_2d2)
 
 # record initial bathymetry before it evolves
@@ -64,7 +66,7 @@ initial_bathymetry_2d = Function(V).interpolate(bathymetry_2d)
 # choose directory to output results
 ts = time.time()
 st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
-outputdir = 'outputs'+ st
+outputdir = 'outputs' + st
 
 # initialise velocity and elevation
 chk = DumbCheckpoint("hydrodynamics_meander/elevation", mode=FILE_READ)
@@ -134,7 +136,7 @@ right_bnd_id = 2
 # set boundary conditions
 gradient_flux = (-0.053 + 0.02)/6000
 gradient_flux2 = (-0.02+0.053)/(18000-6000)
-gradient_elev = (10.04414- 9.9955)/6000
+gradient_elev = (10.04414-9.9955)/6000
 gradient_elev2 = (9.9955-10.04414)/(18000-6000)
 elev_init_const = (-max(bathymetry_2d.dat.data[:]) + 0.05436)
 swe_bnd = {}
@@ -152,4 +154,4 @@ solver_obj.bnd_functions['shallow_water'] = swe_bnd
 solver_obj.assign_initial_conditions(uv=uv, elev=elev)
 
 # run model
-solver_obj.iterate(update_forcings = update_forcings_bnd)
+solver_obj.iterate(update_forcings=update_forcings_bnd)

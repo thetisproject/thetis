@@ -134,9 +134,9 @@ class SedimentModel(object):
         if float(self.dstar.dat.data[:]) < 1:
             raise ValueError('dstar value less than 1')
         self.thetacr = Function(self.R_1d).project(conditional(self.dstar < 4, 0.24*(self.dstar**(-1)),
-                                                              conditional(self.dstar < 10, 0.14*(self.dstar**(-0.64)),
-                                                                          conditional(self.dstar < 20, 0.04*(self.dstar**(-0.1)),
-                                                                                      conditional(self.dstar < 150, 0.013*(self.dstar**(0.29)), 0.055)))))
+                                                               conditional(self.dstar < 10, 0.14*(self.dstar**(-0.64)),
+                                                                           conditional(self.dstar < 20, 0.04*(self.dstar**(-0.1)),
+                                                                                       conditional(self.dstar < 150, 0.013*(self.dstar**(0.29)), 0.055)))))
 
         # critical bed shear stress
         self.taucr = Function(self.R_1d).assign((self.rhos-self.rhow)*self.g*self.average_size*self.thetacr)
@@ -178,23 +178,23 @@ class SedimentModel(object):
             self.rouse_number = (self.settling_velocity/(kappa*ustar)) - Constant(1)
 
             self.intermediate_step = conditional(abs(self.rouse_number) > Constant(1e-04),
-                                            self.B*(Constant(1)-self.B**min_value(self.rouse_number, Constant(3)))/min_value(self.rouse_number, Constant(3)), -self.B*ln(self.B))
+                                                 self.B*(Constant(1)-self.B**min_value(self.rouse_number, Constant(3)))/min_value(self.rouse_number, Constant(3)), -self.B*ln(self.B))
 
             self.integrated_rouse = max_value(conditional(self.intermediate_step > Constant(1e-12), Constant(1)/self.intermediate_step,
-                                                               Constant(1e12)), Constant(1))
+                                                          Constant(1e12)), Constant(1))
 
             # erosion flux - above critical velocity bed is eroded
             self.transport_stage_param = conditional(self.rhow*Constant(0.5)*self.qfc*self.unorm*self.mu > Constant(0),
-                                                (self.rhow*Constant(0.5)*self.qfc*self.unorm*self.mu - self.taucr)/self.taucr,
-                                                Constant(-1))
+                                                     (self.rhow*Constant(0.5)*self.qfc*self.unorm*self.mu - self.taucr)/self.taucr,
+                                                     Constant(-1))
 
-            self.erosion_concentration= Function(self.P1DG_2d).project(Constant(0.015)*(self.average_size/self.a)
-                                         * ((max_value(self.transport_stage_param, Constant(0)))**1.5)
-                                         / (self.dstar**0.3))
+            self.erosion_concentration = Function(self.P1DG_2d).project(Constant(0.015)*(self.average_size/self.a)
+                                                                        * ((max_value(self.transport_stage_param, Constant(0)))**1.5)
+                                                                        / (self.dstar**0.3))
 
             if self.use_advective_velocity_correction:
                 self.correction_factor_model = CorrectiveVelocityFactor(self.depth_tot, ksp,
-                                                                   self.settling_velocity, ustar, self.a)
+                                                                        self.settling_velocity, ustar, self.a)
                 self.velocity_correction_factor = self.correction_factor_model.velocity_correction_factor
             self.equilibrium_tracer = Function(self.P1DG_2d).interpolate(self.erosion_concentration/self.integrated_rouse)
 
@@ -343,14 +343,12 @@ class SedimentModel(object):
         self.old_bathymetry_2d.interpolate(self.depth.bathymetry_2d)
         self.depth_tot.project(self.depth.get_total_depth(self.elev))
 
-        #self.unorm.interpolate((self.u**2) + (self.v**2))
-
         self.bed_stress.interpolate(self.rhow*Constant(0.5)*self.qfc*self.unorm)
 
         if self.solve_suspended_sediment:
             self.erosion_concentration.project(Constant(0.015)*(self.average_size/self.a)
-                                         * ((max_value(self.transport_stage_param, Constant(0)))**1.5)
-                                         / (self.dstar**0.3))
+                                               * ((max_value(self.transport_stage_param, Constant(0)))**1.5)
+                                               / (self.dstar**0.3))
 
             self.equilibrium_tracer.interpolate(self.erosion_concentration/self.integrated_rouse)
 

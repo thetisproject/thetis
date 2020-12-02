@@ -20,7 +20,7 @@ import time
 
 # define mesh
 mesh2d = Mesh("meander.msh")
-x,y = SpatialCoordinate(mesh2d)
+x, y = SpatialCoordinate(mesh2d)
 
 # define function spaces
 V = FunctionSpace(mesh2d, 'CG', 1)
@@ -33,21 +33,21 @@ bathymetry_2d = Function(V, name='Bathymetry')
 
 gradient = Constant(0.0035)
 
-L_function=Function(V).interpolate(conditional(x > 5, pi*4*((pi/2)-acos((x-5)/(sqrt((x-5)**2+(y-2.5)**2))))/pi, pi*4*((pi/2)-acos((-x+5)/(sqrt((x-5)**2+(y-2.5)**2))))/pi))
+L_function = Function(V).interpolate(conditional(x > 5, pi*4*((pi/2)-acos((x-5)/(sqrt((x-5)**2+(y-2.5)**2))))/pi, pi*4*((pi/2)-acos((-x+5)/(sqrt((x-5)**2+(y-2.5)**2))))/pi))
 
 bathymetry_2d1 = Function(V).interpolate(conditional(y > 2.5, conditional(x < 5, (L_function*gradient) + 9.97072, -(L_function*gradient) + 9.97072), 9.97072))
 
 init = max(bathymetry_2d1.dat.data[:])
 final = min(bathymetry_2d1.dat.data[:])
 
-bathymetry_2d2 = Function(V).interpolate(conditional(x <= 5, conditional(y<=2.5, -9.97072 + gradient*abs(y - 2.5) + init, 0), conditional(y<=2.5, -9.97072 -gradient*abs(y - 2.5) + final, 0)))
+bathymetry_2d2 = Function(V).interpolate(conditional(x <= 5, conditional(y <= 2.5, -9.97072 + gradient*abs(y - 2.5) + init, 0), conditional(y <= 2.5, -9.97072 - gradient*abs(y - 2.5) + final, 0)))
 bathymetry_2d = Function(V).interpolate(-bathymetry_2d1 - bathymetry_2d2)
 
 # simulate initial hydrodynamics
 # define initial elevation
 elev_init = Function(P1_2d).interpolate(0.0544 - bathymetry_2d)
 # define initial velocity
-uv_init = Function(vectorP1_2d).interpolate(as_vector((0.001,0.001)))
+uv_init = Function(vectorP1_2d).interpolate(as_vector((0.001, 0.001)))
 
 # choose directory to output results
 ts = time.time()
