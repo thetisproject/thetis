@@ -111,17 +111,21 @@ class FieldDict(AttrDict):
 
 
 def get_functionspace(mesh, h_family, h_degree, v_family=None, v_degree=None,
-                      vector=False, hdiv=False, variant=None, **kwargs):
+                      vector=False, hdiv=False, variant=None, v_variant=None,
+                      **kwargs):
     gdim = mesh.geometric_dimension()
     assert gdim in [2, 3]
+    hdiv_families = [
+        'RT', 'RTF', 'RTCF', 'RAVIART-THOMAS',
+        'BDM', 'BDMF', 'BDMCF', 'BREZZI-DOUGLAS-MARINI',
+    ]
     if variant is None:
-        if h_family.upper() == 'RT' or h_family.lower() == 'raviart-thomas':
+        if h_family.upper() in hdiv_families:
             variant = 'point'
         else:
             variant = 'equispaced'
+    if v_variant is None:
         v_variant = 'equispaced'
-    else:
-        v_variant = variant
     if gdim == 3:
         if v_family is None:
             v_family = h_family
@@ -161,6 +165,9 @@ def element_continuity(ufl_element):
         'Discontinuous Lagrange': 'dg',
         'Lagrange': 'cg',
         'Raviart-Thomas': 'hdiv',
+        'RTCF': 'hdiv',
+        'Brezzi-Douglas-Marini': 'hdiv',
+        'BDMCF': 'hdiv',
         'Q': 'cg',
         'DQ': 'dg',
     }
@@ -169,6 +176,8 @@ def element_continuity(ufl_element):
         elem = elem.sub_elements()[0]
     if isinstance(elem, ufl.finiteelement.mixedelement.VectorElement):
         elem = elem.sub_elements()[0]  # take the elem of first component
+    if isinstance(elem, ufl.finiteelement.enrichedelement.EnrichedElement):
+        elem = elem._elements[0]
     if isinstance(elem, ufl.finiteelement.tensorproductelement.TensorProductElement):
         a, b = elem.sub_elements()
         horiz_type = elem_types[a.family()]
@@ -324,13 +333,15 @@ def comp_tracer_mass_3d(scalar_func):
     return val
 
 
-def get_zcoord_from_mesh(zcoord, solver_parameters={}):
+def get_zcoord_from_mesh(zcoord, solver_parameters=None):
     """
     Evaluates z coordinates from the 3D mesh
 
     :arg zcoord: scalar :class:`Function` where coordinates will be stored
     """
     # TODO coordinates should probably be interpolated instead
+    if solver_parameters is None:
+        solver_parameters = {}
     solver_parameters.setdefault('ksp_atol', 1e-12)
     solver_parameters.setdefault('ksp_rtol', 1e-16)
     fs = zcoord.function_space()
@@ -373,7 +384,7 @@ class VerticalVelocitySolver(object):
     condition.
     """
     def __init__(self, solution, uv, bathymetry, boundary_funcs={},
-                 solver_parameters={}):
+                 solver_parameters=None):
         """
         :arg solution: w :class:`Function`
         :arg uv: horizontal velocity :class:`Function`
@@ -382,6 +393,8 @@ class VerticalVelocitySolver(object):
             equation. Provides external values of uv (if any).
         :kwarg dict solver_parameters: PETSc solver options
         """
+        if solver_parameters is None:
+            solver_parameters = {}
         solver_parameters.setdefault('snes_type', 'ksponly')
         solver_parameters.setdefault('ksp_type', 'preonly')
         solver_parameters.setdefault('pc_type', 'bjacobi')
@@ -450,7 +463,7 @@ class VerticalIntegrator(object):
     """
     def __init__(self, input, output, bottom_to_top=True,
                  bnd_value=Constant(0.0), average=False,
-                 bathymetry=None, elevation=None, solver_parameters={}):
+                 bathymetry=None, elevation=None, solver_parameters=None):
         """
         :arg input: 3D field to integrate
         :arg output: 3D field where the integral is stored
@@ -461,16 +474,21 @@ class VerticalIntegrator(object):
         :kwarg elevation: 3D field defining the free surface elevation
         :kwarg dict solver_parameters: PETSc solver options
         """
-        solver_parameters.setdefault('snes_type', 'ksponly')
-        solver_parameters.setdefault('ksp_type', 'preonly')
-        solver_parameters.setdefault('pc_type', 'bjacobi')
-        solver_parameters.setdefault('sub_ksp_type', 'preonly')
-        solver_parameters.setdefault('sub_pc_type', 'ilu')
-
         self.output = output
         space = output.function_space()
         mesh = space.mesh()
-        vertical_is_dg = element_continuity(space.ufl_element()).vertical in ['dg', 'hdiv']
+        e_continuity = element_continuity(space.ufl_element())
+        vertical_is_dg = e_continuity.vertical in ['dg', 'hdiv']
+
+        if solver_parameters is None:
+            solver_parameters = {}
+        solver_parameters.setdefault('snes_type', 'ksponly')
+        if e_continuity.vertical != 'hdiv':
+            solver_parameters.setdefault('ksp_type', 'preonly')
+            solver_parameters.setdefault('pc_type', 'bjacobi')
+            solver_parameters.setdefault('sub_ksp_type', 'preonly')
+            solver_parameters.setdefault('sub_pc_type', 'ilu')
+
         tri = TrialFunction(space)
         phi = TestFunction(space)
         normal = FacetNormal(mesh)
@@ -652,7 +670,7 @@ class VelocityMagnitudeSolver(object):
     Computes magnitude of (u[0],u[1],w) and stores it in solution
     """
     def __init__(self, solution, u=None, w=None, min_val=1e-6,
-                 solver_parameters={}):
+                 solver_parameters=None):
         """
         :arg solution: scalar field for velocity magnitude scalar :class:`Function`
         :type solution: :class:`Function`
@@ -874,10 +892,10 @@ class ExpandFunctionTo3d(object):
             # a normal tensorproduct element
             family_3dh = ufl_elem.sub_elements()[0].family()
             if family_2d != family_3dh:
-                raise Exception('2D and 3D spaces do not match: "{0:s}" != "{1:s}"'.format(family_2d, family_3dh))
-        if family_2d == 'Raviart-Thomas' and elem_height is None:
-            raise Exception('elem_height must be provided for Raviart-Thomas spaces')
-        self.do_rt_scaling = family_2d == 'Raviart-Thomas'
+                raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
+        self.do_hdiv_scaling = family_2d in ['Raviart-Thomas', 'RTCF', 'Brezzi-Douglas-Marini', 'BDMCF']
+        if self.do_hdiv_scaling and elem_height is None:
+            raise Exception('elem_height must be provided for HDiv spaces')
 
         self.iter_domain = op2.ALL
 
@@ -901,7 +919,7 @@ class ExpandFunctionTo3d(object):
                     'v_nodes': n_vert_nodes},
             'my_kernel')
 
-        if self.do_rt_scaling:
+        if self.do_hdiv_scaling:
             solver_parameters = {}
             solver_parameters.setdefault('ksp_atol', 1e-12)
             solver_parameters.setdefault('ksp_rtol', 1e-16)
@@ -923,7 +941,7 @@ class ExpandFunctionTo3d(object):
                 self.idx(op2.READ),
                 iterate=self.iter_domain)
 
-            if self.do_rt_scaling:
+            if self.do_hdiv_scaling:
                 self.rt_scale_solver.solve()
 
 
@@ -1001,9 +1019,9 @@ class SubFunctionExtractor(object):
             family_3dh = elem.sub_elements()[0].family()
             if family_2d != family_3dh:
                 raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
-        if family_2d == 'Raviart-Thomas' and elem_height is None:
-            raise Exception('elem_height must be provided for Raviart-Thomas spaces')
-        self.do_rt_scaling = family_2d == 'Raviart-Thomas'
+        self.do_hdiv_scaling = family_2d in ['Raviart-Thomas', 'RTCF', 'Brezzi-Douglas-Marini', 'BDMCF']
+        if self.do_hdiv_scaling and elem_height is None:
+            raise Exception('elem_height must be provided for HDiv spaces')
 
         assert elem_facet in ['top', 'bottom', 'average'], 'Unsupported elem_facet: {:}'.format(elem_facet)
         if elem_facet == 'average':
@@ -1052,7 +1070,7 @@ class SubFunctionExtractor(object):
                         'func3d_dim': self.fs_3d.value_size},
                 'my_kernel')
 
-        if self.do_rt_scaling:
+        if self.do_hdiv_scaling:
             solver_parameters = {}
             solver_parameters.setdefault('ksp_atol', 1e-12)
             solver_parameters.setdefault('ksp_rtol', 1e-16)
@@ -1073,7 +1091,7 @@ class SubFunctionExtractor(object):
                          self.idx(op2.READ),
                          iterate=self.iter_domain)
 
-            if self.do_rt_scaling:
+            if self.do_hdiv_scaling:
                 self.rt_scale_solver.solve()
 
 
@@ -1538,7 +1556,7 @@ class SmagorinskyViscosity(object):
     http://dx.doi.org/10.1175/1520-0493(2000)128%3C2935:BFWASL%3E2.0.CO;2
     """
     def __init__(self, uv, output, c_s, h_elem_size, max_val, min_val=1e-10,
-                 weak_form=True, solver_parameters={}):
+                 weak_form=True, solver_parameters=None):
         """
         :arg uv_3d: horizontal velocity
         :type uv_3d: 3D vector :class:`Function`
@@ -1556,6 +1574,8 @@ class SmagorinskyViscosity(object):
             Necessary for some function spaces (e.g. P0).
         :kwarg dict solver_parameters: PETSc solver options
         """
+        if solver_parameters is None:
+            solver_parameters = {}
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
         assert max_val.function_space() == output.function_space(), \

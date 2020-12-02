@@ -164,7 +164,7 @@ class FlowSolver(FrozenClass):
         degree. It is used to compute maximal stable time steps.
         """
         p = self.options.polynomial_degree
-        if self.options.element_family == 'rt-dg':
+        if self.options.element_family in ['rt-dg', 'bdm-dg']:
             # velocity space is essentially p+1
             p = self.options.polynomial_degree + 1
         # assuming DG basis functions on triangles
@@ -274,8 +274,10 @@ class FlowSolver(FrozenClass):
             nu = nu_scale.dat.data[0]
         min_dx = self.fields.h_elem_size_2d.dat.data.min()
         factor = 2.0
+        if self.options.element_family == 'bdm-dg':
+            factor = 1.8
         if self.options.timestepper_type == 'LeapFrog':
-            factor = 1.2
+            factor *= 0.6
         min_dx *= factor*self.compute_dx_factor()
         dt = (min_dx)**2/nu
         dt = self.comm.allreduce(dt, op=MPI.MIN)
@@ -395,12 +397,19 @@ class FlowSolver(FrozenClass):
         self.function_spaces.P1DGv = get_functionspace(self.mesh, 'DG', 1, 'DG', 1, name='P1DGv', vector=True)
 
         # function spaces for (u,v) and w
-        if self.options.element_family == 'rt-dg':
-            self.function_spaces.U = get_functionspace(self.mesh, 'RT', self.options.polynomial_degree+1, 'DG', self.options.polynomial_degree, name='U', hdiv=True)
+        if self.options.element_family in ['rt-dg', 'bdm-dg']:
+            h_family_prefix = self.options.element_family.split('-')[0].upper()
+            h_family_suffix = {'triangle': 'F', 'quadrilateral': 'CF'}
+            h_cell = self.mesh2d.ufl_cell().cellname()
+            hfam = h_family_prefix + h_family_suffix[h_cell]
+            h_degree = self.options.polynomial_degree + 1
+            self.function_spaces.U = get_functionspace(self.mesh, hfam, h_degree, 'DG', self.options.polynomial_degree, name='U', hdiv=True)
             self.function_spaces.W = get_functionspace(self.mesh, 'DG', self.options.polynomial_degree, 'CG', self.options.polynomial_degree+1, name='W', hdiv=True)
+            self.function_spaces.U_2d = get_functionspace(self.mesh2d, hfam, h_degree, name='U_2d')
         elif self.options.element_family == 'dg-dg':
             self.function_spaces.U = get_functionspace(self.mesh, 'DG', self.options.polynomial_degree, 'DG', self.options.polynomial_degree, name='U', vector=True)
             self.function_spaces.W = get_functionspace(self.mesh, 'DG', self.options.polynomial_degree, 'DG', self.options.polynomial_degree, name='W', vector=True)
+            self.function_spaces.U_2d = get_functionspace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d', vector=True)
         else:
             raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
 
@@ -414,11 +423,6 @@ class FlowSolver(FrozenClass):
         self.function_spaces.P1v_2d = get_functionspace(self.mesh2d, 'CG', 1, name='P1v_2d', vector=True)
         self.function_spaces.P1DG_2d = get_functionspace(self.mesh2d, 'DG', 1, name='P1DG_2d')
         self.function_spaces.P1DGv_2d = get_functionspace(self.mesh2d, 'DG', 1, name='P1DGv_2d', vector=True)
-        # 2D velocity space
-        if self.options.element_family == 'rt-dg':
-            self.function_spaces.U_2d = get_functionspace(self.mesh2d, 'RT', self.options.polynomial_degree+1, name='U_2d')
-        elif self.options.element_family == 'dg-dg':
-            self.function_spaces.U_2d = get_functionspace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d', vector=True)
         self.function_spaces.H_2d = get_functionspace(self.mesh2d, 'DG', self.options.polynomial_degree, name='H_2d')
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d], name='V_2d')
 
@@ -426,14 +430,12 @@ class FlowSolver(FrozenClass):
         if self.options.use_quadratic_pressure:
             self.function_spaces.P2DGxP2 = get_functionspace(self.mesh, 'DG', 2, 'CG', 2, name='P2DGxP2')
             self.function_spaces.P2DG_2d = get_functionspace(self.mesh2d, 'DG', 2, name='P2DG_2d')
+            self.function_spaces.H_bhead = self.function_spaces.P2DGxP2
+            self.function_spaces.H_bhead_2d = self.function_spaces.P2DG_2d
             if self.options.element_family == 'dg-dg':
                 self.function_spaces.P2DGxP1DGv = get_functionspace(self.mesh, 'DG', 2, 'DG', 1, name='P2DGxP1DGv', vector=True, dim=2)
-                self.function_spaces.H_bhead = self.function_spaces.P2DGxP2
-                self.function_spaces.H_bhead_2d = self.function_spaces.P2DG_2d
                 self.function_spaces.U_int_pg = self.function_spaces.P2DGxP1DGv
-            elif self.options.element_family == 'rt-dg':
-                self.function_spaces.H_bhead = self.function_spaces.P2DGxP2
-                self.function_spaces.H_bhead_2d = self.function_spaces.P2DG_2d
+            else:
                 self.function_spaces.U_int_pg = self.function_spaces.U
         else:
             self.function_spaces.P1DGxP2 = get_functionspace(self.mesh, 'DG', 1, 'CG', 2, name='P1DGxP2')
@@ -868,8 +870,9 @@ class FlowSolver(FrozenClass):
                                                      bathymetry=self.fields.bathymetry_2d.view_3d,
                                                      elevation=self.fields.elev_cg_2d.view_3d)
             self.int_pg_calculator = momentum_eq.InternalPressureGradientCalculator(
-                self.fields, self.fields.bathymetry_2d.view_3d, self.options,
+                self.fields, self.fields.bathymetry_2d.view_3d,
                 self.bnd_functions['momentum'],
+                internal_pg_scalar=self.options.internal_pg_scalar,
                 solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
         self.extract_surf_dav_uv = SubFunctionExtractor(self.fields.uv_dav_3d,
                                                         self.fields.uv_dav_2d,

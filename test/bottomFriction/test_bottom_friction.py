@@ -122,7 +122,7 @@ def run_bottom_friction(do_assert=True, do_export=False, **model_options):
         print_output('L2 error {:.4f} PASSED'.format(uv_l2_err))
 
 
-@pytest.fixture(params=['rt-dg', 'dg-dg'])
+@pytest.fixture(params=['rt-dg', 'dg-dg', 'bdm-dg'])
 def element_family(request):
     return request.param
 

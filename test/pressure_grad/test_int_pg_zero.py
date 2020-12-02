@@ -131,198 +131,117 @@ def compute_pg_error(**kwargs):
     return res
 
 
-@pytest.fixture(params=[
-    {
-        'element_family': 'dg-dg',
+options_dict = {
+    'setup1': {
         'use_quadratic_pressure': True,
         'use_quadratic_density': True,
         'lin_strat': False,
         'equation_of_state_type': 'full',
         'geometry': 'seamount',
-        'target': 2e-6,
     },
-    {
-        'element_family': 'dg-dg',
+    'setup2': {
         'use_quadratic_pressure': False,
         'use_quadratic_density': False,
         'lin_strat': True,
         'equation_of_state_type': 'linear',
         'geometry': 'warped',
-        'target': 7e-4,
     },
-    {
-        'element_family': 'dg-dg',
+    'setup3': {
         'use_quadratic_pressure': True,
         'use_quadratic_density': False,
         'lin_strat': True,
         'equation_of_state_type': 'linear',
         'geometry': 'warped',
-        'target': 1e-13,
     },
-    {
-        'element_family': 'dg-dg',
+    'setup4': {
         'use_quadratic_pressure': True,
         'use_quadratic_density': False,
         'lin_strat': True,
         'equation_of_state_type': 'full',
         'geometry': 'warped',
-        'target': 7e-6,
     },
-    {
-        'element_family': 'dg-dg',
+    'setup5': {
         'use_quadratic_pressure': True,
         'use_quadratic_density': True,
         'lin_strat': True,
         'equation_of_state_type': 'full',
         'geometry': 'warped',
-        'target': 1e-6,
     },
-    {
-        'element_family': 'dg-dg',
+    'setup6': {
         'use_quadratic_pressure': True,
         'use_quadratic_density': False,
         'lin_strat': False,
         'equation_of_state_type': 'full',
         'geometry': 'warped',
-        'target': 3e-5,
     },
-    {
-        'element_family': 'dg-dg',
+    'setup7': {
         'use_quadratic_pressure': True,
         'use_quadratic_density': True,
         'lin_strat': False,
         'equation_of_state_type': 'full',
         'geometry': 'warped',
-        'target': 1e-5,
     },
-    {
-        'element_family': 'rt-dg',
-        'use_quadratic_pressure': True,
-        'use_quadratic_density': True,
-        'lin_strat': False,
-        'equation_of_state_type': 'full',
-        'geometry': 'seamount',
-        'target': 9.0,
-    },
-    {
-        'element_family': 'rt-dg',
-        'use_quadratic_pressure': False,
-        'use_quadratic_density': False,
-        'lin_strat': True,
-        'equation_of_state_type': 'linear',
-        'geometry': 'warped',
-        'target': 850.,
-    },
-    {
-        'element_family': 'rt-dg',
-        'use_quadratic_pressure': True,
-        'use_quadratic_density': False,
-        'lin_strat': True,
-        'equation_of_state_type': 'linear',
-        'geometry': 'warped',
-        'target': 1e-7,
-    },
-    {
-        'element_family': 'rt-dg',
-        'use_quadratic_pressure': True,
-        'use_quadratic_density': False,
-        'lin_strat': True,
-        'equation_of_state_type': 'full',
-        'geometry': 'warped',
-        'target': 30.,
-    },
-    {
-        'element_family': 'rt-dg',
-        'use_quadratic_pressure': True,
-        'use_quadratic_density': True,
-        'lin_strat': True,
-        'equation_of_state_type': 'full',
-        'geometry': 'warped',
-        'target': 9.,
-    },
-    {
-        'element_family': 'rt-dg',
-        'use_quadratic_pressure': True,
-        'use_quadratic_density': False,
-        'lin_strat': False,
-        'equation_of_state_type': 'full',
-        'geometry': 'warped',
-        'target': 60.,
-    },
-    {
-        'element_family': 'rt-dg',
+    'setup8': {
         'use_quadratic_pressure': True,
         'use_quadratic_density': True,
         'lin_strat': False,
         'equation_of_state_type': 'full',
         'geometry': 'warped',
-        'target': 40.,
     },
+}
+
+
+@pytest.mark.parametrize('setup,element_family,target', [
+    ('setup1', 'dg-dg', 2e-6,),
+    ('setup2', 'dg-dg', 7e-4,),
+    ('setup3', 'dg-dg', 1e-13,),
+    ('setup4', 'dg-dg', 7e-6,),
+    ('setup5', 'dg-dg', 1e-6,),
+    ('setup6', 'dg-dg', 3e-5,),
+    ('setup7', 'dg-dg', 1e-5,),
+    ('setup1', 'rt-dg', 9.0,),
+    ('setup2', 'rt-dg', 850.,),
+    ('setup3', 'rt-dg', 1e-7,),
+    ('setup4', 'rt-dg', 30.,),
+    ('setup5', 'rt-dg', 9.,),
+    ('setup6', 'rt-dg', 60.,),
+    ('setup7', 'rt-dg', 40.,),
+    ('setup1', 'bdm-dg', 9.0,),
+    ('setup2', 'bdm-dg', 950.,),
+    ('setup3', 'bdm-dg', 1e-7,),
+    ('setup4', 'bdm-dg', 40.,),
+    ('setup5', 'bdm-dg', 8.,),
+    ('setup6', 'bdm-dg', 80.,),
+    ('setup7', 'bdm-dg', 60.,),
 ],)
-def pg_test_setup(request):
-    return request.param
-
-
-def test_int_pg(pg_test_setup):
+def test_int_pg(setup, element_family, target):
     """
     Initialize model and check magnitude of internal pressure gradient error
 
     Correct pressure gradient is zero.
     """
-    target = pg_test_setup.pop('target')
-    error = compute_pg_error(**pg_test_setup)
+    options = options_dict[setup]
+    options['element_family'] = element_family
+    error = compute_pg_error(**options)
     assert error['int_pg_3d'] < target
 
 
-@pytest.fixture(params=[
-    {
-        'element_family': 'dg-dg',
-        'use_quadratic_pressure': True,
-        'use_quadratic_density': True,
-        'lin_strat': False,
-        'equation_of_state_type': 'full',
-        'geometry': 'warped',
-        'target': 0.02,
-    },
-    {
-        'element_family': 'dg-dg',
-        'use_quadratic_pressure': True,
-        'use_quadratic_density': False,
-        'lin_strat': True,
-        'equation_of_state_type': 'linear',
-        'geometry': 'warped',
-        'target': 1e-11,
-    },
-    {
-        'element_family': 'rt-dg',
-        'use_quadratic_pressure': True,
-        'use_quadratic_density': True,
-        'lin_strat': False,
-        'equation_of_state_type': 'full',
-        'geometry': 'warped',
-        'target': 80e3,
-    },
-    {
-        'element_family': 'rt-dg',
-        'use_quadratic_pressure': True,
-        'use_quadratic_density': False,
-        'lin_strat': True,
-        'equation_of_state_type': 'linear',
-        'geometry': 'warped',
-        'target': 5e-4,
-    },
+@pytest.mark.parametrize('setup,element_family,target', [
+    ('setup8', 'dg-dg', 0.005),
+    ('setup3', 'dg-dg', 1e-12),
+    ('setup8', 'rt-dg', 80e3),
+    ('setup3', 'rt-dg', 1e-4),
+    ('setup8', 'bdm-dg', 90e3),
+    ('setup3', 'bdm-dg', 5e-4),
 ],)
-def stability_setup(request):
-    return request.param
-
-
-def test_stability(stability_setup):
+def test_stability(setup, element_family, target):
     """
     Run model for a few time steps, check magnitude of the velocity field.
     """
-    target = stability_setup.pop('target')
-    stability_setup['iterate'] = True
-    error = compute_pg_error(**stability_setup)
+    options = options_dict[setup]
+    options['element_family'] = element_family
+    options['iterate'] = True
+    error = compute_pg_error(**options)
     assert error['uv_3d'] < target
 
 

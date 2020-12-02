@@ -386,12 +386,12 @@ class CommonModelOptions(FrozenConfigurable):
     nh_model_options = Instance(NonhydrostaticModelOptions, args=()).tag(config=True)
     polynomial_degree = NonNegativeInteger(1, help='Polynomial degree of elements').tag(config=True)
     element_family = Enum(
-        ['dg-dg', 'rt-dg', 'dg-cg'],
+        ['dg-dg', 'rt-dg', 'bdm-dg', 'dg-cg'],
         default_value='dg-dg',
         help="""Finite element family
 
-        2D solver supports 'dg-dg', 'rt-dg', or 'dg-cg' velocity-pressure pairs.
-        3D solver supports 'dg-dg', or 'rt-dg' velocity-pressure pairs.""").tag(config=True)
+        2D solver supports 'dg-dg', 'rt-dg', 'bdm-dg', or 'dg-cg' velocity-pressure pairs.
+        3D solver supports 'dg-dg', 'rt-dg', or 'bdm-dg' velocity-pressure pairs.""").tag(config=True)
 
     use_nonlinear_equations = Bool(True, help='Use nonlinear shallow water equations').tag(config=True)
     use_grad_div_viscosity_term = Bool(
@@ -821,3 +821,5 @@ class ModelOptions3d(CommonModelOptions):
         Constant(1.5), help="Penalty parameter used for horizontal diffusivity terms of the turbulence model.").tag(config=True)
     sipg_parameter_vertical_turb = FiredrakeScalarExpression(
         Constant(1.0), help="Penalty parameter used for vertical diffusivity terms of the turbulence model.").tag(config=True)
+    internal_pg_scalar = FiredrakeConstantTraitlet(
+        None, allow_none=True, help="A constant to scale the internal pressure gradient. Used to ramp up the model.").tag(config=True)
