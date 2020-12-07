@@ -379,6 +379,16 @@ class NonhydrostaticModelOptions(FrozenHasTraits):
         'pc_type': 'lu',
     }).tag(config=True)
 
+    wetting_and_drying_threshold = NonNegativeFloat(
+        1e-6, help="Wetting and drying threshold in thin-film method with runge-kutta time stepping").tag(config=True)
+    solve_equations_in_conservative_form = Bool(False, help='Solve equations in conservative form').tag(config=True)
+    flow_is_granular = Bool(False, help='Flow is granular').tag(config=True)
+    rho_g = NonNegativeFloat(2650.0, help="Density of slide").tag(config=True)
+    phi_i = NonNegativeFloat(0.0, help='Internal friction angle of the granular solid').tag(config=True)
+    phi_b = NonNegativeFloat(0.0, help='Bed friction angle of grains').tag(config=True)
+    lamda = Float(1.0, help='Parameter to be calibrated using laboratory measurements in granular flow').tag(config=True)
+    bed_slope = FiredrakeVectorExpression(Constant((0, 0, 1)), help='Bed slope for granular flow solver').tag(config=True)
+
 
 class CommonModelOptions(FrozenConfigurable):
     """Options that are common for both 2d and 3d models"""
