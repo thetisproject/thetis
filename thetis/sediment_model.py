@@ -113,8 +113,18 @@ class SedimentModel(object):
         self.rhow = physical_constants['rho0']
         kappa = physical_constants['von_karman']
 
-        ksp = Function(self.R_1d).assign(3*self.average_size)
-        self.a = Function(self.R_1d).assign(self.bed_reference_height/2)
+        if hasattr(self.average_size.function_space(), 'ufl_element') and self.average_size.ufl_element().degree() > 0:
+            V = self.P1_2d
+        else:
+            V = self.R_1d
+
+        ksp = Function(V).project(Constant(3)*self.average_size)
+
+        if hasattr(self.bed_reference_height.function_space(), 'ufl_element') and self.bed_reference_height.function_space().ufl_element().degree() > 0:
+            self.a = Function(self.P1_2d).interpolate(self.bed_reference_height/2)
+        else:
+            self.a = Function(self.R_1d).assign(self.bed_reference_height/2)
+
         if self.options.sediment_model_options.morphological_viscosity is None:
             self.viscosity = self.options.horizontal_viscosity
         else:
@@ -130,19 +140,19 @@ class SedimentModel(object):
         # calculate critical shields parameter thetacr
         self.R = self.rhos/self.rhow - Constant(1)
 
-        self.dstar = Function(self.R_1d).assign(self.average_size*((self.g*self.R)/(self.viscosity**2))**(1/3))
-        if float(self.dstar.dat.data[:]) < 1:
+        self.dstar = Function(V).project(self.average_size*((self.g*self.R)/(self.viscosity**2))**(1/3))
+        if float(max(self.dstar.dat.data[:])) < 1:
             raise ValueError('dstar value less than 1')
-        self.thetacr = Function(self.R_1d).project(conditional(self.dstar < 4, 0.24*(self.dstar**(-1)),
+        self.thetacr = Function(V).project(conditional(self.dstar < 4, 0.24*(self.dstar**(-1)),
                                                               conditional(self.dstar < 10, 0.14*(self.dstar**(-0.64)),
                                                                           conditional(self.dstar < 20, 0.04*(self.dstar**(-0.1)),
                                                                                       conditional(self.dstar < 150, 0.013*(self.dstar**(0.29)), 0.055)))))
 
         # critical bed shear stress
-        self.taucr = Function(self.R_1d).assign((self.rhos-self.rhow)*self.g*self.average_size*self.thetacr)
+        self.taucr = Function(V).project((self.rhos-self.rhow)*self.g*self.average_size*self.thetacr)
 
         # calculate settling velocity
-        self.settling_velocity = Function(self.R_1d).assign(conditional(self.average_size <= 1e-04, self.g*(self.average_size**2)*self.R/(18*self.viscosity),
+        self.settling_velocity = Function(V).project(conditional(self.average_size <= 1e-04, self.g*(self.average_size**2)*self.R/(18*self.viscosity),
                                                                         conditional(self.average_size <= 1e-03, (10*self.viscosity/self.average_size)
                                                                                     * (sqrt(1 + 0.01*((self.R*self.g*(self.average_size**3))
                                                                                        / (self.viscosity**2)))-1), 1.1*sqrt(self.g*self.average_size*self.R))))
@@ -229,7 +239,7 @@ class SedimentModel(object):
 
         if self.use_angle_correction:
             # slope effect angle correction due to gravity
-            cparam = Function(self.R_1d).assign((self.rhos-self.rhow)*self.g*self.average_size*(self.surbeta2**2))
+            cparam = ((self.rhos-self.rhow)*self.g*self.average_size*(self.surbeta2**2))
             tt1 = conditional(self.stress > Constant(1e-10), sqrt(cparam/self.stress), sqrt(cparam/Constant(1e-10)))
 
             # define bed gradient
