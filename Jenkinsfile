@@ -26,8 +26,6 @@ pipeline {
                 dir('build') {
                     timestamps {
                         sh '''
-sudo apt update
-sudo apt install -y strace
 sudo -u firedrake /bin/bash << Here
 whoami
 cd /home/firedrake
@@ -66,7 +64,9 @@ python -m pip install -e .
 which mpicc
 ls -l $(which mpicc)
 whoami
-strace mpicc --version
+cat $(which mpicc)
+echo 11111111111111111111111111111111111111111111111111111111
+cat $VIRTUAL_ENV/src/petsc/default/bin/mpicc
 mpicc --version
 python -mpytest -v test/ -n 11
 '''
@@ -81,7 +81,9 @@ python -mpytest -v test/ -n 11
 which mpicc
 ls -l $(which mpicc)
 whoami
-strace mpicc --version
+cat $(which mpicc)
+echo 11111111111111111111111111111111111111111111111111111111
+cat $VIRTUAL_ENV/src/petsc/default/bin/mpicc
 mpicc --version
 python -mpytest -v test_adjoint/
 '''
