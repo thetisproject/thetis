@@ -26,6 +26,7 @@ pipeline {
                 dir('build') {
                     timestamps {
                         sh '''
+sudo apt update
 sudo apt install strace
 sudo -u firedrake /bin/bash << Here
 whoami
