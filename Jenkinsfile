@@ -61,12 +61,12 @@ python -m pip install -e .
                         timestamps {
                             sh '''
 . /home/firedrake/firedrake/bin/activate
-which mpicc
-ls -l $(which mpicc)
 whoami
-cat $(which mpicc)
-echo 11111111111111111111111111111111111111111111111111111111
+ls -l $VIRTUAL_ENV/bin/mpicc
+cat $VIRTUAL_ENV/bin/mpicc
+ls -l $VIRTUAL_ENV/src/petsc/default/bin/mpicc
 cat $VIRTUAL_ENV/src/petsc/default/bin/mpicc
+which mpicc
 mpicc --version
 python -mpytest -v test/ -n 11
 '''
@@ -78,12 +78,12 @@ python -mpytest -v test/ -n 11
                         timestamps {
                             sh '''
 . /home/firedrake/firedrake/bin/activate
-which mpicc
-ls -l $(which mpicc)
 whoami
-cat $(which mpicc)
-echo 11111111111111111111111111111111111111111111111111111111
+ls -l $VIRTUAL_ENV/bin/mpicc
+cat $VIRTUAL_ENV/bin/mpicc
+ls -l $VIRTUAL_ENV/src/petsc/default/bin/mpicc
 cat $VIRTUAL_ENV/src/petsc/default/bin/mpicc
+which mpicc
 mpicc --version
 python -mpytest -v test_adjoint/
 '''
