@@ -20,7 +20,7 @@ pipeline {
                 }
             }
         }
-        stage('Update Firedrake and Fix Permissions') {
+        stage('Fix Firedrake Permissions') {
             steps {
                 sh 'mkdir build'
                 dir('build') {
@@ -30,8 +30,7 @@ sudo -u firedrake /bin/bash << Here
 whoami
 cd /home/firedrake
 . /home/firedrake/firedrake/bin/activate
-firedrake-update || (cat firedrake-update.log && /bin/false)
-chmod a+rwX -R /home/firedrake/firedrake/lib
+chmod a+rwX -R /home/firedrake/firedrake/lib/python*/site-packages
 chmod a+rwX -R /home/firedrake/firedrake/bin
 install -d /home/firedrake/firedrake/.cache
 chmod -R a+rwX /home/firedrake/firedrake/.cache
