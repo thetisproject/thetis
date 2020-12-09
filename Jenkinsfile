@@ -27,7 +27,7 @@ pipeline {
                     timestamps {
                         sh '''
 sudo apt update
-sudo apt install strace
+sudo apt install -y strace
 sudo -u firedrake /bin/bash << Here
 whoami
 cd /home/firedrake
