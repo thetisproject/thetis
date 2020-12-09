@@ -9,8 +9,8 @@ numerical methods used in Thetis to model sediment transport and morphological c
 In the figure produced, we compare our results with experimental data from a lab study
 
 For more details, see
-[1] Clare et al. 2020. “Hydro-morphodynamics 2D Modelling Using a Discontinuous
-    Galerkin Discretisation.” EarthArXiv. January 9. doi:10.31223/osf.io/tpqvy.
+[1] Clare et al. (2020). Hydro-morphodynamics 2D modelling using a discontinuous Galerkin discretisation.
+    Computers & Geosciences, 104658.
 """
 
 from thetis import *
