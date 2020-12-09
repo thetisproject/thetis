@@ -63,6 +63,7 @@ python -m pip install -e .
 . /home/firedrake/firedrake/bin/activate
 which mpicc
 ls -l $(which mpicc)
+strace mpicc --version
 mpicc --version
 python -mpytest -v test/ -n 11
 '''
@@ -76,6 +77,7 @@ python -mpytest -v test/ -n 11
 . /home/firedrake/firedrake/bin/activate
 which mpicc
 ls -l $(which mpicc)
+strace mpicc --version
 mpicc --version
 python -mpytest -v test_adjoint/
 '''
