@@ -64,7 +64,7 @@ def run_migrating_trench(conservative):
     options.sediment_model_options.solve_exner = True
 
     options.sediment_model_options.use_sediment_conservative_form = conservative
-    options.sediment_model_options.average_sediment_size = 160*(10**(-6))
+    options.sediment_model_options.average_sediment_size = Constant(160*(10**(-6)))
     options.sediment_model_options.bed_reference_height = 0.025
     options.sediment_model_options.morphological_acceleration_factor = Constant(morfac)
 

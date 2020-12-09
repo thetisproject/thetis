@@ -38,15 +38,6 @@ vector_dg = VectorFunctionSpace(mesh2d, 'DG', 1)
 
 # choose directory to output results
 outputdir = 'outputs'
-# initialise velocity and elevation
-with DumbCheckpoint("hydrodynamics_meander/elevation", mode=FILE_READ) as chk:
-    elev = Function(DG_2d, name="elevation")
-    chk.load(elev)
-    chk.close()
-with DumbCheckpoint('hydrodynamics_meander/velocity', mode=FILE_READ) as chk:
-    uv = Function(vector_dg, name="velocity")
-    chk.load(uv)
-    chk.close()
 
 morfac = 50
 dt = 2
@@ -58,6 +49,16 @@ if os.getenv('THETIS_REGRESSION_TEST') is not None:
     # run the spin-up by importing it
     import meander_hydro  # NOQA
     end_time = 3600.
+
+# initialise velocity and elevation
+with DumbCheckpoint("hydrodynamics_meander/elevation", mode=FILE_READ) as chk:
+    elev = Function(DG_2d, name="elevation")
+    chk.load(elev)
+    chk.close()
+with DumbCheckpoint('hydrodynamics_meander/velocity', mode=FILE_READ) as chk:
+    uv = Function(vector_dg, name="velocity")
+    chk.load(uv)
+    chk.close()
 
 # set up solver
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
