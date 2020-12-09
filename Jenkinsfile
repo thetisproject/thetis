@@ -20,7 +20,7 @@ pipeline {
                 }
             }
         }
-        stage('Install Pyadjoint') {
+        stage('Update Firedrake and Fix Permissions') {
             steps {
                 sh 'mkdir build'
                 dir('build') {
@@ -30,12 +30,11 @@ sudo -u firedrake /bin/bash << Here
 whoami
 cd /home/firedrake
 . /home/firedrake/firedrake/bin/activate
-firedrake-update --install pyadjoint || (cat firedrake-update.log && /bin/false)
-chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages
-chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages/easy-install.pth
-chmod a+rwx /home/firedrake/firedrake/bin
+firedrake-update || (cat firedrake-update.log && /bin/false)
+chmod a+rwX -R /home/firedrake/firedrake/lib
+chmod a+rwX -R /home/firedrake/firedrake/bin
 install -d /home/firedrake/firedrake/.cache
-chmod -R a+rwx /home/firedrake/firedrake/.cache
+chmod -R a+rwX /home/firedrake/firedrake/.cache
 firedrake-status
 Here
 '''
@@ -62,10 +61,6 @@ python -m pip install -e .
                             sh '''
 . /home/firedrake/firedrake/bin/activate
 whoami
-ls -l $VIRTUAL_ENV/bin/mpicc
-cat $VIRTUAL_ENV/bin/mpicc
-ls -l $VIRTUAL_ENV/src/petsc/default/bin/mpicc
-cat $VIRTUAL_ENV/src/petsc/default/bin/mpicc
 which mpicc
 mpicc --version
 python -mpytest -v test/ -n 11
@@ -79,10 +74,6 @@ python -mpytest -v test/ -n 11
                             sh '''
 . /home/firedrake/firedrake/bin/activate
 whoami
-ls -l $VIRTUAL_ENV/bin/mpicc
-cat $VIRTUAL_ENV/bin/mpicc
-ls -l $VIRTUAL_ENV/src/petsc/default/bin/mpicc
-cat $VIRTUAL_ENV/src/petsc/default/bin/mpicc
 which mpicc
 mpicc --version
 python -mpytest -v test_adjoint/
