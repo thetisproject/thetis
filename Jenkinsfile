@@ -61,6 +61,8 @@ python -m pip install -e .
                         timestamps {
                             sh '''
 . /home/firedrake/firedrake/bin/activate
+which mpicc
+ls -l $(which mpicc)
 mpicc --version
 python -mpytest -v test/ -n 11
 '''
@@ -72,6 +74,8 @@ python -mpytest -v test/ -n 11
                         timestamps {
                             sh '''
 . /home/firedrake/firedrake/bin/activate
+which mpicc
+ls -l $(which mpicc)
 mpicc --version
 python -mpytest -v test_adjoint/
 '''
