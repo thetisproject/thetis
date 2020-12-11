@@ -110,8 +110,6 @@ solver_obj.bnd_functions['shallow_water'] = {inflow_tag: {'elev': ele_bc}}
 
 # --- time updated ---
 def update_forcings(t_new):
-    """Callback function that updates all time dependent forcing fields
-    for the 2d mode"""
     ele_bc.assign(get_inputelevation(t_new))
 
 

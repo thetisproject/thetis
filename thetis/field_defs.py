@@ -256,3 +256,21 @@ field_metadata['w_2d'] = {
     'unit': 'm s-1',
     'filename': 'VertVelo2d',
 }
+field_metadata['h_2d'] = {
+    'name': 'Water height',
+    'shortname': 'Water height',
+    'unit': 'm',
+    'filename': 'WaterHeight',
+}
+field_metadata['hu_2d'] = {
+    'name': '2D momentum hu',
+    'shortname': 'Momentum hu',
+    'unit': 'm2 s-1',
+    'filename': 'MomentumHu2d',
+}
+field_metadata['hv_2d'] = {
+    'name': '2D momentum hv',
+    'shortname': 'Momentum hv',
+    'unit': 'm2 s-1',
+    'filename': 'MomentumHv2d',
+}

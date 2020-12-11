@@ -2032,3 +2032,161 @@ class DepthIntegratedPoissonSolver(object):
         self.solver_u.solve()
         # update vertical velocitiy w_2d
         self.solver_w.solve()
+
+
+class treat_wetting_and_drying(object):
+    """
+    Treat wetting and drying with runge-kutta time stepping,
+
+    as indicated by Ern et al (2011)
+    """
+
+    def __init__(self, space):
+        assert space.ufl_element().degree() == 1,\
+            'Explicit wetting and drying treatment only supports equal order P1DG'
+        self.P1DG = space
+        self.P1DG_mix = MixedFunctionSpace([self.P1DG, self.P1DG, self.P1DG])
+        self.wd_solution = Function(self.P1DG_mix)
+        self.wd_kernel = self.wd_kernel()
+
+    def wd_kernel(self):
+        """
+        Define wetting and drying treatment kernel
+        """ 
+        wd_treatment_kernel = """
+            const double E = %(epsilon)s;
+            double h_avg = 0.; double alpha_h = 1., alpha_hu = 1., alpha_hv = 1.;
+            int a = 0, a1 = 0, a3 = 0, n1, n2, n3, flag1, flag2, flag3, deltau, deltav, npos, dofs;
+            #define STEP(X) (X <= 0 ? 0 : 1)
+            dofs = h_vertex.dofs;
+            for (int i = 0; i < dofs; i++) {
+                if (h_vertex[i] > E) {
+                    a += 1;
+                }
+            }
+            for (int i = 0; i < dofs; i++) {
+                h_avg += h_vertex[i] / dofs;
+            }
+            if (a == dofs) {
+                for (int i = 0; i < dofs; i++) {
+                    h_wd_vertex[i] = h_vertex[i];
+                }
+            }
+            if (h_avg <= E) {
+                for (int i = 0; i < dofs; i++) {
+                    h_wd_vertex[i] = h_avg;
+                }
+            } else{
+                if (a < dofs) {
+                    for (int i = 1; i < dofs; i++) {
+                        if (h_vertex[0] >= h_vertex[i]) {
+                            a1 += 1;
+                        }
+                    }
+                    for (int i = 0; i < dofs - 1; i++) {
+                        if (h_vertex[2] >= h_vertex[i]) {
+                            a3 += 1;
+                        }
+                    }
+                    if (a1 == 2) {
+                        n3 = 0;
+                        if (a3 > 0) {
+                            n2 = 2;
+                            n1 = 1;
+                        }
+                        if (a3 == 0) {
+                            n1 = 2;
+                            n2 = 1;
+                        }
+                    }
+                    if (a1 == 0) {
+                        n1 = 0;
+                        if (a3 == 2) {
+                            n3 = 2;
+                            n2 = 1;
+                        }
+                        if (a3 < 2) {
+                            n2 = 2;
+                            n3 = 1;
+                        }
+                    }
+                    if (a1 == 1) {
+                        n2 = 0;
+                        if (h_vertex[1] >= h_vertex[2]) {
+                            n3 = 1;
+                            n1 = 2;
+                        } else{
+                            n3 = 2;
+                            n1 = 1;
+                        }
+                    }
+                    h_wd_vertex[n1] = E;
+                    h_wd_vertex[n2] = fmax(E, h_vertex[n2] - (h_wd_vertex[n1] - h_vertex[n1]) / 2.);
+                    h_wd_vertex[n3] = h_vertex[n3] - (h_wd_vertex[n1] - h_vertex[n1]) - (h_wd_vertex[n2] - h_vertex[n2]);
+                    if (a == 1) {
+                        h_wd_vertex[n1] = E;
+                        h_wd_vertex[n2] = E;
+                        h_wd_vertex[n3] = h_vertex[n3] - (h_wd_vertex[n1] - h_vertex[n1]) - (h_wd_vertex[n2] - h_vertex[n2]);
+                    } else{
+                        h_wd_vertex[n1] = E;
+                        h_wd_vertex[n2] = fmax(E, h_vertex[n2] - (h_wd_vertex[n1] - h_vertex[n1]) / 2.);
+                        h_wd_vertex[n3] = h_vertex[n3] - (h_wd_vertex[n1] - h_vertex[n1]) / 2.;
+                    }
+                    h_wd_vertex[n1] = h_vertex[n1];
+                    h_wd_vertex[n2] = h_vertex[n2];
+                    h_wd_vertex[n3] = h_vertex[n3]-(h_wd_vertex[n1] - h_vertex[n1]) - (h_wd_vertex[n2] - h_vertex[n2]);
+                }
+            }
+            flag1 = STEP(h_wd_vertex[0] - E);
+            flag2 = STEP(h_wd_vertex[1] - E);
+            flag3 = STEP(h_wd_vertex[2] - E);
+            npos = flag1 + flag2 + flag3;
+            deltau = 0 * (hu_vertex[0]*(1 - flag1) + hu_vertex[1]*(1 - flag2) + hu_vertex[2]*(1 - flag3));
+            deltav = 0 * (hv_vertex[0]*(1 - flag1) + hv_vertex[1]*(1 - flag2) + hv_vertex[2]*(1 - flag3));
+            if (npos > 0) {
+                hu_wd_vertex[0] = flag1*(hu_vertex[0] + deltau/npos);
+                hu_wd_vertex[1] = flag2*(hu_vertex[1] + deltau/npos);
+                hu_wd_vertex[2] = flag3*(hu_vertex[2] + deltau/npos);
+                hv_wd_vertex[0] = flag1*(hv_vertex[0] + deltav/npos);
+                hv_wd_vertex[1] = flag2*(hv_vertex[1] + deltav/npos);
+                hv_wd_vertex[2] = flag3*(hv_vertex[2] + deltav/npos);
+            }
+            if (npos == 0) {
+                hu_wd_vertex[0] = 0.;
+                hu_wd_vertex[1] = 0.;
+                hu_wd_vertex[2] = 0.;
+                hv_wd_vertex[0] = 0.;
+                hv_wd_vertex[1] = 0.;
+                hv_wd_vertex[2] = 0.;
+            }
+            for (int i = 0; i < dofs; i++) {
+                if  (h_wd_vertex[i] <= 0.) {
+                    h_wd_vertex[i] = 0.;
+                }
+            }
+        """
+        return wd_treatment_kernel
+
+    def apply(self, solution, wd_threshold=1e-4, use_eta_solution=False, bathymetry=None):
+        """
+        Apply wetting and drying treatment
+        """
+        self.wd_solution.assign(0.)
+
+        h_wd, hu_wd, hv_wd = self.wd_solution.split()
+        h, hu, hv = solution.split()
+
+        if use_eta_solution:
+            assert bathymetry is not None and element_continuity(bathymetry.function_space().ufl_element()).horizontal == 'dg'
+            h.dat.data[:] += bathymetry.dat.data[:]
+
+        wd_treatment_kernel = self.wd_kernel % {"epsilon": wd_threshold}
+        args = {
+            "h_wd_vertex": (h_wd, RW), "hu_wd_vertex": (hu_wd, RW), "hv_wd_vertex": (hv_wd, RW),
+            "h_vertex": (h, READ), "hu_vertex": (hu, READ), "hv_vertex": (hv, READ),
+        }
+        par_loop(wd_treatment_kernel, dx, args)
+
+        solution.assign(self.wd_solution)
+        if use_eta_solution:
+            h.dat.data[:] += -bathymetry.dat.data[:]

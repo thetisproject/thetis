@@ -378,7 +378,12 @@ class NonhydrostaticModelOptions(FrozenHasTraits):
         'mat_type': 'aij',
         'pc_type': 'lu',
     }).tag(config=True)
+    use_explicit_wetting_and_drying = Bool(
+        False, help=r"""bool: Turn on wetting and drying
 
+        Uses the explicit wetting and drying scheme from Ern et al (2011), compatible with Runge-Kutta time stepping.
+        If ``True``, one should also set :attr:`wetting_and_drying_threshold` to control the thin-film height on dry bed.
+        """).tag(config=True)
     wetting_and_drying_threshold = NonNegativeFloat(
         1e-6, help="Wetting and drying threshold in thin-film method with runge-kutta time stepping").tag(config=True)
     solve_equations_in_conservative_form = Bool(False, help='Solve equations in conservative form').tag(config=True)
