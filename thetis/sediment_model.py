@@ -363,6 +363,8 @@ class SedimentModel(object):
                                          / (self.dstar**0.3))
 
             self.equilibrium_tracer.interpolate(self.erosion_concentration/self.integrated_rouse)
+            if self.use_advective_velocity_correction:
+                self.correction_factor_model.update()
 
         if self.use_bedload:
             # calculate angle of flow
@@ -373,5 +375,3 @@ class SedimentModel(object):
                 # slope effect angle correction due to gravity
                 self.stress.interpolate(self.rhow*Constant(0.5)*self.qfc*self.unorm)
 
-        if self.use_advective_velocity_correction:
-            self.correction_factor_model.update()
