@@ -4,7 +4,6 @@ Plots elevation time series
 import h5py
 import os
 from netCDF4 import Dataset
-from thetis.timezone import *
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,17 +11,11 @@ from collections import OrderedDict
 
 from scipy import interpolate
 
-timezone = FixedTimeZone(-8, 'PST')
-init_date = datetime.datetime(2006, 5, 10, tzinfo=timezone)
-
-epoch = datetime.datetime(1970, 1, 1, tzinfo=pytz.utc)
-
 
 def read_netcdf(fn):
     d = Dataset(fn)
     assert 'time' in d.variables.keys(), 'netCDF file does not contain time variable'
     out = OrderedDict()
-    # assuming epoch time
     out['time'] = d['time'][:]
     for k in d.variables.keys():
         if k == 'time':
