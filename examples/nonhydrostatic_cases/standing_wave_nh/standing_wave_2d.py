@@ -53,6 +53,7 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'q_2d']
 if solve_nonhydrostatic_pressure:
     options_nh = options.nh_model_options
     options_nh.solve_nonhydrostatic_pressure = solve_nonhydrostatic_pressure
+    options_nh.q_degree = 1
 
 # --- create equations ---
 solver_obj.create_equations()

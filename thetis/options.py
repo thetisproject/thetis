@@ -365,13 +365,9 @@ class NonhydrostaticModelOptions(FrozenHasTraits):
     """Options for non-hydrostatic models"""
     name = 'Non-hydrostatic 2D/3D models'
     solve_nonhydrostatic_pressure = Bool(False, help='Solve equations with the non-hydrostatic pressure').tag(config=True)
-    # use_3d_ale_nh = Bool(False, help='Use a 3D ALE non-hydrostatic model accounting for vertical mesh movement').tag(config=True)
-    # use_3d_sigma_nh = Bool(False, help='Use a 3D sigma-coordinate non-hydrostatic model in a fixed domain').tag(config=True)
-    update_free_surface = Bool(True, help='Update free surface elevetion').tag(config=True)
-    n_layers = NonNegativeInteger(1, help='Number of vertical layers').tag(config=True)
-    alpha_nh = List(
-        default_value=[],
-        help="Ratio of layer thickness to the total water depth; the default `[]` implies uniform layers").tag(config=True)
+    q_degree = NonNegativeInteger(
+        None, allow_none=True, help="Polynomial degree of the non-hydrostatic pressure space").tag(config=True)
+    update_free_surface = Bool(True, help='Update free surface elevation after pressure projection/correction step').tag(config=True)
     solver_parameters = PETScSolverParameters({
         'snes_type': 'ksponly',
         'ksp_type': 'preonly',
@@ -470,7 +466,7 @@ class CommonModelOptions(FrozenConfigurable):
     output_directory = Unicode(
         'outputs', help="Directory where model output files are stored").tag(config=True)
     no_exports = Bool(
-        False, help="""
+        not False, help="""
         Do not store any outputs to disk
 
         Disables VTK and HDF5 field outputs. and HDF5 diagnostic outputs.

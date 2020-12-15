@@ -416,9 +416,11 @@ class FlowSolver2d(FrozenClass):
                 depth_integrated_sediment=sediment_options.use_sediment_conservative_form, sediment_model=self.sediment_model)
 
         if self.options.nh_model_options.solve_nonhydrostatic_pressure:
-            print_output('Using non-hydrostatic model with {:} vertical layer'.format(self.options.nh_model_options.n_layers))
+            print_output('Solving the non-hydrostatic pressure')
             print_output('... using 2D mesh based solver ...')
             fs_q = get_functionspace(self.mesh2d, 'CG', self.options.polynomial_degree)
+            if self.options.nh_model_options.q_degree is not None:
+                fs_q = get_functionspace(self.mesh2d, 'CG', self.options.nh_model_options.q_degree)
             self.fields.q_2d = Function(fs_q, name='q_2d')  # 2D non-hydrostatic pressure at bottom
             self.fields.w_2d = Function(self.function_spaces.H_2d, name='w_2d')  # depth-averaged vertical velocity
             # free surface equation
