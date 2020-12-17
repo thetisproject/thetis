@@ -2052,15 +2052,15 @@ class treat_wetting_and_drying(object):
     def wd_kernel(self):
         """
         Define wetting and drying treatment kernel
-        """ 
+        """
         wd_treatment_kernel = """
-            const double E = %(epsilon)s;
-            double h_avg = 0.; double alpha_h = 1., alpha_hu = 1., alpha_hv = 1.;
+            const double eps = %(epsilon)s;
+            double h_avg = 0.;
             int a = 0, a1 = 0, a3 = 0, n1, n2, n3, flag1, flag2, flag3, deltau, deltav, npos, dofs;
             #define STEP(X) (X <= 0 ? 0 : 1)
             dofs = h_vertex.dofs;
             for (int i = 0; i < dofs; i++) {
-                if (h_vertex[i] > E) {
+                if (h_vertex[i] > eps) {
                     a += 1;
                 }
             }
@@ -2072,7 +2072,7 @@ class treat_wetting_and_drying(object):
                     h_wd_vertex[i] = h_vertex[i];
                 }
             }
-            if (h_avg <= E) {
+            if (h_avg <= eps) {
                 for (int i = 0; i < dofs; i++) {
                     h_wd_vertex[i] = h_avg;
                 }
@@ -2120,26 +2120,14 @@ class treat_wetting_and_drying(object):
                             n1 = 1;
                         }
                     }
-                    h_wd_vertex[n1] = E;
-                    h_wd_vertex[n2] = fmax(E, h_vertex[n2] - (h_wd_vertex[n1] - h_vertex[n1]) / 2.);
+                    h_wd_vertex[n1] = eps;
+                    h_wd_vertex[n2] = fmax(eps, h_vertex[n2] - (h_wd_vertex[n1] - h_vertex[n1]) / 2.);
                     h_wd_vertex[n3] = h_vertex[n3] - (h_wd_vertex[n1] - h_vertex[n1]) - (h_wd_vertex[n2] - h_vertex[n2]);
-                    if (a == 1) {
-                        h_wd_vertex[n1] = E;
-                        h_wd_vertex[n2] = E;
-                        h_wd_vertex[n3] = h_vertex[n3] - (h_wd_vertex[n1] - h_vertex[n1]) - (h_wd_vertex[n2] - h_vertex[n2]);
-                    } else{
-                        h_wd_vertex[n1] = E;
-                        h_wd_vertex[n2] = fmax(E, h_vertex[n2] - (h_wd_vertex[n1] - h_vertex[n1]) / 2.);
-                        h_wd_vertex[n3] = h_vertex[n3] - (h_wd_vertex[n1] - h_vertex[n1]) / 2.;
-                    }
-                    h_wd_vertex[n1] = h_vertex[n1];
-                    h_wd_vertex[n2] = h_vertex[n2];
-                    h_wd_vertex[n3] = h_vertex[n3]-(h_wd_vertex[n1] - h_vertex[n1]) - (h_wd_vertex[n2] - h_vertex[n2]);
                 }
             }
-            flag1 = STEP(h_wd_vertex[0] - E);
-            flag2 = STEP(h_wd_vertex[1] - E);
-            flag3 = STEP(h_wd_vertex[2] - E);
+            flag1 = STEP(h_wd_vertex[0] - eps);
+            flag2 = STEP(h_wd_vertex[1] - eps);
+            flag3 = STEP(h_wd_vertex[2] - eps);
             npos = flag1 + flag2 + flag3;
             deltau = 0 * (hu_vertex[0]*(1 - flag1) + hu_vertex[1]*(1 - flag2) + hu_vertex[2]*(1 - flag3));
             deltav = 0 * (hv_vertex[0]*(1 - flag1) + hv_vertex[1]*(1 - flag2) + hv_vertex[2]*(1 - flag3));

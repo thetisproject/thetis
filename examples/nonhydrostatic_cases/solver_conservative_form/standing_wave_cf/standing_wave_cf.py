@@ -35,8 +35,8 @@ solver_obj = solver2d_cf.FlowSolverCF(mesh2d, bathymetry_2d)
 options = solver_obj.options
 options.element_family = 'dg-dg'
 options.polynomial_degree = 1
-options.timestepper_type = 'SSPRK33'
 # time stepper
+options.timestepper_type = 'SSPRK33'
 if hasattr(options.timestepper_options, 'use_automatic_timestep'):
     options.timestepper_options.use_automatic_timestep = False
 options.timestep = dt

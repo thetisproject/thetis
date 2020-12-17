@@ -1,30 +1,11 @@
 """
 Module for 2D depth averaged solver
 """
-from __future__ import absolute_import
 from .utility import *
-from . import shallowwater_eq
 from . import granular_eq
-from . import timeintegrator
 from . import rungekutta
-from . import implicitexplicit
-from . import coupled_timeintegrator_2d
-from . import tracer_eq_2d
-from . import conservative_tracer_eq_2d
-from . import sediment_eq_2d
-from . import exner_eq
 import weakref
-import time as time_mod
-import numpy as np
-from mpi4py import MPI
-from . import exporter
-from .field_defs import field_metadata
-from .options import ModelOptions2d
-from . import callback
-from .log import *
-from collections import OrderedDict
 import thetis.limiter as limiter
-
 from .solver2d import FlowSolver2d
 
 
@@ -83,6 +64,7 @@ class FlowSolverCF(FlowSolver2d):
         self.fields.uv_2d = Function(self.function_spaces.U_2d)
         self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
         get_horizontal_elem_size_2d(self.fields.h_elem_size_2d)
+        self.bathymetry_dg = Function(self.function_spaces.H_2d).project(self.fields.bathymetry_2d)
 
         # ----- Equations
         self.eq_sw = granular_eq.GranularEquations(
@@ -90,9 +72,15 @@ class FlowSolverCF(FlowSolver2d):
             self.fields.bathymetry_2d,
             self.options)
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
-        
-        if self.options.nh_model_options.use_explicit_wetting_and_drying:
+
+        self.options_nh = self.options.nh_model_options
+        if self.options_nh.use_explicit_wetting_and_drying:
             self.wd_modification = treat_wetting_and_drying(self.function_spaces.H_2d)
+
+        if self.options_nh.use_limiter_for_elevation or self.options_nh.use_limiter_for_momentum:
+            self.limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H_2d)
+        else:
+            self.limiter = None
 
         self._isfrozen = True
 
@@ -114,15 +102,6 @@ class FlowSolverCF(FlowSolver2d):
         self.set_time_step()
 
         # ----- Time integrators
-        steppers = {
-            'SSPRK33': rungekutta.SSPRK33,
-            'ForwardEuler': timeintegrator.ForwardEuler,
-            # TODO add more
-        }
-        try:
-            assert self.options.timestepper_type in steppers
-        except AssertionError:
-            raise Exception('Unsupported time integrator type: {:s}'.format(self.options.timestepper_type))
         fields = {
             # 'uv_div': self.uv_div_ls,
             # 'strain_rate': self.strain_rate_ls,
@@ -132,7 +111,7 @@ class FlowSolverCF(FlowSolver2d):
         args = (self.eq_sw, self.fields.solution_2d, fields, self.dt, )
         kwargs = {'bnd_conditions': self.bnd_functions['shallow_water']}
         kwargs['solver_parameters'] = self.options.timestepper_options.solver_parameters
-        self.timestepper = steppers[self.options.timestepper_type](*args, **kwargs)
+        self.timestepper = MyTimeIntegrator2D(weakref.proxy(self), *args, **kwargs)
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
 
         self._isfrozen = True
@@ -172,3 +151,26 @@ class FlowSolverCF(FlowSolver2d):
                                  t=self.simulation_time, h=norm_h,
                                  hu=norm_hu, cpu=cputime))
         sys.stdout.flush()
+
+
+class MyTimeIntegrator2D(rungekutta.SSPRK33):
+    def __init__(self, solver, *args, **kwargs):
+        super(MyTimeIntegrator2D, self).__init__(*args, **kwargs)
+        self.fields = solver.fields
+        self.options_nh = solver.options_nh
+        self.limiter = solver.limiter
+        self.bathymetry_dg = solver.bathymetry_dg
+        self.wd_modification = solver.wd_modification
+
+    def advance(self, t, update_forcings=None):
+        for i in range(self.n_stages):
+            self.solve_stage(i, t, update_forcings)
+            if self.options_nh.use_limiter_for_elevation:
+                self.fields.elev_2d.assign(self.fields.h_2d - self.bathymetry_dg)
+                self.limiter.apply(self.fields.elev_2d)
+                self.fields.h_2d.assign(self.fields.elev_2d + self.bathymetry_dg)
+            if self.options_nh.use_limiter_for_momentum:
+                self.limiter.apply(self.fields.hu_2d)
+                self.limiter.apply(self.fields.hv_2d)
+            if self.options_nh.use_explicit_wetting_and_drying:
+                self.wd_modification.apply(self.fields.solution_2d, self.options_nh.wetting_and_drying_threshold)

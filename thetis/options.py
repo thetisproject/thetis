@@ -389,6 +389,10 @@ class NonhydrostaticModelOptions(FrozenHasTraits):
     phi_b = NonNegativeFloat(0.0, help='Bed friction angle of grains').tag(config=True)
     lamda = Float(1.0, help='Parameter to be calibrated using laboratory measurements in granular flow').tag(config=True)
     bed_slope = FiredrakeVectorExpression(Constant((0, 0, 1)), help='Bed slope for granular flow solver').tag(config=True)
+    use_limiter_for_elevation = Bool(
+        True, help="Apply P1DG limiter for 2D elevation field").tag(config=True)
+    use_limiter_for_momentum = Bool(
+        True, help="Apply P1DG limiter for 2D momentum fields").tag(config=True)
 
 
 class CommonModelOptions(FrozenConfigurable):
@@ -466,7 +470,7 @@ class CommonModelOptions(FrozenConfigurable):
     output_directory = Unicode(
         'outputs', help="Directory where model output files are stored").tag(config=True)
     no_exports = Bool(
-        not False, help="""
+        False, help="""
         Do not store any outputs to disk
 
         Disables VTK and HDF5 field outputs. and HDF5 diagnostic outputs.

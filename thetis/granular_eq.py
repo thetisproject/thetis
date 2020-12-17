@@ -3,7 +3,7 @@ Depth averaged granular flow equations in conservative form
 """
 from __future__ import absolute_import
 from .utility import *
-from .equation import Term, Equation
+from .equation import Equation
 
 g_grav = physical_constants['g_grav']
 
@@ -89,8 +89,9 @@ class GranularEquations(BaseGranularEquation):
         include_hori_advection = True
 
         # horizontal advection and external pressure gradient terms
-        F1 = as_vector((hu_old, hu_old*vel_uv[0] + 0.5*self.lam_kap*self.grav_z*h_old**2, hv_old * vel_uv[0]))
-        F2 = as_vector((hv_old, hu_old*vel_uv[1], hv_old*vel_uv[1] + 0.5*self.lam_kap*self.grav_z*h_old**2))
+        g_mod = conditional(h_old <= 0, zero(self.grav_z.ufl_shape), self.grav_z)
+        F1 = as_vector((hu_old, hu_old*vel_uv[0] + 0.5*self.lam_kap*g_mod*h_old**2, hv_old * vel_uv[0]))
+        F2 = as_vector((hv_old, hu_old*vel_uv[1], hv_old*vel_uv[1] + 0.5*self.lam_kap*g_mod*h_old**2))
         f = -(dot(Dx(self.test, 0), F1) + dot(Dx(self.test, 1), F2))*self.dx
 
         # set up modified vectors and evaluate fluxes
@@ -121,7 +122,7 @@ class GranularEquations(BaseGranularEquation):
             f += -(src_x*self.test_uv[0] + src_y*self.test_uv[1])*self.dx
         else:
             # bathymetry gradient term
-            bath_grad = as_vector((0, self.grav_z*h_old*Dx(self.bathymetry, 0), self.grav_z*h_old*Dx(self.bathymetry, 1)))
+            bath_grad = g_mod*h_old*as_vector((0, Dx(self.bathymetry, 0), Dx(self.bathymetry, 1)))
             f += -dot(bath_grad, self.test)*self.dx
 
         # add in boundary fluxes
@@ -216,9 +217,9 @@ class GranularEquations(BaseGranularEquation):
         hl, mul, mvl = wl[0], wl[1], wl[2]
 
         # negigible depth for the explicit wetting and drying method
-        E = self.options_nh.wetting_and_drying_threshold
+        eps = self.options_nh.wetting_and_drying_threshold
         gravity = self.grav_z
-        g = conditional(And(hr < E, hl < E), zero(gravity('+').ufl_shape), gravity('+'))
+        g = conditional(And(hr < eps, hl < eps), zero(gravity('+').ufl_shape), gravity('+'))
 
         # use HLLC flux
         hl_zero = conditional(hl <= 0, 0, 1)

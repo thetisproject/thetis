@@ -37,8 +37,8 @@ solver_obj = solver2d_cf.FlowSolverCF(mesh2d, bathymetry_2d)
 options = solver_obj.options
 options.element_family = 'dg-dg'
 options.polynomial_degree = 1
-options.timestepper_type = 'SSPRK33'
 # time stepper
+options.timestepper_type = 'SSPRK33'
 if hasattr(options.timestepper_options, 'use_automatic_timestep'):
     options.timestepper_options.use_automatic_timestep = False
 options.timestep = dt
@@ -58,7 +58,9 @@ slope_rad = 20./180.*pi
 options_nh.bed_slope = Constant((cos(0.5*pi - slope_rad), cos(0.5*pi), cos(slope_rad)))  # flat bed
 # wetting and drying
 options_nh.use_explicit_wetting_and_drying = True
-options_nh.wetting_and_drying_threshold = 1e-5
+options_nh.wetting_and_drying_threshold = 1e-3
+options_nh.use_limiter_for_elevation = False
+options_nh.use_limiter_for_momentum = False
 
 # --- boundary condition ---
 solver_obj.bnd_functions['shallow_water'] = {1: {'inflow': None}, 2: {'outflow': None}}
@@ -72,17 +74,7 @@ x, y = SpatialCoordinate(mesh2d)
 h_init.interpolate(conditional(x < 0, 20., 0.))
 solver_obj.assign_initial_conditions(elev=h_init)
 
-
-# --- time updated ---
-def update_forcings(t_new):
-    if options_nh.use_explicit_wetting_and_drying:
-        solver_obj.wd_modification.apply(
-            solver_obj.fields.solution_2d,
-            options_nh.wetting_and_drying_threshold
-        )
-
-
-solver_obj.iterate(update_forcings=update_forcings)
+solver_obj.iterate()
 
 # error show
 grav = 9.81
