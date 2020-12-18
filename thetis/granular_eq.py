@@ -40,12 +40,16 @@ class GranularEquations(BaseGranularEquation):
         self.test_h = self.test[0]
         self.test_uv = as_vector((self.test[1], self.test[2]))
         self.boundary_markers = sorted(space.mesh().exterior_facets.unique_markers)
-        # components of gravity in a slope-oriented coordinate system
-        self.grav_x = g_grav*self.options_nh.bed_slope[0]
-        self.grav_y = g_grav*self.options_nh.bed_slope[1]
-        self.grav_z = g_grav*self.options_nh.bed_slope[2]
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions=None):
+
+        gravity = fields_old.get('gravity')
+        if gravity is None:
+            gravity = g_grav
+        # components of gravity in a slope-oriented coordinate system
+        self.grav_x = gravity*self.options_nh.bed_slope[0]
+        self.grav_y = gravity*self.options_nh.bed_slope[1]
+        self.grav_z = gravity*self.options_nh.bed_slope[2]
 
         h, hu, hv = split(solution)
         h_old, hu_old, hv_old = split(solution_old)
@@ -89,16 +93,15 @@ class GranularEquations(BaseGranularEquation):
         include_hori_advection = True
 
         # horizontal advection and external pressure gradient terms
-        g_mod = conditional(h_old <= 0, zero(self.grav_z.ufl_shape), self.grav_z)
-        F1 = as_vector((hu_old, hu_old*vel_uv[0] + 0.5*self.lam_kap*g_mod*h_old**2, hv_old * vel_uv[0]))
-        F2 = as_vector((hv_old, hu_old*vel_uv[1], hv_old*vel_uv[1] + 0.5*self.lam_kap*g_mod*h_old**2))
+        F1 = as_vector((hu_old, hu_old*vel_uv[0] + 0.5*self.lam_kap*self.grav_z*h_old**2, hv_old * vel_uv[0]))
+        F2 = as_vector((hv_old, hu_old*vel_uv[1], hv_old*vel_uv[1] + 0.5*self.lam_kap*self.grav_z*h_old**2))
         f = -(dot(Dx(self.test, 0), F1) + dot(Dx(self.test, 1), F2))*self.dx
 
         # set up modified vectors and evaluate fluxes
         w_plus = as_vector((h_old, mom_uv[0], mom_uv[1]))('+')
         w_minus = as_vector((h_old, mom_uv[0], mom_uv[1]))('-')
-        flux_plus = self.interior_flux(self.normal('+'), self.function_space, w_plus, w_minus)
-        flux_minus = self.interior_flux(self.normal('-'), self.function_space, w_minus, w_plus)
+        flux_plus = self.interior_flux(w_plus, w_minus, self.normal('+'))
+        flux_minus = self.interior_flux(w_minus, w_plus, self.normal('-'))
         f += (dot(flux_minus, self.test('-')) + dot(flux_plus, self.test('+')))*self.dS
 
         if self.options_nh.flow_is_granular:
@@ -122,7 +125,7 @@ class GranularEquations(BaseGranularEquation):
             f += -(src_x*self.test_uv[0] + src_y*self.test_uv[1])*self.dx
         else:
             # bathymetry gradient term
-            bath_grad = g_mod*h_old*as_vector((0, Dx(self.bathymetry, 0), Dx(self.bathymetry, 1)))
+            bath_grad = self.grav_z*h_old*as_vector((0, Dx(self.bathymetry, 0), Dx(self.bathymetry, 1)))
             f += -dot(bath_grad, self.test)*self.dx
 
         # add in boundary fluxes
@@ -208,7 +211,7 @@ class GranularEquations(BaseGranularEquation):
 
         return -f
 
-    def interior_flux(self, N, V, wr, wl):
+    def interior_flux(self, wr, wl, normal):
         """
         Evaluate the interior fluxes between the positively and negatively restricted vectors wr, wl.
 
@@ -218,8 +221,7 @@ class GranularEquations(BaseGranularEquation):
 
         # negigible depth for the explicit wetting and drying method
         eps = self.options_nh.wetting_and_drying_threshold
-        gravity = self.grav_z
-        g = conditional(And(hr < eps, hl < eps), zero(gravity('+').ufl_shape), gravity('+'))
+        g = self.grav_z('+')#conditional(And(hr < eps, hl < eps), zero(self.grav_z('+').ufl_shape), self.grav_z('+'))
 
         # use HLLC flux
         hl_zero = conditional(hl <= 0, 0, 1)
@@ -228,8 +230,8 @@ class GranularEquations(BaseGranularEquation):
         hr_zero = conditional(hr <= 0, 0, 1)
         ul = conditional(hl <= 0, zero(as_vector((mul / hl, mvl / hl)).ufl_shape),
                          hr_zero * as_vector((mul / hl, mvl / hl)))
-        vr = dot(ur, N)
-        vl = dot(ul, N)
+        vr = dot(ur, normal)
+        vl = dot(ul, normal)
         # wave speed depending on wavelength
         lam_kap = avg(self.lam_kap)
         c_minus = Min(vr - sqrt(lam_kap * g * hr), vl - sqrt(lam_kap * g * hl))
@@ -275,21 +277,21 @@ class GranularEquations(BaseGranularEquation):
         # conditional to prevent dividing by zero
         y = (c_minus - vr) / (c_minus - c_s) * (
             W_plus - as_vector((0,
-                                hr * (c_s - v_star) * N[0],
-                                hr * (c_s - v_star) * N[1]))
+                                hr * (c_s - v_star) * normal[0],
+                                hr * (c_s - v_star) * normal[1]))
         )
         w_plus = conditional(abs(c_minus - c_s) <= 1e-16, zero(y.ufl_shape), y)
 
         # conditional to prevent dividing by zero
         y = (c_plus - vl) / (c_plus - c_s) * (
             W_minus - as_vector((0,
-                                 hl * (c_s - v_star) * N[0],
-                                 hl * (c_s - v_star) * N[1]))
+                                 hl * (c_s - v_star) * normal[0],
+                                 hl * (c_s - v_star) * normal[1]))
         )
         w_minus = conditional(abs(c_plus - c_s) <= 1e-16, zero(y.ufl_shape), y)
 
         Flux = (
-            0.5 * dot(N, F_plus + F_minus)
+            0.5 * dot(normal, F_plus + F_minus)
             + (
                 0.5 * (- (abs(c_minus) - abs(c_s)) * w_minus
                        + (abs(c_plus) - abs(c_s)) * w_plus

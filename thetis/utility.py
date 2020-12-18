@@ -2047,44 +2047,57 @@ class treat_wetting_and_drying(object):
         self.P1DG = space
         self.P1DG_mix = MixedFunctionSpace([self.P1DG, self.P1DG, self.P1DG])
         self.wd_solution = Function(self.P1DG_mix)
-        self.wd_kernel = self.wd_kernel()
+        self.gravity_operator_kernel = self.set_gravity_operator_kernel()
+        self.positivity_operator_kernel = self.set_positivity_operator_kernel()
+        self.momentum_operator_kernel = self.set_momentum_operator_kernel()
 
-    def wd_kernel(self):
+    def set_gravity_operator_kernel(self):
         """
-        Define wetting and drying treatment kernel
+        Set gravity operator kernel
         """
-        wd_treatment_kernel = """
+        gravity_operator_kernel = """
             const double eps = %(epsilon)s;
-            double h_avg = 0.;
-            int a = 0, a1 = 0, a3 = 0, n1, n2, n3, flag1, flag2, flag3, deltau, deltav, npos, dofs;
-            #define STEP(X) (X <= 0 ? 0 : 1)
-            dofs = h_vertex.dofs;
+            int dofs = g_vert.dofs;
+            double elev_max = -1e20;
+            double bath_max = -1e20;
             for (int i = 0; i < dofs; i++) {
-                if (h_vertex[i] > eps) {
+                elev_max = fmax(elev_max, elev_vert[i]);
+                bath_max = fmax(bath_max, bath_vert[i]);
+            }
+            if (elev_max + bath_max < eps) {
+                for (int i = 0; i < dofs; i++) {
+                    g_vert[i] = 0;
+                }
+            }
+        """
+        return gravity_operator_kernel
+
+    def set_positivity_operator_kernel(self):
+        """
+        Set positive depth operator kernel
+        """
+        positivity_operator_kernel = """
+            int a = 0, a1 = 0, a3 = 0, n1, n2, n3, dofs;
+            #define STEP(X) (X <= 0 ? 0 : 1)
+            dofs = h_vert.dofs;
+            for (int i = 0; i < dofs; i++) {
+                if (h_vert[i] >= 0) {
                     a += 1;
                 }
             }
-            for (int i = 0; i < dofs; i++) {
-                h_avg += h_vertex[i] / dofs;
-            }
             if (a == dofs) {
                 for (int i = 0; i < dofs; i++) {
-                    h_wd_vertex[i] = h_vertex[i];
+                    h_wd_vert[i] = h_vert[i];
                 }
-            }
-            if (h_avg <= eps) {
-                for (int i = 0; i < dofs; i++) {
-                    h_wd_vertex[i] = h_avg;
-                }
-            } else{
+            } else {
                 if (a < dofs) {
                     for (int i = 1; i < dofs; i++) {
-                        if (h_vertex[0] >= h_vertex[i]) {
+                        if (h_vert[0] >= h_vert[i]) {
                             a1 += 1;
                         }
                     }
                     for (int i = 0; i < dofs - 1; i++) {
-                        if (h_vertex[2] >= h_vertex[i]) {
+                        if (h_vert[2] >= h_vert[i]) {
                             a3 += 1;
                         }
                     }
@@ -2112,7 +2125,7 @@ class treat_wetting_and_drying(object):
                     }
                     if (a1 == 1) {
                         n2 = 0;
-                        if (h_vertex[1] >= h_vertex[2]) {
+                        if (h_vert[1] >= h_vert[2]) {
                             n3 = 1;
                             n1 = 2;
                         } else{
@@ -2120,61 +2133,92 @@ class treat_wetting_and_drying(object):
                             n1 = 1;
                         }
                     }
-                    h_wd_vertex[n1] = eps;
-                    h_wd_vertex[n2] = fmax(eps, h_vertex[n2] - (h_wd_vertex[n1] - h_vertex[n1]) / 2.);
-                    h_wd_vertex[n3] = h_vertex[n3] - (h_wd_vertex[n1] - h_vertex[n1]) - (h_wd_vertex[n2] - h_vertex[n2]);
+                    h_wd_vert[n1] = 0;
+                    h_wd_vert[n2] = fmax(0, h_vert[n2] - (h_wd_vert[n1] - h_vert[n1]) / 2.);
+                    h_wd_vert[n3] = h_vert[n3] - (h_wd_vert[n1] - h_vert[n1]) - (h_wd_vert[n2] - h_vert[n2]);
                 }
-            }
-            flag1 = STEP(h_wd_vertex[0] - eps);
-            flag2 = STEP(h_wd_vertex[1] - eps);
-            flag3 = STEP(h_wd_vertex[2] - eps);
-            npos = flag1 + flag2 + flag3;
-            deltau = 0 * (hu_vertex[0]*(1 - flag1) + hu_vertex[1]*(1 - flag2) + hu_vertex[2]*(1 - flag3));
-            deltav = 0 * (hv_vertex[0]*(1 - flag1) + hv_vertex[1]*(1 - flag2) + hv_vertex[2]*(1 - flag3));
-            if (npos > 0) {
-                hu_wd_vertex[0] = flag1*(hu_vertex[0] + deltau/npos);
-                hu_wd_vertex[1] = flag2*(hu_vertex[1] + deltau/npos);
-                hu_wd_vertex[2] = flag3*(hu_vertex[2] + deltau/npos);
-                hv_wd_vertex[0] = flag1*(hv_vertex[0] + deltav/npos);
-                hv_wd_vertex[1] = flag2*(hv_vertex[1] + deltav/npos);
-                hv_wd_vertex[2] = flag3*(hv_vertex[2] + deltav/npos);
-            }
-            if (npos == 0) {
-                hu_wd_vertex[0] = 0.;
-                hu_wd_vertex[1] = 0.;
-                hu_wd_vertex[2] = 0.;
-                hv_wd_vertex[0] = 0.;
-                hv_wd_vertex[1] = 0.;
-                hv_wd_vertex[2] = 0.;
             }
             for (int i = 0; i < dofs; i++) {
-                if  (h_wd_vertex[i] <= 0.) {
-                    h_wd_vertex[i] = 0.;
+                if  (h_wd_vert[i] <= 0.) {
+                    h_wd_vert[i] = 0.;
                 }
             }
         """
-        return wd_treatment_kernel
+        return positivity_operator_kernel
 
-    def apply(self, solution, wd_threshold=1e-4, use_eta_solution=False, bathymetry=None):
+    def set_momentum_operator_kernel(self):
         """
-        Apply wetting and drying treatment
+        Set positive depth operator kernel
+        """
+        momentum_operator_kernel = """
+            int n1, n2;
+            double delta_u0, delta_u1, delta_u2;
+            int dofs = h_vert.dofs;
+            for (int i = 0; i < dofs; i++) {
+                n1 = (i + 1) % 3;
+                n2 = (i + 2) % 3;
+                u_wd_vert[i] = (3*hu_bar[0] - h_vert[n1]*u_vert[n1] - h_vert[n2]*u_vert[n2])/h_vert[i];
+            }
+            delta_u0 = fmax(fmax(u_wd_vert[0], u_vert[1]), u_vert[2]) - fmin(fmin(u_wd_vert[0], u_vert[1]), u_vert[2]);
+            delta_u1 = fmax(fmax(u_vert[0], u_wd_vert[1]), u_vert[2]) - fmin(fmin(u_vert[0], u_wd_vert[1]), u_vert[2]);
+            delta_u2 = fmax(fmax(u_vert[0], u_vert[1]), u_wd_vert[2]) - fmin(fmin(u_vert[0], u_vert[1]), u_wd_vert[2]);
+            if (delta_u0 <= delta_u1 && delta_u0 <= delta_u2) {
+                hu_vert[0] = h_vert[0]*u_wd_vert[0];
+                hu_vert[1] = h_vert[1]*u_vert[1];
+                hu_vert[2] = h_vert[2]*u_vert[2];
+            } else if (delta_u1 <= delta_u0 && delta_u1 <= delta_u2) {
+                hu_vert[0] = h_vert[0]*u_vert[0];
+                hu_vert[1] = h_vert[1]*u_wd_vert[1];
+                hu_vert[2] = h_vert[2]*u_vert[2];
+            } else {
+                hu_vert[0] = h_vert[0]*u_vert[0];
+                hu_vert[1] = h_vert[1]*u_vert[1];
+                hu_vert[2] = h_vert[2]*u_wd_vert[2];
+            }
+        """
+        return momentum_operator_kernel
+
+    def cancel_gravity_in_dry_cells(self, gravity, fields, bathymetry, wd_threshold=1e-4):
+        """
+        Cancel gravity acceleration g in semi and full dry cells
+        """
+        h, hu, hv = fields.solution_2d.split()
+
+        elev = fields.elev_2d.assign(h - bathymetry)
+        uv = fields.uv_2d
+
+        kwargs = {
+            "g_vert": (gravity, RW),
+            "elev_vert": (elev, READ), "bath_vert": (bathymetry, READ),
+        }
+        par_loop(self.gravity_operator_kernel % {"epsilon": wd_threshold}, dx, kwargs)
+
+    def apply_positive_depth_operator(self, solution):
+        """
+        Apply positive depth operator to ensure mass conserving
         """
         self.wd_solution.assign(0.)
-
         h_wd, hu_wd, hv_wd = self.wd_solution.split()
         h, hu, hv = solution.split()
 
-        if use_eta_solution:
-            assert bathymetry is not None and element_continuity(bathymetry.function_space().ufl_element()).horizontal == 'dg'
-            h.dat.data[:] += bathymetry.dat.data[:]
-
-        wd_treatment_kernel = self.wd_kernel % {"epsilon": wd_threshold}
-        args = {
-            "h_wd_vertex": (h_wd, RW), "hu_wd_vertex": (hu_wd, RW), "hv_wd_vertex": (hv_wd, RW),
-            "h_vertex": (h, READ), "hu_vertex": (hu, READ), "hv_vertex": (hv, READ),
+        kwargs = {
+            "h_wd_vert": (h_wd, RW), "hu_wd_vert": (hu_wd, RW), "hv_wd_vert": (hv_wd, RW),
+            "h_vert": (h, READ), "hu_vert": (hu, READ), "hv_vert": (hv, READ),
         }
-        par_loop(wd_treatment_kernel, dx, args)
+        par_loop(self.positivity_operator_kernel, dx, kwargs)
 
-        solution.assign(self.wd_solution)
-        if use_eta_solution:
-            h.dat.data[:] += -bathymetry.dat.data[:]
+        h.assign(h_wd)
+
+    def apply_momentum_operator(self, hu_lim, h_lim, u_lim, hu_centroids):
+        """
+        Apply momentum operator to modify momentum distribution
+        """
+        self.wd_solution.assign(0.)
+        u_wd = self.wd_solution.split()[1]
+
+        kwargs = {
+            "u_wd_vert": (u_wd, RW), "hu_vert": (hu_lim, RW),
+            "h_vert": (h_lim, READ), "u_vert": (u_lim, READ), "hu_bar": (hu_centroids, READ),
+        }
+        par_loop(self.momentum_operator_kernel, dx, kwargs)
+
