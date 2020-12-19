@@ -897,7 +897,7 @@ class ERKGenericShuOsher(TimeIntegrator):
         """Solve i-th stage and assign solution to :attr:`self.solution`."""
         if self._nontrivial:
             if update_forcings is not None:
-                update_forcings(t + self.c[i_stage]*self.dt)
+                update_forcings(t)
 
             if i_stage == 0:
                 self.stage_sol[0].assign(self.solution)

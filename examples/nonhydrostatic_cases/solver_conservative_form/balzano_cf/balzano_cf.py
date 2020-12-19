@@ -99,7 +99,6 @@ def export_func():
 
 # callback function to update boundary forcing
 def update_forcings(t):
-    # print_output("Updating boundary condition at t={}".format(t))
     ocean_elev.assign(ocean_elev_func(t))
     if options_nh.use_explicit_wetting_and_drying:
         solver_obj.wd_modification.apply(
@@ -108,6 +107,6 @@ def update_forcings(t):
         )
 
 # initial condition: assign non-zero velocity
-solver_obj.assign_initial_conditions(uv=Constant((1e-7, 0.)))
+solver_obj.assign_initial_conditions()
 
 solver_obj.iterate(update_forcings=update_forcings, export_func=export_func)
