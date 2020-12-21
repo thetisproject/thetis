@@ -1,30 +1,11 @@
 """
 Module for 2D depth averaged solver
 """
-from __future__ import absolute_import
 from .utility import *
-from . import shallowwater_eq
 from . import granular_eq
-from . import timeintegrator
 from . import rungekutta
-from . import implicitexplicit
-from . import coupled_timeintegrator_2d
-from . import tracer_eq_2d
-from . import conservative_tracer_eq_2d
-from . import sediment_eq_2d
-from . import exner_eq
 import weakref
-import time as time_mod
-import numpy as np
-from mpi4py import MPI
-from . import exporter
-from .field_defs import field_metadata
-from .options import ModelOptions2d
-from . import callback
-from .log import *
-from collections import OrderedDict
 import thetis.limiter as limiter
-
 from .solver2d import FlowSolver2d
 
 
@@ -81,6 +62,8 @@ class FlowSolverCF(FlowSolver2d):
         self.fields.h_2d, self.fields.hu_2d, self.fields.hv_2d = self.fields.solution_2d.split()
         self.fields.elev_2d = Function(self.function_spaces.H_2d)
         self.fields.uv_2d = Function(self.function_spaces.U_2d)
+        self.bathymetry_dg = Function(self.function_spaces.H_2d).project(self.fields.bathymetry_2d)
+        self.gravity = Function(self.function_spaces.H_2d).assign(physical_constants['g_grav'])
         self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
         get_horizontal_elem_size_2d(self.fields.h_elem_size_2d)
 
@@ -90,9 +73,17 @@ class FlowSolverCF(FlowSolver2d):
             self.fields.bathymetry_2d,
             self.options)
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
-        
-        if self.options.nh_model_options.use_explicit_wetting_and_drying:
-            self.wd_modification = treat_wetting_and_drying(self.function_spaces.H_2d)
+
+        self.options_nh = self.options.nh_model_options
+        if self.options_nh.use_explicit_wetting_and_drying:
+            self.expl_wd_treatment = treat_wetting_and_drying(self.function_spaces.H_2d)
+            msg = "Using explicit wetting and drying method with parameter: {:}"
+            print_output(msg.format(self.options_nh.wetting_and_drying_threshold))
+
+        if self.options_nh.use_limiter_for_elevation or self.options_nh.use_limiter_for_momentum:
+            self.limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H_2d)
+        else:
+            self.limiter = None
 
         self._isfrozen = True
 
@@ -114,25 +105,17 @@ class FlowSolverCF(FlowSolver2d):
         self.set_time_step()
 
         # ----- Time integrators
-        steppers = {
-            'SSPRK33': rungekutta.SSPRK33,
-            'ForwardEuler': timeintegrator.ForwardEuler,
-            # TODO add more
-        }
-        try:
-            assert self.options.timestepper_type in steppers
-        except AssertionError:
-            raise Exception('Unsupported time integrator type: {:s}'.format(self.options.timestepper_type))
         fields = {
             # 'uv_div': self.uv_div_ls,
             # 'strain_rate': self.strain_rate_ls,
             # 'fluid_pressure_gradient': self.grad_p_ls,
             # TODO add more
+            'gravity': self.gravity,
         }
         args = (self.eq_sw, self.fields.solution_2d, fields, self.dt, )
         kwargs = {'bnd_conditions': self.bnd_functions['shallow_water']}
         kwargs['solver_parameters'] = self.options.timestepper_options.solver_parameters
-        self.timestepper = steppers[self.options.timestepper_type](*args, **kwargs)
+        self.timestepper = MyTimeIntegrator2D(weakref.proxy(self), *args, **kwargs)
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
 
         self._isfrozen = True
@@ -172,3 +155,59 @@ class FlowSolverCF(FlowSolver2d):
                                  t=self.simulation_time, h=norm_h,
                                  hu=norm_hu, cpu=cputime))
         sys.stdout.flush()
+
+
+class MyTimeIntegrator2D(rungekutta.SSPRK33):
+    def __init__(self, solver, *args, **kwargs):
+        super(MyTimeIntegrator2D, self).__init__(*args, **kwargs)
+        self.solver_cf = solver
+        self.fields = solver.fields
+        self.options_nh = solver.options_nh
+        self.limiter = solver.limiter
+        self.wd_treatment = solver.expl_wd_treatment
+        self.h_unlim = Function(self.fields.h_2d)
+        self.hu_cent = Function(FunctionSpace(solver.mesh2d, 'DG', 0))
+        self.hv_cent = Function(FunctionSpace(solver.mesh2d, 'DG', 0))
+        self.u_lim = Function(self.fields.hu_2d)
+        self.v_lim = Function(self.fields.hv_2d)
+
+    def advance(self, t, update_forcings=None):
+        for i in range(self.n_stages):
+            wd_threshold = self.options_nh.wetting_and_drying_threshold
+            # remove gravity in semi and full dry cells
+       #     self.wd_treatment.cancel_gravity_in_dry_cells(
+        #        self.solver_cf.gravity, self.fields,
+         #       self.solver_cf.bathymetry_dg, wd_threshold
+          #  )
+            # solve i-th stage
+            self.solve_stage(i, t, update_forcings)
+            # limiting of the fluid depth
+            self.h_unlim.assign(self.fields.h_2d)
+            if self.options_nh.use_limiter_for_elevation:
+                self.fields.elev_2d.assign(self.fields.h_2d - self.solver_cf.bathymetry_dg)
+                self.limiter.apply(self.fields.elev_2d)
+                self.fields.h_2d.assign(self.fields.elev_2d + self.solver_cf.bathymetry_dg)
+                #self.fields.h_2d.dat.data[np.where(self.fields.h_2d.dat.data[:] <= 0)[0]] = 0
+            if self.options_nh.use_explicit_wetting_and_drying:
+                self.wd_treatment.apply_positive_depth_operator(self.fields.h_2d)
+            # limiting of the momentum
+            self.u_lim.assign(self.fields.hu_2d/self.h_unlim)
+            self.v_lim.assign(self.fields.hv_2d/self.h_unlim)
+            ind_dry = np.where(self.h_unlim.dat.data[:] < wd_threshold)[0]
+            self.u_lim.dat.data[ind_dry] = 0
+            self.v_lim.dat.data[ind_dry] = 0
+            if self.options_nh.use_limiter_for_momentum:
+                self.limiter._update_centroids(self.fields.hu_2d)
+                self.hu_cent.assign(self.limiter.centroids)
+                self.limiter.apply(self.u_lim)
+                self.u_lim.dat.data[ind_dry] = 0
+                self.wd_treatment.apply_momentum_operator(self.fields.hu_2d, self.fields.h_2d, self.u_lim, self.hu_cent)
+
+                self.limiter._update_centroids(self.fields.hv_2d)
+                self.hv_cent.assign(self.limiter.centroids)
+                self.limiter.apply(self.v_lim)
+                self.v_lim.dat.data[ind_dry] = 0
+                self.wd_treatment.apply_momentum_operator(self.fields.hv_2d, self.fields.h_2d, self.v_lim, self.hv_cent)
+
+
+               # print(self.fields.hv_2d.dat.data.min(), self.fields.h_2d.dat.data.min() , self.v_lim.dat.data.min(), self.hv_cent.dat.data.min())

@@ -39,8 +39,8 @@ solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
 options.element_family = 'dg-dg'
 options.polynomial_degree = 1
-options.timestepper_type = 'CrankNicolson'
 # time stepper
+options.timestepper_type = 'CrankNicolson'
 if hasattr(options.timestepper_options, 'use_automatic_timestep'):
     options.timestepper_options.use_automatic_timestep = False
 options.timestep = dt
