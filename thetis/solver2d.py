@@ -317,6 +317,11 @@ class FlowSolver2d(FrozenClass):
         object.
         """
         self._isfrozen = False
+        on_the_sphere = self.mesh2d.geometric_dimension() == 3
+        if on_the_sphere:
+            assert self.options.element_family in ['rt-dg', 'bdm-dg'], \
+                'Spherical mesh requires \'rt-dg\' or \'bdm-dg\' ' \
+                'element family.'
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.function_spaces.P0_2d = get_functionspace(self.mesh2d, 'DG', 0, name='P0_2d')
         self.function_spaces.P1_2d = get_functionspace(self.mesh2d, 'CG', 1, name='P1_2d')
