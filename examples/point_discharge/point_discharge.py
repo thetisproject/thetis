@@ -1,6 +1,6 @@
 """
-TELEMAC-2D point discharge with diffusion test case
-===================================================
+TELEMAC-2D `Point Discharge with Diffusion' test case
+=====================================================
 
 Solves tracer advection equation in a rectangular domain with
 uniform fluid velocity, constant diffusivity and a constant
@@ -66,22 +66,17 @@ def bessk0(x):
     return conditional(ge(x, 2), expr2, expr1)
 
 
-class PointDischargeParameters():
-    def __init__(self, setup=1):
-        assert setup in (1, 2)
-        self.setup = setup
+class PointDischargeParameters(object):
+    """
+    Problem parameter class, including point source representation.
 
-        # Parametrisation of point source
-        # NOTE: Delta functions are not in H1 and hence do not live in the FunctionSpaces we seek
-        #       to use. The idea here is to approximate the delta function using a disc with a very
-        #       small radius. This works well for practical applications, but is not quite right for
-        #       analytical test cases such as this. As such, we have calibrated the disc radius so
-        #       that solving on a sequence of increasingly refined uniform meshes leads to
-        #       convergence of the uniform mesh solution to the analytical solution.
-        self.source_x, self.source_y = 2.0, 5.0
-        self.source_r = 0.07980 if setup == 1 else 0.07972
-        # TODO: Use Gaussian representation from [3]
-        self.source_value = 100.0
+    Delta functions are not in H1 and hence do not live in the FunctionSpaces we
+    seek to use. Here we use a Gaussian approximation with a small radius. The
+    small radius has been calibrated against the analytical solution. See [3]
+    for details.
+    """
+    def __init__(self, offset):
+        self.offset = offset
 
         # Physical parameters
         self.diffusivity = Constant(0.1)
@@ -90,7 +85,14 @@ class PointDischargeParameters():
         self.drag = Constant(0.0025)
         self.uv = Constant(as_vector([1.0, 0.0]))
         self.elev = Constant(0.0)
-        self.bathymetry = Constant(5.0)
+
+        # Stabilisation
+        self.use_lax_friedrichs_tracer = True
+
+        # Parametrisation of point source
+        self.source_x, self.source_y = 2.0, 5.0
+        self.source_r = 0.05606298 if self.use_lax_friedrichs_tracer else 0.05606298
+        self.source_value = 100.0
 
         # Boundary conditions
         self.boundary_conditions = {
@@ -119,56 +121,73 @@ class PointDischargeParameters():
         expr = lt((x-triple[0])**2 + (y-triple[1])**2, triple[2]**2 + eps)
         return conditional(expr, scaling, 0.0)
 
+    def gaussian(self, mesh, triple, scaling=1.0):
+        x, y = SpatialCoordinate(mesh)
+        expr = exp(-((x-triple[0])**2 + (y-triple[1])**2)/triple[2]**2)
+        return scaling*expr
+
     def source(self, fs):
         triple = (self.source_x, self.source_y, self.source_r)
-        area = assemble(self.ball(fs.mesh(), triple)*dx)
-        area_exact = pi*triple[2]**2
-        scaling = 1.0 if np.allclose(area, 0.0) else area_exact/area
-        scaling *= 0.5*self.source_value
-        return self.ball(fs.mesh(), triple, scaling=scaling)
+        return self.gaussian(fs.mesh(), triple, scaling=self.source_value)
+
+    def bathymetry(self, fs):
+        return Function(fs).assign(5.0)
 
     def quantity_of_interest_kernel(self, mesh):
-        triple = (20.0, 5.0 if self.setup == 1 else 7.5, 0.5)
+        triple = (20.0, 7.5 if self.offset else 5.0, 0.5)
         area = assemble(self.ball(mesh, triple)*dx)
-        area_exact = pi*triple[2]**2
-        scaling = 1.0 if np.allclose(area, 0.0) else area_exact/area
+        area_analytical = pi*triple[2]**2
+        scaling = 1.0 if np.allclose(area, 0.0) else area_analytical/area
         return self.ball(mesh, triple, scaling=scaling)
 
     def quantity_of_interest(self, sol):
         kernel = self.quantity_of_interest_kernel(sol.function_space().mesh())
         return assemble(inner(kernel, sol)*dx(degree=12))
 
-    def exact_quantity_of_interest(self, mesh):
+    def analytical_quantity_of_interest(self, mesh):
+        """
+        The analytical solution can be found in [1]. Due to the modified
+        Bessel function, it cannot be evaluated exactly and instead must
+        be computed using quadrature.
+        """
         x, y = SpatialCoordinate(mesh)
-        x0, y0, r = self.source_x, self.source_y, self.source_r
-        nu = self.diffusivity
-        # q = 0.01  # sediment discharge of source (kg/s)
-        q = 1
-        r = max_value(sqrt((x-x0)*(x-x0) + (y-y0)*(y-y0)), r)  # (Bessel fn explodes at (x0, y0))
-        sol = 0.5*q/(pi*nu)*exp(0.5*self.uv[0]*(x-x0)/nu)*bessk0(0.5*self.uv[0]*r/nu)
+        x0, y0 = self.source_x, self.source_y
+        u = self.uv[0]
+        D = self.diffusivity
+        Pe = 0.5*u/D  # Mesh Peclet number
+        r = sqrt((x-x0)*(x-x0) + (y-y0)*(y-y0))
+        r = max_value(r, self.source_r)  # (Bessel fn explodes at (x0, y0))
+        sol = 0.5/(pi*D)*exp(Pe*(x-x0))*bessk0(Pe*r)
         kernel = self.quantity_of_interest_kernel(mesh)
         return assemble(kernel*sol*dx(degree=12))
 
 
-def solve_tracer(n, setup=1, hydrodynamics=False):
+def solve_tracer(n, offset, hydrodynamics=False):
+    """
+    Solve the tracer transport problem.
+
+    :arg n: mesh resolution level.
+    :arg offset: toggle between aligned and offset source/receiver.
+    :kwarg hydrodynamics: solve shallow water equations?
+    """
     mesh2d = RectangleMesh(100*2**n, 20*2**n, 50, 10)
     P1_2d = FunctionSpace(mesh2d, "CG", 1)
 
     # Set up parameter class
-    params = PointDischargeParameters(setup=setup)
+    params = PointDischargeParameters(offset)
     source = params.source(P1_2d)
 
     # Solve tracer transport problem
-    solver_obj = solver2d.FlowSolver2d(mesh2d, params.bathymetry)
+    solver_obj = solver2d.FlowSolver2d(mesh2d, params.bathymetry(P1_2d))
     options = solver_obj.options
     options.timestepper_type = 'SteadyState'
     options.timestep = 20.0
     options.simulation_end_time = 18.0
     options.simulation_export_time = 18.0
-    options.timestepper_options.solver_parameters['pc_factor_mat_solver_type'] = 'mumps'
-    options.timestepper_options.solver_parameters['snes_monitor'] = None
-    options.timestepper_options.solver_parameters_tracer['pc_factor_mat_solver_type'] = 'mumps'
-    options.timestepper_options.solver_parameters_tracer['snes_monitor'] = None
+    ts_options = options.timestepper_options
+    for sp in (ts_options.solver_parameters, ts_options.solver_parameters_tracer):
+        sp['pc_factor_mat_solver_type'] = 'mumps'
+        sp['snes_monitor'] = None
     options.fields_to_export = ['tracer_2d', 'uv_2d', 'elev_2d']
 
     # Hydrodynamics
