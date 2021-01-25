@@ -201,27 +201,66 @@ def solve_tracer(n, offset, hydrodynamics=False):
     # Passive tracer
     options.solve_tracer = True
     options.tracer_only = not hydrodynamics
-    options.use_lax_friedrichs_tracer = True
+    options.use_lax_friedrichs_tracer = params.use_lax_friedrichs_tracer
     options.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
+    options.use_limiter_for_tracers = True
     options.tracer_source_2d = source
 
     # Initial and boundary conditions
     solver_obj.bnd_functions = params.boundary_conditions
     uv_init = Constant(as_vector([1.0e-08, 0.0])) if hydrodynamics else params.uv
     solver_obj.assign_initial_conditions(tracer=source, uv=uv_init, elev=params.elev)
-    solver_obj.iterate()
 
-    # Evaluate quantity of interest
-    sol = solver_obj.fields.tracer_2d
-    print_output("J{:d}      : {:.4e}".format(setup, params.quantity_of_interest(sol)))
-    print_output("J{:d}_exact: {:.4e}".format(setup, params.exact_quantity_of_interest(mesh2d)))
-    return params
+    # Solve
+    solver_obj.iterate()
+    return solver_obj.fields.tracer_2d
+
+
+def run_convergence(offset, num_levels=4, plot=False, **kwargs):
+    """
+    Assess convergence of the quantity of interest with increasing DoF count.
+
+    :arg offset: toggle between aligned and offset source/receiver.
+    :kwarg num_levels: number of uniform refinements to consider.
+    :kwarg plot: toggle plotting of convergence curves.
+    :kwargs: other kwargs are passed to `solve_tracer`.
+    """
+    J = []
+    dof_count = []
+    params = PointDischargeParameters(offset)
+
+    # Run model on a sequence of uniform meshes and compute QoI error
+    for refinement_level in range(num_levels):
+        sol = solve_tracer(refinement_level, offset, **kwargs)
+        J.append(params.quantity_of_interest(sol))
+        dof_count.append(sol.function_space().dof_count)
+    J_analytical = params.analytical_quantity_of_interest(sol.function_space().mesh())
+    relative_error = np.abs((np.array(J) - J_analytical)/J_analytical)
+
+    # Plot convergence curves
+    if plot:
+        import matplotlib.pyplot as plt
+        from mpltools import annotation
+
+        fig, axes = plt.subplots()
+        axes.loglog(dof_count, relative_error, '--x')
+        axes.set_xlabel("DoF count")
+        axes.set_ylabel("QoI error")
+        axes.grid(True)
+        annotation.slope_marker((dof_count[1], 0.1), -1, invert=True, ax=axes, size_frac=0.2)
+        fname = "outputs/convergence_{:s}.png".format('offset' if offset else 'aligned')
+        plt.savefig(fname)
+
+    # Check for linear convergence
+    delta_y = np.log10(relative_error[-1]) - np.log10(relative_error[0])
+    delta_x = np.log10(dof_count[-1]) - np.log10(dof_count[0])
+    rate = abs(delta_y/delta_x)
+    assert rate > 0.9, "Sublinear convergence rate {:.4f}".format(rate)
 
 
 if __name__ == "__main__":
-    # refinement_level = 2
-    refinement_level = 1
-    # hydrodynamics = True
     hydrodynamics = False
-    setup = 1
-    solve_tracer(refinement_level, setup=setup, hydrodynamics=hydrodynamics)
+    num_levels = 4
+    kwargs = dict(num_levels=num_levels, hydrodynamics=hydrodynamics)
+    for offset in (False, True):
+        run_convergence(offset, plot=True, **kwargs)
