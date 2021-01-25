@@ -49,6 +49,11 @@ class SteadyStateTimestepperOptions2d(TimeStepperOptions):
         'pc_type': 'lu',
         'mat_type': 'aij'
     }).tag(config=True)
+    solver_parameters_tracer = PETScSolverParameters({
+        'ksp_type': 'preonly',
+        'pc_type': 'lu',
+        'mat_type': 'aij'
+    }).tag(config=True)
 
 
 class CrankNicolsonTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
