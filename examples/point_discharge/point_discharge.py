@@ -5,15 +5,13 @@ TELEMAC-2D `Point Discharge with Diffusion' test case
 Solves tracer advection equation in a rectangular domain with
 uniform fluid velocity, constant diffusivity and a constant
 tracer source term. Neumann conditions are imposed on the
-channel walls and a Dirichlet condition is imposed on the
-inflow boundary, with the outflow boundary remaining open.
+channel walls, an inflow condition is imposed on the
+left-hand boundary, and the right-hand boundary remains open.
 
 The two different functional quantities of interest considered
 in [2] are evaluated on each mesh and convergence is assessed.
-The point source was represented as a circular indicator
-function of narrow radius in [2]. In the extended paper, [3],
-a Gaussian parametrisation was adopted, with the radius
-calibrated using gradient-based optimisation.
+A Gaussian parametrisation for the point source is adopted,
+with the radius calibrated using gradient-based optimisation.
 
 Further details for the test case can be found in [1].
 
@@ -23,15 +21,13 @@ Further details for the test case can be found in [1].
     (2014).
 
 [2] J.G. Wallwork, N. Barral, D.A. Ham, M.D. Piggott,
-    "Anisotropic Goal-Oriented Mesh Adaptation in Firedrake",
-    In: Proceedings of the 28th International Meshing
-    Roundtable (2020), DOI:10.5281/zenodo.3653101,
-    https://doi.org/10.5281/zenodo.3653101.
-
-[3] J.G. Wallwork, N. Barral, D.A. Ham, M.D. Piggott,
     "Goal-Oriented Error Estimation and Mesh Adaptation for
     Tracer Transport Modelling", submitted to Computer
     Aided Design (2021).
+
+[3] B.P. Flannery, W.H. Press, S.A. Teukolsky, W. Vetterling,
+    "Numerical recipes in C", Press Syndicate of the University
+    of Cambridge, New York (1992).
 """
 from thetis import *
 import numpy as np
@@ -39,7 +35,7 @@ import numpy as np
 
 def bessi0(x):
     """
-    Modified Bessel function of the first kind. Code taken from 'Numerical recipes in C'.
+    Modified Bessel function of the first kind. Code taken from [3].
     """
     ax = abs(x)
     y1 = x/3.75
@@ -55,7 +51,7 @@ def bessi0(x):
 
 def bessk0(x):
     """
-    Modified Bessel function of the second kind. Code taken from 'Numerical recipes in C'.
+    Modified Bessel function of the second kind. Code taken from [3].
     """
     y1 = x*x/4.0
     expr1 = -ln(x/2.0)*bessi0(x) + (-0.57721566 + y1*(0.42278420 + y1*(
@@ -72,7 +68,7 @@ class PointDischargeParameters(object):
 
     Delta functions are not in H1 and hence do not live in the FunctionSpaces we
     seek to use. Here we use a Gaussian approximation with a small radius. The
-    small radius has been calibrated against the analytical solution. See [3]
+    small radius has been calibrated against the analytical solution. See [2]
     for details.
     """
     def __init__(self, offset):
@@ -80,7 +76,6 @@ class PointDischargeParameters(object):
 
         # Physical parameters
         self.diffusivity = Constant(0.1)
-        # self.viscosity = Constant(1.0e-08)
         self.viscosity = None
         self.drag = Constant(0.0025)
         self.uv = Constant(as_vector([1.0, 0.0]))
