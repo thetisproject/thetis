@@ -80,10 +80,8 @@ class FlowSolverCF(FlowSolver2d):
             msg = "Using explicit wetting and drying method with parameter: {:}"
             print_output(msg.format(self.options_nh.wetting_and_drying_threshold))
 
-        if self.options_nh.use_limiter_for_elevation or self.options_nh.use_limiter_for_momentum:
-            self.limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H_2d)
-        else:
-            self.limiter = None
+        self.limiter_scalar = limiter.VertexBasedP1DGLimiter(self.function_spaces.H_2d)
+        self.limiter_vector = limiter.VertexBasedP1DGLimiter(self.function_spaces.U_2d)
 
         self._isfrozen = True
 
@@ -163,51 +161,36 @@ class MyTimeIntegrator2D(rungekutta.SSPRK33):
         self.solver_cf = solver
         self.fields = solver.fields
         self.options_nh = solver.options_nh
-        self.limiter = solver.limiter
+        self.limiter_scalar = solver.limiter_scalar
+        self.limiter_vector = solver.limiter_vector
         self.wd_treatment = solver.expl_wd_treatment
-        self.h_unlim = Function(self.fields.h_2d)
-        self.hu_cent = Function(FunctionSpace(solver.mesh2d, 'DG', 0))
-        self.hv_cent = Function(FunctionSpace(solver.mesh2d, 'DG', 0))
-        self.u_lim = Function(self.fields.hu_2d)
-        self.v_lim = Function(self.fields.hv_2d)
 
     def advance(self, t, update_forcings=None):
-        for i in range(self.n_stages):
+        for i_stage in range(self.n_stages):
             wd_threshold = self.options_nh.wetting_and_drying_threshold
             # remove gravity in semi and full dry cells
-       #     self.wd_treatment.cancel_gravity_in_dry_cells(
-        #        self.solver_cf.gravity, self.fields,
-         #       self.solver_cf.bathymetry_dg, wd_threshold
-          #  )
+            self.wd_treatment.cancel_gravity_in_dry_cells(
+                self.solver_cf.gravity, self.fields,
+                self.solver_cf.bathymetry_dg, wd_threshold
+            )
             # solve i-th stage
-            self.solve_stage(i, t, update_forcings)
-            # limiting of the fluid depth
-            self.h_unlim.assign(self.fields.h_2d)
-            if self.options_nh.use_limiter_for_elevation:
-                self.fields.elev_2d.assign(self.fields.h_2d - self.solver_cf.bathymetry_dg)
-                self.limiter.apply(self.fields.elev_2d)
+            self.solve_stage(i_stage, t, update_forcings)
+            # compute unlimited velocity
+            ind_dry = np.where(self.fields.h_2d.dat.data[:] < wd_threshold)[0]
+            ind_wet = np.where(self.fields.h_2d.dat.data[:] >= wd_threshold)[0]
+            self.fields.uv_2d.dat.data[:] = [0, 0]
+            for i in range(2):
+                self.fields.uv_2d.dat.data[ind_wet, i] = self.fields.solution_2d.sub(i+1).dat.data[ind_wet]/self.fields.h_2d.dat.data[ind_wet]
+            # limit the momentum
+            if self.options_nh.use_limiter_for_momentum and i_stage == self.n_stages - 1:
+                self.limiter_vector.apply(self.fields.uv_2d)
+            # limit the fluid depth
+            self.fields.elev_2d.assign(self.fields.h_2d - self.solver_cf.bathymetry_dg)
+            if self.options_nh.use_limiter_for_elevation and i_stage == self.n_stages - 1:
+                self.limiter_scalar.apply(self.fields.elev_2d)
                 self.fields.h_2d.assign(self.fields.elev_2d + self.solver_cf.bathymetry_dg)
-                #self.fields.h_2d.dat.data[np.where(self.fields.h_2d.dat.data[:] <= 0)[0]] = 0
+            # use wetting and drying operators
             if self.options_nh.use_explicit_wetting_and_drying:
-                self.wd_treatment.apply_positive_depth_operator(self.fields.h_2d)
-            # limiting of the momentum
-            self.u_lim.assign(self.fields.hu_2d/self.h_unlim)
-            self.v_lim.assign(self.fields.hv_2d/self.h_unlim)
-            ind_dry = np.where(self.h_unlim.dat.data[:] < wd_threshold)[0]
-            self.u_lim.dat.data[ind_dry] = 0
-            self.v_lim.dat.data[ind_dry] = 0
-            if self.options_nh.use_limiter_for_momentum:
-                self.limiter._update_centroids(self.fields.hu_2d)
-                self.hu_cent.assign(self.limiter.centroids)
-                self.limiter.apply(self.u_lim)
-                self.u_lim.dat.data[ind_dry] = 0
-                self.wd_treatment.apply_momentum_operator(self.fields.hu_2d, self.fields.h_2d, self.u_lim, self.hu_cent)
-
-                self.limiter._update_centroids(self.fields.hv_2d)
-                self.hv_cent.assign(self.limiter.centroids)
-                self.limiter.apply(self.v_lim)
-                self.v_lim.dat.data[ind_dry] = 0
-                self.wd_treatment.apply_momentum_operator(self.fields.hv_2d, self.fields.h_2d, self.v_lim, self.hv_cent)
-
-
-               # print(self.fields.hv_2d.dat.data.min(), self.fields.h_2d.dat.data.min() , self.v_lim.dat.data.min(), self.hv_cent.dat.data.min())
+                self.wd_treatment.apply_positive_depth_operator(self.fields.h_2d, wd_threshold)
+                self.wd_treatment.apply_momentum_operator(self.fields.hu_2d, self.fields.h_2d, self.fields.uv_2d.sub(0), wd_threshold)
+                self.wd_treatment.apply_momentum_operator(self.fields.hv_2d, self.fields.h_2d, self.fields.uv_2d.sub(1), wd_threshold)

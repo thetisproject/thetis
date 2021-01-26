@@ -59,6 +59,21 @@ if solve_nonhydrostatic_pressure:
 solver_obj.create_equations()
 
 # set initial elevation
+print(FunctionSpace(mesh2d, 'DG', 0).cell_node_map().values)
+entity_dofs = FunctionSpace(mesh2d, 'DG', 0).finat_element.entity_dofs()
+print(entity_dofs)
+nodes_per_entity = tuple(mesh2d.make_dofs_per_plex_entity(entity_dofs))
+print(nodes_per_entity)
+print(FunctionSpace(mesh2d, 'DG', 0).finat_element.cell.get_topology())
+print('here', mesh2d._shared_data_cache['get_entity_node_lists'])
+from finat.finiteelementbase import entity_support_dofs
+print(dir(FunctionSpace(mesh2d, 'HDivT', 1)))
+
+print(FunctionSpace(mesh2d, 'DG', 1).interior_facet_node_map().values)
+print(entity_support_dofs(FunctionSpace(mesh2d, 'DG', 1).finat_element, 1).keys())
+print(FunctionSpace(mesh2d, 'DG', 1).cell_boundary_masks)
+
+stop
 elev_init = Function(solver_obj.function_spaces.H_2d)
 x, y = SpatialCoordinate(mesh2d)
 elev_init.interpolate(elev_amp*cos(2*pi*x/lx))

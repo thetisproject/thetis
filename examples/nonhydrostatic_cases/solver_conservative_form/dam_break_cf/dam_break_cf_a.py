@@ -11,7 +11,7 @@ This example tests solver in conservative form with wetting and drying treatment
 from thetis import *
 
 lx = 2000.
-ly = 1e1
+ly = 1e2
 nx = 500
 ny = 1
 mesh2d = UnitSquareMesh(nx, ny)
@@ -28,7 +28,7 @@ bathymetry_2d = Function(P1_2d, name='Bathymetry')
 bathymetry_2d.assign(0.)
 
 # set time step, export interval and run duration
-dt = 0.02
+dt = 0.01
 t_export = 1.
 t_end = 15.
 
@@ -55,12 +55,12 @@ options_nh.phi_i = 0.  # internal friction angle
 options_nh.phi_b = 0.  # bed friction angle
 options_nh.lamda = 0.
 slope_rad = 0./180.*pi
-options_nh.bed_slope = Constant((cos(0.5*pi - slope_rad), cos(0.5*pi), cos(slope_rad)))  # flat bed
+options_nh.bed_slope = [cos(0.5*pi - slope_rad), cos(0.5*pi), cos(slope_rad)]  # flat bed
 # wetting and drying
 options_nh.use_explicit_wetting_and_drying = True
-options_nh.wetting_and_drying_threshold = 1e-3
-options_nh.use_limiter_for_elevation = not False
-options_nh.use_limiter_for_momentum = not False
+options_nh.wetting_and_drying_threshold = 1e-5
+options_nh.use_limiter_for_elevation = True
+options_nh.use_limiter_for_momentum = True
 
 # --- boundary condition ---
 solver_obj.bnd_functions['shallow_water'] = {1: {'inflow': None}, 2: {'outflow': None}}

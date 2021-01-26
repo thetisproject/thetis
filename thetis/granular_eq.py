@@ -37,6 +37,7 @@ class GranularEquations(BaseGranularEquation):
         super(GranularEquations, self).__init__(space, bathymetry, options)
 
         self.options_nh = options.nh_model_options
+        self.threshold = self.options_nh.wetting_and_drying_threshold
         self.test_h = self.test[0]
         self.test_uv = as_vector((self.test[1], self.test[2]))
         self.boundary_markers = sorted(space.mesh().exterior_facets.unique_markers)
@@ -53,7 +54,6 @@ class GranularEquations(BaseGranularEquation):
         self.grav_x = gravity*self.options_nh.bed_slope[0]
         self.grav_y = gravity*self.options_nh.bed_slope[1]
         self.grav_z = gravity*self.options_nh.bed_slope[2]
-        self.g_z = g_grav*self.options_nh.bed_slope[2]
 
         def mom(hu, h):
             return conditional(h <= 0, zero(hu.ufl_shape), hu)
@@ -118,17 +118,19 @@ class GranularEquations(BaseGranularEquation):
                 - (1.0 - lamda)*self.grav_z*h_old*tan(phi_b)*vel_uv[0]/(uv_mag + 1e-16)
                 - sign(s_xy)*(1.0 - lamda)*self.grav_z*h_old*kap*Dx(h_old, 1)*sin(phi_i)
             )
-            print(self.grav_y)
             src_y = (
                 self.grav_y*h_old + h_old/self.options_nh.rho_g*grad_p_mod[1]
                 - (1.0 - lamda)*self.grav_z*h_old*tan(phi_b)*vel_uv[1]/(uv_mag + 1e-16)
                 - sign(s_xy)*(1.0 - lamda)*self.grav_z*h_old*kap*Dx(h_old, 0)*sin(phi_i)
             )
+           # src = as_vector((0, src_x, src_y))
+           # f += -dot(src, self.test)*self.dx
             f += -(src_x*self.test_uv[0] + src_y*self.test_uv[1])*self.dx
         else:
             # bathymetry gradient term
             bath_grad = self.grav_z*h_old*as_vector((0, Dx(self.bathymetry, 0), Dx(self.bathymetry, 1)))
-            f += -dot(bath_grad, self.test)*self.dx
+           # f += -dot(bath_grad, self.test)*self.dx
+            f += -self.grav_z*h_old*dot(grad(self.bathymetry), self.test_uv)*self.dx
 
         # add in boundary fluxes
         for bnd_marker in self.boundary_markers:
@@ -178,8 +180,8 @@ class GranularEquations(BaseGranularEquation):
                     h_jump = h_old - h_ext_old
                     un_rie = 0.5*inner(vel_uv_old + uv_ext_old, self.normal) + sqrt(self.grav_z/h_old)*h_jump
                     uv_av = 0.5*(uv_ext + vel_uv)
-                    f += h_old*(uv_av[0]*self.test_uv[0]*un_rie + uv_av[1]*self.test_uv[1]*un_rie)*ds_bnd
-                if funcs is None:
+                    f += h_old*dot(uv_av, self.test_uv)*un_rie*ds_bnd
+                else:
                     # NOTE seems inaccurate for granular flow with inclined slope TODO improve, WPan 2020-03-29
                     # impose impermeability with mirror velocity
                     uv_ext = vel_uv - 2*dot(vel_uv, self.normal)*self.normal
@@ -195,7 +197,7 @@ class GranularEquations(BaseGranularEquation):
         if manning_drag_coefficient is not None:
             if C_D is not None:
                 raise Exception('Cannot set both dimensionless and Manning drag parameter')
-            C_D = g_grav * manning_drag_coefficient**2 / h_old**(1./3.)
+            C_D = conditional(h_old < self.threshold, Constant(0.0), self.grav_z * manning_drag_coefficient**2 / h_old**(1./3.))
         if nikuradse_bed_roughness is not None:
             if manning_drag_coefficient is not None:
                 raise Exception('Cannot set both Nikuradse drag and Manning drag parameter')
@@ -222,8 +224,8 @@ class GranularEquations(BaseGranularEquation):
         hl, mul, mvl = wl[0], wl[1], wl[2]
 
         # negigible depth for the explicit wetting and drying method
-        eps = self.options_nh.wetting_and_drying_threshold
-        g = conditional(And(hr < eps, hl < eps), zero(self.grav_z('+').ufl_shape), self.grav_z('+'))
+        g = conditional(And(hr < self.threshold, hl < self.threshold), zero(self.grav_z('+').ufl_shape), self.grav_z('+'))
+        g = self.grav_z('+')
 
         # use HLLC flux
         hl_zero = conditional(hl <= 0, 0, 1)
@@ -239,12 +241,11 @@ class GranularEquations(BaseGranularEquation):
         c_minus = Min(vr - sqrt(lam_kap * g * hr), vl - sqrt(lam_kap * g * hl))
         c_plus = Max(vr + sqrt(lam_kap * g * hr), vl + sqrt(lam_kap * g * hl))
         # not divided by zero height
-        y = (hl * c_minus * (c_plus - vl) - hr * c_plus * (c_minus - vr)) / (hl * (c_plus - vl) - hr * (c_minus - vr))
         y = (
             (0.5 * g * hr * hr - 0.5 * g * hl * hl + hl * vl * (c_plus - vl) - hr * vr * (c_minus - vr))
             / (hl * (c_plus - vl) - hr * (c_minus - vr))
         )
-        c_s = conditional(abs(hr * (c_minus - vr) - hl * (c_plus - vl)) <= 1e-16, zero(y.ufl_shape), y)
+        c_s = conditional(abs(hr * (c_minus - vr) - hl * (c_plus - vl)) <= 1e-9, zero(y.ufl_shape), y)
 
         velocityl = conditional(hl <= 0, zero(mul.ufl_shape), (hr_zero * mul * mvl) / hl)
         velocity_ul = conditional(hl <= 0, zero(mul.ufl_shape), (hr_zero * mul * mul) / hl)
@@ -274,15 +275,15 @@ class GranularEquations(BaseGranularEquation):
         W_minus = as_vector((hl, mul, mvl))
 
         y = ((sqrt(hr) * vr) + (sqrt(hl) * vl)) / (sqrt(hl) + sqrt(hr))
-        y = 0.5 * (vl + vr)
-        v_star = conditional(abs(sqrt(hl) + sqrt(hr)) <= 1e-16, zero(y.ufl_shape), y)
+        v_star = conditional(sqrt(hl) + sqrt(hr) <= 1e-9, zero(y.ufl_shape), y)
+        v_star = 0.5 * (vl + vr)
         # conditional to prevent dividing by zero
         y = (c_minus - vr) / (c_minus - c_s) * (
             W_plus - as_vector((0,
                                 hr * (c_s - v_star) * normal[0],
                                 hr * (c_s - v_star) * normal[1]))
         )
-        w_plus = conditional(abs(c_minus - c_s) <= 1e-16, zero(y.ufl_shape), y)
+        w_plus = conditional(abs(c_minus - c_s) <= 1e-9, zero(y.ufl_shape), y)
 
         # conditional to prevent dividing by zero
         y = (c_plus - vl) / (c_plus - c_s) * (
@@ -290,7 +291,7 @@ class GranularEquations(BaseGranularEquation):
                                  hl * (c_s - v_star) * normal[0],
                                  hl * (c_s - v_star) * normal[1]))
         )
-        w_minus = conditional(abs(c_plus - c_s) <= 1e-16, zero(y.ufl_shape), y)
+        w_minus = conditional(abs(c_plus - c_s) <= 1e-9, zero(y.ufl_shape), y)
 
         Flux = (
             0.5 * dot(normal, F_plus + F_minus)

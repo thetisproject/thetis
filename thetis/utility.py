@@ -2045,7 +2045,7 @@ class treat_wetting_and_drying(object):
         assert space.ufl_element().degree() == 1,\
             'Explicit wetting and drying treatment only supports equal order P1DG'
         self.P1DG = space
-        self.wd_solution = Function(self.P1DG)
+        self.wd_field = Function(self.P1DG)
         self.gravity_operator_kernel = self.set_gravity_operator_kernel()
         self.positivity_operator_kernel = self.set_positivity_operator_kernel()
         self.momentum_operator_kernel = self.set_momentum_operator_kernel()
@@ -2067,6 +2067,10 @@ class treat_wetting_and_drying(object):
                 for (int i = 0; i < dofs; i++) {
                     g_vert[i] = 0;
                 }
+            } else {
+                for (int i = 0; i < dofs; i++) {
+                    g_vert[i] = 9.81;
+                }
             }
         """
         return gravity_operator_kernel
@@ -2076,8 +2080,13 @@ class treat_wetting_and_drying(object):
         Set positive depth operator kernel
         """
         positivity_operator_kernel = """
+            const double eps = %(epsilon)s;
+            double h_avg = 0.;
             int a = 0, a1 = 0, a3 = 0, n1, n2, n3, dofs;
             dofs = h_vert.dofs;
+            for (int i = 0; i < dofs; i++) {
+                h_avg += h_vert[i] / dofs;
+            }
             for (int i = 0; i < dofs; i++) {
                 if (h_vert[i] >= 0) {
                     a += 1;
@@ -2086,6 +2095,11 @@ class treat_wetting_and_drying(object):
             if (a == dofs) {
                 for (int i = 0; i < dofs; i++) {
                     h_wd_vert[i] = h_vert[i];
+                }
+            } 
+            if (h_avg <= 0) {
+                for (int i = 0; i < dofs; i++) {
+                    h_wd_vert[i] = 0;
                 }
             } else {
                 if (a < dofs) {
@@ -2136,11 +2150,6 @@ class treat_wetting_and_drying(object):
                     h_wd_vert[n3] = h_vert[n3] - (h_wd_vert[n1] - h_vert[n1]) - (h_wd_vert[n2] - h_vert[n2]);
                 }
             }
-            for (int i = 0; i < dofs; i++) {
-                if  (h_wd_vert[i] <= 0.) {
-                    h_wd_vert[i] = 0.;
-                }
-            }
         """
         return positivity_operator_kernel
 
@@ -2149,16 +2158,20 @@ class treat_wetting_and_drying(object):
         Set momentum operator kernel
         """
         momentum_operator_kernel = """
-            int n1, n2;
-            double delta_u0, delta_u1, delta_u2;
-            int dofs = h_vert.dofs;
+            const double eps = %(epsilon)s;
+            int n1, n2, dofs;
+            double hu_tot, delta_u0, delta_u1, delta_u2;
+            dofs = h_vert.dofs;
             for (int i = 0; i < dofs; i++) {
-                n1 = (i + 1) % 3;
-                n2 = (i + 2) % 3;
-                if (h_vert[i] <= 0) {
+                hu_tot += hu_vert[i];
+            }
+            for (int i = 0; i < dofs; i++) {
+                n1 = (i + 1) - ((int)(i + 1) / 3)*3;
+                n2 = (i + 2) - ((int)(i + 2) / 3)*3;
+                if (h_vert[i] < eps) {
                     hu_vert[i] = 0;
                 } else {
-                    hu_vert[i] = (3*hu_bar[0] - h_vert[n1]*u_vert[n1] - h_vert[n2]*u_vert[n2])/h_vert[i];
+                    hu_vert[i] = (hu_tot - h_vert[n1]*u_vert[n1] - h_vert[n2]*u_vert[n2])/h_vert[i];
                 }
             }
             delta_u0 = fmax(fmax(hu_vert[0], u_vert[1]), u_vert[2]) - fmin(fmin(hu_vert[0], u_vert[1]), u_vert[2]);
@@ -2186,27 +2199,63 @@ class treat_wetting_and_drying(object):
         """
         elev = fields.elev_2d.assign(fields.solution_2d.sub(0) - bathymetry)
         kwargs = {
-            "g_vert": (gravity, RW),
-            "elev_vert": (elev, READ), "bath_vert": (bathymetry, READ),
+            "g_vert": (gravity, RW), "elev_vert": (elev, READ), "bath_vert": (bathymetry, READ),
         }
         par_loop(self.gravity_operator_kernel % {"epsilon": wd_threshold}, dx, kwargs)
 
-    def apply_positive_depth_operator(self, solution):
+    def apply_positive_depth_operator(self, field, wd_threshold=1e-4):
         """
         Apply positive depth operator to ensure mass conserving
         """
         kwargs = {
-            "h_wd_vert": (self.wd_solution, RW), "h_vert": (solution, READ),
+            "h_wd_vert": (self.wd_field, RW), "h_vert": (field, READ),
         }
-        par_loop(self.positivity_operator_kernel, dx, kwargs)
-        solution.assign(self.wd_solution)
+        par_loop(self.positivity_operator_kernel % {"epsilon": wd_threshold}, dx, kwargs)
+        field.assign(self.wd_field)
 
-    def apply_momentum_operator(self, solution, h_lim, u_lim, hu_centroids):
+    def apply_momentum_operator(self, field, h_lim, u_lim, wd_threshold=1e-4):
         """
         Apply momentum operator to modify momentum distribution
         """
         kwargs = {
-            "hu_vert": (solution, RW), "h_vert": (h_lim, READ),
-            "u_vert": (u_lim, READ), "hu_bar": (hu_centroids, READ),
+            "hu_vert": (field, RW), "h_vert": (h_lim, READ), "u_vert": (u_lim, READ),
         }
-        par_loop(self.momentum_operator_kernel, dx, kwargs)
+        par_loop(self.momentum_operator_kernel % {"epsilon": wd_threshold}, dx, kwargs)
+
+    def apply_post_limiter_operator(self, field, h_lim, u_lim, wd_threshold=1e-4):
+        kernel = """
+            const double eps = %(epsilon)s;
+            int dofs = u_vert.dofs, a = 0, npos = 0;
+            double delta_u = 0.;
+            #define STEP(X) (((X) <= 0) ? 0 : 1)
+            for (int i = 0; i < dofs; i++) {
+                if (h_vert[i] < eps) {
+                    a += 1;
+                }
+            }
+            if (a == 0) {
+                for (int i = 0; i < dofs; i++) {
+                    u_vert[i] = u_lim_vert[i];
+                }
+            } else {
+                for (int i = 0; i < dofs; i++) {
+                    if (fabs(u_vert[i]) <= 1e-9) {
+                        npos += 1;
+                        delta_u += u_lim_vert[i] - u_vert[i];
+                        u_lim_vert[i] = u_vert[i];
+                    }
+                }
+                for (int i = 0; i < dofs; i++) {
+                    if (fabs(u_vert[i]) > 1e-9) {
+                        u_lim_vert[i] += delta_u/(dofs - npos);
+                    }
+                }
+                for (int i = 0; i < dofs; i++) {
+                    u_vert[i] = u_lim_vert[i];
+                }
+            }
+        """ % {"epsilon": wd_threshold}
+        kwargs = {
+            "u_vert": (field, RW), "h_vert": (h_lim, READ), "u_lim_vert": (u_lim, RW),
+        }
+        par_loop(kernel, dx, kwargs)

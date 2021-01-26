@@ -55,10 +55,10 @@ options_nh.phi_i = 0.  # internal friction angle
 options_nh.phi_b = 10./180.*pi  # bed friction angle
 options_nh.lamda = 0.
 slope_rad = 20./180.*pi
-options_nh.bed_slope = Constant((cos(0.5*pi - slope_rad), cos(0.5*pi), cos(slope_rad)))  # flat bed
+options_nh.bed_slope = [cos(0.5*pi - slope_rad), cos(0.5*pi), cos(slope_rad)]  # flat bed
 # wetting and drying
 options_nh.use_explicit_wetting_and_drying = True
-options_nh.wetting_and_drying_threshold = 1e-3
+options_nh.wetting_and_drying_threshold = 1e-4
 options_nh.use_limiter_for_elevation = False
 options_nh.use_limiter_for_momentum = False
 

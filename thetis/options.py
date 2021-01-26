@@ -388,11 +388,11 @@ class NonhydrostaticModelOptions(FrozenHasTraits):
     phi_i = NonNegativeFloat(0.0, help='Internal friction angle of the granular solid').tag(config=True)
     phi_b = NonNegativeFloat(0.0, help='Bed friction angle of grains').tag(config=True)
     lamda = Float(1.0, help='Parameter to be calibrated using laboratory measurements in granular flow').tag(config=True)
-    bed_slope = FiredrakeVectorExpression(Constant((0, 0, 1)), help='Bed slope for granular flow solver').tag(config=True)
+    bed_slope = List([0, 0, 1], help='Bed slope for granular flow solver').tag(config=True)
     use_limiter_for_elevation = Bool(
-        True, help="Apply P1DG limiter for 2D elevation field").tag(config=True)
+        False, help="Apply P1DG limiter for 2D elevation field").tag(config=True)
     use_limiter_for_momentum = Bool(
-        True, help="Apply P1DG limiter for 2D momentum fields").tag(config=True)
+        False, help="Apply P1DG limiter for 2D momentum fields").tag(config=True)
 
 
 class CommonModelOptions(FrozenConfigurable):
