@@ -134,13 +134,12 @@ class ConservativeHorizontalDiffusionTerm(ConservativeTracerTerm, HorizontalDiff
             \text{jump}(\phi \textbf{n}_h) dS \\
         &- \int_\Gamma \mu_h (\nabla_h \phi) \cdot \textbf{n}_h ds
 
-    where :math:`\sigma` is a penalty parameter,
-    see Epshteyn and Riviere (2007).
+    where :math:`\sigma` is a penalty parameter, see Hillewaert (2013).
 
-    Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
-    interior penalty Galerkin methods. Journal of Computational and Applied
-    Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
-
+    Hillewaert, Koen (2013). Development of the discontinuous Galerkin method
+    for high-resolution, large scale CFD and acoustics in industrial
+    geometries. PhD Thesis. Université catholique de Louvain.
+    https://dial.uclouvain.be/pr/boreal/object/boreal:128254/
     """
     # TODO: at the moment the same as HorizontalDiffusionTerm
     # do we need additional H-derivative term?
