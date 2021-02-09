@@ -253,12 +253,12 @@ class HorizontalDiffusionTerm(TracerTerm):
         &- \int_{\mathcal{I}_h\cup\mathcal{I}_v} \sigma \text{avg}(\mu_h) \text{jump}(T \textbf{n}_h) \cdot
             \text{jump}(\phi \textbf{n}_h) dS
 
-    where :math:`\sigma` is a penalty parameter,
-    see Epshteyn and Riviere (2007).
+    where :math:`\sigma` is a penalty parameter, see Hillewaert (2013).
 
-    Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
-    interior penalty Galerkin methods. Journal of Computational and Applied
-    Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
+    Hillewaert, Koen (2013). Development of the discontinuous Galerkin method
+    for high-resolution, large scale CFD and acoustics in industrial
+    geometries. PhD Thesis. Université catholique de Louvain.
+    https://dial.uclouvain.be/pr/boreal/object/boreal:128254/
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_h') is None:
@@ -274,20 +274,19 @@ class HorizontalDiffusionTerm(TracerTerm):
         f += inner(grad_test, diff_flux)*self.dx
 
         if self.horizontal_dg:
-            assert self.h_elem_size is not None, 'h_elem_size must be defined'
-            assert self.v_elem_size is not None, 'v_elem_size must be defined'
-            # TODO compute elemsize as CellVolume/FacetArea
-            # h = n.D.n where D = diag(h_h, h_h, h_v)
-
-            elemsize = (self.h_elem_size*(self.normal[0]**2
-                                          + self.normal[1]**2)
-                        + self.v_elem_size*self.normal[2]**2)
-            alpha = self.sipg_parameter
-            assert alpha is not None
-            sigma = avg(alpha/elemsize)
+            h_cell = self.mesh.ufl_cell().sub_cells()[0]
+            p, q = self.function_space.ufl_element().degree()
+            cp = (p + 1) * (p + 2) / 2 if h_cell == triangle else (p + 1)**2
+            # by default the factor is multiplied by 2 to ensure convergence
+            sigma = cp * FacetArea(self.mesh) / CellVolume(self.mesh)
+            sp = sigma('+')
+            sm = sigma('-')
+            sigma_max = conditional(sp > sm, sp, sm)
             ds_interior = (self.dS_h + self.dS_v)
-            f += sigma*inner(jump(self.test, self.normal),
-                             dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
+            f += sigma_max * inner(
+                jump(self.test, self.normal),
+                dot(avg(diff_tensor), jump(solution, self.normal))
+            )*ds_interior
             f += -inner(avg(dot(diff_tensor, grad(self.test))),
                         jump(solution, self.normal))*ds_interior
             f += -inner(jump(self.test, self.normal),
@@ -315,12 +314,12 @@ class VerticalDiffusionTerm(TracerTerm):
         &- \int_{\mathcal{I}_{h}} \sigma \text{avg}(\mu) \text{jump}(T n_z) \cdot
             \text{jump}(\phi n_z) dS
 
-    where :math:`\sigma` is a penalty parameter,
-    see Epshteyn and Riviere (2007).
+    where :math:`\sigma` is a penalty parameter, see Hillewaert (2013).
 
-    Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
-    interior penalty Galerkin methods. Journal of Computational and Applied
-    Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
+    Hillewaert, Koen (2013). Development of the discontinuous Galerkin method
+    for high-resolution, large scale CFD and acoustics in industrial
+    geometries. PhD Thesis. Université catholique de Louvain.
+    https://dial.uclouvain.be/pr/boreal/object/boreal:128254/
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_v') is None:
@@ -335,19 +334,18 @@ class VerticalDiffusionTerm(TracerTerm):
         f += inner(grad_test, diff_flux)*self.dx
 
         if self.vertical_dg:
-            assert self.h_elem_size is not None, 'h_elem_size must be defined'
-            assert self.v_elem_size is not None, 'v_elem_size must be defined'
-            # TODO compute elemsize as CellVolume/FacetArea
-            # h = n.D.n where D = diag(h_h, h_h, h_v)
-            elemsize = (self.h_elem_size*(self.normal[0]**2
-                                          + self.normal[1]**2)
-                        + self.v_elem_size*self.normal[2]**2)
-            alpha = self.sipg_parameter_vertical
-            assert alpha is not None
-            sigma = avg(alpha/elemsize)
+            p, q = self.function_space.ufl_element().degree()
+            cp = (q + 1)**2
+            # by default the factor is multiplied by 2 to ensure convergence
+            sigma = cp * FacetArea(self.mesh) / CellVolume(self.mesh)
+            sp = sigma('+')
+            sm = sigma('-')
+            sigma_max = conditional(sp > sm, sp, sm)
             ds_interior = (self.dS_h)
-            f += sigma*inner(jump(self.test, self.normal[2]),
-                             dot(avg(diffusivity_v), jump(solution, self.normal[2])))*ds_interior
+            f += sigma_max*inner(
+                jump(self.test, self.normal[2]),
+                dot(avg(diffusivity_v), jump(solution, self.normal[2]))
+            )*ds_interior
             f += -inner(avg(dot(diffusivity_v, Dx(self.test, 2))),
                         jump(solution, self.normal[2]))*ds_interior
             f += -inner(jump(self.test, self.normal[2]),
