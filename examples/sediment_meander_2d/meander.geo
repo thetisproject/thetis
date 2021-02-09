@@ -35,7 +35,9 @@ Line(39) = {8, 107};
 
 Physical Line(1) = {35, 36};
 Physical Line(2) = {38, 39};
-Physical Line(3) = {3, 4, 5, 6, 7, 8 ,9, 10};
+Physical Line(3) = {5, 6, 7, 8};
+Physical Line(4) = {3, 9};
+Physical Line(5) = {4, 10};
 
 Line Loop (20) = {35, 5, 9, 3, -8, 39, -37, 11, 12, -34};
 Plane Surface(16) = {20};
@@ -44,3 +46,7 @@ Physical Surface(200) = {20};
 Line Loop (30) = {-36, 6, 10, 4, -7, 38, -37, 11, 12, -34};
 Plane Surface(20) = {30};
 Physical Surface(100) = {16};
+
+Field[1] = MathEval;
+Field[1].F = "0.2";
+Background Field = 1;

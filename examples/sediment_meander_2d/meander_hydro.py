@@ -12,8 +12,7 @@ For more details of the test case set-up see
 """
 
 from thetis import *
-import numpy as np
-# import bathymetry and mesh for meander
+
 from meander_setup import *
 
 # define function spaces
@@ -27,7 +26,7 @@ elev_init = Function(P1_2d).interpolate(0.0544 - bathymetry_2d)
 uv_init = Function(vectorP1_2d).interpolate(as_vector((0.001, 0.001)))
 
 # choose directory to output results
-outputdir = 'outputs'
+outputdir = 'outputs_hydro'
 print_output('Exporting to '+outputdir)
 t_end = 200
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
@@ -53,7 +52,8 @@ options.use_lax_friedrichs_tracer = False
 # using nikuradse friction
 options.nikuradse_bed_roughness = ksp
 # setting viscosity
-options.horizontal_viscosity = Constant(5*10**(-2))
+options.horizontal_viscosity = Constant(5e-2)
+options.use_automatic_sipg_parameter = False
 # crank-nicholson used to integrate in time system of ODEs resulting from application of galerkin FEM
 options.timestepper_type = 'CrankNicolson'
 options.timestepper_options.implicitness_theta = 1.0
@@ -65,7 +65,6 @@ elev_init_const = (-max(bathymetry_2d.dat.data[:]) + 0.05436)
 left_bnd_id = 1
 right_bnd_id = 2
 swe_bnd = {}
-swe_bnd[3] = {'un': Constant(0.0)}
 swe_bnd[1] = {'flux': Constant(-0.02)}
 swe_bnd[2] = {'elev': Constant(elev_init_const), 'flux': Constant(0.02)}
 solver_obj.bnd_functions['shallow_water'] = swe_bnd

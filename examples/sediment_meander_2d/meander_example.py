@@ -98,8 +98,8 @@ right_bnd_id = 2
 # set boundary conditions
 gradient_flux = (-0.053 + 0.02)/6000
 gradient_flux2 = (-0.02+0.053)/(18000-6000)
-gradient_elev = (10.04414-9.9955)/6000
-gradient_elev2 = (9.9955-10.04414)/(18000-6000)
+gradient_elev = (0.07342-0.02478)/6000
+gradient_elev2 = (-0.07342+0.02478)/(18000-6000)
 elev_init_const = (-max(bathymetry_2d.dat.data[:]) + 0.05436)
 flux_constant = Constant(-0.02)
 elev_constant = Constant(elev_init_const)
