@@ -61,7 +61,6 @@ def run(refinement, **model_options):
     solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     options = solverobj.options
     options.use_nonlinear_equations = False
-    options.use_ale_moving_mesh = False
     options.horizontal_velocity_scale = Constant(1.0)
     options.no_exports = True
     options.output_directory = outputdir
@@ -87,15 +86,8 @@ def run(refinement, **model_options):
     u_min = -1.0
     x0 = lx/2.0
     x, y, z = SpatialCoordinate(solverobj.mesh)
-    ana_salt_expr = 0.5*(u_max + u_min) - 0.5*(u_max - u_min)*erf((x - x0)/sqrt(4*horizontal_diffusivity*t_const))
-
-    salt_ana = Function(solverobj.function_spaces.H, name='salt analytical')
-    salt_ana_p1 = Function(solverobj.function_spaces.P1, name='salt analytical')
-
-    p1dg_ho = get_functionspace(solverobj.mesh, 'DG',
-                                options.polynomial_degree + 2, vfamily='DG',
-                                vdegree=options.polynomial_degree + 2)
-    salt_ana_ho = Function(p1dg_ho, name='salt analytical')
+    ana_salt_expr = 0.5*(u_max + u_min) - 0.5*(u_max - u_min) * \
+        erf((x - x0)/sqrt(4*horizontal_diffusivity*t_const))
 
     elev_init = Function(solverobj.function_spaces.H_2d, name='elev init')
     if warped_mesh:
@@ -104,6 +96,7 @@ def run(refinement, **model_options):
 
     # export analytical solution
     if not options.no_exports:
+        salt_ana = Function(solverobj.function_spaces.H, name='salt analytical')
         out_salt_ana = File(os.path.join(options.output_directory, 'salt_ana.pvd'))
 
     def export_func():
@@ -112,7 +105,7 @@ def run(refinement, **model_options):
             # update analytical solution to correct time
             t_const.assign(t)
             salt_ana.project(ana_salt_expr)
-            out_salt_ana.write(salt_ana_p1.project(salt_ana))
+            out_salt_ana.write(salt_ana.project(salt_ana))
 
     # export initial conditions
     export_func()
@@ -134,9 +127,8 @@ def run(refinement, **model_options):
 
     # project analytical solultion on high order mesh
     t_const.assign(t)
-    salt_ana_ho.project(ana_salt_expr)
     # compute L2 norm
-    l2_err = errornorm(salt_ana_ho, solverobj.fields.salt_3d)/numpy.sqrt(area)
+    l2_err = errornorm(ana_salt_expr, solverobj.fields.salt_3d)/numpy.sqrt(area)
     print_output('L2 error {:.12f}'.format(l2_err))
 
     return l2_err
@@ -153,7 +145,7 @@ def run_convergence(ref_list, saveplot=False, **options):
     setup_name = 'h-diffusion'
 
     def check_convergence(x_log, y_log, expected_slope, field_str, saveplot):
-        slope_rtol = 0.20
+        slope_rtol = 0.22
         slope, intercept, r_value, p_value, std_err = stats.linregress(x_log, y_log)
         if saveplot:
             import matplotlib.pyplot as plt
@@ -208,14 +200,15 @@ def warped(request):
     return request.param
 
 
-@pytest.mark.parametrize(('stepper', 'use_ale'),
-                         [('LeapFrog', True),
-                          ('SSPRK22', True)])
-def test_horizontal_diffusion(warped, polynomial_degree, stepper, use_ale):
+@pytest.fixture(params=['LeapFrog', 'SSPRK22'])
+def stepper(request):
+    return request.param
+
+
+def test_horizontal_diffusion(warped, polynomial_degree, stepper):
     run_convergence([1, 2, 3], polynomial_degree=polynomial_degree,
                     warped_mesh=warped,
-                    timestepper_type=stepper,
-                    use_ale_moving_mesh=use_ale)
+                    timestepper_type=stepper)
 
 # ---------------------------
 # run individual setup for debugging
@@ -227,5 +220,4 @@ if __name__ == '__main__':
                     warped_mesh=True,
                     element_family='dg-dg',
                     timestepper_type='SSPRK22',
-                    use_ale_moving_mesh=True,
                     no_exports=False, saveplot=True)

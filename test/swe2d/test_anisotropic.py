@@ -11,10 +11,6 @@ of [1]. The main contributions of [1] are the derivation of a goal-oriented erro
 shallow water modelling and subsequent implementation of mesh adaptation algorithms. An adapted mesh
 resulting from this process is used in this test. The mesh is anisotropic in the flow direction.
 
-If the default SIPG parameter is used, this steady state problem fails to converge under some
-finite element pairs. The automatic SIPG parameter functionality provided by Thetis should ensure
-converge where it was not attained and reduce the number of nonlinear solver iterations otherwise.
-
 [1] J.G. Wallwork, N. Barral, S.C. Kramer, D.A. Ham, M.D. Piggott, "Goal-Oriented Error Estimation
     and Mesh Adaptation in Shallow Water Modelling" (2020), Springer Nature Applied Sciences (to
     appear).
@@ -137,16 +133,10 @@ def family(request):
 
 def test_sipg(family):
     options = {'element_family': family}
-    snes_it_auto = run(use_automatic_sipg_parameter=True, **options)
-    try:
-        snes_it_default = run(use_automatic_sipg_parameter=False, **options)
-        msg = "auto-sipg: snes iterations was not reduced, expected {:d} < {:d}"
-        assert snes_it_auto < snes_it_default, msg.format(snes_it_auto, snes_it_default)
-        msg = "auto-sipg: snes iterations reduced from {:d} to {:d} for {:s} PASSED"
-        print_output(msg.format(snes_it_default, snes_it_auto, family))
-    except ConvergenceError:
-        msg = "auto-sipg: snes converged where it diverged under default for {:s} PASSED"
-        print_output(msg.format(family))
+    snes_it = run(**options)
+    expected = 3
+    msg = f'snes iterations exceed expected: {snes_it} > {expected}'
+    assert snes_it <= expected, msg
 
 # ---------------------------
 # run individual setup for debugging
@@ -154,4 +144,4 @@ def test_sipg(family):
 
 
 if __name__ == '__main__':
-    print_output(run(use_automatic_sipg_parameter=False, no_exports=False, element_family='rt-dg'))
+    print_output(run(no_exports=False, element_family='rt-dg'))
