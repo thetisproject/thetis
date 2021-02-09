@@ -32,6 +32,7 @@ Further details for the test case can be found in [1].
     of Cambridge, New York (1992).
 """
 from thetis import *
+import pytest
 
 
 def bessi0(x):
@@ -217,7 +218,7 @@ def solve_tracer(n, offset, hydrodynamics=False):
     return solver_obj.fields.tracer_2d
 
 
-def run_convergence(offset, num_levels=4, plot=False, **kwargs):
+def run_convergence(offset, num_levels=3, plot=False, **kwargs):
     """
     Assess convergence of the quantity of interest with increasing DoF count.
 
@@ -258,9 +259,27 @@ def run_convergence(offset, num_levels=4, plot=False, **kwargs):
     assert rate > 0.9, "Sublinear convergence rate {:.4f}".format(rate)
 
 
+# ---------------------------
+# standard tests for pytest
+# ---------------------------
+
+@pytest.fixture(params=[False, True])
+def hydrodynamics(request):
+    return request.param
+
+
+@pytest.fixture(params=[False, True])
+def offset(request):
+    return request.param
+
+
+def test_convergence(hydrodynamics, offset):
+    run_convergence(offset, hydrodynamics=hydrodynamics)
+
+
+# ---------------------------
+# run individual setup for debugging
+# ---------------------------
+
 if __name__ == "__main__":
-    hydrodynamics = False
-    num_levels = 4
-    kwargs = dict(num_levels=num_levels, hydrodynamics=hydrodynamics)
-    for offset in (False, True):
-        run_convergence(offset, plot=True, **kwargs)
+    run_convergence(False, num_levels=4, plot=True, hydrodynamics=False)
