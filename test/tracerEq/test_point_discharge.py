@@ -2,11 +2,13 @@
 TELEMAC-2D `Point Discharge with Diffusion' test case
 =====================================================
 
-Solves tracer advection equation in a rectangular domain with
-uniform fluid velocity, constant diffusivity and a constant
-tracer source term. Neumann conditions are imposed on the
-channel walls, an inflow condition is imposed on the
-left-hand boundary, and the right-hand boundary remains open.
+Solves a steady-state tracer advection equation in a
+rectangular domain with uniform fluid velocity, constant
+diffusivity and a constant tracer source term. Neumann
+conditions are imposed on the channel walls, an inflow
+condition is imposed on the left-hand boundary, and the
+right-hand boundary remains open. An analytical solution
+involving modified Bessel functions exists [1].
 
 The two different functional quantities of interest considered
 in [2] are evaluated on each mesh and convergence is assessed.
@@ -30,7 +32,6 @@ Further details for the test case can be found in [1].
     of Cambridge, New York (1992).
 """
 from thetis import *
-import numpy as np
 
 
 def bessi0(x):
@@ -89,13 +90,16 @@ class PointDischargeParameters(object):
         self.source_r = 0.05606298 if self.use_lax_friedrichs_tracer else 0.05606298
         self.source_value = 100.0
 
+        # Specification of receiver region
+        self.receiver_x = 20.0
+        self.receiver_y = 7.5 if self.offset else 5.0
+        self.receiver_r = 0.5
+
         # Boundary conditions
         self.boundary_conditions = {
             'tracer': {
                 1: {'value': Constant(0.0)},      # inflow
                 2: {'open': None},                # outflow
-                3: {'diff_flux': Constant(0.0)},  # Neumann
-                4: {'diff_flux': Constant(0.0)},  # Neumann
             },
             'shallow_water': {
                 1: {
@@ -106,34 +110,30 @@ class PointDischargeParameters(object):
                     'uv': Constant(as_vector([1.0, 0.0])),
                     'elev': Constant(0.0)
                 },                                # outflow
-                3: {'un': Constant(0.0)},         # free-slip
-                4: {'un': Constant(0.0)},         # free-slip
             }
         }
 
-    def ball(self, mesh, triple, scaling=1.0, eps=1.0e-10):
+    def ball(self, mesh, scaling=1.0, eps=1.0e-10):
         x, y = SpatialCoordinate(mesh)
-        expr = lt((x-triple[0])**2 + (y-triple[1])**2, triple[2]**2 + eps)
+        expr = lt((x-self.receiver_x)**2 + (y-self.receiver_y)**2, self.receiver_r**2 + eps)
         return conditional(expr, scaling, 0.0)
 
-    def gaussian(self, mesh, triple, scaling=1.0):
+    def gaussian(self, mesh, scaling=1.0):
         x, y = SpatialCoordinate(mesh)
-        expr = exp(-((x-triple[0])**2 + (y-triple[1])**2)/triple[2]**2)
+        expr = exp(-((x-self.source_x)**2 + (y-self.source_y)**2)/self.source_r**2)
         return scaling*expr
 
     def source(self, fs):
-        triple = (self.source_x, self.source_y, self.source_r)
-        return self.gaussian(fs.mesh(), triple, scaling=self.source_value)
+        return self.gaussian(fs.mesh(), scaling=self.source_value)
 
     def bathymetry(self, fs):
         return Function(fs).assign(5.0)
 
     def quantity_of_interest_kernel(self, mesh):
-        triple = (20.0, 7.5 if self.offset else 5.0, 0.5)
-        area = assemble(self.ball(mesh, triple)*dx)
-        area_analytical = pi*triple[2]**2
+        area = assemble(self.ball(mesh)*dx)
+        area_analytical = pi*self.receiver_r**2
         scaling = 1.0 if np.allclose(area, 0.0) else area_analytical/area
-        return self.ball(mesh, triple, scaling=scaling)
+        return self.ball(mesh, scaling=scaling)
 
     def quantity_of_interest(self, sol):
         kernel = self.quantity_of_interest_kernel(sol.function_space().mesh())
@@ -143,7 +143,7 @@ class PointDischargeParameters(object):
         """
         The analytical solution can be found in [1]. Due to the modified
         Bessel function, it cannot be evaluated exactly and instead must
-        be computed using quadrature.
+        be computed using a quadrature rule.
         """
         x, y = SpatialCoordinate(mesh)
         x0, y0 = self.source_x, self.source_y
@@ -159,7 +159,13 @@ class PointDischargeParameters(object):
 
 def solve_tracer(n, offset, hydrodynamics=False):
     """
-    Solve the tracer transport problem.
+    Solve the `Point Discharge with Diffusion' steady-state tracer transport test case from [1].
+    This problem has a source term, which involves a Dirac delta function. It also has an analytical
+    solution, which may be expressed in terms of modified Bessel functions.
+
+    As in [2], convergence of two diagnostic quantities of interest is assessed. These are simple
+    integrals of the tracer concentration over circular 'receiver' regions. The 'aligned' receiver is
+    directly downstream in the flow and the 'offset' receiver is shifted in the positive y-direction.
 
     :arg n: mesh resolution level.
     :arg offset: toggle between aligned and offset source/receiver.
@@ -235,16 +241,15 @@ def run_convergence(offset, num_levels=4, plot=False, **kwargs):
     # Plot convergence curves
     if plot:
         import matplotlib.pyplot as plt
-        from mpltools import annotation
 
         fig, axes = plt.subplots()
         axes.loglog(dof_count, relative_error, '--x')
         axes.set_xlabel("DoF count")
         axes.set_ylabel("QoI error")
         axes.grid(True)
-        annotation.slope_marker((dof_count[1], 0.1), -1, invert=True, ax=axes, size_frac=0.2)
-        fname = "outputs/convergence_{:s}.png".format('offset' if offset else 'aligned')
-        plt.savefig(fname)
+        fname = "steady_state_convergence_{:s}.png".format('offset' if offset else 'aligned')
+        plot_dir = create_directory(os.path.join(os.path.dirname(__file__), 'outputs'))
+        plt.savefig(os.path.join(plot_dir, fname))
 
     # Check for linear convergence
     delta_y = np.log10(relative_error[-1]) - np.log10(relative_error[0])
