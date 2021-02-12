@@ -7,6 +7,7 @@ from .callback import DiagnosticCallback
 from .optimisation import DiagnosticOptimisationCallback
 import pyadjoint
 import numpy
+import math
 
 
 class TidalTurbine:
@@ -73,11 +74,11 @@ class RatedThrustTurbine(TidalTurbine):
         d = 4*y**4-64/27*y**3
         C = (-d+4*y**4)**(1/6)
         # the additiona 4pi/3 ensures we obtained the "right" cube with 0<C_T<0.85
-        C_T_rated = (C+4*y/(3*C)) * cos(atan2(sqrt(-d), -2*y**2)/3 + 4*pi/3)
+        C_T_rated = (C+4*y/(3*C)) * cos(atan_2(sqrt(-d), -2*y**2)/3 + 4*pi/3)
 
         return conditional(umag < self.cut_in_speed, 0,
-                           conditional(umag < self.rated, self.C_T,
-                                       conditional(umag < self.cut_out, C_T_rated, 0)))
+                           conditional(umag < self.rated_speed, self.C_T,
+                                       conditional(umag < self.cut_out_speed, C_T_rated, 0)))
 
 
 def linearly_interpolate_table(x_list, y_list, y_final, x):
