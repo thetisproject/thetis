@@ -159,7 +159,6 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
         # Adding turbine distribution in the domain
         self.add_turbines(options.turbine_coordinates)
 
-
     def add_turbines(self, coordinates):
         """
         :param coords: Array with turbine coordinates to be positioned
