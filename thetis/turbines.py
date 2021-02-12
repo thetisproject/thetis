@@ -7,7 +7,6 @@ from .callback import DiagnosticCallback
 from .optimisation import DiagnosticOptimisationCallback
 import pyadjoint
 import numpy
-import math
 
 
 class TidalTurbine:
