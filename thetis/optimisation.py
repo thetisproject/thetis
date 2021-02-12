@@ -255,6 +255,7 @@ class FunctionalOptimisationCallback(DiagnosticOptimisationCallback):
     def message_str(self, functional):
         return 'Functional value: {}'.format(functional)
 
+
 class ConstantControlOptimisationCallback(DiagnosticOptimisationCallback):
     """
     OptimisationCallback that records the control values (which are assumed to be a list of Constants) in the log and/or hdf5 file."""
