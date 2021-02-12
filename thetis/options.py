@@ -385,6 +385,8 @@ class ConstantTidalTurbineOptions(TidalTurbineOptions):
 class RatedTidalTurbineOptions(TidalTurbineOptions):
     """Options for tidal turbine with analytical thrust based on rated speed"""
     name = 'Rated tidal turbine options'
+    thrust_coefficient = PositiveFloat(
+        0.8, help='Thrust coefficient C_T').tag(config=True)
     rated_speed = PositiveFloat(
         3.0, help='Rated speed').tag(config=True)
     cut_in_speed = NonNegativeFloat(
