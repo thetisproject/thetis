@@ -217,7 +217,7 @@ class ShallowWaterTerm(Term):
         self.options = options
 
         # mesh dependent variables
-        self.cellsize = CellSize(self.mesh)
+        self.cellsize = sqrt(CellVolume(self.mesh))#CellSize(self.mesh)
 
         assert self.mesh.cell_dimension() == 2
         self.on_the_sphere = self.mesh.geometric_dimension() == 3
