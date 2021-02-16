@@ -160,13 +160,15 @@ class PointDischargeParameters(object):
 
 def solve_tracer(n, offset, hydrodynamics=False):
     """
-    Solve the `Point Discharge with Diffusion' steady-state tracer transport test case from [1].
-    This problem has a source term, which involves a Dirac delta function. It also has an analytical
-    solution, which may be expressed in terms of modified Bessel functions.
+    Solve the `Point Discharge with Diffusion' steady-state tracer transport
+    test case from [1]. This problem has a source term, which involves a
+    Dirac delta function. It also has an analytical solution, which may be
+    expressed in terms of modified Bessel functions.
 
-    As in [2], convergence of two diagnostic quantities of interest is assessed. These are simple
-    integrals of the tracer concentration over circular 'receiver' regions. The 'aligned' receiver is
-    directly downstream in the flow and the 'offset' receiver is shifted in the positive y-direction.
+    As in [2], convergence of two diagnostic quantities of interest is
+    assessed. These are simple integrals of the tracer concentration over
+    circular 'receiver' regions. The 'aligned' receiver is directly downstream
+    in the flow and the 'offset' receiver is shifted in the positive y-direction.
 
     :arg n: mesh resolution level.
     :arg offset: toggle between aligned and offset source/receiver.
@@ -242,7 +244,6 @@ def run_convergence(offset, num_levels=3, plot=False, **kwargs):
     # Plot convergence curves
     if plot:
         import matplotlib.pyplot as plt
-
         fig, axes = plt.subplots()
         axes.loglog(dof_count, relative_error, '--x')
         axes.set_xlabel("DoF count")
