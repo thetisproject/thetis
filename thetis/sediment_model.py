@@ -14,7 +14,6 @@ class CorrectiveVelocityFactor:
         :type depth: :class:`Function`
         :arg ksp: Grain roughness coefficient
         :type ksp: :class:`Constant`
-        :arg bed_reference_height: Bottom bed reference height
         :arg settling_velocity: Settling velocity of the sediment particles
         :type settling_velocity: :class:`Constant`
         :arg ustar: Shear velocity
@@ -22,7 +21,6 @@ class CorrectiveVelocityFactor:
         :arg a: Factor of bottom bed reference height
         :type a: :class:`Constant`
         """
-
         kappa = physical_constants['von_karman']
 
         # correction factor to advection velocity in sediment concentration equation
@@ -110,6 +108,7 @@ class SedimentModel(object):
         # define function spaces
         self.P1DG_2d = get_functionspace(mesh2d, "DG", 1)
         self.P1_2d = get_functionspace(mesh2d, "CG", 1)
+        self.R_1d = get_functionspace(mesh2d, "R", 0)
         self.P1v_2d = VectorFunctionSpace(mesh2d, "CG", 1)
 
         self.n = FacetNormal(mesh2d)
@@ -119,7 +118,7 @@ class SedimentModel(object):
         self.rhow = physical_constants['rho0']
         kappa = physical_constants['von_karman']
 
-        ksp = Constant(3*self.average_size)
+        ksp = Function(self.P1_2d).interpolate(3*self.average_size)
         self.a = Function(self.P1_2d).interpolate(self.bed_reference_height/2)
 
         if self.options.sediment_model_options.morphological_viscosity is None:
@@ -230,15 +229,15 @@ class SedimentModel(object):
         """
 
         # define bed gradient
-        dzdx = self.fields.old_bathymetry_2d.dx(0)
-        dzdy = self.fields.old_bathymetry_2d.dx(1)
+        dzdx = self.old_bathymetry_2d.dx(0)
+        dzdy = self.old_bathymetry_2d.dx(1)
 
         if self.use_slope_mag_correction:
             # slope effect magnitude correction due to gravity where beta is a parameter normally set to 1.3
             # we use z_n1 and equals so that we can use an implicit method in Exner
             slopecoef = Constant(1) + self.beta*(bathymetry.dx(0)*self.calfa + bathymetry.dx(1)*self.salfa)
         else:
-            slopecoef = Constant(1.0)       
+            slopecoef = Constant(1.0)
 
         if self.use_angle_correction:
             # slope effect angle correction due to gravity
@@ -309,7 +308,7 @@ class SedimentModel(object):
             qby = qb_total*self.salfa
 
         return qbx, qby
-    
+
     def get_sediment_slide_term(self, bathymetry):
         # add component to bedload transport to ensure the slope angle does not exceed a certain value
 
