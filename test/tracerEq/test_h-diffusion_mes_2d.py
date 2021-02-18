@@ -138,8 +138,6 @@ def run_convergence(ref_list, expected_rate=None, saveplot=False, **options):
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
             degree_str = 'o{:}'.format(polynomial_degree)
             imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, degree_str])
-            if options.get('use_automatic_sipg_parameter', False):
-                imgfile = '_'.join([imgfile, 'sipg_auto'])
             imgfile += '.png'
             imgdir = create_directory('plots')
             imgfile = os.path.join(imgdir, imgfile)

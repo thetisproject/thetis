@@ -503,20 +503,6 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
     horizontal_diffusivity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal diffusivity for tracers and sediment").tag(config=True)
-    use_automatic_sipg_parameter = Bool(False, help=r"""
-        Toggle automatic computation of the SIPG penalty parameter used in viscosity and
-        diffusivity terms.
-
-        By default, this parameter is set to
-
-        ..math::
-            \alpha = 5p(p+1),
-
-        where :math:`p` is the polynomial degree of the velocity space.
-
-        For anisotropic meshes, it is advisable to use the automatic SIPG parameter,
-        rather than the default.
-        """).tag(config=True)
     sipg_parameter = FiredrakeScalarExpression(
         Constant(10.0), help="Penalty parameter used for horizontal viscosity terms.").tag(config=True)
     sipg_parameter_tracer = FiredrakeScalarExpression(
