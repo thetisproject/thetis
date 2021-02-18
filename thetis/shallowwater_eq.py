@@ -529,6 +529,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
         total_h = self.depth.get_total_depth(eta_old)
 
         nu = fields_old.get('viscosity_h')
+        sipg_factor = self.options.sipg_factor
         if nu is None:
             return 0
 
@@ -547,8 +548,9 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
             cell = self.mesh.ufl_cell()
             p = self.function_space.ufl_element().degree()
             cp = (p + 1) * (p + 2) / 2 if cell == triangle else (p + 1)**2
+            l_normal = CellVolume(self.mesh) / FacetArea(self.mesh)
             # by default the factor is multiplied by 2 to ensure convergence
-            sigma = cp * FacetArea(self.mesh) / CellVolume(self.mesh)
+            sigma = sipg_factor * cp / l_normal
             sp = sigma('+')
             sm = sigma('-')
             sigma_max = conditional(sp > sm, sp, sm)

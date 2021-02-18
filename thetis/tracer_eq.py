@@ -38,7 +38,8 @@ class TracerTerm(Term):
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
                  use_symmetric_surf_bnd=True, use_lax_friedrichs=True,
-                 sipg_parameter=Constant(10.0), sipg_parameter_vertical=Constant(10.0)):
+                 sipg_factor=Constant(1.0),
+                 sipg_factor_vertical=Constant(1.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -49,6 +50,8 @@ class TracerTerm(Term):
             element size
         :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
             condition in the horizontal advection term
+        :kwarg sipg_factor: :class: `Constant` or :class: `Function` horizontal SIPG penalty scaling factor
+        :kwarg sipg_factor_vertical: :class: `Constant` or :class: `Function` vertical SIPG penalty scaling factor
         """
         super(TracerTerm, self).__init__(function_space)
         self.bathymetry = bathymetry
@@ -59,8 +62,8 @@ class TracerTerm(Term):
         self.vertical_dg = continuity.vertical == 'dg'
         self.use_symmetric_surf_bnd = use_symmetric_surf_bnd
         self.use_lax_friedrichs = use_lax_friedrichs
-        self.sipg_parameter = sipg_parameter
-        self.sipg_parameter_vertical = sipg_parameter_vertical
+        self.sipg_factor = sipg_factor
+        self.sipg_factor_vertical = sipg_factor_vertical
 
         # define measures with a reasonable quadrature degree
         p, q = self.function_space.ufl_element().degree()
@@ -264,6 +267,7 @@ class HorizontalDiffusionTerm(TracerTerm):
         if fields_old.get('diffusivity_h') is None:
             return 0
         diffusivity_h = fields_old['diffusivity_h']
+        sipg_factor = self.sipg_factor
         diff_tensor = as_matrix([[diffusivity_h, 0, 0],
                                  [0, diffusivity_h, 0],
                                  [0, 0, 0]])
@@ -281,7 +285,7 @@ class HorizontalDiffusionTerm(TracerTerm):
             sigma = cp * FacetArea(self.mesh) / CellVolume(self.mesh)
             sp = sigma('+')
             sm = sigma('-')
-            sigma_max = conditional(sp > sm, sp, sm)
+            sigma_max = sipg_factor * conditional(sp > sm, sp, sm)
             ds_interior = (self.dS_h + self.dS_v)
             f += sigma_max * inner(
                 jump(self.test, self.normal),
@@ -326,6 +330,7 @@ class VerticalDiffusionTerm(TracerTerm):
             return 0
 
         diffusivity_v = fields_old['diffusivity_v']
+        sipg_factor = self.sipg_factor_vertical
 
         grad_test = Dx(self.test, 2)
         diff_flux = dot(diffusivity_v, Dx(solution, 2))
@@ -336,8 +341,9 @@ class VerticalDiffusionTerm(TracerTerm):
         if self.vertical_dg:
             p, q = self.function_space.ufl_element().degree()
             cp = (q + 1)**2
+            l_normal = CellVolume(self.mesh) / FacetArea(self.mesh)
             # by default the factor is multiplied by 2 to ensure convergence
-            sigma = cp * FacetArea(self.mesh) / CellVolume(self.mesh)
+            sigma = sipg_factor * cp / l_normal
             sp = sigma('+')
             sm = sigma('-')
             sigma_max = conditional(sp > sm, sp, sm)
@@ -380,7 +386,8 @@ class TracerEquation(Equation):
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
                  use_symmetric_surf_bnd=True, use_lax_friedrichs=True,
-                 sipg_parameter=Constant(10.0), sipg_parameter_vertical=Constant(10.0)):
+                 sipg_factor=Constant(10.0),
+                 sipg_factor_vertical=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -391,12 +398,14 @@ class TracerEquation(Equation):
             element size
         :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
             condition in the horizontal advection term
+        :kwarg sipg_factor: :class: `Constant` or :class: `Function` horizontal SIPG penalty scaling factor
+        :kwarg sipg_factor_vertical: :class: `Constant` or :class: `Function` vertical SIPG penalty scaling factor
         """
         super(TracerEquation, self).__init__(function_space)
 
         args = (function_space, bathymetry,
                 v_elem_size, h_elem_size, use_symmetric_surf_bnd, use_lax_friedrichs,
-                sipg_parameter, sipg_parameter_vertical)
+                sipg_factor, sipg_factor_vertical)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')

@@ -30,16 +30,16 @@ class ConservativeTracerTerm(TracerTerm):
     """
     def __init__(self, function_space, depth,
                  use_lax_friedrichs=False,
-                 sipg_parameter=Constant(10.0)):
+                 sipg_factor=Constant(1.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
         :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
-        :kwarg sipg_parameter: :class: `Constant` or :class: `Function` penalty parameter for SIPG
+        :kwarg sipg_factor: :class:`Constant` or :class:`Function` SIPG penalty scaling factor
         """
         super().__init__(function_space, depth,
                          use_lax_friedrichs=use_lax_friedrichs,
-                         sipg_parameter=sipg_parameter)
+                         sipg_factor=sipg_factor)
 
     # TODO: at the moment this is the same as TracerTerm, but we probably want to overload its
     # get_bnd_functions method
@@ -173,15 +173,15 @@ class ConservativeTracerEquation2D(Equation):
     """
     def __init__(self, function_space, depth,
                  use_lax_friedrichs=False,
-                 sipg_parameter=Constant(10.0)):
+                 sipg_factor=Constant(1.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
         :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
-        :kwarg sipg_parameter: :class: `Constant` or :class: `Function` penalty parameter for SIPG
+        :kwarg sipg_factor: :class:`Constant` or :class:`Function` SIPG penalty scaling factor
         """
         super(ConservativeTracerEquation2D, self).__init__(function_space)
-        args = (function_space, depth, use_lax_friedrichs, sipg_parameter)
+        args = (function_space, depth, use_lax_friedrichs, sipg_factor)
         self.add_term(ConservativeHorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(ConservativeHorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(ConservativeSourceTerm(*args), 'source')
