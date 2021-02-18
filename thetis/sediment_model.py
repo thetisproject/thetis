@@ -139,7 +139,6 @@ class SedimentModel(object):
 
         # calculate critical shields parameter thetacr
         self.R = self.rhos/self.rhow - Constant(1)
-
         self.dstar = Function(V).project(self.average_size*((self.g*self.R)/(self.viscosity**2))**(1/3))
         if float(max(self.dstar.dat.data[:])) < 1:
             raise ValueError('dstar value less than 1')
@@ -153,13 +152,14 @@ class SedimentModel(object):
 
         # calculate settling velocity
         self.settling_velocity = Function(V).project(conditional(self.average_size <= 1e-04, self.g*(self.average_size**2)*self.R/(18*self.viscosity),
-                                                                        conditional(self.average_size <= 1e-03, (10*self.viscosity/self.average_size)
+                                                                        conditional(self.average_size <= 1e-03, (10*self.viscosity*(self.average_size**(-1)))
                                                                                     * (sqrt(1 + 0.01*((self.R*self.g*(self.average_size**3))
                                                                                        / (self.viscosity**2)))-1), 1.1*sqrt(self.g*self.average_size*self.R))))
 
         # first step: project velocity to CG
         self.uv_cg = Function(self.P1v_2d).project(self.uv)
         self.old_bathymetry_2d = Function(self.P1_2d).interpolate(self.depth.bathymetry_2d)
+
         self.depth_tot = Function(self.P1_2d).project(self.depth.get_total_depth(self.elev))
 
         self.u = self.uv_cg[0]
@@ -347,13 +347,11 @@ class SedimentModel(object):
 
         This repeats all projection and interpolations steps based on the current values
         of the `uv` and `elev` functions, provided in __init__."""
-
         self.uv_cg.project(self.uv)
 
         self.old_bathymetry_2d.interpolate(self.depth.bathymetry_2d)
-        self.depth_tot.project(self.depth.get_total_depth(self.elev))
 
-        #self.unorm.interpolate((self.u**2) + (self.v**2))
+        self.depth_tot.project(self.depth.get_total_depth(self.elev))
 
         self.bed_stress.interpolate(self.rhow*Constant(0.5)*self.qfc*self.unorm)
 
