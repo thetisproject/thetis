@@ -8,6 +8,16 @@ Citing Thetis
 If you publish results obtained with Thetis, please cite the `2018 GMD paper <https://doi.org/10.5194/gmd-11-4359-2018>`_.
 Also see `instructions for citing Firedrake <https://firedrakeproject.org/citing.html>`_.
 
+2021
+----
+
+Mackie, L., Evans, P. S., Harrold, M. J.,  O`Doherty, T., Piggott, M. D. and Angeloudis, A.:
+Modelling an energetic tidal strait: investigating implications of common numerical configuration choices. *Applied Ocean Research*, 108:102494, doi:`10.1016/j.apor.2020.102494 <https://doi.org/10.1016/j.apor.2020.102494>`_, 2021.
+
+Clare, M. C. A., Percival, J. R.,  Angeloudis, A., Cotter, C. J. and Piggott, M. D.:
+Hydro-morphodynamics 2D modelling using a discontinuous Galerkin discretisation. *Computers & Geosciences*, 146:104658,
+doi:`10.1016/j.cageo.2020.104658 <https://doi.org/10.1016/j.cageo.2020.104658>`_, 2021.
+
 2020
 ----
 
