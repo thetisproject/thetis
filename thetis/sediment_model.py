@@ -105,7 +105,6 @@ class SedimentModel(object):
         # define function spaces
         self.P1DG_2d = get_functionspace(mesh2d, "DG", 1)
         self.P1_2d = get_functionspace(mesh2d, "CG", 1)
-        self.R_1d = get_functionspace(mesh2d, "R", 0)
         self.P1v_2d = VectorFunctionSpace(mesh2d, "CG", 1)
 
         # define parameters
