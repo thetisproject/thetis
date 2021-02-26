@@ -18,6 +18,10 @@ Clare, M. C. A., Percival, J. R.,  Angeloudis, A., Cotter, C. J. and Piggott, M.
 Hydro-morphodynamics 2D modelling using a discontinuous Galerkin discretisation. *Computers & Geosciences*, 146:104658,
 doi:`10.1016/j.cageo.2020.104658 <https://doi.org/10.1016/j.cageo.2020.104658>`_, 2021.
 
+Warder, S. C., Horsburgh, K. J. and Piggott, M. D.:
+Adjoint-based sensitivity analysis for a numerical storm surge model. *Ocean Modelling*, 160:101766, doi:`10.1016/j.ocemod.2021.101766 <https://doi.org/10.1016/j.ocemod.2021.101766>`_, 2021.
+
+
 2020
 ----
 
