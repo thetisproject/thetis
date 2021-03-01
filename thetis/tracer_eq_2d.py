@@ -32,12 +32,12 @@ class TracerTerm(Term):
     boundary functions.
     """
     def __init__(self, function_space, depth,
-                 use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
+                 use_lax_friedrichs=True, sipg_factor=Constant(1.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
         :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
-        :kwarg sipg_parameter: :class: `Constant` or :class: `Function` penalty parameter for SIPG
+        :kwarg sipg_factor: :class: `Constant` or :class: `Function` SIPG penalty scaling factor
         """
         super(TracerTerm, self).__init__(function_space)
         self.depth = depth
@@ -45,7 +45,7 @@ class TracerTerm(Term):
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
         self.use_lax_friedrichs = use_lax_friedrichs
-        self.sipg_parameter = sipg_parameter
+        self.sipg_factor = sipg_factor
 
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
@@ -176,13 +176,12 @@ class HorizontalDiffusionTerm(TracerTerm):
             \text{jump}(\phi \textbf{n}_h) dS \\
         &- \int_\Gamma \mu_h (\nabla_h \phi) \cdot \textbf{n}_h ds
 
-    where :math:`\sigma` is a penalty parameter,
-    see Epshteyn and Riviere (2007).
+    where :math:`\sigma` is a penalty parameter, see Hillewaert (2013).
 
-    Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
-    interior penalty Galerkin methods. Journal of Computational and Applied
-    Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
-
+    Hillewaert, Koen (2013). Development of the discontinuous Galerkin method
+    for high-resolution, large scale CFD and acoustics in industrial
+    geometries. PhD Thesis. Université catholique de Louvain.
+    https://dial.uclouvain.be/pr/boreal/object/boreal:128254/
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_h') is None:
@@ -192,17 +191,25 @@ class HorizontalDiffusionTerm(TracerTerm):
                                  [0, diffusivity_h, ]])
         grad_test = grad(self.test)
         diff_flux = dot(diff_tensor, grad(solution))
+        sipg_factor = self.sipg_factor
 
         f = 0
         f += inner(grad_test, diff_flux)*self.dx
 
         if self.horizontal_dg:
-            alpha = self.sipg_parameter
-            assert alpha is not None
-            sigma = avg(alpha / self.cellsize)
+            cell = self.mesh.ufl_cell()
+            p = self.function_space.ufl_element().degree()
+            cp = (p + 1) * (p + 2) / 2 if cell == triangle else (p + 1)**2
+            l_normal = CellVolume(self.mesh) / FacetArea(self.mesh)
+            # by default the factor is multiplied by 2 to ensure convergence
+            sigma = sipg_factor * cp / l_normal
+            sp = sigma('+')
+            sm = sigma('-')
+            sigma_max = conditional(sp > sm, sp, sm)
             ds_interior = self.dS
-            f += sigma*inner(jump(self.test, self.normal),
-                             dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
+            f += sigma_max * inner(
+                jump(self.test, self.normal),
+                dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
             f += -inner(avg(dot(diff_tensor, grad(self.test))),
                         jump(solution, self.normal))*ds_interior
             f += -inner(jump(self.test, self.normal),
@@ -257,16 +264,16 @@ class TracerEquation2D(Equation):
     """
     def __init__(self, function_space, depth,
                  use_lax_friedrichs=False,
-                 sipg_parameter=Constant(10.0)):
+                 sipg_factor=Constant(1.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
         :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
-        :kwarg sipg_parameter: :class: `Constant` or :class: `Function` penalty parameter for SIPG
+        :kwarg sipg_factor: :class: `Constant` or :class: `Function` SIPG penalty scaling factor
         """
         super(TracerEquation2D, self).__init__(function_space)
 
-        args = (function_space, depth, use_lax_friedrichs, sipg_parameter)
+        args = (function_space, depth, use_lax_friedrichs, sipg_factor)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')

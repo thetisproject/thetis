@@ -195,66 +195,6 @@ class FlowSolver2d(FrozenClass):
             print_output('dt = {:}'.format(self.dt))
             sys.stdout.flush()
 
-    def set_sipg_parameter(self):
-        r"""
-        Compute a penalty parameter which ensures stability of the Interior Penalty method
-        used for viscosity and diffusivity terms, from Epshteyn et al. 2007
-        (http://dx.doi.org/10.1016/j.cam.2006.08.029).
-
-        The scheme is stable if
-
-        ..math::
-            \alpha|_K > 3*X*p*(p+1)*\cot(\theta_K),
-
-        for all elements :math:`K`, where
-
-        ..math::
-            X = \frac{\max_{x\in K}(\nu(x))}{\min_{x\in K}(\nu(x))},
-
-        :math:`p` the degree, and :math:`\theta_K` is the minimum angle in the element.
-        """
-        degree = self.function_spaces.U_2d.ufl_element().degree()
-        alpha = Constant(5.0*degree*(degree+1) if degree != 0 else 1.5)
-        degree_tracer = self.function_spaces.Q_2d.ufl_element().degree()
-        alpha_tracer = Constant(5.0*degree_tracer*(degree_tracer+1) if degree_tracer != 0 else 1.5)
-
-        if self.options.use_automatic_sipg_parameter:
-            P0 = self.function_spaces.P0_2d
-            theta = get_minimum_angles_2d(self.mesh2d)
-            min_angle = theta.vector().gather().min()
-            print_output("Minimum angle in mesh: {:.2f} degrees".format(np.rad2deg(min_angle)))
-            cot_theta = 1.0/tan(theta)
-
-            # Penalty parameter for shallow water
-            if not self.options.tracer_only:
-                nu = self.options.horizontal_viscosity
-                if nu is not None:
-                    alpha = alpha*get_sipg_ratio(nu)*cot_theta
-                    self.options.sipg_parameter = interpolate(alpha, P0)
-                    max_sipg = self.options.sipg_parameter.vector().gather().max()
-                    print_output("Maximum SIPG value:        {:.2f}".format(max_sipg))
-                else:
-                    print_output("Using default SIPG parameter for shallow water equations")
-
-            # Penalty parameter for tracers
-            if self.options.solve_tracer or self.options.sediment_model_options.solve_suspended_sediment:
-                if self.options.solve_tracer:
-                    tracer_kind = 'tracer'
-                elif self.options.sediment_model_options.solve_suspended_sediment:
-                    tracer_kind = 'sediment'
-                nu = self.options.horizontal_diffusivity
-                if nu is not None:
-                    alpha_tracer = alpha_tracer*get_sipg_ratio(nu)*cot_theta
-                    self.options.sipg_parameter_tracer = interpolate(alpha_tracer, P0)
-                    max_sipg = self.options.sipg_parameter_tracer.vector().gather().max()
-                    print_output("Maximum {} SIPG value: {:.2f}".format(tracer_kind, max_sipg))
-                else:
-                    print_output("Using default SIPG parameter for {} equation".format(tracer_kind))
-        else:
-            print_output("Using default SIPG parameters")
-            self.options.sipg_parameter.assign(alpha)
-            self.options.sipg_parameter_tracer.assign(alpha_tracer)
-
     def set_wetting_and_drying_alpha(self):
         r"""
         Compute a wetting and drying parameter :math:`\alpha` which ensures positive water
@@ -362,7 +302,6 @@ class FlowSolver2d(FrozenClass):
         self.fields.solution_2d = Function(self.function_spaces.V_2d, name='solution_2d')
         self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
         get_horizontal_elem_size_2d(self.fields.h_elem_size_2d)
-        self.set_sipg_parameter()
         self.set_wetting_and_drying_alpha()
         self.depth = DepthExpression(self.fields.bathymetry_2d,
                                      use_nonlinear_equations=self.options.use_nonlinear_equations,
@@ -373,7 +312,7 @@ class FlowSolver2d(FrozenClass):
         self.eq_sw = shallowwater_eq.ShallowWaterEquations(
             self.fields.solution_2d.function_space(),
             self.depth,
-            self.options
+            self.options,
         )
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         if self.options.solve_tracer:
@@ -382,12 +321,12 @@ class FlowSolver2d(FrozenClass):
                 self.eq_tracer = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
                     self.function_spaces.Q_2d, self.depth,
                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                    sipg_parameter=self.options.sipg_parameter_tracer)
+                    sipg_factor=self.options.sipg_factor_tracer)
             else:
                 self.eq_tracer = tracer_eq_2d.TracerEquation2D(
                     self.function_spaces.Q_2d, self.depth,
                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                    sipg_parameter=self.options.sipg_parameter_tracer)
+                    sipg_factor=self.options.sipg_factor_tracer)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
@@ -404,7 +343,7 @@ class FlowSolver2d(FrozenClass):
             self.eq_sediment = sediment_eq_2d.SedimentEquation2D(
                 self.function_spaces.Q_2d, self.depth, self.sediment_model,
                 use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                sipg_parameter=self.options.sipg_parameter_tracer,
+                sipg_factor=self.options.sipg_factor_tracer,
                 conservative=sediment_options.use_sediment_conservative_form)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
