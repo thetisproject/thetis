@@ -25,6 +25,8 @@ Adjoint-based sensitivity analysis for a numerical storm surge model. *Ocean Mod
 2020
 ----
 
+Mackie, L., Coles, D., Piggott, M., Angeloudis, A.: The Potential for Tidal Range Energy Systems to Provide Continuous Power: A UK Case Study. *J. Mar. Sci. Eng*, 8:80, doi:`10.3390/jmse8100780 <https://doi.org/10.3390/jmse8100780>`_, 2020.
+
 Angeloudis, A., Kramer, S. C., Hawkins, N., and Piggott, M. D.: On the potential of linked-basin tidal power plants: An operational and coastal modelling assessment. *Renewable Energy*, 155:876–888, doi:`10.1016/j.renene.2020.03.167 <https://doi.org/10.1016/j.renene.2020.03.167>`_, 2020.
 
 Baker, A. L., Craighead, R. M., Jarvis, E. J., Stenton, H. C., Angeloudis, A., Mackie, L., Avdis, A., Piggott, M. D., and Hill, J.: Modelling the impact of tidal range energy on species communities, *Ocean & Coastal Management*, 193:105221, doi:`10.1016/j.ocecoaman.2020.105221 <https://doi.org/10.1016/j.ocecoaman.2020.105221>`_, 2020.
