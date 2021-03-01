@@ -48,7 +48,7 @@ if os.getenv('THETIS_REGRESSION_TEST') is not None:
     # the example is being run as a test
     # run the spin-up by importing it
     import meander_hydro  # NOQA
-    end_time = 3600.
+    end_time = 1800.
 
 # initialise velocity and elevation
 with DumbCheckpoint("hydrodynamics_meander/elevation", mode=FILE_READ) as chk:

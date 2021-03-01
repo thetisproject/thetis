@@ -33,7 +33,7 @@ t_end = 200
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
     # run as tests, not sufficient for proper spin up
     # but we simply want a run-through-without-error test
-    t_end = 50
+    t_end = 25
 # export interval in seconds
 t_export = np.round(t_end/40, 0)
 # define parameters
