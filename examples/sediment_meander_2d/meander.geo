@@ -1,3 +1,5 @@
+Mesh.CharacteristicLengthFromPoints = 1;
+
 Point (1) = {0, -9, 0, 0.1};
 Point (101) = {0.5, -9, 0, 0.25};
 Point (2) = {0, 2.5, 0, 0.1};
