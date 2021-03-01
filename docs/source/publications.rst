@@ -11,6 +11,11 @@ Also see `instructions for citing Firedrake <https://firedrakeproject.org/citing
 2021
 ----
 
+Pan, W., Kramer, S. C., and Piggott, M. D.: A sigma-coordinate non-hydrostatic discontinuous finite element coastal ocean model. *Ocean Modelling*, 157:101732, doi:`10.1016/j.ocemod.2020.101732 <https://doi.org/10.1016/j.ocemod.2020.101732>`_, 2021.
+
+Rasheed, S., Warder, S. C., Plancherel, Y., and Piggott, M. D.:
+Response of tidal flow regime and sediment transport in North Malé Atoll, Maldives, to coastal modification and sea level rise. *Ocean Science*, 17:319–334, doi:`10.5194/os-17-319-2021 <https://doi.org/10.5194/os-17-319-2021>`_, 2021.
+
 Mackie, L., Evans, P. S., Harrold, M. J.,  O`Doherty, T., Piggott, M. D. and Angeloudis, A.:
 Modelling an energetic tidal strait: investigating implications of common numerical configuration choices. *Applied Ocean Research*, 108:102494, doi:`10.1016/j.apor.2020.102494 <https://doi.org/10.1016/j.apor.2020.102494>`_, 2021.
 
@@ -33,7 +38,7 @@ Baker, A. L., Craighead, R. M., Jarvis, E. J., Stenton, H. C., Angeloudis, A., M
 
 Goss, Z. L., Coles, D. S., and Piggott, M. D.: Identifying economically viable tidal sites within the Alderney Race through optimization of levelized cost of energy. *Phil. Trans. R. Soc. A*, 2178:20190500, doi:`10.1098/rsta.2019.0500 <https://doi.org/10.1098/rsta.2019.0500>`_, 2020.
 
-Pan, W., Kramer, S. C., Kärnä, T., and Piggott, M. D.: Comparing non-hydrostatic extensions to a discontinuous finite element coastal ocean model. *Ocean Modelling*, 151: 101634, doi:`10.1016/j.ocemod.2020.101634 <https://doi.org/10.1016/j.ocemod.2020.101634>`_, 2020.
+Pan, W., Kramer, S. C., Kärnä, T., and Piggott, M. D.: Comparing non-hydrostatic extensions to a discontinuous finite element coastal ocean model. *Ocean Modelling*, 151:101634, doi:`10.1016/j.ocemod.2020.101634 <https://doi.org/10.1016/j.ocemod.2020.101634>`_, 2020.
 
 Kärnä, T.: Discontinuous Galerkin discretization for two-equation turbulence closure model, *Ocean Modelling*, 150:101619, doi:`10.1016/j.ocemod.2020.101619 <https://doi.org/10.1016/j.ocemod.2020.101619>`_, 2020.
 
