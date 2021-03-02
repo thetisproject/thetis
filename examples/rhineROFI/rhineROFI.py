@@ -66,7 +66,8 @@ if reso == 'fine':
     layers = 30  # NOTE 40 in [2]
 
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
-    layers = 3
+    reso = 'test'
+    layers = 2
 
 outputdir = 'outputs_{:}'.format(reso)
 mesh2d = Mesh('mesh_rhineRofi_{:}.msh'.format(reso))

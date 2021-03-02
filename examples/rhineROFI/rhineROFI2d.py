@@ -18,6 +18,9 @@ values 1024.611 kg/m3 in the ocean and 999.702 in the river.
 from thetis import *
 
 reso = 'coarse'
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    reso = 'test'
+
 outputdir = 'outputs_2d_{:}'.format(reso)
 mesh2d = Mesh('mesh_rhineRofi_{:}.msh'.format(reso))
 print_output('Loaded mesh '+mesh2d.name)
