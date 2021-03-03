@@ -1275,52 +1275,6 @@ def get_cell_widths_2d(mesh2d):
     return cell_widths
 
 
-def get_sipg_ratio(nu):
-    """
-    Compute the ratio between the maximum of `nu` and the minimum of `nu` in each element. If `nu`
-    is P0 or a `Constant` then the resulting ratio is unity in each element. If `nu` varies linearly
-    in each element then the ratios are outputted as a P0 field.
-    """
-    if isinstance(nu, Constant):
-        # return nu
-        return Constant(1.0)
-    else:
-        try:
-            assert isinstance(nu, Function)
-        except AssertionError:
-            raise ValueError("Viscosity and diffusivity should be either a `Constant` or `Function`.")
-    el = nu.ufl_element()
-
-    if el.degree() == 0:
-        # return nu
-        return Constant(1.0)
-    elif el.degree() == 1 and el.family() in ('Lagrange', 'Discontinuous Lagrange', 'CG', 'DG'):
-        fs = nu.function_space()
-        if el.cell() not in (ufl.triangle, ufl.tetrahedron) and el.variant() != 'equispaced':
-            fs = FunctionSpace(fs.mesh(), ufl.FiniteElement(el.family(), el.cell(), el.degree, variant='equispaced'))
-            tmp = Function(fs).interpolate(nu)
-        else:
-            tmp = nu.copy()
-        P0 = FunctionSpace(fs.mesh(), "DG", 0)
-        nu_max = Function(P0)
-        nu_min = Function(P0)
-        nu_max.assign(np.finfo(0.).min)
-        nu_min.assign(np.finfo(0.).max)
-        par_loop("""for (int i=0; i<nu.dofs; i++) {
-                      nu_max[0] = fmax(nu[i], nu_max[0]);
-                      nu_min[0] = fmin(nu[i], nu_min[0]);
-                    }""",
-                 dx, {'nu_max': (nu_max, RW), 'nu_min': (nu_min, RW), 'nu': (tmp, READ)})
-        # nu_max *= nu_max
-        nu_max /= nu_min
-        return nu_max
-    else:
-        raise NotImplementedError("Currently only implemented for `Constant`s and DG0, DG1 and CG1 spaces.")
-        # TODO: For higher order elements, the extrema aren't necessarily achieved at the
-        #       vertices. Perhaps we could project or interpolate into a matching Bernstein
-        #       element and use the property that the Bernstein polynomials bound the solution.
-
-
 class ALEMeshUpdater(object):
     """
     Class that handles vertically moving ALE mesh
