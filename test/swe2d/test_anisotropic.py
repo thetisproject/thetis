@@ -83,7 +83,7 @@ def run(**model_options):
     S = 8            # turbine separation in x-direction
 
     # turbine locations
-    locs = [(L/2-S*D, W/2, D/2), (L/2+S*D, W/2, D/2)]
+    locs = [(L/2-S*D, W/2-D, D/2), (L/2+S*D, W/2+D, D/2)]
 
     def bump(mesh, locs, scale=1.0):
         """
