@@ -321,12 +321,6 @@ class FlowSolver2d(FrozenClass):
         )
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         if self.options.solve_tracer:
-            self.options.use_limiter_for_tracers &= self.options.tracer_element_family == 'dg'
-            self.options.use_lax_friedrichs_tracer &= self.options.tracer_element_family == 'dg'
-            self.options.use_supg_tracer &= self.options.tracer_element_family == 'cg'
-            if self.options.tracer_element_family == 'cg':
-                self.options.use_supg_tracer = True
-
             self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
             if self.options.use_tracer_conservative_form:
                 self.eq_tracer = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
@@ -349,9 +343,7 @@ class FlowSolver2d(FrozenClass):
         if sediment_options.solve_suspended_sediment:
             self.fields.sediment_2d = Function(self.function_spaces.Q_2d, name='sediment_2d')
             self.eq_sediment = sediment_eq_2d.SedimentEquation2D(
-                self.function_spaces.Q_2d, self.depth, self.sediment_model,
-                use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                sipg_factor=self.options.sipg_factor_tracer,
+                self.function_spaces.Q_2d, self.depth, self.options, self.sediment_model,
                 conservative=sediment_options.use_sediment_conservative_form)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)

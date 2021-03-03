@@ -120,9 +120,10 @@ def run(refinement, **model_options):
     options.horizontal_diffusivity = nu
     options.horizontal_diffusivity_scale = nu
     options.horizontal_velocity_scale = Constant(0.0)
-    options.use_limiter_for_tracers = True
     options.fields_to_export = ['tracer_2d']
     options.update(model_options)
+    options.use_limiter_for_tracers = options.tracer_element_family == 'dg'
+    options.use_supg_tracer = options.tracer_element_family == 'cg'
     options.simulation_end_time = t_end - 0.5*dt
 
     # Boundary conditions
