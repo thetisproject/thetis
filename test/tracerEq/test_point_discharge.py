@@ -68,10 +68,9 @@ class PointDischargeParameters(object):
     """
     Problem parameter class, including point source representation.
 
-    Delta functions are not in H1 and hence do not live in the FunctionSpaces we
-    seek to use. Here we use a Gaussian approximation with a small radius. The
-    small radius has been calibrated against the analytical solution. See [2]
-    for details.
+    Delta functions are difficult to represent in numerical models. Here we
+    use a Gaussian approximation with a small radius. The small radius has
+    been calibrated against the analytical solution. See [2] for details.
     """
     def __init__(self, offset, tracer_family):
         self.offset = offset
