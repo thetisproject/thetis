@@ -31,7 +31,7 @@ class TracerTerm(Term):
     Generic tracer term that provides commonly used members and mapping for
     boundary functions.
     """
-    def __init__(self, function_space, depth, options):
+    def __init__(self, function_space, depth, options, velocity):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class:`DepthExpression` containing depth info
@@ -43,6 +43,15 @@ class TracerTerm(Term):
         self.cellsize = CellSize(self.mesh)  # TODO: Account for anisotropy
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
+
+        if self.options.use_supg_tracer:
+            unorm = self.options.horizontal_velocity_scale
+            tau = 0.5*self.cellsize/unorm
+            D = self.options.horizontal_diffusivity_scale
+            if D.values()[0] > 0:
+                Pe = 0.5*unorm*self.cellsize/D
+                tau = min_value(tau, Pe/3)
+            self.test = self.test + tau*dot(velocity, grad(self.test))
 
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
@@ -142,15 +151,6 @@ class HorizontalAdvectionTerm(TracerTerm):
             if self.options.use_lax_friedrichs_tracer:
                 gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                 f += gamma*dot(jump(self.test), jump(solution))*self.dS
-
-        elif self.options.use_su_stabilization_tracer:
-            # SU stabilization
-            unorm = sqrt(inner(uv, uv))
-            tau = 0.5*self.cellsize/unorm
-            if fields_old.get('diffusivity_h') is not None:
-                Pe = 0.5*unorm*self.cellsize/fields_old['diffusivity_h']
-                tau = min_value(tau, Pe/3)
-            f += tau*inner(uv, grad(self.test))*dot(uv, grad(solution))*dx
 
         if bnd_conditions is not None:
             for bnd_marker in self.boundary_markers:
@@ -280,7 +280,7 @@ class TracerEquation2D(Equation):
     """
     2D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
-    def __init__(self, function_space, depth, options):
+    def __init__(self, function_space, depth, options, velocity):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
@@ -288,7 +288,7 @@ class TracerEquation2D(Equation):
         """
         super(TracerEquation2D, self).__init__(function_space)
 
-        args = (function_space, depth, options)
+        args = (function_space, depth, options, velocity)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
