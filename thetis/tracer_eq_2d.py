@@ -40,18 +40,21 @@ class TracerTerm(Term):
         super(TracerTerm, self).__init__(function_space)
         self.depth = depth
         self.options = options
-        self.cellsize = CellSize(self.mesh)  # TODO: Account for anisotropy
+        self.cellsize = CellSize(self.mesh)
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
 
+        # apply SUPG stabilization
         if self.options.use_supg_tracer:
             unorm = self.options.horizontal_velocity_scale
-            tau = 0.5*self.cellsize/unorm
-            D = self.options.horizontal_diffusivity_scale
-            if D.values()[0] > 0:
-                Pe = 0.5*unorm*self.cellsize/D
-                tau = min_value(tau, Pe/3)
-            self.test = self.test + tau*dot(velocity, grad(self.test))
+            if unorm.values()[0] > 0:
+                self.cellsize = anisotropic_cell_size(function_space.mesh())
+                tau = 0.5*self.cellsize/unorm
+                D = self.options.horizontal_diffusivity_scale
+                if D.values()[0] > 0:
+                    Pe = 0.5*unorm*self.cellsize/D
+                    tau = min_value(tau, Pe/3)
+                self.test = self.test + tau*dot(velocity, grad(self.test))
 
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()

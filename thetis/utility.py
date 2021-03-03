@@ -1271,8 +1271,85 @@ def get_cell_widths_2d(mesh2d):
                   widths[0] = fmax(widths[0], fabs(coords[2*i] - coords[(2*i+2)%6]));
                   widths[1] = fmax(widths[1], fabs(coords[2*i+1] - coords[(2*i+3)%6]));
                 }""", dx, {'coords': (mesh2d.coordinates, READ), 'widths': (cell_widths, RW)})
-    assert cell_widths.vector().gather().min() >= 0.0  # TODO: TEMPORARY
     return cell_widths
+
+
+def anisotropic_cell_size(mesh):
+    """
+    Measure of cell size for anisotropic meshes, as described in [Micheletti, Perotto & Picasso 2003].
+    This is used in the SUPG formulation for the 2D tracer model.
+    """
+    try:
+        from firedrake.slate.slac.compiler import PETSC_ARCH
+    except ImportError:
+        PETSC_ARCH = os.path.join(os.environ.get('PETSC_DIR'), os.environ.get('PETSC_ARCH'))
+    include_dir = ["%s/include/eigen3" % PETSC_ARCH]
+
+    # Compute cell Jacobian
+    P0_ten = TensorFunctionSpace(mesh, "DG", 0)
+    J = Function(P0_ten, name="Cell Jacobian")
+    J.interpolate(Jacobian(mesh))
+
+    # Get SPD part of polar decomposition
+    B = Function(P0_ten, name="SPD part")
+    kernel_str = """
+#include <Eigen/Dense>
+
+using namespace Eigen;
+
+void poldec_spd(double A_[4], const double * B_) {
+
+  // Map inputs and outputs onto Eigen objects
+  Map<Matrix<double, 2, 2, RowMajor> > A((double *)A_);
+  Map<Matrix<double, 2, 2, RowMajor> > B((double *)B_);
+
+  // Compute singular value decomposition
+  JacobiSVD<Matrix<double, 2, 2, RowMajor> > svd(B, ComputeFullV);
+
+  // Get SPD part of polar decomposition
+  A += svd.matrixV() * svd.singularValues().asDiagonal() * svd.matrixV().transpose();
+}"""
+    kernel = op2.Kernel(kernel_str, 'poldec_spd', cpp=True, include_dirs=include_dir)
+    op2.par_loop(kernel, P0_ten.node_set, B.dat(op2.RW), J.dat(op2.READ))
+
+    # Get eigendecomposition with eigenvalues decreasing in magnitude
+    P0_vec = VectorFunctionSpace(mesh, "DG", 0)
+    evalues = Function(P0_vec, name="Eigenvalues")
+    evectors = Function(P0_ten, name="Eigenvectors")
+    kernel_str = """
+#include <Eigen/Dense>
+
+using namespace Eigen;
+
+void reordered_eigendecomposition(double EVecs_[4], double EVals_[2], const double * M_) {
+
+  // Map inputs and outputs onto Eigen objects
+  Map<Matrix<double, 2, 2, RowMajor> > EVecs((double *)EVecs_);
+  Map<Vector2d> EVals((double *)EVals_);
+  Map<Matrix<double, 2, 2, RowMajor> > M((double *)M_);
+
+  // Solve eigenvalue problem
+  SelfAdjointEigenSolver<Matrix<double, 2, 2, RowMajor>> eigensolver(M);
+  Matrix<double, 2, 2, RowMajor> Q = eigensolver.eigenvectors();
+  Vector2d D = eigensolver.eigenvalues();
+
+  // Reorder eigenpairs by magnitude of eigenvalue
+  if (fabs(D(0)) > fabs(D(1))) {
+    EVecs = Q;
+    EVals = D;
+  } else {
+    EVecs(0,0) = Q(0,1);EVecs(0,1) = Q(0,0);
+    EVecs(1,0) = Q(1,1);EVecs(1,1) = Q(1,0);
+    EVals(0) = D(1);
+    EVals(1) = D(0);
+  }
+}
+"""
+    kernel = op2.Kernel(kernel_str, 'reordered_eigendecomposition', cpp=True, include_dirs=include_dir)
+    op2.par_loop(kernel, P0_ten.node_set, evectors.dat(op2.RW), evalues.dat(op2.RW), B.dat(op2.READ))
+
+    # Return minimum eigenvalue
+    return interpolate(evalues[-1], FunctionSpace(mesh, "DG", 0))
 
 
 class ALEMeshUpdater(object):

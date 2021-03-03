@@ -73,7 +73,7 @@ class PointDischargeParameters(object):
     small radius has been calibrated against the analytical solution. See [2]
     for details.
     """
-    def __init__(self, offset):
+    def __init__(self, offset, tracer_family):
         self.offset = offset
 
         # Physical parameters
@@ -83,12 +83,9 @@ class PointDischargeParameters(object):
         self.uv = Constant(as_vector([1.0, 0.0]))
         self.elev = Constant(0.0)
 
-        # Stabilisation
-        self.use_lax_friedrichs_tracer = True
-
         # Parametrisation of point source
         self.source_x, self.source_y = 2.0, 5.0
-        self.source_r = 0.05606298 if self.use_lax_friedrichs_tracer else 0.05606298
+        self.source_r = 0.05606298 if tracer_family == 'dg' else 0.05606388
         self.source_value = 100.0
 
         # Specification of receiver region
@@ -158,7 +155,7 @@ class PointDischargeParameters(object):
         return assemble(kernel*sol*dx(degree=12))
 
 
-def solve_tracer(n, offset, hydrodynamics=False):
+def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg'):
     """
     Solve the `Point Discharge with Diffusion' steady-state tracer transport
     test case from [1]. This problem has a source term, which involves a
@@ -178,13 +175,14 @@ def solve_tracer(n, offset, hydrodynamics=False):
     P1_2d = FunctionSpace(mesh2d, "CG", 1)
 
     # Set up parameter class
-    params = PointDischargeParameters(offset)
+    params = PointDischargeParameters(offset, tracer_family)
     source = params.source(P1_2d)
 
     # Solve tracer transport problem
     solver_obj = solver2d.FlowSolver2d(mesh2d, params.bathymetry(P1_2d))
     options = solver_obj.options
     options.timestepper_type = 'SteadyState'
+    options.tracer_element_family = tracer_family
     options.timestep = 20.0
     options.simulation_end_time = 18.0
     options.simulation_export_time = 18.0
@@ -204,10 +202,13 @@ def solve_tracer(n, offset, hydrodynamics=False):
 
     # Passive tracer
     options.solve_tracer = True
+    options.horizontal_velocity_scale = Constant(1.0)
+    options.horizontal_diffusivity_scale = Constant(0.0)
     options.tracer_only = not hydrodynamics
-    options.use_lax_friedrichs_tracer = params.use_lax_friedrichs_tracer
+    options.use_supg_tracer = tracer_family == 'cg'
+    options.use_lax_friedrichs_tracer = tracer_family == 'dg'
     options.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
-    options.use_limiter_for_tracers = True
+    options.use_limiter_for_tracers = tracer_family == 'dg'
     options.tracer_source_2d = source
 
     # Initial and boundary conditions
@@ -231,7 +232,8 @@ def run_convergence(offset, num_levels=3, plot=False, **kwargs):
     """
     J = []
     dof_count = []
-    params = PointDischargeParameters(offset)
+    tracer_family = kwargs.get('tracer_family')
+    params = PointDischargeParameters(offset, tracer_family)
 
     # Run model on a sequence of uniform meshes and compute QoI error
     for refinement_level in range(num_levels):
@@ -249,7 +251,8 @@ def run_convergence(offset, num_levels=3, plot=False, **kwargs):
         axes.set_xlabel("DoF count")
         axes.set_ylabel("QoI error")
         axes.grid(True)
-        fname = "steady_state_convergence_{:s}.png".format('offset' if offset else 'aligned')
+        alignment = 'offset' if offset else 'aligned'
+        fname = "steady_state_convergence_{:s}_{:s}.png".format(alignment, tracer_family)
         plot_dir = create_directory(os.path.join(os.path.dirname(__file__), 'outputs'))
         plt.savefig(os.path.join(plot_dir, fname))
 
@@ -264,6 +267,11 @@ def run_convergence(offset, num_levels=3, plot=False, **kwargs):
 # standard tests for pytest
 # ---------------------------
 
+@pytest.fixture(params=['dg', 'cg'])
+def family(request):
+    return request.param
+
+
 @pytest.fixture(params=[False, True])
 def hydrodynamics(request):
     return request.param
@@ -274,8 +282,8 @@ def offset(request):
     return request.param
 
 
-def test_convergence(hydrodynamics, offset):
-    run_convergence(offset, hydrodynamics=hydrodynamics)
+def test_convergence(hydrodynamics, offset, family):
+    run_convergence(offset, hydrodynamics=hydrodynamics, tracer_family=family)
 
 
 # ---------------------------
@@ -283,4 +291,4 @@ def test_convergence(hydrodynamics, offset):
 # ---------------------------
 
 if __name__ == "__main__":
-    run_convergence(False, num_levels=4, plot=True, hydrodynamics=False)
+    run_convergence(False, num_levels=4, plot=True, hydrodynamics=False, tracer_family='cg')
