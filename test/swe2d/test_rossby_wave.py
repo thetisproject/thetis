@@ -267,4 +267,4 @@ def test_convergence(stepper, family):
 # ---------------------------
 
 if __name__ == '__main__':
-    test_convergence('SSPRK33', 'rt-dg')
+    test_convergence('DIRK22', 'bdm-dg')

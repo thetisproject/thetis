@@ -12,11 +12,10 @@ shallow water modelling and subsequent implementation of mesh adaptation algorit
 resulting from this process is used in this test. The mesh is anisotropic in the flow direction.
 
 [1] J.G. Wallwork, N. Barral, S.C. Kramer, D.A. Ham, M.D. Piggott, "Goal-Oriented Error Estimation
-    and Mesh Adaptation in Shallow Water Modelling" (2020), Springer Nature Applied Sciences (to
-    appear).
+    and Mesh Adaptation in Shallow Water Modelling", Springer Nature Applied Sciences, volume 2,
+    pp.1053--1063 (2020), DOI: 10.1007/s42452-020-2745-9, URL: https://rdcu.be/b35wZ.
 """
 from thetis import *
-from firedrake.petsc import PETSc
 import pytest
 import os
 
