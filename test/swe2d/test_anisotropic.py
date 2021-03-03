@@ -59,7 +59,6 @@ def run(**model_options):
     options.output_directory = 'outputs'
     options.fields_to_export = ['uv_2d', 'elev_2d']
     options.use_grad_div_viscosity_term = False
-    options.element_family = 'dg-cg'
     options.horizontal_viscosity = viscosity
     options.quadratic_drag_coefficient = drag_coefficient
     options.use_lax_friedrichs_velocity = True
