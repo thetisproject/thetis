@@ -26,13 +26,14 @@ table below.
 .. |uu| replace:: :math:`\bar{\mathbf{u}}`
 .. |eta| replace:: :math:`\eta`
 
-================== ============ =========== ========== ===========
-Element Family     Name         Degree *n*  |uu| space |eta| space
-================== ============ =========== ========== ===========
-Equal order DG     ``'dg-dg'``  1, 2        P(n)DG     P(n)DG
-Raviart-Thomas DG  ``'rt-dg'``  1, 2        RT(n+1)    P(n)DG
-P1DG-P2            ``'dg-cg'``  1           P(n)DG     P(n+1)
-================== ============ =========== ========== ===========
+======================== ============ =========== ========== ===========
+Element Family           Name         Degree *n*  |uu| space |eta| space
+======================== ============ =========== ========== ===========
+Equal order DG           ``'dg-dg'``  1, 2        P(n)DG     P(n)DG
+Raviart-Thomas DG        ``'rt-dg'``  1, 2        RT(n+1)    P(n)DG
+P1DG-P2                  ``'dg-cg'``  1           P(n)DG     P(n+1)
+Brezzi-Douglas-Marini DG ``'bdm-dg'`` 1, 2        BDM(n+1)   P(n)DG
+======================== ============ =========== ========== ===========
 
 Table 1. *Finite element families for polynomial degree n.*
 
