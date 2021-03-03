@@ -31,22 +31,18 @@ class TracerTerm(Term):
     Generic tracer term that provides commonly used members and mapping for
     boundary functions.
     """
-    def __init__(self, function_space, depth,
-                 use_lax_friedrichs=True, sipg_factor=Constant(1.0), use_su=False):
+    def __init__(self, function_space, depth, options):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
-        :arg depth: :class: `DepthExpression` containing depth info
-        :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
-        :kwarg sipg_factor: :class: `Constant` or :class: `Function` SIPG penalty scaling factor
+        :arg depth: :class:`DepthExpression` containing depth info
+        :arg options: :class`ModelOptions2d` containing parameters
         """
         super(TracerTerm, self).__init__(function_space)
         self.depth = depth
+        self.options = options
         self.cellsize = CellSize(self.mesh)  # TODO: Account for anisotropy
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
-        self.use_lax_friedrichs = use_lax_friedrichs
-        self.sipg_factor = sipg_factor
-        self.use_su = use_su
 
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
@@ -143,11 +139,11 @@ class HorizontalAdvectionTerm(TracerTerm):
             f += c_up*(jump(self.test, uv[0] * self.normal[0])
                        + jump(self.test, uv[1] * self.normal[1])) * self.dS
             # Lax-Friedrichs stabilization
-            if self.use_lax_friedrichs:
+            if self.options.use_lax_friedrichs_tracer:
                 gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                 f += gamma*dot(jump(self.test), jump(solution))*self.dS
 
-        elif self.use_su:
+        elif self.options.use_su_stabilization_tracer:
             # SU stabilization
             unorm = sqrt(inner(uv, uv))
             tau = 0.5*self.cellsize/unorm
@@ -213,7 +209,7 @@ class HorizontalDiffusionTerm(TracerTerm):
                                  [0, diffusivity_h, ]])
         grad_test = grad(self.test)
         diff_flux = dot(diff_tensor, grad(solution))
-        sipg_factor = self.sipg_factor
+        sipg_factor = self.options.sipg_factor_tracer
 
         f = 0
         f += inner(grad_test, diff_flux)*self.dx
@@ -284,19 +280,15 @@ class TracerEquation2D(Equation):
     """
     2D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
-    def __init__(self, function_space, depth,
-                 use_lax_friedrichs=False,
-                 sipg_factor=Constant(1.0),
-                 use_su=False):
+    def __init__(self, function_space, depth, options):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
-        :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
-        :kwarg sipg_factor: :class: `Constant` or :class: `Function` SIPG penalty scaling factor
+        :arg options: :class`ModelOptions2d` containing parameters
         """
         super(TracerEquation2D, self).__init__(function_space)
 
-        args = (function_space, depth, use_lax_friedrichs, sipg_factor, use_su)
+        args = (function_space, depth, options)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')

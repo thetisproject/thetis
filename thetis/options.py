@@ -437,6 +437,12 @@ class CommonModelOptions(FrozenConfigurable):
 
         Used to compute max stable diffusion time step.
         """).tag(config=True)
+    horizontal_diffusivity_scale = FiredrakeConstantTraitlet(
+        Constant(1.0), help="""
+        Maximum horizontal diffusivity
+
+        Used to Peclet number.
+        """).tag(config=True)
     output_directory = Unicode(
         'outputs', help="Directory where model output files are stored").tag(config=True)
     no_exports = Bool(
