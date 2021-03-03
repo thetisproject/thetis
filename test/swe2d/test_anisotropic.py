@@ -12,11 +12,10 @@ shallow water modelling and subsequent implementation of mesh adaptation algorit
 resulting from this process is used in this test. The mesh is anisotropic in the flow direction.
 
 [1] J.G. Wallwork, N. Barral, S.C. Kramer, D.A. Ham, M.D. Piggott, "Goal-Oriented Error Estimation
-    and Mesh Adaptation in Shallow Water Modelling" (2020), Springer Nature Applied Sciences (to
-    appear).
+    and Mesh Adaptation in Shallow Water Modelling", Springer Nature Applied Sciences, volume 2,
+    pp.1053--1063 (2020), DOI: 10.1007/s42452-020-2745-9, URL: https://rdcu.be/b35wZ.
 """
 from thetis import *
-from firedrake.petsc import PETSc
 import pytest
 import os
 
@@ -59,7 +58,6 @@ def run(**model_options):
     options.output_directory = 'outputs'
     options.fields_to_export = ['uv_2d', 'elev_2d']
     options.use_grad_div_viscosity_term = False
-    options.element_family = 'dg-cg'
     options.horizontal_viscosity = viscosity
     options.quadratic_drag_coefficient = drag_coefficient
     options.use_lax_friedrichs_velocity = True
@@ -85,7 +83,7 @@ def run(**model_options):
     S = 8            # turbine separation in x-direction
 
     # turbine locations
-    locs = [(L/2-S*D, W/2, D/2), (L/2+S*D, W/2, D/2)]
+    locs = [(L/2-S*D, W/2-D, D/2), (L/2+S*D, W/2+D, D/2)]
 
     def bump(mesh, locs, scale=1.0):
         """
