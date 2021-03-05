@@ -15,7 +15,14 @@ The corresponding fields in Thetis are called ``'elev_2d'`` and  ``'uv_2d'``.
 Wetting and drying
 ------------------
 
-Wetting and drying is included through the modified bathymetry formulation of Karna et al. (2011). The modified equations are given by :eq:`swe_freesurf_wd`\-:eq:`swe_momentum_wd`.
+Wetting and drying is included through the modified bathymetry formulation of
+Karna et al. (2011). The modified equations are given by
+:eq:`swe_freesurf_wd`\-:eq:`swe_momentum_wd`. The :math:`\alpha` parameter
+associated with the wetting and drying scheme can be specified by the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.wetting_and_drying_alpha`
+option. It can also be computed automatically, by setting the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.use_automatic_wetting_and_drying_alpha`
+to ``True``.
 
 Spatial discretization
 ----------------------
