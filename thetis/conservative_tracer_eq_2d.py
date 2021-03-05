@@ -7,7 +7,7 @@ The advection-diffusion equation of depth-integrated tracer :math:`q=HT` in cons
     \frac{\partial q}{\partial t}
     + \nabla_h \cdot (\textbf{u} q)
     = \nabla_h \cdot (\mu_h \nabla_h q)
-    :label: tracer_eq_2d
+    :label: cons_tracer_eq_2d
 
 where :math:`\nabla_h` denotes horizontal gradient, :math:`\textbf{u}` are the horizontal
 velocities, and
