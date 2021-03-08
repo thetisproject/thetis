@@ -40,8 +40,9 @@ Manual
 .. toctree::
     :maxdepth: 1
 
-    2D model formulation<model_formulation_2d>
+    2D hydrodynamics model formulation<model_formulation_2d>
     2D tracer model formulation<tracer_formulation_2d>
+    2D sediment model formulation<sediment_formulation_2d>
     3D model formulation<model_formulation_3d>
     Model outputs and visualization<outputs_and_visu>
     List of 2D model options<model_options_2d>
