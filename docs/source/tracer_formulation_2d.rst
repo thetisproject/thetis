@@ -36,7 +36,8 @@ imposed by the user.
 Spatial discretization
 ----------------------
 
-Thetis currently only supports 2D tracers in P1DG space.
+Thetis' 2D model formulation currently only supports tracers in
+P1DG space.
 
 Temporal discretization
 -----------------------

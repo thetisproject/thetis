@@ -26,8 +26,8 @@ Bedload transport is modelled in two dimensions using the
 Exner equation
 :eq:`exner_eq`.
 It is solved for the bedlevel,
-:math:`z_b`, which has the effect of modifying the bathymetry.
-The corresponding field in Thetis is called
+:math:`z_b`, which is the bathymetry. The corresponding field
+in Thetis is called
 ``'bathymetry_2d'``.
 
 To activate the 2D sediment model, set the
