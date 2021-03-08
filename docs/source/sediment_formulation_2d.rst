@@ -41,6 +41,14 @@ Spatial discretization
 ----------------------
 
 Thetis currently only supports suspended sediment in P1DG space.
+Lax-Friedrichs stabilization is used by default and may be
+controlled using the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.use_lax_friedrichs_tracer`
+option. The scaling parameter used by this scheme may be controlled
+using the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.lax_friedrichs_tracer_scaling_factor`
+option.
+
 The function space used for the bedlevel is determined by that
 used for the bathymetry. Typically, this is P1.
 

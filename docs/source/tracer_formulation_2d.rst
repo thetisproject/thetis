@@ -39,6 +39,14 @@ Spatial discretization
 Thetis' 2D model formulation currently only supports tracers in
 P1DG space.
 
+Lax-Friedrichs stabilization is used by default and may be
+controlled using the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.use_lax_friedrichs_tracer`
+option. The scaling parameter used by this scheme may be controlled
+using the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.lax_friedrichs_tracer_scaling_factor`
+option.
+
 Temporal discretization
 -----------------------
 

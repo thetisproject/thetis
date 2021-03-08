@@ -46,6 +46,13 @@ Table 1. *Finite element families for polynomial degree n.*
 
 The element family and polynomial degree are set by the :ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.element_family` and :ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.polynomial_degree` options.
 
+Lax-Friedrichs stabilization is used by default and may be controlled using
+the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.use_lax_friedrichs_velocity`
+option. The scaling parameter used by this scheme may be controlled using the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.lax_friedrichs_velocity_scaling_factor`
+option.
+
 Temporal discretization
 -----------------------
 
