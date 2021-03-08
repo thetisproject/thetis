@@ -58,6 +58,7 @@ Time integrator                 Thetis class                           Unconditi
 ``'ForwardEuler'``              :py:class:`~.ForwardEuler`             No                     Forward Euler method
 ``'BackwardEuler'``             :py:class:`~.BackwardEuler`            Yes                    Backward Euler method
 ``'CrankNicolson'``             :py:class:`~.CrankNicolson`            Yes                    Crank-Nicolson method
+``'DIRK22'``                    :py:class:`~.DIRK22`                   Yes                    DIRK(2,3,2) method
 ``'DIRK33'``                    :py:class:`~.DIRK33`                   Yes                    DIRK(3,4,3) method
 ``'SSPRK33'``                   :py:class:`~.SSPRK33`                  No                     SSPRK(3,3) method
 ``'SSPIMEX'``                   :py:class:`~.IMEXLPUM2`                No                     LPUM2 SSP IMEX scheme

@@ -1,26 +1,40 @@
-2D tracer formulation
-=====================
+2D sediment transport formulation
+=================================
 
 .. highlight:: python
 
 Governing equation
 ------------------
 
-The two dimensional tracer model solves an advection-diffusion
-equation
-:eq:`tracer_eq_2d`.
+Sediment transport is modelled in two dimensions using an
+advection-diffusion equation
+:eq:`sediment_eq_2d`.
 If solved in non-conservative form, the prognostic variable
 is the passive tracer concentration,
 :math:`T`. The corresponding field in Thetis is called
-``'tracer_2d'``.
+``'sediment_2d'``.
 
-A conservative tracer model is also available, given by
-:eq:`cons_tracer_eq_2d`.
+A conservative sediment transport model is also available.
 In this case, the equation is solved for :math:`q=HT`, where
 :math:`H` is the total water depth.
 The conservative tracer model is specified using the
-:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.use_tracer_conservative_form`
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.use_sediment_conservative_form`
 option.
+
+Bedload transport is modelled in two dimensions using the
+Exner equation
+:eq:`exner_eq`.
+It is solved for the bedlevel,
+:math:`z_b`, which has the effect of modifying the bathymetry.
+The corresponding field in Thetis is called
+``'bathymetry_2d'``.
+
+To activate the 2D sediment model, set the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.solve_sediment`
+and
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.solve_exner`
+options to
+:math:`True`.
 
 Spatial discretization
 ----------------------
@@ -44,7 +58,6 @@ Time integrator                 Thetis class                           Unconditi
 ``'DIRK22'``                    :py:class:`~.DIRK22`                   Yes                    DIRK(2,3,2) method
 ``'DIRK33'``                    :py:class:`~.DIRK33`                   Yes                    DIRK(3,4,3) method
 ``'SSPRK33'``                   :py:class:`~.SSPRK33`                  No                     SSPRK(3,3) method
-``'SteadyState'``               :py:class:`~.SteadyState`              --                     Solves equations in steady state
 =============================== ====================================== ====================== ============
 
-Table 1. *Time integration methods for 2D tracer model.*
+Table 1. *Time integration methods for 2D sediment model.*
