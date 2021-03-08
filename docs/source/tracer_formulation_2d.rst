@@ -22,6 +22,17 @@ The conservative tracer model is specified using the
 :ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.use_tracer_conservative_form`
 option.
 
+To activate the 2D tracer model, set the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.solve_tracer`
+option to
+``True``. The tracer model may also be run independently
+by setting the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.tracer_only`
+option to
+``True``. The hydrodynamics will be defined by any initial
+conditions specified for the horizontal velocity, or any updates
+imposed by the user.
+
 Spatial discretization
 ----------------------
 
