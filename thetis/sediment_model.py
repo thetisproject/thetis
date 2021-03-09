@@ -131,7 +131,7 @@ class SedimentModel(object):
         else:
             V = self.R_1d
 
-        ksp = Function(V).project(Constant(3)*self.average_size)
+        ksp = Function(V).assign(Constant(3)*self.average_size)
 
         if hasattr(self.bed_reference_height.function_space(), 'ufl_element') and self.bed_reference_height.function_space().ufl_element().degree() > 0:
             self.a = Function(self.P1_2d).interpolate(self.bed_reference_height/2)
@@ -152,19 +152,20 @@ class SedimentModel(object):
 
         # calculate critical shields parameter thetacr
         self.R = self.rhos/self.rhow - Constant(1)
-        self.dstar = Function(V).project(self.average_size*((self.g*self.R)/(self.viscosity**2))**(1/3))
+        self.dstar = Function(V).assign(self.average_size*((self.g*self.R)/(self.viscosity**2))**(1/3))
+
         if float(max(self.dstar.dat.data[:])) < 1:
             raise ValueError('dstar value less than 1')
-        self.thetacr = Function(V).project(conditional(self.dstar < 4, 0.24*(self.dstar**(-1)),
+        self.thetacr = Function(V).assign(conditional(self.dstar < 4, 0.24*(self.dstar**(-1)),
                                                               conditional(self.dstar < 10, 0.14*(self.dstar**(-0.64)),
                                                                           conditional(self.dstar < 20, 0.04*(self.dstar**(-0.1)),
                                                                                       conditional(self.dstar < 150, 0.013*(self.dstar**(0.29)), 0.055)))))
 
         # critical bed shear stress
-        self.taucr = Function(V).project((self.rhos-self.rhow)*self.g*self.average_size*self.thetacr)
+        self.taucr = Function(V).assign((self.rhos-self.rhow)*self.g*self.average_size*self.thetacr)
 
         # calculate settling velocity
-        self.settling_velocity = Function(V).project(conditional(self.average_size <= 1e-04, self.g*(self.average_size**2)*self.R/(18*self.viscosity),
+        self.settling_velocity = Function(V).assign(conditional(self.average_size <= 1e-04, self.g*(self.average_size**2)*self.R/(18*self.viscosity),
                                                                         conditional(self.average_size <= 1e-03, (10*self.viscosity*(self.average_size**(-1)))
                                                                                     * (sqrt(1 + 0.01*((self.R*self.g*(self.average_size**3))
                                                                                        / (self.viscosity**2)))-1), 1.1*sqrt(self.g*self.average_size*self.R))))
