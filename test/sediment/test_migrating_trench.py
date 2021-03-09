@@ -160,4 +160,4 @@ def test_trench(conservative):
 
 
 if __name__ == '__main__':
-    test_trench(False)
+    test_trench(True)

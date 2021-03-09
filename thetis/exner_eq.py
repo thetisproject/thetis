@@ -128,6 +128,23 @@ class ExnerBedloadTerm(ExnerTerm):
 
         return -f
 
+class ExnerSedimentSlideTerm(ExnerTerm):
+    r"""
+    TO DO
+    """
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        f = 0
+
+        diff_tensor = self.sediment_model.get_sediment_slide_term(solution)
+
+        diff_flux = dot(diff_tensor, grad(-solution))
+        f += inner(grad(self.test), diff_flux)*dx
+        f += -avg(self.sediment_model.sigma)*inner(jump(self.test, self.sediment_model.n),dot(avg(diff_tensor), jump(solution, self.sediment_model.n)))*dS
+        f += -inner(avg(dot(diff_tensor, grad(self.test))),jump(solution, self.sediment_model.n))*dS
+        f += -inner(jump(self.test, self.sediment_model.n), avg(dot(diff_tensor, grad(solution))))*dS
+
+        return -f
+
 
 class ExnerEquation(Equation):
     """
@@ -152,3 +169,5 @@ class ExnerEquation(Equation):
             self.add_term(ExnerSourceTerm(*args), 'source')
         if sediment_model.use_bedload:
             self.add_term(ExnerBedloadTerm(*args), 'implicit')
+        if sediment_model.use_sediment_slide:
+            self.add_term(ExnerSedimentSlideTerm(*args), 'implicit')

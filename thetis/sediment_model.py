@@ -3,7 +3,7 @@ from .log import warning
 
 
 class CorrectiveVelocityFactor:
-    def __init__(self, depth, ksp, settling_velocity, ustar, a):
+    def __init__(self, P1_2d, depth, ksp, settling_velocity, ustar, a):
         """
         Set up advective velocity factor `self.velocity_correction_factor`
         which accounts for mismatch between depth-averaged product of
@@ -21,16 +21,20 @@ class CorrectiveVelocityFactor:
         :arg a: Factor of bottom bed reference height
         :type a: :class:`Constant`
         """
-        kappa = physical_constants['von_karman']
+
+        self.kappa = physical_constants['von_karman']
+        self.depth = depth
+        self.ksp = ksp
+        self.a = a
 
         # correction factor to advection velocity in sediment concentration equation
-        Bconv = conditional(depth > Constant(1.1)*ksp, ksp/depth, Constant(1/1.1))
-        Aconv = conditional(depth > Constant(1.1)*a, a/depth, Constant(1/1.1))
+        self.Bconv = Function(P1_2d).project(conditional(self.depth > Constant(1.1)*ksp, ksp/self.depth, Constant(1/1.1)))
+        self.Aconv = Function(P1_2d).project(conditional(self.depth > Constant(1.1)*a, a/self.depth, Constant(1/1.1)))
 
         # take max of value calculated either by ksp or depth
-        Amax = conditional(Aconv > Bconv, Aconv, Bconv)
+        Amax = conditional(self.Aconv > self.Bconv, self.Aconv, self.Bconv)
 
-        r1conv = Constant(1) - (1/kappa)*conditional(settling_velocity/ustar < Constant(1),
+        r1conv = Constant(1) - (1/self.kappa)*conditional(settling_velocity/ustar < Constant(1),
                                                      settling_velocity/ustar, Constant(1))
 
         Ione = conditional(r1conv > Constant(1e-8), (Constant(1) - Amax**r1conv)/r1conv,
@@ -40,11 +44,11 @@ class CorrectiveVelocityFactor:
                            conditional(r1conv < Constant(- 1e-8), -(Ione + (ln(Amax)*(Amax**r1conv)))/r1conv,
                                        Constant(-0.5)*ln(Amax)**2))
 
-        self.alpha = -(Itwo - (ln(Amax) - ln(30))*Ione)/(Ione * ((ln(Amax) - ln(30)) + Constant(1)))
+        alpha = -(Itwo - (ln(Amax) - ln(30))*Ione)/(Ione * ((ln(Amax) - ln(30)) + Constant(1)))
 
         # final correction factor
-        self.velocity_correction_factor = Function(depth.function_space(), name='velocity correction factor')
-        self.velocity_correction_factor_expr = max_value(min_value(self.alpha, Constant(1)), Constant(0.))
+        self.velocity_correction_factor = Function(self.depth.function_space(), name='velocity correction factor')
+        self.velocity_correction_factor_expr = max_value(min_value(alpha, Constant(1)), Constant(0.))
         self.update()
 
     def update(self):
@@ -52,7 +56,11 @@ class CorrectiveVelocityFactor:
         Update `self.velocity_correction_factor` using the updated values for velocity
         """
         # final correction factor
-        self.velocity_correction_factor.interpolate(self.velocity_correction_factor_expr)
+
+        self.Bconv.project(conditional(self.depth > Constant(1.1)*self.ksp, self.ksp/self.depth, Constant(1/1.1)))
+        self.Aconv.project(conditional(self.depth > Constant(1.1)*self.a, self.a/self.depth, Constant(1/1.1)))
+
+        self.velocity_correction_factor.project(self.velocity_correction_factor_expr)
 
 
 class SedimentModel(object):
@@ -85,10 +93,13 @@ class SedimentModel(object):
         self.options = options
         self.solve_suspended_sediment = options.sediment_model_options.solve_suspended_sediment
         self.use_bedload = options.sediment_model_options.use_bedload
+        self.use_sediment_slide = options.sediment_model_options.use_sediment_slide
         self.use_angle_correction = options.sediment_model_options.use_angle_correction
         self.use_slope_mag_correction = options.sediment_model_options.use_slope_mag_correction
         self.use_advective_velocity_correction = options.sediment_model_options.use_advective_velocity_correction
         self.use_secondary_current = options.sediment_model_options.use_secondary_current
+
+        self.mesh2d = mesh2d
 
         if not self.use_bedload:
             if self.use_angle_correction:
@@ -107,6 +118,8 @@ class SedimentModel(object):
         self.P1_2d = get_functionspace(mesh2d, "CG", 1)
         self.R_1d = get_functionspace(mesh2d, "R", 0)
         self.P1v_2d = VectorFunctionSpace(mesh2d, "CG", 1)
+
+        self.n = FacetNormal(mesh2d)
 
         # define parameters
         self.g = physical_constants['g_grav']
@@ -203,7 +216,7 @@ class SedimentModel(object):
                                          / (self.dstar**0.3))
 
             if self.use_advective_velocity_correction:
-                self.correction_factor_model = CorrectiveVelocityFactor(self.depth_tot, ksp,
+                self.correction_factor_model = CorrectiveVelocityFactor(self.P1_2d, self.depth_tot, ksp,
                                                                    self.settling_velocity, ustar, self.a)
                 self.velocity_correction_factor = self.correction_factor_model.velocity_correction_factor
             self.equilibrium_tracer = Function(self.P1DG_2d).interpolate(self.erosion_concentration/self.integrated_rouse)
@@ -230,6 +243,10 @@ class SedimentModel(object):
             the bedlevel (positive downwards).
         """
 
+        # define bed gradient
+        dzdx = self.old_bathymetry_2d.dx(0)
+        dzdy = self.old_bathymetry_2d.dx(1)
+
         if self.use_slope_mag_correction:
             # slope effect magnitude correction due to gravity where beta is a parameter normally set to 1.3
             # we use z_n1 and equals so that we can use an implicit method in Exner
@@ -241,10 +258,6 @@ class SedimentModel(object):
             # slope effect angle correction due to gravity
             cparam = ((self.rhos-self.rhow)*self.g*self.average_size*(self.surbeta2**2))
             tt1 = conditional(self.stress > Constant(1e-10), sqrt(cparam/self.stress), sqrt(cparam/Constant(1e-10)))
-
-            # define bed gradient
-            dzdx = self.old_bathymetry_2d.dx(0)
-            dzdy = self.old_bathymetry_2d.dx(1)
 
             # add on a factor of the bed gradient to the normal
             aa = self.salfa + tt1*dzdy
@@ -310,6 +323,46 @@ class SedimentModel(object):
             qby = qb_total*self.salfa
 
         return qbx, qby
+
+    def get_sediment_slide_term(self, bathymetry):
+        # add component to bedload transport to ensure the slope angle does not exceed a certain value
+
+        # maximum gradient allowed by sediment slide mechanism
+        self.tanphi = tan(self.options.sediment_model_options.max_angle*pi/180)
+        # approximate mesh step size for sediment slide mechanism
+        L = self.options.sediment_model_options.meshgrid_size
+
+        degree_h = self.P1_2d.ufl_element().degree()
+
+        if degree_h == 0:
+            self.sigma = 1.5 / CellSize(self.mesh2d)
+        else:
+            self.sigma = 5.0*degree_h*(degree_h + 1)/CellSize(self.mesh2d)
+
+        # define bed gradient
+        x, y = SpatialCoordinate(self.mesh2d)
+
+        if self.options.sediment_model_options.slide_region is not None:
+            dzdx = conditional(x < self.options.sediment_model_options.slide_region, bathymetry.dx(0), Constant(0.0))
+            dzdy = conditional(x < self.options.sediment_model_options.slide_region, bathymetry.dx(1), Constant(0.0))
+        else:
+            dzdx = bathymetry.dx(0)
+            dzdy = bathymetry.dx(1)
+
+        # calculate normal to the bed
+        nz = 1/sqrt(1 + (dzdx**2 + dzdy**2))
+
+        betaangle = asin(sqrt(1 - (nz**2)))
+        self.tanbeta = sqrt(1 - (nz**2))/nz
+
+        # calculating magnitude of added component
+        qaval = conditional(self.tanbeta - self.tanphi > 0, (1-self.options.sediment_model_options.porosity)*0.5*(L**2)*(self.tanbeta - self.tanphi)/(cos(betaangle*self.options.timestep*self.options.sediment_model_options.morphological_acceleration_factor)), 0)
+        # multiplying by direction
+        alphaconst = conditional(sqrt(1 - (nz**2)) > 0, - qaval*(nz**2)/sqrt(1 - (nz**2)), 0)
+
+        diff_tensor = as_matrix([[alphaconst, 0, ], [0, alphaconst, ]])
+
+        return diff_tensor
 
     def get_deposition_coefficient(self):
         """Returns coefficient :math:`C` such that :math:`C/H*sediment` is deposition term in sediment equation
