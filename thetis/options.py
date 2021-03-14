@@ -49,6 +49,11 @@ class SteadyStateTimestepperOptions2d(TimeStepperOptions):
         'pc_type': 'lu',
         'mat_type': 'aij'
     }).tag(config=True)
+    solver_parameters_tracer = PETScSolverParameters({
+        'ksp_type': 'preonly',
+        'pc_type': 'lu',
+        'mat_type': 'aij'
+    }).tag(config=True)
 
 
 class CrankNicolsonTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
@@ -361,6 +366,18 @@ class TidalTurbineFarmOptions(FrozenHasTraits, TraitType):
         0.0, help='Average power production per turbine required to break even')
 
 
+@attach_paired_options("free_surface_timestepper_type",
+                       PairedEnum([('SSPRK33', ExplicitTimestepperOptions2d),
+                                   ('ForwardEuler', ExplicitTimestepperOptions2d),
+                                   ('BackwardEuler', SemiImplicitTimestepperOptions2d),
+                                   ('CrankNicolson', CrankNicolsonTimestepperOptions2d),
+                                   ('DIRK22', SemiImplicitTimestepperOptions2d),
+                                   ('DIRK33', SemiImplicitTimestepperOptions2d),
+                                   ],
+                                  "free_surface_timestepper_options",
+                                  default_value='CrankNicolson',
+                                  help='Name of the free surface time integrator').tag(config=True),
+                       Instance(TimeStepperOptions, args=()).tag(config=True))
 class NonhydrostaticModelOptions(FrozenHasTraits):
     """Options for non-hydrostatic models"""
     name = 'Non-hydrostatic 2D/3D models'
@@ -514,24 +531,10 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
     horizontal_diffusivity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal diffusivity for tracers and sediment").tag(config=True)
-    use_automatic_sipg_parameter = Bool(False, help=r"""
-        Toggle automatic computation of the SIPG penalty parameter used in viscosity and
-        diffusivity terms.
-
-        By default, this parameter is set to
-
-        ..math::
-            \alpha = 5p(p+1),
-
-        where :math:`p` is the polynomial degree of the velocity space.
-
-        For anisotropic meshes, it is advisable to use the automatic SIPG parameter,
-        rather than the default.
-        """).tag(config=True)
-    sipg_parameter = FiredrakeScalarExpression(
-        Constant(10.0), help="Penalty parameter used for horizontal viscosity terms.").tag(config=True)
-    sipg_parameter_tracer = FiredrakeScalarExpression(
-        Constant(10.0), help="Penalty parameter used for horizontal diffusivity terms.").tag(config=True)
+    sipg_factor = FiredrakeScalarExpression(
+        Constant(1.0), help="Penalty parameter scaling factor for horizontal viscosity terms.").tag(config=True)
+    sipg_factor_tracer = FiredrakeScalarExpression(
+        Constant(1.0), help="Penalty parameter scaling factor for horizontal diffusivity terms.").tag(config=True)
 
 
 class SedimentModelOptions(FrozenHasTraits):
@@ -542,8 +545,8 @@ class SedimentModelOptions(FrozenHasTraits):
     use_angle_correction = Bool(True, help='Switch to use slope effect angle correction').tag(config=True)
     use_slope_mag_correction = Bool(True, help='Switch to use slope effect magnitude correction').tag(config=True)
     use_secondary_current = Bool(False, help='Switch to use secondary current for helical flow effect').tag(config=True)
-    average_sediment_size = NonNegativeFloat(allow_none=False, help='Average sediment size').tag(config=True)
-    bed_reference_height = NonNegativeFloat(allow_none=False, help='Bottom bed reference height').tag(config=True)
+    average_sediment_size = FiredrakeScalarExpression(None, allow_none=True, help='Average sediment size').tag(config=True)
+    bed_reference_height = FiredrakeScalarExpression(None, allow_none=True, help='Bottom bed reference height').tag(config=True)
     use_advective_velocity_correction = Bool(True, help="""
         Switch to apply correction to advective velocity used in sediment equation
 
@@ -561,7 +564,7 @@ class SedimentModelOptions(FrozenHasTraits):
         None, allow_none=True, help="""Viscosity used to derive morphology terms.
 
         Usually equal to horizontal viscosity but can be set to have a different value""").tag(config=True)
-    sediment_density = FiredrakeConstantTraitlet(
+    sediment_density = FiredrakeScalarExpression(
         Constant(2650), help='Density of sediment').tag(config=True)
     secondary_current_parameter = FiredrakeConstantTraitlet(
         Constant(0.75), help='Parameter controlling secondary current').tag(config=True)
@@ -809,13 +812,13 @@ class ModelOptions3d(CommonModelOptions):
         Constant(10.0), help="Constant temperature if temperature is not solved").tag(config=True)
     constant_salinity = FiredrakeConstantTraitlet(
         Constant(0.0), help="Constant salinity if salinity is not solved").tag(config=True)
-    sipg_parameter_vertical = FiredrakeScalarExpression(
-        Constant(10.0), help="Penalty parameter used for vertical viscosity terms.").tag(config=True)
-    sipg_parameter_vertical_tracer = FiredrakeScalarExpression(
-        Constant(10.0), help="Penalty parameter used for vertical diffusivity terms.").tag(config=True)
-    sipg_parameter_turb = FiredrakeScalarExpression(
-        Constant(1.5), help="Penalty parameter used for horizontal diffusivity terms of the turbulence model.").tag(config=True)
-    sipg_parameter_vertical_turb = FiredrakeScalarExpression(
-        Constant(1.0), help="Penalty parameter used for vertical diffusivity terms of the turbulence model.").tag(config=True)
+    sipg_factor_vertical = FiredrakeScalarExpression(
+        Constant(1.0), help="Penalty parameter scaling factor for vertical viscosity terms.").tag(config=True)
+    sipg_factor_vertical_tracer = FiredrakeScalarExpression(
+        Constant(1.0), help="Penalty parameter scaling factor for vertical diffusivity terms.").tag(config=True)
+    sipg_factor_turb = FiredrakeScalarExpression(
+        Constant(1.0), help="Penalty parameter scaling factor for horizontal diffusivity terms of the turbulence model.").tag(config=True)
+    sipg_factor_vertical_turb = FiredrakeScalarExpression(
+        Constant(1.0), help="Penalty parameter scaling factor for vertical diffusivity terms of the turbulence model.").tag(config=True)
     internal_pg_scalar = FiredrakeConstantTraitlet(
         None, allow_none=True, help="A constant to scale the internal pressure gradient. Used to ramp up the model.").tag(config=True)

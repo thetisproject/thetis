@@ -113,20 +113,23 @@ class FieldDict(AttrDict):
 def get_functionspace(mesh, h_family, h_degree, v_family=None, v_degree=None,
                       vector=False, hdiv=False, variant=None, v_variant=None,
                       **kwargs):
-    gdim = mesh.geometric_dimension()
-    assert gdim in [2, 3]
+    cell_dim = mesh.cell_dimension()
+    assert cell_dim in [2, (2, 1)], 'Unsupported cell dimension'
     hdiv_families = [
         'RT', 'RTF', 'RTCF', 'RAVIART-THOMAS',
         'BDM', 'BDMF', 'BDMCF', 'BREZZI-DOUGLAS-MARINI',
     ]
     if variant is None:
         if h_family.upper() in hdiv_families:
-            variant = 'point'
+            if h_family in ['RTCF', 'BDMCF']:
+                variant = 'equispaced'
+            else:
+                variant = 'integral'
         else:
             variant = 'equispaced'
     if v_variant is None:
         v_variant = 'equispaced'
-    if gdim == 3:
+    if cell_dim == (2, 1):
         if v_family is None:
             v_family = h_family
         if v_degree is None:
@@ -1938,22 +1941,26 @@ class DepthExpression:
 
 
 class DepthIntegratedPoissonSolver(object):
+    r"""
+    Construct solvers for Poisson equation and updating velocities
+
+    Poisson equation is related to 2d NH SWE system
+
+    Non-hydrostatic pressure :math:`q` is obtained from the generic form of equation
+
+    .. math::
+        \nabla \cdot \nabla q^{n+1/2} + A \cdot \nabla q^{n+1/2} + B q^{n+1/2} + C = 0
+
+    The parameter terms A, B and C are defined as
+
+    .. math::
+        A = \frac{\nabla (\eta^* - d)}{H^*}
+        B = \nabla A - \frac{4}{(H^*)^2}
+        C = -2 \frac{\rho_0}{\Delta t} ( \nabla \cdot \bar{\textbf{u}}^* + 2 \frac{\bar{w} - w_b}{H^*} )
+
+    where the :math:`H = \eta + d` denotes the water depth
+    and the superscript star symbol represents the intermediate level of terms.
     """
-    Construct solvers for Poisson equation and subsequently updating velocities
-
-    Generic form:
-        2D: `div(grad(q^{n+1/2})) + inner(A, grad(q^{n+1/2})) + B*q^{n+1/2} + C = 0`
-    where
-        A = grad(self.elev_2d - bath_2d)/h_star
-        B = div(A) - 4./(h_star**2)
-        C = -2.*rho_0/self.dt*(div(self.uv_2d) + (self.w_2d - w_b)/(0.5*h_star))
-
-    :arg A, B and C: Known functions, constants or expressions
-    :type A: vector, B: scalar, C: scalar (3D: div terms). Valued :class:`Function`, `Constant`, or an expression
-    :arg q: Non-hydrostatic pressure
-    :type q: scalar function :class:`Function`
-    """
-
     def __init__(self, q_2d, uv_2d, w_2d, elev_2d, depth, dt, bnd_functions=None, solver_parameters=None):
         if solver_parameters is None:
             solver_parameters = {'snes_type': 'ksponly',
@@ -1986,10 +1993,10 @@ class DepthIntegratedPoissonSolver(object):
         # weak form of `q^{n+1/2}*div(grad(self.elev_2d - bath_2d))/h_star`
         f += -dot(grad(self.q_2d*test_q/h_star), grad_hori)*dx
         # weak form of `-q^{n+1/2}*(dot(grad(self.elev_2d - bath_2d), grad(h_star)) + 4)/h_star**2`
-        f += -(dot(grad_hori, grad(h_star)) + 4)/h_star**2*self.q_2d*test_q*dx
+        f += -(dot(grad_hori, grad(h_star)) + 4.)/h_star**2*self.q_2d*test_q*dx
         # weak form of `-2.*rho_0/self.dt*(div(self.uv_2d) + (self.w_2d - w_b)/(0.5*h_star))`
         const = 2.*rho_0/self.dt
-        f += const*(dot(grad(test_q), self.uv_2d)*dx - (self.w_2d - w_b)/(0.5*h_star)*test_q*dx)
+        f += const*(dot(grad(test_q), self.uv_2d)*dx - 2.*(self.w_2d - w_b)/h_star*test_q*dx)
 
         # boundary conditions
         bcs = []
@@ -2008,7 +2015,7 @@ class DepthIntegratedPoissonSolver(object):
             solver_parameters=solver_parameters,
             options_prefix='poisson_solver'
         )
-        # horizontal velocity updator
+        # horizontal velocity updater
         fs_u = self.uv_2d.function_space()
         tri_u = TrialFunction(fs_u)
         test_u = TestFunction(fs_u)
@@ -2016,7 +2023,7 @@ class DepthIntegratedPoissonSolver(object):
         l_u = dot(self.uv_2d - 0.5*self.dt/rho_0*(grad(self.q_2d) + grad_hori/h_star*self.q_2d), test_u)*dx
         prob_u = LinearVariationalProblem(a_u, l_u, self.uv_2d)
         self.solver_u = LinearVariationalSolver(prob_u)
-        # vertical velocity updator
+        # vertical velocity updater
         fs_w = self.w_2d.function_space()
         tri_w = TrialFunction(fs_w)
         test_w = TestFunction(fs_w)
@@ -2028,7 +2035,7 @@ class DepthIntegratedPoissonSolver(object):
     def solve(self):
         # solve non-hydrostatic pressure q
         self.solver_q.solve()
-        # update horizontal velocitiy uv_2d
+        # update horizontal velocity uv_2d
         self.solver_u.solve()
-        # update vertical velocitiy w_2d
+        # update vertical velocity w_2d
         self.solver_w.solve()

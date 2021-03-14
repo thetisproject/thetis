@@ -26,6 +26,10 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         """time integrator for the exner equation"""
         pass
 
+    def fs_integrator(self):
+        """time integrator for the free surface equation"""
+        pass
+
     def __init__(self, solver):
         """
         :arg solver: :class:`.FlowSolver` object
@@ -42,8 +46,10 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
             print_output('  Sediment time integrator: {:}'.format(self.sediment_integrator.__name__))
         if self.options.sediment_model_options.solve_exner:
             print_output('  Exner time integrator: {:}'.format(self.exner_integrator.__name__))
-        if solver.options.nh_model_options.solve_nonhydrostatic_pressure:
+        self.nh_options = solver.options.nh_model_options
+        if self.nh_options.solve_nonhydrostatic_pressure and self.nh_options.update_free_surface:
             self.elev_old = Function(solver.fields.elev_2d)
+            print_output('  Free surface correction time integrator: {:}'.format(self.fs_integrator.__name__))
         self._initialized = False
 
         self._create_integrators()
@@ -53,8 +59,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         Creates all time integrators with the correct arguments
         """
         self.timesteppers.swe2d = self.solver.get_swe_timestepper(self.swe_integrator)
-        if self.options.nh_model_options.solve_nonhydrostatic_pressure:
-            self.timesteppers.fs2d = self.solver.get_free_surface_correction_timestepper(self.swe_integrator)
+        if self.nh_options.solve_nonhydrostatic_pressure and self.nh_options.update_free_surface:
+            self.timesteppers.fs2d = self.solver.get_fs_timestepper(self.fs_integrator)
         if self.solver.options.solve_tracer:
             self.timesteppers.tracer = self.solver.get_tracer_timestepper(self.tracer_integrator)
         if self.solver.options.sediment_model_options.solve_suspended_sediment:
@@ -83,7 +89,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         assert solution2d == self.fields.solution_2d
 
         self.timesteppers.swe2d.initialize(self.fields.solution_2d)
-        if self.options.nh_model_options.solve_nonhydrostatic_pressure:
+        if self.nh_options.solve_nonhydrostatic_pressure and self.nh_options.update_free_surface:
             self.timesteppers.fs2d.initialize(self.fields.elev_2d)
         if self.options.solve_tracer:
             self.timesteppers.tracer.initialize(self.fields.tracer_2d)
@@ -95,15 +101,15 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self._initialized = True
 
     def advance(self, t, update_forcings=None):
-        if self.options.nh_model_options.solve_nonhydrostatic_pressure:
+        if self.nh_options.solve_nonhydrostatic_pressure and self.nh_options.update_free_surface:
             self.elev_old.assign(self.fields.elev_2d)
         if not self.options.tracer_only:
             self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
-        if self.options.nh_model_options.solve_nonhydrostatic_pressure:
+        if self.nh_options.solve_nonhydrostatic_pressure:
             # solve non-hydrostatic pressure q and update velocities
             self.solver.poisson_solver.solve()
             # update free surface elevation
-            if self.options.nh_model_options.update_free_surface:
+            if self.nh_options.update_free_surface:
                 self.fields.elev_2d.assign(self.elev_old)
                 self.timesteppers.fs2d.advance(t, update_forcings=update_forcings)
         if self.options.solve_tracer:
@@ -129,6 +135,8 @@ class CoupledMatchingTimeIntegrator2D(CoupledTimeIntegrator2D):
             self.sediment_integrator = integrator
         if solver.options.sediment_model_options.solve_exner:
             self.exner_integrator = integrator
+        if solver.options.nh_model_options.solve_nonhydrostatic_pressure:
+            self.fs_integrator = solver.fs_integrator
         super(CoupledMatchingTimeIntegrator2D, self).__init__(solver)
 
 

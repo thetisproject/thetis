@@ -2,7 +2,6 @@
 Plots elevation time series
 """
 import h5py
-import os
 from netCDF4 import Dataset
 
 import numpy as np
@@ -38,36 +37,13 @@ def read_hdf5(fn):
     return out
 
 
-def read_measured_data(dirPath):
-    out = OrderedDict()
-    AllfileName = os.listdir(dirPath)
-    for subName in AllfileName:
-        child = os.path.join(dirPath, subName)
-        f = open(child, 'r')
-        lines = f.readlines()
-        timeVals = []
-        eleVals = []
-        for i in lines:
-            timeVals.append(float(i.split()[0]))
-            eleVals.append(float(i.split()[1]))
-        out[subName] = OrderedDict()
-        out[subName]['time'] = timeVals
-        out[subName]['elevation'] = eleVals
-    return out
-
-
-def make_plot(data, measured):
+def make_plot(data):
 
     fig = plt.figure(figsize=(10, 6))
 
     for i in range(8):
         locals()['ax_'+str(i+1)] = fig.add_subplot(4, 2, i+1)
         ax = locals()['ax_'+str(i+1)]
-
-        # experimental data
-        g_name = 'gauge' + str(i+4) + '.txt'
-        x_exp = measured[g_name]['time']
-        y_exp = measured[g_name]['elevation']
 
         # numerical results
         xshift = -0.1
@@ -77,7 +53,6 @@ def make_plot(data, measured):
         xnew = np.arange(0, 40, 0.01).reshape(4000, 1)
         ynew = interpolate.splev(xnew, tck, der=0)
 
-        ax.plot(x_exp, y_exp, 'ko', markersize=4, markerfacecolor='w', label='Measured', alpha=0.8)
         ax.plot(xnew, ynew, 'b', linewidth=1, label='Gauge '+str(i+4), alpha=1.0)
 
         if i == 6 or i == 7:
@@ -102,12 +77,10 @@ def make_plot(data, measured):
 
 if __name__ == '__main__':
     DiagnosticFile = './outputs_bbbar_2d/diagnostic_gauges.hdf5'
-    MeasuredDataPath = './measured_data'
     if DiagnosticFile.endswith('.hdf5'):
         d = read_hdf5(DiagnosticFile)
     elif DiagnosticFile.endswith('.nc'):
         d = read_netcdf(DiagnosticFile)
     else:
         raise IOError('Unknown file format {:}'.format(DiagnosticFile))
-    m = read_measured_data(MeasuredDataPath)
-    make_plot(d, m)
+    make_plot(d)

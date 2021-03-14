@@ -195,66 +195,6 @@ class FlowSolver2d(FrozenClass):
             print_output('dt = {:}'.format(self.dt))
             sys.stdout.flush()
 
-    def set_sipg_parameter(self):
-        r"""
-        Compute a penalty parameter which ensures stability of the Interior Penalty method
-        used for viscosity and diffusivity terms, from Epshteyn et al. 2007
-        (http://dx.doi.org/10.1016/j.cam.2006.08.029).
-
-        The scheme is stable if
-
-        ..math::
-            \alpha|_K > 3*X*p*(p+1)*\cot(\theta_K),
-
-        for all elements :math:`K`, where
-
-        ..math::
-            X = \frac{\max_{x\in K}(\nu(x))}{\min_{x\in K}(\nu(x))},
-
-        :math:`p` the degree, and :math:`\theta_K` is the minimum angle in the element.
-        """
-        degree = self.function_spaces.U_2d.ufl_element().degree()
-        alpha = Constant(5.0*degree*(degree+1) if degree != 0 else 1.5)
-        degree_tracer = self.function_spaces.Q_2d.ufl_element().degree()
-        alpha_tracer = Constant(5.0*degree_tracer*(degree_tracer+1) if degree_tracer != 0 else 1.5)
-
-        if self.options.use_automatic_sipg_parameter:
-            P0 = self.function_spaces.P0_2d
-            theta = get_minimum_angles_2d(self.mesh2d)
-            min_angle = theta.vector().gather().min()
-            print_output("Minimum angle in mesh: {:.2f} degrees".format(np.rad2deg(min_angle)))
-            cot_theta = 1.0/tan(theta)
-
-            # Penalty parameter for shallow water
-            if not self.options.tracer_only:
-                nu = self.options.horizontal_viscosity
-                if nu is not None:
-                    alpha = alpha*get_sipg_ratio(nu)*cot_theta
-                    self.options.sipg_parameter = interpolate(alpha, P0)
-                    max_sipg = self.options.sipg_parameter.vector().gather().max()
-                    print_output("Maximum SIPG value:        {:.2f}".format(max_sipg))
-                else:
-                    print_output("Using default SIPG parameter for shallow water equations")
-
-            # Penalty parameter for tracers
-            if self.options.solve_tracer or self.options.sediment_model_options.solve_suspended_sediment:
-                if self.options.solve_tracer:
-                    tracer_kind = 'tracer'
-                elif self.options.sediment_model_options.solve_suspended_sediment:
-                    tracer_kind = 'sediment'
-                nu = self.options.horizontal_diffusivity
-                if nu is not None:
-                    alpha_tracer = alpha_tracer*get_sipg_ratio(nu)*cot_theta
-                    self.options.sipg_parameter_tracer = interpolate(alpha_tracer, P0)
-                    max_sipg = self.options.sipg_parameter_tracer.vector().gather().max()
-                    print_output("Maximum {} SIPG value: {:.2f}".format(tracer_kind, max_sipg))
-                else:
-                    print_output("Using default SIPG parameter for {} equation".format(tracer_kind))
-        else:
-            print_output("Using default SIPG parameters")
-            self.options.sipg_parameter.assign(alpha)
-            self.options.sipg_parameter_tracer.assign(alpha_tracer)
-
     def set_wetting_and_drying_alpha(self):
         r"""
         Compute a wetting and drying parameter :math:`\alpha` which ensures positive water
@@ -317,6 +257,11 @@ class FlowSolver2d(FrozenClass):
         object.
         """
         self._isfrozen = False
+        on_the_sphere = self.mesh2d.geometric_dimension() == 3
+        if on_the_sphere:
+            assert self.options.element_family in ['rt-dg', 'bdm-dg'], \
+                'Spherical mesh requires \'rt-dg\' or \'bdm-dg\' ' \
+                'element family.'
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.function_spaces.P0_2d = get_functionspace(self.mesh2d, 'DG', 0, name='P0_2d')
         self.function_spaces.P1_2d = get_functionspace(self.mesh2d, 'CG', 1, name='P1_2d')
@@ -361,7 +306,6 @@ class FlowSolver2d(FrozenClass):
         self.fields.elev_2d = elev_2d
         self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
         get_horizontal_elem_size_2d(self.fields.h_elem_size_2d)
-        self.set_sipg_parameter()
         self.set_wetting_and_drying_alpha()
         self.depth = DepthExpression(self.fields.bathymetry_2d,
                                      use_nonlinear_equations=self.options.use_nonlinear_equations,
@@ -372,7 +316,7 @@ class FlowSolver2d(FrozenClass):
         self.eq_sw = shallowwater_eq.ShallowWaterEquations(
             self.fields.solution_2d.function_space(),
             self.depth,
-            self.options
+            self.options,
         )
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         if self.options.solve_tracer:
@@ -381,12 +325,12 @@ class FlowSolver2d(FrozenClass):
                 self.eq_tracer = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
                     self.function_spaces.Q_2d, self.depth,
                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                    sipg_parameter=self.options.sipg_parameter_tracer)
+                    sipg_factor=self.options.sipg_factor_tracer)
             else:
                 self.eq_tracer = tracer_eq_2d.TracerEquation2D(
                     self.function_spaces.Q_2d, self.depth,
                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                    sipg_parameter=self.options.sipg_parameter_tracer)
+                    sipg_factor=self.options.sipg_factor_tracer)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
@@ -403,7 +347,7 @@ class FlowSolver2d(FrozenClass):
             self.eq_sediment = sediment_eq_2d.SedimentEquation2D(
                 self.function_spaces.Q_2d, self.depth, self.sediment_model,
                 use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                sipg_parameter=self.options.sipg_parameter_tracer,
+                sipg_factor=self.options.sipg_factor_tracer,
                 conservative=sediment_options.use_sediment_conservative_form)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
@@ -418,9 +362,10 @@ class FlowSolver2d(FrozenClass):
         if self.options.nh_model_options.solve_nonhydrostatic_pressure:
             print_output('Solving the non-hydrostatic pressure')
             print_output('... using 2D mesh based solver ...')
-            fs_q = get_functionspace(self.mesh2d, 'CG', self.options.polynomial_degree)
+            q_degree = self.options.polynomial_degree
             if self.options.nh_model_options.q_degree is not None:
-                fs_q = get_functionspace(self.mesh2d, 'CG', self.options.nh_model_options.q_degree)
+                q_degree = self.options.nh_model_options.q_degree
+            fs_q = get_functionspace(self.mesh2d, 'CG', q_degree)
             self.fields.q_2d = Function(fs_q, name='q_2d')  # 2D non-hydrostatic pressure at bottom
             self.fields.w_2d = Function(self.function_spaces.H_2d, name='w_2d')  # depth-averaged vertical velocity
             # free surface equation
@@ -451,7 +396,7 @@ class FlowSolver2d(FrozenClass):
 
         args = (self.eq_sw, self.fields.solution_2d, fields, self.dt, )
         kwargs = {'bnd_conditions': self.bnd_functions['shallow_water']}
-        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
+        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization') and self.options.timestepper_type != 'SSPIMEX':
             kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
         if hasattr(self.options.timestepper_options, 'implicitness_theta'):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta
@@ -559,20 +504,24 @@ class FlowSolver2d(FrozenClass):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta
         return integrator(*args, **kwargs)
 
-    def get_free_surface_correction_timestepper(self, integrator):
+    def get_fs_timestepper(self, integrator):
         """
         Gets free-surface correction timestepper object with appropriate parameters
         """
+        nh_options = self.options.nh_model_options
         fields_fs = {
             'uv': self.fields.uv_2d,
             'volume_source': self.options.volume_source_2d,
         }
         args = (self.eq_free_surface, self.fields.elev_2d, fields_fs, self.dt, )
-        kwargs = {'bnd_conditions': self.bnd_functions['shallow_water']}
-        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
-            kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
-        if hasattr(self.options.timestepper_options, 'implicitness_theta'):
-            kwargs['theta'] = self.options.timestepper_options.implicitness_theta
+        kwargs = {
+            # use default solver parameters
+            'bnd_conditions': self.bnd_functions['shallow_water'],
+        }
+        if hasattr(nh_options.free_surface_timestepper_options, 'use_semi_implicit_linearization'):
+            kwargs['semi_implicit'] = nh_options.free_surface_timestepper_options.use_semi_implicit_linearization
+        if hasattr(nh_options.free_surface_timestepper_options, 'implicitness_theta'):
+            kwargs['theta'] = nh_options.free_surface_timestepper_options.implicitness_theta
         return integrator(*args, **kwargs)
 
     def create_timestepper(self):
@@ -608,20 +557,34 @@ class FlowSolver2d(FrozenClass):
             assert self.options.timestepper_type in steppers
         except AssertionError:
             raise Exception('Unknown time integrator type: {:s}'.format(self.options.timestepper_type))
-        use_sediment_model = self.options.sediment_model_options.solve_suspended_sediment or self.options.sediment_model_options.solve_exner
-        solve_nh_pressure = self.options.nh_model_options.solve_nonhydrostatic_pressure
-        if self.options.solve_tracer or use_sediment_model or solve_nh_pressure:
-            assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState'), \
-                "2D model with tracer, nh pressure or sediments currently only supports SSPRK33, ForwardEuler, BackwardEuler"
+        # consider the potential of non-hydrostatic updates in advancing tracer or sediment
+        if self.options.nh_model_options.solve_nonhydrostatic_pressure:
+            self.fs_integrator = steppers[self.options.nh_model_options.free_surface_timestepper_type]
+            self.poisson_solver = DepthIntegratedPoissonSolver(
+                self.fields.q_2d, self.fields.uv_2d, self.fields.w_2d,
+                self.fields.elev_2d, self.depth, self.dt, self.bnd_functions,
+                solver_parameters=self.options.nh_model_options.solver_parameters
+            )
+        if self.options.solve_tracer:
+            try:
+                assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX')
+            except AssertionError:
+                raise NotImplementedError("2D tracer model currently only supports SSPRK33, ForwardEuler, SteadyState, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
             self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
                 weakref.proxy(self), steppers[self.options.timestepper_type],
             )
-            if solve_nh_pressure:
-                self.poisson_solver = DepthIntegratedPoissonSolver(
-                    self.fields.q_2d, self.fields.uv_2d, self.fields.w_2d,
-                    self.fields.elev_2d, self.depth, self.dt, self.bnd_functions,
-                    solver_parameters=self.options.nh_model_options.solver_parameters
-                )
+        elif self.options.sediment_model_options.solve_suspended_sediment or self.options.sediment_model_options.solve_exner:
+            try:
+                assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState')
+            except AssertionError:
+                raise NotImplementedError("2D sediment model currently only supports SSPRK33, ForwardEuler, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
+            self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
+                weakref.proxy(self), steppers[self.options.timestepper_type],
+            )
+        elif self.options.nh_model_options.solve_nonhydrostatic_pressure:
+            self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
+                weakref.proxy(self), steppers[self.options.timestepper_type],
+            )
         else:
             self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))

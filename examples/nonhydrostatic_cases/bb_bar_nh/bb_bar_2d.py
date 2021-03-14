@@ -12,7 +12,6 @@ This example represents wave shoaling after interaction with uneven bottom.
     https://doi.org/10.1016/0378-3839(94)90012-4
 """
 from thetis import *
-import numpy as np
 
 lx = 35.0
 ly = 1
@@ -65,8 +64,8 @@ solver_obj = solver2d.FlowSolver2d(mesh, bathymetry_2d)
 options = solver_obj.options
 options.element_family = 'dg-dg'
 options.polynomial_degree = 1
-options.timestepper_type = 'CrankNicolson'
 # time stepper
+options.timestepper_type = 'CrankNicolson'
 if hasattr(options.timestepper_options, 'use_automatic_timestep'):
     options.timestepper_options.use_automatic_timestep = False
 options.timestep = dt
@@ -80,8 +79,11 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'q_2d']
 if solve_nonhydrostatic_pressure:
     options_nh = options.nh_model_options
     options_nh.solve_nonhydrostatic_pressure = solve_nonhydrostatic_pressure
+    options_nh.q_degree = 1
+    options_nh.update_free_surface = True
+    options_nh.free_surface_timestepper_type = 'CrankNicolson'
 
-# --- create equations ---
+# create equations
 solver_obj.create_equations()
 
 # detectors
@@ -90,7 +92,7 @@ xy = [[10.5, 0.], [12.5, 0.], [13.5, 0.], [14.5, 0.],
 cb = DetectorsCallback(solver_obj, xy, ['elev_2d'], name='gauges', append_to_log=False)
 solver_obj.add_callback(cb)
 
-# --- input wave ---
+# input wave
 pi = 4*np.arctan(1.)
 eta_amp = 0.01
 period = 2.02
@@ -100,7 +102,7 @@ def get_inputelevation(t):
     return eta_amp*np.sin(2*pi/period*t)
 
 
-# --- boundary condition ---
+# boundary condition
 t = 0.
 H_2d = solver_obj.function_spaces.H_2d
 ele_bc = Constant(0.)
@@ -108,7 +110,7 @@ inflow_tag = 1
 solver_obj.bnd_functions['shallow_water'] = {inflow_tag: {'elev': ele_bc}}
 
 
-# --- time updated ---
+# time updated
 def update_forcings(t_new):
     """Callback function that updates all time dependent forcing fields
     for the 2d mode"""
