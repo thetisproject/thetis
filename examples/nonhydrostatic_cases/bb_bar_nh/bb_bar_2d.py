@@ -65,9 +65,9 @@ options = solver_obj.options
 options.element_family = 'dg-dg'
 options.polynomial_degree = 1
 # time stepper
-options.timestepper_type = 'CrankNicolson'
+options.timestepper_type = 'DIRK33'
 if hasattr(options.timestepper_options, 'use_automatic_timestep'):
-    options.timestepper_options.use_automatic_timestep = False
+    options.timestepper_options.use_automatic_timestep = True
 options.timestep = dt
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
@@ -79,7 +79,7 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'q_2d']
 if solve_nonhydrostatic_pressure:
     options_nh = options.nh_model_options
     options_nh.solve_nonhydrostatic_pressure = solve_nonhydrostatic_pressure
-    options_nh.q_degree = 1
+    options_nh.q_degree = 2
     options_nh.update_free_surface = True
     options_nh.free_surface_timestepper_type = 'CrankNicolson'
 
@@ -118,4 +118,5 @@ def update_forcings(t_new):
 
 
 # --- initial conditions, create all function spaces, equations etc ---
+solver_obj.assign_initial_conditions()
 solver_obj.iterate(update_forcings=update_forcings)

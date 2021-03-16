@@ -2004,7 +2004,12 @@ class DepthIntegratedPoissonSolver(object):
             func = self.bnd_functions['shallow_water'].get(bnd_marker)
             ds_bnd = ds(int(bnd_marker))
             if func is not None:  # e.g. inlet flow, TODO be more precise
-                bc = DirichletBC(fs_q, 0., int(bnd_marker))
+                q_is_dg = element_continuity(fs_q.ufl_element()).horizontal == 'dg'
+                if q_is_dg:
+                    bnd_method = "geometric"
+                else:
+                    bnd_method = "topological"
+                bc = DirichletBC(fs_q, 0., int(bnd_marker), method=bnd_method)
                 bcs.append(bc)
                 f += self.q_2d*test_q/h_star*dot(grad_hori, normal)*ds_bnd
                 f += -const*dot(self.uv_2d, normal)*test_q*ds_bnd
@@ -2032,10 +2037,11 @@ class DepthIntegratedPoissonSolver(object):
         prob_w = LinearVariationalProblem(a_w, l_w, self.w_2d)
         self.solver_w = LinearVariationalSolver(prob_w)
 
-    def solve(self):
+    def solve(self, solve_w=True):
         # solve non-hydrostatic pressure q
         self.solver_q.solve()
         # update horizontal velocity uv_2d
         self.solver_u.solve()
         # update vertical velocity w_2d
-        self.solver_w.solve()
+        if solve_w:
+            self.solver_w.solve()

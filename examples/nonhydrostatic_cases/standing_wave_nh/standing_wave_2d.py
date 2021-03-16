@@ -36,10 +36,10 @@ solve_nonhydrostatic_pressure = True
 # --- create solver ---
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
-options.element_family = 'dg-dg'
+options.element_family = 'dg-cg'
 options.polynomial_degree = 1
 # time stepper
-options.timestepper_type = 'CrankNicolson'
+options.timestepper_type = 'PressureProjectionPicard'
 if hasattr(options.timestepper_options, 'use_automatic_timestep'):
     options.timestepper_options.use_automatic_timestep = True
 options.timestep = dt

@@ -396,7 +396,8 @@ class FlowSolver2d(FrozenClass):
 
         args = (self.eq_sw, self.fields.solution_2d, fields, self.dt, )
         kwargs = {'bnd_conditions': self.bnd_functions['shallow_water']}
-        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization') and self.options.timestepper_type != 'SSPIMEX':
+        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization') \
+                and self.options.timestepper_type != 'SSPIMEX':
             kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
         if hasattr(self.options.timestepper_options, 'implicitness_theta'):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta
@@ -557,15 +558,17 @@ class FlowSolver2d(FrozenClass):
             assert self.options.timestepper_type in steppers
         except AssertionError:
             raise Exception('Unknown time integrator type: {:s}'.format(self.options.timestepper_type))
-        # consider the potential of non-hydrostatic updates in advancing tracer or sediment
         if self.options.nh_model_options.solve_nonhydrostatic_pressure:
-            self.fs_integrator = steppers[self.options.nh_model_options.free_surface_timestepper_type]
             self.poisson_solver = DepthIntegratedPoissonSolver(
                 self.fields.q_2d, self.fields.uv_2d, self.fields.w_2d,
                 self.fields.elev_2d, self.depth, self.dt, self.bnd_functions,
                 solver_parameters=self.options.nh_model_options.solver_parameters
             )
-        if self.options.solve_tracer:
+            self.timestepper = coupled_timeintegrator_2d.NonHydrostaticTimeIntegrator2D(
+                weakref.proxy(self), steppers[self.options.timestepper_type],
+                steppers[self.options.nh_model_options.free_surface_timestepper_type]
+            )
+        elif self.options.solve_tracer:
             try:
                 assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX')
             except AssertionError:
@@ -581,13 +584,9 @@ class FlowSolver2d(FrozenClass):
             self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
                 weakref.proxy(self), steppers[self.options.timestepper_type],
             )
-        elif self.options.nh_model_options.solve_nonhydrostatic_pressure:
-            self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
-                weakref.proxy(self), steppers[self.options.timestepper_type],
-            )
         else:
             self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])
-        print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
+            print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
 
         self._isfrozen = True  # disallow creating new attributes
 

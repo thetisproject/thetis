@@ -21,8 +21,10 @@ import h5py
 @pytest.mark.parametrize("timesteps,max_rel_err", [
     (10, 1.6e-2), (20, 4e-3), (40, 1e-3)])
 @pytest.mark.parametrize("timestepper", [
+    # implicit
     'CrankNicolson', 'PressureProjectionPicard',
-    'DIRK22', 'DIRK33',
+    'SSPIMEX', 'DIRK22', 'DIRK33',
+    # explicit
     'SSPRK33', 'ForwardEuler'])
 def test_nh_standing_wave(timesteps, max_rel_err, timestepper, tmpdir,
                           do_export=False, solve_nonhydrostatic_pressure=True):
@@ -77,8 +79,7 @@ def test_nh_standing_wave(timesteps, max_rel_err, timestepper, tmpdir,
         options_nh.update_free_surface = True
         options_nh.free_surface_timestepper_type = 'CrankNicolson'
         if hasattr(options.timestepper_options, 'use_automatic_timestep'):
-            # CrankNicolson is ok
-            # here use the same explicit timestepper
+            # use the same explicit timestepper, but CrankNicolson is ok
             options_nh.free_surface_timestepper_type = timestepper
 
     # boundary conditions
