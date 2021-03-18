@@ -63,7 +63,12 @@ option.
 If the ``'cg'`` element family is chosen, then SUPG stabilization is used by
 default. It can be controlled using the
 :ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.use_supg_tracer`
-option.
+option. In that case, it is advisable to set characteristic velocities and
+diffusivities for your problem using the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.horizontal_velocity_scale`
+and
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.horizontal_diffusivity_scale`
+options.
 
 Temporal discretization
 -----------------------

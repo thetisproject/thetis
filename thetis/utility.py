@@ -1276,8 +1276,15 @@ def get_cell_widths_2d(mesh2d):
 
 def anisotropic_cell_size(mesh):
     """
-    Measure of cell size for anisotropic meshes, as described in [Micheletti, Perotto & Picasso 2003].
+    Measure of cell size for anisotropic meshes, as described in
+    Micheletti et al. (2003).
+
     This is used in the SUPG formulation for the 2D tracer model.
+
+    Micheletti, Perotto and Picasso (2003). Stabilized finite
+    elements on anisotropic meshes: a priori error estimates for
+    the advection-diffusion and the Stokes problems. SIAM Journal
+    on Numerical Analysis 41.3: 1131-1162.
     """
     try:
         from firedrake.slate.slac.compiler import PETSC_ARCH

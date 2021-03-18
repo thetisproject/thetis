@@ -441,7 +441,8 @@ class CommonModelOptions(FrozenConfigurable):
         Constant(1.0), help="""
         Maximum horizontal diffusivity
 
-        Used to Peclet number.
+        Used to compute the mesh Peclet number in
+        the 2D tracer SUPG stabilization scheme.
         """).tag(config=True)
     output_directory = Unicode(
         'outputs', help="Directory where model output files are stored").tag(config=True)
