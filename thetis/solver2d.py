@@ -351,10 +351,12 @@ class FlowSolver2d(FrozenClass):
                 self.tracer_limiter = None
 
         if sediment_options.solve_exner:
-            self.eq_exner = exner_eq.ExnerEquation(
-                self.fields.bathymetry_2d.function_space(), self.depth,
-                depth_integrated_sediment=sediment_options.use_sediment_conservative_form, sediment_model=self.sediment_model)
-
+            if element_continuity(self.fields.bathymetry_2d.function_space().ufl_element()).horizontal in ['cg']:
+                self.eq_exner = exner_eq.ExnerEquation(
+                    self.fields.bathymetry_2d.function_space(), self.depth,
+                    depth_integrated_sediment=sediment_options.use_sediment_conservative_form, sediment_model=self.sediment_model)
+            else:
+                raise NotImplementedError("Exner equation can currently only be implemented if the bathymetry is defined on a continuous space")
         self._isfrozen = True  # disallow creating new attributes
 
     def get_swe_timestepper(self, integrator):
