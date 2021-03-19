@@ -321,22 +321,21 @@ class FlowSolver2d(FrozenClass):
             self.options,
         )
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
+        uv_2d, elev_2d = self.fields.solution_2d.split()
         if self.options.solve_tracer:
             if self.options.tracer_data_2d == {}:
                 self.options.add_tracer_2d('tracer_2d', source=self.options.tracer_source_2d)
             if self.options.use_tracer_conservative_form:
                 eq = conservative_tracer_eq_2d.ConservativeTracerEquation2D
+                args = (self.function_spaces.Q_2d, self.depth, self.options)
             else:
                 eq = tracer_eq_2d.TracerEquation2D
+                args = (self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
             for label in self.options.tracer_data_2d:
                 field_metadata[label] = self.options.tracer_data_2d[label]
                 field_metadata[label].pop('source')
                 self.fields[label] = Function(self.function_spaces.Q_2d, name=label)
-                setattr(self, '_'.join(['eq', label]), eq(
-                    self.function_spaces.Q_2d, self.depth,
-                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                    sipg_factor=self.options.sipg_factor_tracer
-                ))
+                setattr(self, '_'.join(['eq', label]), eq(*args))
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
@@ -344,7 +343,6 @@ class FlowSolver2d(FrozenClass):
 
         sediment_options = self.options.sediment_model_options
         if sediment_options.solve_suspended_sediment or sediment_options.solve_exner:
-            uv_2d, elev_2d = self.fields.solution_2d.split()
             sediment_model_class = self.options.sediment_model_options.sediment_model_class
             self.sediment_model = sediment_model_class(
                 self.options, self.mesh2d, uv_2d, elev_2d, self.depth)
@@ -429,7 +427,7 @@ class FlowSolver2d(FrozenClass):
             'elev_2d': elev,
             'uv_2d': uv,
             'diffusivity_h': self.options.horizontal_diffusivity,
-            'source': self.options.tracer_data_2d[label]['source'],
+            'source': self.options.tracer_data_2d[label].get('source'),
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }
