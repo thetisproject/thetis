@@ -322,13 +322,15 @@ class FlowSolver2d(FrozenClass):
         )
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         if self.options.solve_tracer:
-            if self.options.tracer_sources_2d == {}:
+            if self.options.tracer_data_2d == {}:
                 self.options.add_tracer_2d('tracer_2d', source=self.options.tracer_source_2d)
             if self.options.use_tracer_conservative_form:
                 eq = conservative_tracer_eq_2d.ConservativeTracerEquation2D
             else:
                 eq = tracer_eq_2d.TracerEquation2D
-            for label in self.options.tracer_sources_2d:
+            for label in self.options.tracer_data_2d:
+                field_metadata[label] = self.options.tracer_data_2d[label]
+                field_metadata[label].pop('source')
                 self.fields[label] = Function(self.function_spaces.Q_2d, name=label)
                 setattr(self, '_'.join(['eq', label]), eq(
                     self.function_spaces.Q_2d, self.depth,
@@ -427,7 +429,7 @@ class FlowSolver2d(FrozenClass):
             'elev_2d': elev,
             'uv_2d': uv,
             'diffusivity_h': self.options.horizontal_diffusivity,
-            'source': self.options.tracer_sources_2d[label],
+            'source': self.options.tracer_data_2d[label]['source'],
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }
@@ -610,13 +612,11 @@ class FlowSolver2d(FrozenClass):
         if uv is not None:
             uv_2d.project(uv)
         if self.options.solve_tracer:
-            tracer = tracers.get('tracer')
-            if tracer is not None:
-                if 'tracer_2d' in self.options.tracer_sources_2d and 'tracer' in tracers:
-                    self.fields.tracer_2d.project(tracers.get('tracer'))  # Backwards compatibility
-                else:
-                    for label in self.options.tracer_sources_2d:
-                        self.fields[label].project(tracers.get(label))
+            if 'tracer_2d' in self.options.tracer_data_2d and tracers.get('tracer') is not None:
+                self.fields.tracer_2d.project(tracers.get('tracer'))  # Backwards compatibility
+            else:
+                for label in self.options.tracer_data_2d:
+                    self.fields[label].project(tracers.get(label))
 
         sediment_options = self.options.sediment_model_options
         if self.sediment_model is not None:
@@ -718,11 +718,11 @@ class FlowSolver2d(FrozenClass):
         :arg float cputime: Measured CPU time
         """
         if self.options.tracer_only:
-            for label in self.options.tracer_sources_2d:
+            for label in self.options.tracer_data_2d:
                 norm_q = norm(self.fields[label])
 
                 line = ('{iexp:5d} {i:5d} T={t:10.2f} '
-                        '{l:10s}: {q:10.4f} {cpu:5.2f}')
+                        '{l:16s}: {q:10.4f} {cpu:5.2f}')
 
                 print_output(line.format(iexp=self.i_export, i=self.iteration,
                                          t=self.simulation_time,
@@ -772,13 +772,13 @@ class FlowSolver2d(FrozenClass):
 
         if self.options.check_tracer_conservation:
             if self.options.use_tracer_conservative_form:
-                for label in self.options.tracer_sources_2d:
+                for label in self.options.tracer_data_2d:
                     c = callback.ConservativeTracerMassConservation2DCallback(label,
                                                                               self,
                                                                               export_to_hdf5=dump_hdf5,
                                                                               append_to_log=True)
             else:
-                for label in self.options.tracer_sources_2d:
+                for label in self.options.tracer_data_2d:
                     c = callback.TracerMassConservation2DCallback(label,
                                                                   self,
                                                                   export_to_hdf5=dump_hdf5,
@@ -798,7 +798,7 @@ class FlowSolver2d(FrozenClass):
             self.add_callback(c, eval_interval='export')
 
         if self.options.check_tracer_overshoot:
-            for label in self.options.tracer_sources_2d:
+            for label in self.options.tracer_data_2d:
                 c = callback.TracerOvershootCallBack(label,
                                                      self,
                                                      export_to_hdf5=dump_hdf5,
