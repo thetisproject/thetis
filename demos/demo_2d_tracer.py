@@ -40,37 +40,32 @@ options.fields_to_export = ['tracer_2d']
 
 # We will run for time :math:`2\pi` -- a full rotation -- using a
 # strong stability preserving third order Runge-Kutta method (SSPRK33).
-# We take 600 steps, giving a timestep close to the CFL limit. For
-# consistency with the Firedrake demo, Thetis' automatic timestep
-# computation functionality is switched off and the same solver
-# parameters are specified. ::
+# For consistency with the Firedrake demo, Thetis' automatic timestep
+# computation functionality is switched off and the simulation time is
+# split into 600 steps, giving a timestep close to the CFL limit. ::
 
 options.timestepper_type = 'SSPRK33'
 options.timestep = pi/300.0
 options.simulation_end_time = 2*pi
 options.simulation_export_time = pi/15.0
 options.timestepper_options.use_automatic_timestep = False
-options.timestepper_options.solver_parameters_tracer = {
-    'ksp_type': 'preonly',
-    'pc_type': 'bjacobi',
-    'sub_pc_type': 'ilu',
-}
 
 # We have a pure advection problem with no diffusivity or source terms. However,
 # such terms can be specified by replacing the ``None`` values below. For
 # consistency with the Firedrake demo, we do not use stabilization or slope
-# limiters, both of which are used by default in Thetis. ::
+# limiters, both of which are used by default in Thetis. Slope limiters are used
+# to obtain non-oscillatory solutions. ::
 
-options.use_lax_friedrichs_tracer = False
 options.horizontal_diffusivity = None
 options.tracer_source_2d = None
+options.use_lax_friedrichs_tracer = False
 options.use_limiter_for_tracers = False
 
 # The background tracer value is imposed as an upwind inflow condition.
 # In general, this would be a ``Function``, but here we just use a ``Constant``
 # value. ::
 
-solver_obj.bnd_functions['tracer'] = {'value': {'on_boundary': Constant(1.0)}}
+solver_obj.bnd_functions['tracer'] = {'on_boundary':  {'value': Constant(1.0)}}
 
 # The velocity field is set up using a simple analytic expression. ::
 
@@ -89,7 +84,7 @@ cyl_r0 = 0.15; cyl_x0 = 0.5; cyl_y0 = 0.75
 slot_left = 0.475; slot_right = 0.525; slot_top = 0.85
 
 bell = 0.25*(1+cos(pi*min_value(sqrt(pow(x-bell_x0, 2) + pow(y-bell_y0, 2))/bell_r0, 1.0)))
-cone = 1.0 - min_value(sqrt(pow(x-cone_x0, 2) + pow(y-cone_y0, 2))/cyl_r0, 1.0)
+cone = 1.0 - min_value(sqrt(pow(x-cone_x0, 2) + pow(y-cone_y0, 2))/cone_r0, 1.0)
 slot_cyl = conditional(sqrt(pow(x-cyl_x0, 2) + pow(y-cyl_y0, 2)) < cyl_r0,
              conditional(And(And(x > slot_left, x < slot_right), y < slot_top),
                0.0, 1.0), 0.0)
