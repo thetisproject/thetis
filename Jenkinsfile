@@ -48,8 +48,8 @@ Here
                 timestamps {
                     sh '''
 . /home/firedrake/firedrake/bin/activate
-sudo python -m pip install -r requirements.txt
-sudo python -m pip install -e .
+sudo -u firedrake python -m pip install -r requirements.txt
+sudo -u firedrake python -m pip install -e .
 '''
                 }
             }
