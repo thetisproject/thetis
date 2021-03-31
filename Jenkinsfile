@@ -49,6 +49,7 @@ Here
                     sh '''
 . /home/firedrake/firedrake/bin/activate
 sudo -u firedrake -H /home/firedrake/firedrake/bin/python -m pip install -r requirements.txt
+chmod a+w .
 sudo -u firedrake -H /home/firedrake/firedrake/bin/python -m pip install -e .
 '''
                 }
