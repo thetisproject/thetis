@@ -601,9 +601,10 @@ class TimeSeriesCallback2D(DiagnosticCallback):
 
     @PETSc.Log.EventDecorator("thetis.TimeSeriesCallback2D.__init__")
     def __init__(self, solver_obj, fieldnames, x, y,
-                 location_name,
+                 location_name, z=None,
                  outputdir=None, export_to_hdf5=True,
-                 append_to_log=True):
+                 append_to_log=True,
+                 tolerance=1e-3):
         """
         :arg solver_obj: Thetis :class:`FlowSolver` object
         :arg fieldnames: List of fields to extract
@@ -623,6 +624,10 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         self.location_name = location_name
         attrs = {'x': x, 'y': y}
         attrs['location_name'] = self.location_name
+        self.on_sphere = solver_obj.mesh2d.geometric_dimension() == 3
+        if self.on_sphere:
+            assert z is not None, 'z coordinate must be defined on a manifold mesh'
+            attrs['z'] = z
         field_short_names = [f.split('_')[0] for f in self.fieldnames]
         field_str = '-'.join(field_short_names)
         self.variable_names = field_short_names
@@ -637,6 +642,8 @@ class TimeSeriesCallback2D(DiagnosticCallback):
             append_to_log=append_to_log)
         self.x = x
         self.y = y
+        self.z = z
+        self.tolerance = tolerance
         self._initialized = False
 
     @PETSc.Log.EventDecorator("thetis.TimeSeriesCallback2D._initialize")
@@ -645,15 +652,20 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         if outputdir is None:
             outputdir = self.solver_obj.options.outputdir
 
+        # construct mesh points
+        xyz = (self.x, self.y, self.z) if self.on_sphere else (self.x, self.y)
+        self.xyz = numpy.array([xyz])
+
         # test evaluation
         try:
-            self.solver_obj.fields.bathymetry_2d.at((self.x, self.y))
+            print(self.xyz, self.tolerance)
+            self.solver_obj.fields.bathymetry_2d.at(self.xyz, tolerance=self.tolerance)
         except PointNotInDomainError as e:
-            error('{:}: Station "{:}" out of horizontal domain'.format(self.__class__.__name__, self.location_name))
+            error(
+                '{:}: Station "{:}" out of horizontal domain'.format(
+                    self.__class__.__name__, self.location_name)
+            )
             raise e
-
-        # construct mesh points
-        self.xyz = numpy.array([[self.x, self.y]])
         self._initialized = True
 
     @PETSc.Log.EventDecorator("thetis.TimeSeriesCallback2D.__call__")
@@ -664,7 +676,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         for fieldname in self.fieldnames:
             try:
                 field = self.solver_obj.fields[fieldname]
-                arr = numpy.array(field.at(self.xyz))
+                arr = numpy.array(field.at(self.xyz, tolerance=self.tolerance))
                 outvals.append(arr)
             except PointNotInDomainError as e:
                 error('{:}: Cannot evaluate data at station {:}'.format(self.__class__.__name__, self.location_name))
