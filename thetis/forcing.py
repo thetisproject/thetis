@@ -67,14 +67,15 @@ def compute_wind_stress(wind_u, wind_v, method='LargePond1981'):
 
 class ATMNetCDFTime(interpolation.NetCDFTimeParser):
     """
-    A TimeParser class for reading WRF/NAM atmospheric forecast files.
+    A TimeParser class for reading atmosphere model output files.
     """
-    def __init__(self, filename, max_duration=24.*3600., verbose=False):
+    def __init__(self, filename, max_duration=None, verbose=False):
         """
         :arg filename:
-        :kwarg max_duration: Time span to read from each file (in secords,
-            default one day). Forecast files are usually daily files that
-            contain forecast for > 1 days.
+        :kwarg max_duration: Time span to read from each file (in secords).
+            E.g. forecast files can consist of daily files with > 1 day of
+            data. In this case max_duration should be set to 24 h. If None,
+            all time steps are loaded. Default: None.
         :kwarg bool verbose: Se True to print debug information.
         """
         super(ATMNetCDFTime, self).__init__(filename, time_variable_name='time')
@@ -82,15 +83,19 @@ class ATMNetCDFTime(interpolation.NetCDFTimeParser):
         self.start_time = timezone.epoch_to_datetime(float(self.time_array[0]))
         self.end_time_raw = timezone.epoch_to_datetime(float(self.time_array[-1]))
         self.time_step = numpy.mean(numpy.diff(self.time_array))
-        self.max_steps = int(max_duration / self.time_step)
+        if max_duration is not None:
+            self.max_steps = int(max_duration / self.time_step)
+        else:
+            self.max_steps = self.nb_steps
         self.time_array = self.time_array[:self.max_steps]
         self.end_time = timezone.epoch_to_datetime(float(self.time_array[-1]))
         if verbose:
             print_output('Parsed file {:}'.format(filename))
-            print_output('  Raw time span: {:} -> {:}'.format(self.start_time, self.end_time_raw))
+            print_output('  Time span: {:} -> {:}'.format(self.start_time, self.end_time_raw))
             print_output('  Time step: {:} h'.format(self.time_step/3600.))
-            print_output('  Restricting duration to {:} h -> keeping {:} steps'.format(max_duration/3600., self.max_steps))
-            print_output('  New time span: {:} -> {:}'.format(self.start_time, self.end_time))
+            if max_duration is not None:
+                print_output('  Restricting duration to {:} h -> keeping {:} steps'.format(max_duration/3600., self.max_steps))
+                print_output('  New time span: {:} -> {:}'.format(self.start_time, self.end_time))
 
 
 class ATMInterpolator(object):
@@ -99,7 +104,10 @@ class ATMInterpolator(object):
     """
     def __init__(self, function_space, wind_stress_field,
                  atm_pressure_field, to_latlon,
-                 ncfile_pattern, init_date, target_coordsys, verbose=False):
+                 ncfile_pattern, init_date, target_coordsys=None,
+                 vect_rotator=None,
+                 east_wind_var_name='uwind', north_wind_var_name='vwind',
+                 pressure_var_name='prmsl', verbose=False):
         """
         :arg function_space: Target (scalar) :class:`FunctionSpace` object onto
             which data will be interpolated.
@@ -114,8 +122,12 @@ class ATMInterpolator(object):
         :arg init_date: A :class:`datetime` object that indicates the start
             date/time of the Thetis simulation. Must contain time zone. E.g.
             'datetime(2006, 5, 1, tzinfo=pytz.utc)'
-        :arg target_coordsys: coordinate system in which the model grid is
+        :kwarg target_coordsys: coordinate system in which the model grid is
             defined. This is used to rotate vectors to local coordinates.
+        :kwarg vect_rotator: function that rotates vectors from ENU coordinates
+            to target function space (optional).
+        :kwarg east_wind_var_name, north_wind_var_name, pressure_var_name:
+            wind component and pressure field names in netCDF file.
         :kwarg bool verbose: Se True to print debug information.
         """
         self.function_space = function_space
@@ -124,13 +136,20 @@ class ATMInterpolator(object):
 
         # construct interpolators
         self.grid_interpolator = interpolation.NetCDFLatLonInterpolator2d(self.function_space, to_latlon)
-        self.reader = interpolation.NetCDFSpatialInterpolator(self.grid_interpolator, ['uwind', 'vwind', 'prmsl'])
+        var_list = [east_wind_var_name, north_wind_var_name, pressure_var_name]
+        self.reader = interpolation.NetCDFSpatialInterpolator(
+            self.grid_interpolator, var_list)
         self.timesearch_obj = interpolation.NetCDFTimeSearch(ncfile_pattern, init_date, ATMNetCDFTime, verbose=verbose)
         self.time_interpolator = interpolation.LinearTimeInterpolator(self.timesearch_obj, self.reader)
         lon = self.grid_interpolator.mesh_lonlat[:, 0]
         lat = self.grid_interpolator.mesh_lonlat[:, 1]
-        self.vect_rotator = coordsys.VectorCoordSysRotation(
-            coordsys.LL_WGS84, target_coordsys, lon, lat)
+        assert target_coordsys is not None or vect_rotator is not None, \
+            'Either target_coordsys or vect_rotator must be defined'
+        if vect_rotator is None:
+            self.vect_rotator = coordsys.VectorCoordSysRotation(
+                coordsys.LL_WGS84, target_coordsys, lon, lat)
+        else:
+            self.vect_rotator = vect_rotator
 
     def set_fields(self, time):
         """
@@ -141,11 +160,17 @@ class ATMInterpolator(object):
 
         :arg float time: Thetis simulation time in seconds.
         """
-        lon_wind, lat_wind, prmsl = self.time_interpolator(time)
-        u_wind, v_wind = self.vect_rotator(lon_wind, lat_wind)
-        u_stress, v_stress = compute_wind_stress(u_wind, v_wind)
-        self.wind_stress_field.dat.data_with_halos[:, 0] = u_stress
-        self.wind_stress_field.dat.data_with_halos[:, 1] = v_stress
+        east_wind, north_wind, prmsl = self.time_interpolator(time)
+        east_strs, north_strs = compute_wind_stress(east_wind, north_wind)
+        if self.wind_stress_field.geometric_dimension() == 3:
+            u_strs, v_strs, z_strs = self.vect_rotator(east_strs, north_strs)
+            self.wind_stress_field.dat.data_with_halos[:, 0] = u_strs
+            self.wind_stress_field.dat.data_with_halos[:, 1] = v_strs
+            self.wind_stress_field.dat.data_with_halos[:, 2] = z_strs
+        else:
+            u_strs, v_strs = self.vect_rotator(east_strs, north_strs)
+            self.wind_stress_field.dat.data_with_halos[:, 0] = u_strs
+            self.wind_stress_field.dat.data_with_halos[:, 1] = v_strs
         self.atm_pressure_field.dat.data_with_halos[:] = prmsl
 
 
@@ -692,7 +717,7 @@ class TidalBoundaryForcing(object):
         :kwarg boundary_ids: list of boundary_ids where tidal data will be
             evaluated. If not defined, tides will be in evaluated in the entire
             domain.
-        :kward data_dir: path to directory where tidal model netCDF files are
+        :kwarg data_dir: path to directory where tidal model netCDF files are
             located.
         """
         assert init_date.tzinfo is not None, 'init_date must have time zone information'
