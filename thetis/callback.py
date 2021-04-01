@@ -604,7 +604,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
                  location_name, z=None,
                  outputdir=None, export_to_hdf5=True,
                  append_to_log=True,
-                 tolerance=1e-3):
+                 tolerance=1e-3, eval_func=None):
         """
         :arg solver_obj: Thetis :class:`FlowSolver` object
         :arg fieldnames: List of fields to extract
@@ -644,6 +644,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         self.y = y
         self.z = z
         self.tolerance = tolerance
+        self.eval_func = eval_func
         self._initialized = False
 
     @PETSc.Log.EventDecorator("thetis.TimeSeriesCallback2D._initialize")
@@ -658,8 +659,10 @@ class TimeSeriesCallback2D(DiagnosticCallback):
 
         # test evaluation
         try:
-            print(self.xyz, self.tolerance)
-            self.solver_obj.fields.bathymetry_2d.at(self.xyz, tolerance=self.tolerance)
+            if self.eval_func is None:
+                self.solver_obj.fields.bathymetry_2d.at(self.xyz, tolerance=self.tolerance)
+            else:
+                self.eval_func(self.solver_obj.fields.bathymetry_2d, self.xyz, tolerance=self.tolerance)
         except PointNotInDomainError as e:
             error(
                 '{:}: Station "{:}" out of horizontal domain'.format(
@@ -676,7 +679,11 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         for fieldname in self.fieldnames:
             try:
                 field = self.solver_obj.fields[fieldname]
-                arr = numpy.array(field.at(self.xyz, tolerance=self.tolerance))
+                if self.eval_func is None:
+                    val = field.at(self.xyz, tolerance=self.tolerance)
+                else:
+                    val = self.eval_func(field, self.xyz, tolerance=self.tolerance)
+                arr = numpy.array(val)
                 outvals.append(arr)
             except PointNotInDomainError as e:
                 error('{:}: Cannot evaluate data at station {:}'.format(self.__class__.__name__, self.location_name))
