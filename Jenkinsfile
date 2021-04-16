@@ -31,9 +31,6 @@ whoami
 cd /home/firedrake
 . /home/firedrake/firedrake/bin/activate
 firedrake-update || (cat firedrake-update.log && /bin/false)
-chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages
-chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages/easy-install.pth
-chmod a+rwx /home/firedrake/firedrake/bin
 install -d /home/firedrake/firedrake/.cache
 chmod -R a+rwx /home/firedrake/firedrake/.cache
 firedrake-status
@@ -49,8 +46,11 @@ Here
                     sh '''
 . /home/firedrake/firedrake/bin/activate
 sudo -u firedrake -H /home/firedrake/firedrake/bin/python -m pip install -r requirements.txt
+chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages
+chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages/easy-install.pth
+chmod a+rwx /home/firedrake/firedrake/bin
 chmod a+w .
-sudo -u firedrake -H /home/firedrake/firedrake/bin/python -m pip install -e .
+/home/firedrake/firedrake/bin/python -m pip install -e .
 '''
                 }
             }
