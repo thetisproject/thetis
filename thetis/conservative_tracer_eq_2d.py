@@ -28,18 +28,13 @@ class ConservativeTracerTerm(TracerTerm):
     Generic depth-integrated tracer term that provides commonly used members and mapping for
     boundary functions.
     """
-    def __init__(self, function_space, depth,
-                 use_lax_friedrichs=False,
-                 sipg_factor=Constant(1.0)):
+    def __init__(self, function_space, depth, options):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
-        :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
-        :kwarg sipg_factor: :class:`Constant` or :class:`Function` SIPG penalty scaling factor
+        :arg options: :class`ModelOptions2d` containing parameters
         """
-        super().__init__(function_space, depth,
-                         use_lax_friedrichs=use_lax_friedrichs,
-                         sipg_factor=sipg_factor)
+        super().__init__(function_space, depth, options)
 
     # TODO: at the moment this is the same as TracerTerm, but we probably want to overload its
     # get_bnd_functions method
@@ -88,7 +83,7 @@ class ConservativeHorizontalAdvectionTerm(ConservativeTracerTerm):
             f += (flux_up[0] * jump(self.test, self.normal[0])
                   + flux_up[1] * jump(self.test, self.normal[1])) * self.dS
             # Lax-Friedrichs stabilization
-            if self.use_lax_friedrichs:
+            if self.options.use_lax_friedrichs_tracer:
                 if uv_p1 is not None:
                     gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0]
                                      + avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
@@ -171,17 +166,14 @@ class ConservativeTracerEquation2D(Equation):
     """
     2D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
-    def __init__(self, function_space, depth,
-                 use_lax_friedrichs=False,
-                 sipg_factor=Constant(1.0)):
+    def __init__(self, function_space, depth, options):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
-        :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
-        :kwarg sipg_factor: :class:`Constant` or :class:`Function` SIPG penalty scaling factor
+        :arg options: :class`ModelOptions2d` containing parameters
         """
         super(ConservativeTracerEquation2D, self).__init__(function_space)
-        args = (function_space, depth, use_lax_friedrichs, sipg_factor)
+        args = (function_space, depth, options)
         self.add_term(ConservativeHorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(ConservativeHorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(ConservativeSourceTerm(*args), 'source')

@@ -22,7 +22,7 @@ associated with the wetting and drying scheme can be specified by the
 :ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.wetting_and_drying_alpha`
 option. It can also be computed automatically, by setting the
 :ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.use_automatic_wetting_and_drying_alpha`
-to ``True``.
+option to ``True``.
 
 Spatial discretization
 ----------------------

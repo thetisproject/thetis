@@ -287,7 +287,12 @@ class FlowSolver2d(FrozenClass):
             raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d])
 
-        self.function_spaces.Q_2d = get_functionspace(self.mesh2d, 'DG', 1, name='Q_2d')
+        if self.options.tracer_element_family == 'dg':
+            self.function_spaces.Q_2d = get_functionspace(self.mesh2d, 'DG', 1, name='Q_2d')
+        elif self.options.tracer_element_family == 'cg':
+            self.function_spaces.Q_2d = get_functionspace(self.mesh2d, 'CG', 1, name='Q_2d')
+        else:
+            raise Exception('Unsupported finite element family {:}'.format(self.options.tracer_element_family))
 
         self._isfrozen = True
 
@@ -319,14 +324,11 @@ class FlowSolver2d(FrozenClass):
             self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
             if self.options.use_tracer_conservative_form:
                 self.eq_tracer = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
-                    self.function_spaces.Q_2d, self.depth,
-                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                    sipg_factor=self.options.sipg_factor_tracer)
+                    self.function_spaces.Q_2d, self.depth, self.options)
             else:
+                uv_2d, elev_2d = self.fields.solution_2d.split()
                 self.eq_tracer = tracer_eq_2d.TracerEquation2D(
-                    self.function_spaces.Q_2d, self.depth,
-                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                    sipg_factor=self.options.sipg_factor_tracer)
+                    self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
@@ -341,9 +343,7 @@ class FlowSolver2d(FrozenClass):
         if sediment_options.solve_suspended_sediment:
             self.fields.sediment_2d = Function(self.function_spaces.Q_2d, name='sediment_2d')
             self.eq_sediment = sediment_eq_2d.SedimentEquation2D(
-                self.function_spaces.Q_2d, self.depth, self.sediment_model,
-                use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                sipg_factor=self.options.sipg_factor_tracer,
+                self.function_spaces.Q_2d, self.depth, self.options, self.sediment_model,
                 conservative=sediment_options.use_sediment_conservative_form)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
