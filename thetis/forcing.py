@@ -266,7 +266,7 @@ class SpatialInterpolatorNCOMBase(interpolation.SpatialInterpolator):
 
 class SpatialInterpolatorNCOM3d(SpatialInterpolatorNCOMBase):
     """
-    Spatial interpolator class for interpolatin NCOM ocean model 3D fields.
+    Spatial interpolator class for interpolating NCOM ocean model 3D fields.
     """
     def __init__(self, function_space, to_latlon, grid_path):
         """
@@ -352,7 +352,7 @@ class SpatialInterpolatorNCOM3d(SpatialInterpolatorNCOMBase):
 
 class SpatialInterpolatorNCOM2d(SpatialInterpolatorNCOMBase):
     """
-    Spatial interpolator class for interpolatin NCOM ocean model 2D fields.
+    Spatial interpolator class for interpolating NCOM ocean model 2D fields.
     """
     def __init__(self, function_space, to_latlon, grid_path):
         """
@@ -666,6 +666,163 @@ class LiveOceanInterpolator(object):
         """
         vals = self.time_interpolator(time)
         for i in range(len(self.fields)):
+            self.fields[i].dat.data_with_halos[:] = vals[i]
+
+
+class GenericSpatialInterpolator2D(interpolation.SpatialInterpolator2d):
+    """
+    Spatial interpolator class for interpolating netCDF 2D fields.
+    """
+    def _get_nc_var_name(self, ncfile, standard_name):
+        """
+        Find netCDF variable name that matches CF standard_name.
+
+        Raises an AssertionError if standard_name is not found.
+        :arg ncfile: netCDF Dataset object
+        :arg standard_name: standard_name to look for
+        :returns: name of the netCDF variable
+        """
+        name = None
+        for var in ncfile.variables.values():
+            if hasattr(var, 'standard_name') and var.standard_name == standard_name:
+                name = var.name
+                break
+        msg = f'Variable {standard_name} not found in {ncfile.filepath()}'
+        assert name is not None, msg
+        return name
+
+    def _get_subset_nodes(self, grid_x, grid_y, target_x, target_y):
+        """
+        Retuns grid nodes that are necessary for intepolating onto target_x,y
+        """
+        orig_shape = grid_x.shape
+        grid_xy = np.array((grid_x.ravel(), grid_y.ravel())).T
+        target_xy = np.array((target_x.ravel(), target_y.ravel())).T
+        tri = qhull.Delaunay(grid_xy)
+        simplex = tri.find_simplex(target_xy)
+        vertices = np.take(tri.simplices, simplex, axis=0)
+        nodes = np.unique(vertices.ravel())
+        nodes_x, nodes_y = np.unravel_index(nodes, orig_shape)
+
+        return nodes, nodes_x, nodes_y
+
+    def _create_interpolator(self, ncfile):
+        """
+        Create compact interpolator by finding the minimal necessary support
+        """
+        lat_name = self._get_nc_var_name(ncfile, 'latitude')
+        lon_name = self._get_nc_var_name(ncfile, 'longitude')
+        lat1d = ncfile[lat_name][:]
+        lon1d = ncfile[lon_name][:]
+        lat, lon = np.meshgrid(lat1d, lon1d, indexing='ij')
+        # find valid mask
+        self.valid_mask = None
+        # read a variable and take inverse of its mask
+        for name, var in ncfile.variables.items():
+            if len(var.shape) == 3:
+                v = var[0, ...]  # read first time index
+                self.valid_mask = ~v.mask
+                break
+        assert self.valid_mask is not None, 'could not determine mask'
+        assert self.valid_mask.shape == lat.shape, 'mask has wrong shape {self.mask.shape} {lat.shape}'
+
+        self.nodes, self.ind_lat, self.ind_lon = self._get_subset_nodes(lat, lon, self.mesh_lonlat[:, 1], self.mesh_lonlat[:, 0])
+        lat_subset = lat[self.ind_lat, self.ind_lon]
+        lon_subset = lon[self.ind_lat, self.ind_lon]
+
+        self.valid_mask = self.valid_mask[self.ind_lat, self.ind_lon]
+
+        # omit land mask
+        lat_subset = lat_subset[self.valid_mask]
+        lon_subset = lon_subset[self.valid_mask]
+
+        grid_lat = lat_subset.ravel()
+        grid_lon = lon_subset.ravel()
+        if np.ma.isMaskedArray(grid_lat):
+            grid_lat = grid_lat.filled(0.0)
+        if np.ma.isMaskedArray(grid_lon):
+            grid_lon = grid_lon.filled(0.0)
+        grid_latlon = np.vstack((grid_lat, grid_lon)).T
+
+        # building 2D interpolator, this can take a long time (minutes)
+        print_output('Constructing 2D GridInterpolator...')
+        mesh_latlon = self.mesh_lonlat[:, [1, 0]]
+        self.interpolator = interpolation.GridInterpolator(
+            grid_latlon, mesh_latlon, normalize=False,
+            fill_mode='nearest'
+        )
+        print_output('done.')
+
+        self._initialized = True
+
+    def interpolate(self, nc_filename, variable_list, itime):
+        """
+        Calls the interpolator object
+        """
+        with netCDF4.Dataset(nc_filename, 'r') as ncfile:
+            if not self._initialized:
+                self._create_interpolator(ncfile)
+            output = []
+            for var in variable_list:
+                assert var in ncfile.variables
+                grid_data = ncfile[var][itime, ...][self.ind_lat, self.ind_lon][self.valid_mask]
+                data = self.interpolator(grid_data)
+                output.append(data)
+        return output
+
+
+class GenericInterpolator2D(object):
+    """
+    Interpolates 2D fields from netCDF files.
+
+    The grid latitude, longitude coordinates must be defined in 1D arrays
+    with CF standard_name attributes "latitude" and "longitude". Time must be
+    defined with cftime compliant units and metadata.
+    """
+    def __init__(self, function_space, fields, field_names, ncfile_pattern,
+                 init_date, to_latlon, vector_field=None,
+                 vector_components=None, vector_rotator=None):
+        self.function_space = function_space
+        for f in fields:
+            assert f.function_space() == self.function_space, 'field \'{:}\' does not belong to given function space {:}.'.format(f.name(), self.function_space.name)
+        assert len(fields) == len(field_names)
+        self.fields = fields
+        self.field_names = list(field_names)
+        self.scalar_field_index = list(range(len(field_names)))
+        self.rotate_velocity = vector_components is not None
+        if self.rotate_velocity:
+            assert vector_field is not None, 'vector_field must be provided'
+            assert vector_rotator is not None, 'vect_rotator function must be provided'
+            self.field_names += list(vector_components)
+            self.vector_field_index = [self.field_names.index(c) for c in vector_components]
+            self.vect_rotator = vector_rotator
+            self.vector_field = vector_field
+        # construct interpolators
+        self.grid_interpolator = GenericSpatialInterpolator2D(self.function_space, to_latlon)
+        self.reader = interpolation.NetCDFSpatialInterpolator(self.grid_interpolator, self.field_names)
+        # TODO generalize _get_nc_var_name and use it for time dimension as well
+        self.timesearch_obj = interpolation.NetCDFTimeSearch(ncfile_pattern, init_date, interpolation.NetCDFTimeParser, time_variable_name='time', verbose=False)
+        self.time_interpolator = interpolation.LinearTimeInterpolator(self.timesearch_obj, self.reader)
+
+    def set_fields(self, time):
+        """
+        Evaluates forcing fields at the given time
+        """
+        vals = self.time_interpolator(time)
+        if self.rotate_velocity:
+            i, j = self.vector_field_index
+            east_comp = vals[i]
+            north_comp = vals[j]
+            if self.vector_field.geometric_dimension() == 3:
+                u, v, w = self.vect_rotator(east_comp, north_comp)
+                self.vector_field.dat.data_with_halos[:, 0] = u
+                self.vector_field.dat.data_with_halos[:, 1] = v
+                self.vector_field.dat.data_with_halos[:, 2] = w
+            else:
+                u, v = self.vect_rotator(east_comp, north_comp)
+                self.vector_field.dat.data_with_halos[:, 0] = u
+                self.vector_field.dat.data_with_halos[:, 1] = v
+        for i in self.scalar_field_index:
             self.fields[i].dat.data_with_halos[:] = vals[i]
 
 
