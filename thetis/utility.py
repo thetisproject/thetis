@@ -1258,7 +1258,7 @@ def get_sipg_ratio(nu):
             fs = FunctionSpace(fs.mesh(), ufl.FiniteElement(el.family(), el.cell(), el.degree, variant='equispaced'))
             tmp = Function(fs).interpolate(nu)
         else:
-            tmp = nu.copy()
+            tmp = nu.copy(deepcopy = True)
         P0 = FunctionSpace(fs.mesh(), "DG", 0)
         nu_max = Function(P0)
         nu_min = Function(P0)
