@@ -178,13 +178,14 @@ class HorizontalDiffusionTerm(TracerTerm):
         \cdot \text{avg}(\mu_h \nabla_h T) dS
         - \int_{\mathcal{I}_h\cup\mathcal{I}_v} \text{jump}(T \textbf{n}_h)
         \cdot \text{avg}(\mu_h  \nabla \phi) dS \\
-        &+ \int_{\mathcal{I}_h\cup\mathcal{I}_v} \sigma \text{avg}(\mu_h) \text{jump}(T \textbf{n}_h) \cdot
-            \text{jump}(\phi \textbf{n}_h) dS \\
+        &+ \int_{\mathcal{I}_h\cup\mathcal{I}_v} \sigma \text{avg}(\mu_h) \text{jump}(T \textbf{n}_h)
+        \cdot \text{jump}(\phi \textbf{n}_h) dS \\
         &- \int_\Gamma \mu_h (\nabla_h \phi) \cdot \textbf{n}_h ds
 
     where :math:`\sigma` is a penalty parameter, see Hillewaert (2013).
 
     For the continuous Galerkin method we use
+
     .. math::
         -\int_\Omega \nabla_h \cdot (\mu_h \nabla_h T) \phi dx
         = \int_\Omega \mu_h (\nabla_h \phi) \cdot (\nabla_h T) dx.

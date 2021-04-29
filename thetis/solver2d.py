@@ -203,7 +203,7 @@ class FlowSolver2d(FrozenClass):
         This method takes
 
       ..math::
-            \alpha \approx |L_x \nabla h|,
+            \alpha \approx \mid L_x \nabla h \mid,
 
         where :math:`L_x` is the horizontal length scale of the mesh elements at the wet-dry
         front and :math:`h` is the bathymetry profile.
