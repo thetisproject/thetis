@@ -33,6 +33,7 @@ simulations that demonstrate basic functionality.
     2D channel with closed boundaries<demos/demo_2d_channel.py>
     2D channel with boundary conditions<demos/demo_2d_channel_bnd.py>
     3D channel with boundary conditions<demos/demo_3d_channel.py>
+    2D tracer advection in a rotational velocity field <demos/demo_2d_tracer.py>
 
 Manual
 ======
