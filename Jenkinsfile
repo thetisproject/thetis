@@ -46,9 +46,9 @@ Here
                     sh '''
 . /home/firedrake/firedrake/bin/activate
 sudo -u firedrake -H /home/firedrake/firedrake/bin/python -m pip install -r requirements.txt
-chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages
-chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages/easy-install.pth
-chmod a+rwx /home/firedrake/firedrake/bin
+sudo -u firedrake -H chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages
+sudo -u firedrake -H chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages/easy-install.pth
+sudo -u firedrake -H chmod a+rwx /home/firedrake/firedrake/bin
 chmod a+w .
 /home/firedrake/firedrake/bin/python -m pip install -e .
 '''

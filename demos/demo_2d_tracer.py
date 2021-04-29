@@ -73,7 +73,7 @@ vP1_2d = VectorFunctionSpace(mesh2d, "CG", 1)
 x, y = SpatialCoordinate(mesh2d)
 uv_init = interpolate(as_vector([0.5 - y, x - 0.5]), vP1_2d)
 
-# Now, we set up the cosine-bell--cone--slotted-cylinder initial coniditon. The
+# Now, we set up the cosine-bell--cone--slotted-cylinder initial condition. The
 # first four lines declare various parameters relating to the positions of these
 # objects, while the analytic expressions appear in the last three lines. This
 # code is simply copied from the Firedrake version of the demo. ::
