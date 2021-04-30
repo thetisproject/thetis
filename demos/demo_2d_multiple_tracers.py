@@ -41,11 +41,6 @@ options.timestep = pi/300.0
 options.simulation_end_time = 2*pi
 options.simulation_export_time = pi/15.0
 options.timestepper_options.use_automatic_timestep = False
-options.timestepper_options.solver_parameters_tracer = {
-    'ksp_type': 'preonly',
-    'pc_type': 'bjacobi',
-    'sub_pc_type': 'ilu',
-}
 options.use_lax_friedrichs_tracer = False
 options.horizontal_diffusivity = None
 options.use_limiter_for_tracers = False
@@ -63,7 +58,7 @@ cyl_r0 = 0.15; cyl_x0 = 0.5; cyl_y0 = 0.75
 slot_left = 0.475; slot_right = 0.525; slot_top = 0.85
 
 bell = 0.25*(1+cos(pi*min_value(sqrt(pow(x-bell_x0, 2) + pow(y-bell_y0, 2))/bell_r0, 1.0)))
-cone = 1.0 - min_value(sqrt(pow(x-cone_x0, 2) + pow(y-cone_y0, 2))/cyl_r0, 1.0)
+cone = 1.0 - min_value(sqrt(pow(x-cone_x0, 2) + pow(y-cone_y0, 2))/cone_r0, 1.0)
 slot_cyl = conditional(sqrt(pow(x-cyl_x0, 2) + pow(y-cyl_y0, 2)) < cyl_r0,
              conditional(And(And(x > slot_left, x < slot_right), y < slot_top),
                0.0, 1.0), 0.0)

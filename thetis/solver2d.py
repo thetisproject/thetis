@@ -324,7 +324,10 @@ class FlowSolver2d(FrozenClass):
         uv_2d, elev_2d = self.fields.solution_2d.split()
         if self.options.solve_tracer:
             if self.options.tracer_data_2d == {}:
-                self.options.add_tracer_2d('tracer_2d', source=self.options.tracer_source_2d)
+                self.options.add_tracer_2d('Tracer',
+                                           'tracer_2d',
+                                           shortname='tracer_2d',
+                                           source=self.options.tracer_source_2d)
             if self.options.use_tracer_conservative_form:
                 eq = conservative_tracer_eq_2d.ConservativeTracerEquation2D
                 args = (self.function_spaces.Q_2d, self.depth, self.options)
@@ -332,7 +335,7 @@ class FlowSolver2d(FrozenClass):
                 eq = tracer_eq_2d.TracerEquation2D
                 args = (self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
             for label in self.options.tracer_data_2d:
-                field_metadata[label] = self.options.tracer_data_2d[label]
+                field_metadata[label] = self.options.tracer_data_2d[label].copy()
                 field_metadata[label].pop('source')
                 self.fields[label] = Function(self.function_spaces.Q_2d, name=label)
                 setattr(self, '_'.join(['eq', label]), eq(*args))
@@ -610,8 +613,10 @@ class FlowSolver2d(FrozenClass):
         if uv is not None:
             uv_2d.project(uv)
         if self.options.solve_tracer:
-            if 'tracer_2d' in self.options.tracer_data_2d and tracers.get('tracer') is not None:
-                self.fields.tracer_2d.project(tracers.get('tracer'))  # Backwards compatibility
+            if 'tracer_2d' in self.options.tracer_data_2d:
+                tracer = tracers.get('tracer')
+                if tracer is not None:
+                    self.fields.tracer_2d.project(tracer)  # Backwards compatibility
             else:
                 for label in self.options.tracer_data_2d:
                     self.fields[label].project(tracers.get(label))
