@@ -696,13 +696,13 @@ class GenericSpatialInterpolator2D(interpolation.SpatialInterpolator2d):
         Retuns grid nodes that are necessary for intepolating onto target_x,y
         """
         orig_shape = grid_x.shape
-        grid_xy = np.array((grid_x.ravel(), grid_y.ravel())).T
-        target_xy = np.array((target_x.ravel(), target_y.ravel())).T
+        grid_xy = numpy.array((grid_x.ravel(), grid_y.ravel())).T
+        target_xy = numpy.array((target_x.ravel(), target_y.ravel())).T
         tri = qhull.Delaunay(grid_xy)
         simplex = tri.find_simplex(target_xy)
-        vertices = np.take(tri.simplices, simplex, axis=0)
-        nodes = np.unique(vertices.ravel())
-        nodes_x, nodes_y = np.unravel_index(nodes, orig_shape)
+        vertices = numpy.take(tri.simplices, simplex, axis=0)
+        nodes = numpy.unique(vertices.ravel())
+        nodes_x, nodes_y = numpy.unravel_index(nodes, orig_shape)
 
         return nodes, nodes_x, nodes_y
 
@@ -714,7 +714,7 @@ class GenericSpatialInterpolator2D(interpolation.SpatialInterpolator2d):
         lon_name = self._get_nc_var_name(ncfile, 'longitude')
         lat1d = ncfile[lat_name][:]
         lon1d = ncfile[lon_name][:]
-        lat, lon = np.meshgrid(lat1d, lon1d, indexing='ij')
+        lat, lon = numpy.meshgrid(lat1d, lon1d, indexing='ij')
         # find valid mask
         self.valid_mask = None
         # read a variable and take inverse of its mask
@@ -738,11 +738,11 @@ class GenericSpatialInterpolator2D(interpolation.SpatialInterpolator2d):
 
         grid_lat = lat_subset.ravel()
         grid_lon = lon_subset.ravel()
-        if np.ma.isMaskedArray(grid_lat):
+        if numpy.ma.isMaskedArray(grid_lat):
             grid_lat = grid_lat.filled(0.0)
-        if np.ma.isMaskedArray(grid_lon):
+        if numpy.ma.isMaskedArray(grid_lon):
             grid_lon = grid_lon.filled(0.0)
-        grid_latlon = np.vstack((grid_lat, grid_lon)).T
+        grid_latlon = numpy.vstack((grid_lat, grid_lon)).T
 
         # building 2D interpolator, this can take a long time (minutes)
         print_output('Constructing 2D GridInterpolator...')
@@ -859,7 +859,8 @@ class TidalBoundaryForcing(object):
         """Grid NetCDF file name."""
         return None
 
-    def __init__(self, elev_field, init_date, to_latlon, target_coordsys,
+    def __init__(self, elev_field, init_date, to_latlon, target_coordsys=None,
+                 vect_rotator=None,
                  uv_field=None, constituents=None, boundary_ids=None,
                  data_dir=None):
         """
@@ -867,8 +868,9 @@ class TidalBoundaryForcing(object):
         :arg init_date: Datetime object defining the simulation init time.
         :arg to_latlon: Python function that converts local mesh coordinates to
             latitude and longitude: 'lat, lon = to_latlon(x, y)'
-        :arg target_coordsys: coordinate system in which the model grid is
+        :kwarg target_coordsys: Coordinate system in which the model grid is
             defined. This is used to rotate vectors to local coordinates.
+        :kwarg vect_rotator: User-defined vector rotator function
         :kwarg uv_field: Function where tidal transport will be interpolated.
         :kwarg constituents: list of tidal constituents, e.g. ['M2', 'K1']
         :kwarg boundary_ids: list of boundary_ids where tidal data will be
@@ -890,27 +892,34 @@ class TidalBoundaryForcing(object):
         # determine nodes at the boundary
         self.elev_field = elev_field
         self.uv_field = uv_field
-        fs = elev_field.function_space()
+        function_space = elev_field.function_space()
         if boundary_ids is None:
             # interpolate in the whole domain
             self.nodes = numpy.arange(self.elev_field.dat.data_with_halos.shape[0])
         else:
-            bc = DirichletBC(fs, 0., boundary_ids)
+            bc = DirichletBC(function_space, 0., boundary_ids)
             self.nodes = bc.nodes
         self._empty_set = self.nodes.size == 0
 
-        xy = SpatialCoordinate(fs.mesh())
-        fsx = Function(fs).interpolate(xy[0]).dat.data_ro_with_halos
-        fsy = Function(fs).interpolate(xy[1]).dat.data_ro_with_halos
+        # construct local coordinates
+        on_sphere = function_space.mesh().geometric_dimension() == 3
+
+        if on_sphere:
+            x, y, z = SpatialCoordinate(function_space.mesh())
+            fsx = Function(function_space).interpolate(x).dat.data_with_halos
+            fsy = Function(function_space).interpolate(y).dat.data_with_halos
+            fsz = Function(function_space).interpolate(z).dat.data_with_halos
+            coords = (fsx, fsy, fsz)
+        else:
+            x, y = SpatialCoordinate(function_space.mesh())
+            fsx = Function(function_space).interpolate(x).dat.data_with_halos
+            fsy = Function(function_space).interpolate(y).dat.data_with_halos
+            coords = (fsx, fsy)
+
+        lat, lon = to_latlon(*coords, positive_lon=True)
+        self.latlon = numpy.array([lat, lon]).T
+
         if not self._empty_set:
-
-            latlon = []
-            for node in self.nodes:
-                x, y = fsx[node], fsy[node]
-                lat, lon = to_latlon(x, y, positive_lon=True)
-                latlon.append((lat, lon))
-            self.latlon = numpy.array(latlon)
-
             # compute bounding box
             bounds_lat = [self.latlon[:, 0].min(), self.latlon[:, 0].max()]
             bounds_lon = [self.latlon[:, 1].min(), self.latlon[:, 1].max()]
@@ -926,8 +935,13 @@ class TidalBoundaryForcing(object):
             if self.compute_velocity:
                 lat = self.latlon[:, 0]
                 lon = self.latlon[:, 1]
-                self.vect_rotator = coordsys.VectorCoordSysRotation(
-                    coordsys.LL_WGS84, target_coordsys, lon, lat)
+                assert target_coordsys is not None or vect_rotator is not None, \
+                    'Either target_coordsys or vect_rotator must be defined'
+                if vect_rotator is None:
+                    self.vect_rotator = coordsys.VectorCoordSysRotation(
+                        coordsys.LL_WGS84, target_coordsys, lon, lat)
+                else:
+                    self.vect_rotator = vect_rotator
 
     @abstractmethod
     def _create_readers(self, ):
@@ -935,16 +949,20 @@ class TidalBoundaryForcing(object):
         pass
 
     def set_tidal_field(self, t):
-        if not self._empty_set:
-            self.tnci.set_time(t)
-            if self.compute_velocity:
-                self.tnciu.set_time(t)
-                self.tnciv.set_time(t)
         elev_data = self.elev_field.dat.data_with_halos
         if self.compute_velocity:
             uv_data = self.uv_field.dat.data_with_halos
+        if self._empty_set:
+            return
+        self.tnci.set_time(t)
+        if self.compute_velocity:
+            self.tnciu.set_time(t)
+            self.tnciv.set_time(t)
+        if self.compute_velocity:
+            lat_vel = numpy.zeros_like(elev_data)
+            lon_vel = numpy.zeros_like(elev_data)
         for i, node in enumerate(self.nodes):
-            lat, lon = self.latlon[i, :]
+            lat, lon = self.latlon[node, :]
             point = (lon, lat) if self.coord_layout == 'lon,lat' else (lat, lon)
             try:
                 elev = self.tnci.get_val(point, allow_extrapolation=True)
@@ -953,12 +971,16 @@ class TidalBoundaryForcing(object):
                 elev_data[node] = 0.
             if self.compute_velocity:
                 try:
-                    lon_vel = self.tnciu.get_val(point, allow_extrapolation=True)
-                    lat_vel = self.tnciv.get_val(point, allow_extrapolation=True)
-                    u, v = self.vect_rotator(lon_vel, lat_vel, i_node=i)
-                    uv_data[node, :] = (u, v)
+                    lon_vel[node] = self.tnciu.get_val(point, allow_extrapolation=True)
+                    lat_vel[node] = self.tnciv.get_val(point, allow_extrapolation=True)
                 except uptide.netcdf_reader.CoordinateError:
-                    uv_data[node, :] = (0, 0)
+                    uv_data[node, 0] = 0
+                    uv_data[node, 1] = 0
+        if self.compute_velocity:
+            uv = self.vect_rotator(lon_vel, lat_vel)
+            uv_data[:, 0] = uv[0]
+            uv_data[:, 1] = uv[1]
+
 
 
 class TPXOTidalBoundaryForcing(TidalBoundaryForcing):
