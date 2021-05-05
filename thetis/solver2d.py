@@ -328,12 +328,11 @@ class FlowSolver2d(FrozenClass):
                                            'tracer_2d',
                                            shortname='tracer_2d',
                                            source=self.options.tracer_source_2d)
+            args = (self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
             if self.options.use_tracer_conservative_form:
                 eq = conservative_tracer_eq_2d.ConservativeTracerEquation2D
-                args = (self.function_spaces.Q_2d, self.depth, self.options)
             else:
                 eq = tracer_eq_2d.TracerEquation2D
-                args = (self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
             for label in self.options.tracer_data_2d:
                 field_metadata[label] = self.options.tracer_data_2d[label].copy()
                 field_metadata[label].pop('source')

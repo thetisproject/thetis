@@ -298,6 +298,9 @@ class TracerEquation2D(Equation):
                 kwargs['test_function'] = self.test
 
         args = (function_space, depth, options)
+        self.add_terms(*args, **kwargs)
+
+    def add_terms(self, *args, **kwargs):
         self.add_term(HorizontalAdvectionTerm(*args, **kwargs), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args, **kwargs), 'explicit')
         self.add_term(SourceTerm(*args, **kwargs), 'source')
