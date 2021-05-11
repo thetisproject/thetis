@@ -297,6 +297,18 @@ class FlowSolver2d(FrozenClass):
 
         self._isfrozen = True
 
+    def add_new_field(self, label):
+        """
+        Add a field which exists in :attr:`options.tracer_metadata`.
+
+        :arg label: the field label used in the metadata dictionary
+        """
+        if label not in self.options.tracer_metadata:
+            raise ValueError("Field {:s} not recognised.".format(label))
+        field_metadata[label] = self.options.tracer_metadata[label].copy()
+        field_metadata[label].pop('source')
+        self.fields[label] = Function(self.function_spaces.Q_2d, name=label)
+
     def create_equations(self):
         """
         Creates shallow water equations
@@ -324,20 +336,16 @@ class FlowSolver2d(FrozenClass):
         uv_2d, elev_2d = self.fields.solution_2d.split()
         if self.options.solve_tracer:
             if self.options.tracer_metadata == {}:
-                self.options.add_tracer_2d('tracer_2d',
-                                           'Tracer concentration',
-                                           'Tracer2d',
-                                           shortname='Tracer',
-                                           source=self.options.tracer_source_2d)
+                self.options.tracer_metadata['tracer_2d'] = field_metadata['tracer_2d'].copy()
+                self.options.tracer_metadata['tracer_2d']['source'] = self.options.tracer_source_2d
+                self.add_new_field('tracer_2d')
             args = (self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
             if self.options.use_tracer_conservative_form:
                 eq = conservative_tracer_eq_2d.ConservativeTracerEquation2D
             else:
                 eq = tracer_eq_2d.TracerEquation2D
             for label in self.options.tracer_metadata:
-                field_metadata[label] = self.options.tracer_metadata[label].copy()
-                field_metadata[label].pop('source')
-                self.fields[label] = Function(self.function_spaces.Q_2d, name=label)
+                self.add_new_field(label)
                 setattr(self, '_'.join(['eq', label]), eq(*args))
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
