@@ -78,7 +78,7 @@ def run_tracer_consistency(constant_c=True, **model_options):
         tracer_r = 30.0
         tracer_init2d.interpolate(tracer_l + (tracer_r - tracer_l)*0.5*(1.0 + sign(x_2d - lx/4)))
 
-    solver_obj.assign_initial_conditions(elev=elev_init, tracer=tracer_init2d)
+    solver_obj.assign_initial_conditions(elev=elev_init, tracer_2d=tracer_init2d)
     solver_obj.iterate()
 
     # TODO do these checks every export ...

@@ -177,7 +177,7 @@ def run(setup, refinement, do_export=True, **options):
     solver_obj.create_equations()
     solver_obj.assign_initial_conditions(elev=setup_obj.elev(x, y, lx, ly),
                                          uv=setup_obj.uv(x, y, lx, ly),
-                                         tracer=trac_ana)
+                                         tracer_2d=trac_ana)
 
     # solve tracer advection-diffusion equation with residual source term
     ti = solver_obj.timestepper

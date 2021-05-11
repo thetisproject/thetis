@@ -213,7 +213,7 @@ def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg'):
     # Initial and boundary conditions
     solver_obj.bnd_functions = params.boundary_conditions
     uv_init = Constant(as_vector([1.0e-08, 0.0])) if hydrodynamics else params.uv
-    solver_obj.assign_initial_conditions(tracer=source, uv=uv_init, elev=params.elev)
+    solver_obj.assign_initial_conditions(tracer_2d=source, uv=uv_init, elev=params.elev)
 
     # Solve
     solver_obj.iterate()

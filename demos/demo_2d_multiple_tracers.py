@@ -23,16 +23,17 @@ solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
 # provide short and long form names for each, as well
 # as any source terms and boundary conditions. ::
 
-tracers = ['bell', 'cone', 'slot_cyl']
+labels = ['bell_2d', 'cone_2d', 'slot_cyl_2d']
 names = ['Gaussian bell', 'Cone', 'Slotted cylinder']
+filenames = ['GaussianBell2d', 'Cone2d', 'SlottedCylinder2d']
 options = solver_obj.options
 options.solve_tracer = True
 options.tracer_only = True
-options.fields_to_export = tracers
+options.fields_to_export = labels
 bc = {'value': {'on_boundary': Constant(1.0)}}
-for tracer, name in zip(tracers, names):
-    options.add_tracer_2d(name, tracer, source=None)
-    solver_obj.bnd_functions[tracer] = bc
+for label, name, filename in zip(labels, names, filenames):
+    options.add_tracer_2d(label, name, filename, source=None)
+    solver_obj.bnd_functions[label] = bc
 
 # Most of the remaining model setup is as before.
 
@@ -67,17 +68,17 @@ bell_init = interpolate(1.0 + bell, P1_2d)
 cone_init = interpolate(1.0 + cone, P1_2d)
 slot_cyl_init = interpolate(1.0 + slot_cyl, P1_2d)
 solver_obj.assign_initial_conditions(
-    uv=uv_init, bell=bell_init, cone=cone_init, slot_cyl=slot_cyl_init
+    uv=uv_init, bell_2d=bell_init, cone_2d=cone_init, slot_cyl_2d=slot_cyl_init
 )
 
 # Finally, we solve the tracer transport problem and display
 # the normalised :math:`L^2` error. ::
 
 solver_obj.iterate()
-for tracer, init in zip(tracers, [bell_init, cone_init, slot_cyl_init]):
-    q = solver_obj.fields[tracer]
+for label, name, init in zip(labels, names, [bell_init, cone_init, slot_cyl_init]):
+    q = solver_obj.fields[label]
     L2_err = sqrt(assemble((q - init)*(q - init)*dx))
     L2_init = sqrt(assemble(init*init*dx))
-    print_output("Relative error {:8s}: {:.2f}%".format(tracer, L2_err/L2_init))
+    print_output("Relative error {:8s}: {:.2f}%".format(name, L2_err/L2_init))
 
 # This tutorial can be dowloaded as a Python script `here <demo_2d_multiple_tracers.py>`__.

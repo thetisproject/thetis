@@ -671,20 +671,21 @@ class ModelOptions2d(CommonModelOptions):
         False, help="Use SUPG stabilisation in tracer advection").tag(config=True)
 
     def __init__(self, *args, **kwargs):
-        self.tracer_data_2d = {}
-        super(ModelOptions2d).__init__(*args, **kwargs)
+        self.tracer_metadata = {}
+        super(ModelOptions2d, self).__init__(*args, **kwargs)
 
-    def add_tracer_2d(self, name, filename, shortname=None, unit='-', source=None):
+    def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', source=None):
         """
         Define a 2D tracer field
 
-        :arg name: name for the tracer field
-        :arg filename: file name for outputs
-        :kwarg shortname: short version of name
-        :kwarg unit: units for field
+        :arg label: field label used internally by Thetis, e.g. 'tracer_2d'
+        :arg name: human readable name for the tracer field, e.g. 'Tracer concentration'
+        :arg filename: file name for outputs, e.g. 'Tracer2d'
+        :kwarg shortname: short version of name, e.g. 'Tracer'
+        :kwarg unit: units for field, e.g. '-'
         :kwarg source: associated source term
         """
-        self.tracer_data_2d[filename] = {
+        self.tracer_metadata[label] = {
             'name': name,
             'shortname': shortname or name,
             'unit': unit,

@@ -96,7 +96,7 @@ slot_cyl = conditional(sqrt(pow(x-cyl_x0, 2) + pow(y-cyl_y0, 2)) < cyl_r0,
 # that we can check the :math:`L^2`-norm error at the end. ::
 
 q_init = interpolate(1.0 + bell + cone + slot_cyl, P1_2d)
-solver_obj.assign_initial_conditions(uv=uv_init, tracer=q_init)
+solver_obj.assign_initial_conditions(uv=uv_init, tracer_2d=q_init)
 
 # Now we are in a position to run the time loop. ::
 
