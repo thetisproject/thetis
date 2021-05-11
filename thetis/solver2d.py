@@ -327,12 +327,13 @@ class FlowSolver2d(FrozenClass):
                                      wetting_and_drying_alpha=self.options.wetting_and_drying_alpha)
 
         # ----- Equations
-        self.eq_sw = shallowwater_eq.ShallowWaterEquations(
+        self.equations = AttrDict()
+        self.equations.sw = shallowwater_eq.ShallowWaterEquations(
             self.fields.solution_2d.function_space(),
             self.depth,
             self.options,
         )
-        self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
+        self.equations.sw.bnd_functions = self.bnd_functions['shallow_water']
         uv_2d, elev_2d = self.fields.solution_2d.split()
         if self.options.solve_tracer:
             if self.options.tracer_metadata == {}:
@@ -346,7 +347,7 @@ class FlowSolver2d(FrozenClass):
                 eq = tracer_eq_2d.TracerEquation2D
             for label in self.options.tracer_metadata:
                 self.add_new_field(label)
-                setattr(self, '_'.join(['eq', label]), eq(*args))
+                setattr(self.equations, label, eq(*args))
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
@@ -359,7 +360,7 @@ class FlowSolver2d(FrozenClass):
                 self.options, self.mesh2d, uv_2d, elev_2d, self.depth)
         if sediment_options.solve_suspended_sediment:
             self.fields.sediment_2d = Function(self.function_spaces.Q_2d, name='sediment_2d')
-            self.eq_sediment = sediment_eq_2d.SedimentEquation2D(
+            self.equations.sediment = sediment_eq_2d.SedimentEquation2D(
                 self.function_spaces.Q_2d, self.depth, self.options, self.sediment_model,
                 conservative=sediment_options.use_sediment_conservative_form)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
@@ -369,7 +370,7 @@ class FlowSolver2d(FrozenClass):
 
         if sediment_options.solve_exner:
             if element_continuity(self.fields.bathymetry_2d.function_space().ufl_element()).horizontal in ['cg']:
-                self.eq_exner = exner_eq.ExnerEquation(
+                self.equations.exner = exner_eq.ExnerEquation(
                     self.fields.bathymetry_2d.function_space(), self.depth,
                     depth_integrated_sediment=sediment_options.use_sediment_conservative_form, sediment_model=self.sediment_model)
             else:
@@ -394,7 +395,7 @@ class FlowSolver2d(FrozenClass):
             'volume_source': self.options.volume_source_2d,
         }
 
-        args = (self.eq_sw, self.fields.solution_2d, fields, self.dt, )
+        args = (self.equations.sw, self.fields.solution_2d, fields, self.dt, )
         kwargs = {'bnd_conditions': self.bnd_functions['shallow_water']}
         if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
             kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
@@ -403,13 +404,13 @@ class FlowSolver2d(FrozenClass):
         if self.options.timestepper_type == 'PressureProjectionPicard':
             # TODO: Probably won't work in coupled mode
             u_test = TestFunction(self.function_spaces.U_2d)
-            self.eq_mom = shallowwater_eq.ShallowWaterMomentumEquation(
+            self.equations.mom = shallowwater_eq.ShallowWaterMomentumEquation(
                 u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
                 self.depth,
                 options=self.options
             )
-            self.eq_mom.bnd_functions = self.bnd_functions['shallow_water']
-            args = (self.eq_sw, self.eq_mom, self.fields.solution_2d, fields, self.dt, )
+            self.equations.mom.bnd_functions = self.bnd_functions['shallow_water']
+            args = (self.equations.sw, self.equations.mom, self.fields.solution_2d, fields, self.dt, )
             kwargs['solver_parameters'] = self.options.timestepper_options.solver_parameters_pressure
             kwargs['solver_parameters_mom'] = self.options.timestepper_options.solver_parameters_momentum
             kwargs['iterations'] = self.options.timestepper_options.picard_iterations
@@ -443,7 +444,7 @@ class FlowSolver2d(FrozenClass):
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }
 
-        args = (getattr(self, 'eq_' + label), self.fields[label], fields, self.dt, )
+        args = (getattr(self.equations, label), self.fields[label], fields, self.dt, )
         kwargs = dict(solver_parameters=self.options.timestepper_options.solver_parameters_tracer)
         if label in self.bnd_functions:
             kwargs['bnd_conditions'] = self.bnd_functions[label]
@@ -468,7 +469,7 @@ class FlowSolver2d(FrozenClass):
             'tracer_advective_velocity_factor': self.sediment_model.get_advective_velocity_correction_factor(),
         }
 
-        args = (self.eq_sediment, self.fields.sediment_2d, fields, self.dt, )
+        args = (self.equations.sediment, self.fields.sediment_2d, fields, self.dt, )
         kwargs = {
             'bnd_conditions': self.bnd_functions['sediment'],
             'solver_parameters': self.options.timestepper_options.solver_parameters_sediment,
@@ -493,7 +494,7 @@ class FlowSolver2d(FrozenClass):
             'porosity': self.options.sediment_model_options.porosity,
         }
 
-        args = (self.eq_exner, self.fields.bathymetry_2d, fields, self.dt, )
+        args = (self.equations.exner, self.fields.bathymetry_2d, fields, self.dt, )
         kwargs = {
             # only pass SWE bcs, used to determine closed boundaries in bedload term
             'bnd_conditions': self.bnd_functions['shallow_water'],
@@ -509,7 +510,7 @@ class FlowSolver2d(FrozenClass):
         """
         Creates time stepper instance
         """
-        if not hasattr(self, 'eq_sw'):
+        if not hasattr(self, 'equations'):
             self.create_equations()
 
         self._isfrozen = False
@@ -596,7 +597,7 @@ class FlowSolver2d(FrozenClass):
         """
         if not hasattr(self, 'U_2d'):
             self.create_function_spaces()
-        if not hasattr(self, 'eq_sw'):
+        if not hasattr(self, 'equations'):
             self.create_equations()
         if not hasattr(self, 'timestepper'):
             self.create_timestepper()

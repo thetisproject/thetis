@@ -196,7 +196,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         }
 
         self.timesteppers.swe2d = self.integrator_2d(
-            solver.eq_sw, self.fields.solution_2d,
+            solver.equations.sw, self.fields.solution_2d,
             fields, solver.dt,
             bnd_conditions=solver.bnd_functions['shallow_water'],
             solver_parameters=self.options.timestepper_options.solver_parameters_2d_swe)
@@ -228,7 +228,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         if not self.solver.options.use_implicit_vertical_diffusion:
             fields.update(friction_fields)
         self.timesteppers.mom_expl = self.integrator_3d(
-            solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,
+            solver.equations.momentum, solver.fields.uv_3d, fields, solver.dt,
             bnd_conditions=solver.bnd_functions['momentum'],
             solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
         if self.solver.options.use_implicit_vertical_diffusion:
@@ -237,7 +237,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       }
             fields.update(friction_fields)
             self.timesteppers.mom_impl = self.integrator_vert_3d(
-                solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt,
+                solver.equations.vertmomentum, solver.fields.uv_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['momentum'],
                 solver_parameters=self.options.timestepper_options.solver_parameters_momentum_implicit)
 
@@ -260,7 +260,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                       }
             self.timesteppers.salt_expl = self.integrator_3d(
-                solver.eq_salt, solver.fields.salt_3d, fields, solver.dt,
+                solver.equations.salt, solver.fields.salt_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['salt'],
                 solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
             if self.solver.options.use_implicit_vertical_diffusion:
@@ -268,7 +268,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                           'diffusivity_v': impl_v_diff,
                           }
                 self.timesteppers.salt_impl = self.integrator_vert_3d(
-                    solver.eq_salt_vdff, solver.fields.salt_3d, fields, solver.dt,
+                    solver.equations.salt_vdff, solver.fields.salt_3d, fields, solver.dt,
                     bnd_conditions=solver.bnd_functions['salt'],
                     solver_parameters=self.options.timestepper_options.solver_parameters_tracer_implicit)
 
@@ -291,7 +291,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                       }
             self.timesteppers.temp_expl = self.integrator_3d(
-                solver.eq_temp, solver.fields.temp_3d, fields, solver.dt,
+                solver.equations.temp, solver.fields.temp_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['temp'],
                 solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
             if self.solver.options.use_implicit_vertical_diffusion:
@@ -299,7 +299,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                           'diffusivity_v': impl_v_diff,
                           }
                 self.timesteppers.temp_impl = self.integrator_vert_3d(
-                    solver.eq_temp_vdff, solver.fields.temp_3d, fields, solver.dt,
+                    solver.equations.temp_vdff, solver.fields.temp_3d, fields, solver.dt,
                     bnd_conditions=solver.bnd_functions['temp'],
                     solver_parameters=self.options.timestepper_options.solver_parameters_tracer_implicit)
 
@@ -310,10 +310,10 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         solver = self.solver
         impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
 
-        eq_tke_diff = getattr(self.solver, 'eq_tke_diff', None)
-        eq_psi_diff = getattr(self.solver, 'eq_psi_diff', None)
-        eq_tke_adv = getattr(self.solver, 'eq_tke_adv', None)
-        eq_psi_adv = getattr(self.solver, 'eq_psi_adv', None)
+        eq_tke_diff = getattr(self.solver.equations, 'tke_diff', None)
+        eq_psi_diff = getattr(self.solver.equations, 'psi_diff', None)
+        eq_tke_adv = getattr(self.solver.equations, 'tke_adv', None)
+        eq_psi_adv = getattr(self.solver.equations, 'psi_adv', None)
         if eq_tke_diff is not None and eq_psi_diff is not None:
             fields = {'diffusivity_v': impl_v_diff,
                       'viscosity_v': impl_v_visc,
