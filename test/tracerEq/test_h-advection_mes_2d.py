@@ -57,7 +57,7 @@ def run(refinement, **model_options):
     uv_expr = as_vector((u, 0))
     bnd_salt_2d = {'value': Constant(0.0), 'uv': uv_expr}
     bnd_uv_2d = {'uv': uv_expr}
-    solverobj.bnd_functions['tracer_2d'] = {
+    solverobj.bnd_functions['tracer'] = {
         1: bnd_salt_2d,
         2: bnd_salt_2d,
     }
@@ -78,7 +78,7 @@ def run(refinement, **model_options):
     tracer_ana = Function(solverobj.function_spaces.H_2d, name='tracer analytical')
     uv_init = Function(solverobj.function_spaces.U_2d, name='initial uv')
     uv_init.project(uv_expr)
-    solverobj.assign_initial_conditions(uv=uv_init, tracer_2d=ana_tracer_expr)
+    solverobj.assign_initial_conditions(uv=uv_init, tracer=ana_tracer_expr)
 
     # export analytical solution
     if not options.no_exports:

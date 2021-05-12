@@ -347,7 +347,7 @@ class FlowSolver2d(FrozenClass):
                 eq = tracer_eq_2d.TracerEquation2D
             for label in self.options.tracer_metadata:
                 self.add_new_field(label)
-                setattr(self.equations, label, eq(*args))
+                self.equations[label] = eq(*args)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
@@ -444,10 +444,12 @@ class FlowSolver2d(FrozenClass):
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }
 
-        args = (getattr(self.equations, label), self.fields[label], fields, self.dt, )
+        args = (self.equations[label], self.fields[label], fields, self.dt, )
         kwargs = dict(solver_parameters=self.options.timestepper_options.solver_parameters_tracer)
         if label in self.bnd_functions:
             kwargs['bnd_conditions'] = self.bnd_functions[label]
+        elif label[:-3] in self.bnd_functions:
+            kwargs['bnd_conditions'] = self.bnd_functions[label[:-3]]
         else:
             kwargs['bnd_conditions'] = {}
         if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
@@ -613,6 +615,10 @@ class FlowSolver2d(FrozenClass):
         :type elev: scalar :class:`Function`, :class:`Constant`, or an expression
         :kwarg uv: Initial condition for depth averaged velocity
         :type uv: vector valued :class:`Function`, :class:`Constant`, or an expression
+        :kwarg sediment: Initial condition for sediment concantration
+        :type sediment: scalar valued :class:`Function`, :class:`Constant`, or an expression
+        :kwargs tracers: Initial conditions for tracer fields
+        :types tracers: scalar valued :class:`Function`s, :class:`Constant`s, or an expressions
         """
         if not self._initialized:
             self.initialize()
@@ -622,10 +628,10 @@ class FlowSolver2d(FrozenClass):
         if uv is not None:
             uv_2d.project(uv)
         if self.options.solve_tracer:
-            for label in self.options.tracer_metadata:
-                tracer = tracers.get(label)
-                if tracer is not None:
-                    self.fields[label].project(tracer)
+            for l, func in tracers.items():
+                label = l if len(l) > 3 and l[-3:] == '_2d' else l + '_2d'
+                assert label in self.options.tracer_metadata, f"Unknown tracer label {label}"
+                self.fields[label].project(func)
 
         sediment_options = self.options.sediment_model_options
         if self.sediment_model is not None:
