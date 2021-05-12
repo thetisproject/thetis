@@ -20,8 +20,15 @@ solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
 # also set ``tracer_only = True``. In `demo_2d_tracer`, a
 # single tracer field was used, with the default name
 # `tracer_2d`. To specify separate tracers, we need to
-# provide short and long form names for each, as well
-# as any source terms and boundary conditions. ::
+# provide labels, names and filenames for each, as well
+# as any source terms and boundary conditions. The 'label'
+# identifies the field inside Thetis. It should not contain
+# spaces and typically ends with '_2d' for 2D problems. The
+# 'name' exists for users to identify the field and may
+# contain spaces. Finally, the 'filename' is used when
+# storing outputs, so cannot contain spaces. The usual
+# Thetis convention is to use CamelCase with a trailing
+# '2d'. ::
 
 labels = ['bell_2d', 'cone_2d', 'slot_cyl_2d']
 names = ['Gaussian bell', 'Cone', 'Slotted cylinder']

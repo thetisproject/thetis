@@ -685,6 +685,8 @@ class ModelOptions2d(CommonModelOptions):
         :kwarg unit: units for field, e.g. '-'
         :kwarg source: associated source term
         """
+        assert ' ' not in label, "Labels cannot contain spaces"
+        assert ' ' not in filename, "Filenames cannot contain spaces"
         self.tracer_metadata[label] = {
             'name': name,
             'shortname': shortname or name,

@@ -308,6 +308,8 @@ class FlowSolver2d(FrozenClass):
         :kwarg shortname: short version of name, e.g. 'Tracer'
         :kwarg unit: units for field, e.g. '-'
         """
+        assert ' ' not in label, "Labels cannot contain spaces"
+        assert ' ' not in filename, "Filenames cannot contain spaces"
         field_metadata[label] = {
             'name': name,
             'shortname': shortname or name,
