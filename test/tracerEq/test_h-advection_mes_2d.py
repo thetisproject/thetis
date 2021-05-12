@@ -57,7 +57,7 @@ def run(refinement, **model_options):
     uv_expr = as_vector((u, 0))
     bnd_salt_2d = {'value': Constant(0.0), 'uv': uv_expr}
     bnd_uv_2d = {'uv': uv_expr}
-    solverobj.bnd_functions['tracer'] = {
+    solverobj.bnd_functions['tracer_2d'] = {
         1: bnd_salt_2d,
         2: bnd_salt_2d,
     }
@@ -95,7 +95,7 @@ def run(refinement, **model_options):
     export_func()
 
     # custom time loop that solves tracer equation only
-    ti = solverobj.timestepper.timesteppers.tracer
+    ti = solverobj.timestepper.timesteppers.tracer_2d
 
     i = 0
     iexport = 1
@@ -129,7 +129,7 @@ def run_convergence(ref_list, saveplot=False, **options):
         l2_err.append(run(r, **options))
     x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
     y_log = numpy.log10(numpy.array(l2_err))
-    setup_name = 'h-diffusion'
+    setup_name = 'h-advection'
 
     def check_convergence(x_log, y_log, expected_slope, field_str, saveplot):
         slope_rtol = 0.20

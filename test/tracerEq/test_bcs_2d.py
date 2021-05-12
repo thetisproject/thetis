@@ -127,7 +127,7 @@ def run(refinement, **model_options):
     options.simulation_end_time = t_end - 0.5*dt
 
     # Boundary conditions
-    solver_obj.bnd_functions['tracer'] = {1: {'diff_flux': diff_flux*nu}}
+    solver_obj.bnd_functions['tracer_2d'] = {1: {'diff_flux': diff_flux*nu}}
     # NOTE: Zero diff_flux boundaries are enforced elsewhere by default
 
     # Run model

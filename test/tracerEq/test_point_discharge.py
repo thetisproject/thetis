@@ -94,7 +94,7 @@ class PointDischargeParameters(object):
 
         # Boundary conditions
         self.boundary_conditions = {
-            'tracer': {
+            'tracer_2d': {
                 1: {'value': Constant(0.0)},      # inflow
                 2: {'open': None},                # outflow
             },

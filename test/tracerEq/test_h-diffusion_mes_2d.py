@@ -80,7 +80,7 @@ def run(refinement, **model_options):
     export_func()
 
     # custom time loop that solves tracer equation only
-    ti = solverobj.timestepper.timesteppers.tracer
+    ti = solverobj.timestepper.timesteppers.tracer_2d
 
     i = 0
     iexport = 1
