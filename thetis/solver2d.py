@@ -297,17 +297,24 @@ class FlowSolver2d(FrozenClass):
 
         self._isfrozen = True
 
-    def add_new_field(self, label):
+    def add_new_field(self, function, label, name, filename, shortname=None, unit='-'):
         """
-        Add a field which exists in :attr:`options.tracer_metadata`.
+        Add a field to :attr:`fields`.
 
-        :arg label: the field label used in the metadata dictionary
+        :arg function: representation of the field as a :class:`Function`
+        :arg label: field label used internally by Thetis, e.g. 'tracer_2d'
+        :arg name: human readable name for the tracer field, e.g. 'Tracer concentration'
+        :arg filename: file name for outputs, e.g. 'Tracer2d'
+        :kwarg shortname: short version of name, e.g. 'Tracer'
+        :kwarg unit: units for field, e.g. '-'
         """
-        if label not in self.options.tracer_metadata:
-            raise ValueError("Field {:s} not recognised.".format(label))
-        field_metadata[label] = self.options.tracer_metadata[label].copy()
-        field_metadata[label].pop('source')
-        self.fields[label] = Function(self.function_spaces.Q_2d, name=label)
+        field_metadata[label] = {
+            'name': name,
+            'shortname': shortname or name,
+            'unit': unit,
+            'filename': filename,
+        }
+        self.fields[label] = function
 
     def create_equations(self):
         """
@@ -337,16 +344,27 @@ class FlowSolver2d(FrozenClass):
         uv_2d, elev_2d = self.fields.solution_2d.split()
         if self.options.solve_tracer:
             if self.options.tracer_metadata == {}:
-                self.options.tracer_metadata['tracer_2d'] = field_metadata['tracer_2d'].copy()
-                self.options.tracer_metadata['tracer_2d']['source'] = self.options.tracer_source_2d
-                self.add_new_field('tracer_2d')
+                md = field_metadata['tracer_2d'].copy()
+                md['source'] = self.options.tracer_source_2d
+                self.options.tracer_metadata['tracer_2d'] = md
+                self.add_new_field(Function(self.function_spaces.Q_2d, name='tracer_2d'),
+                                   'tracer_2d',
+                                   md['name'],
+                                   md['filename'],
+                                   shortname=md['shortname'],
+                                   unit=md['unit'])
             args = (self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
             if self.options.use_tracer_conservative_form:
                 eq = conservative_tracer_eq_2d.ConservativeTracerEquation2D
             else:
                 eq = tracer_eq_2d.TracerEquation2D
-            for label in self.options.tracer_metadata:
-                self.add_new_field(label)
+            for label, md in self.options.tracer_metadata.items():
+                self.add_new_field(Function(self.function_spaces.Q_2d, name=label),
+                                   label,
+                                   md['name'],
+                                   md['filename'],
+                                   shortname=md['shortname'],
+                                   unit=md['unit'])
                 self.equations[label] = eq(*args)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
@@ -733,12 +751,13 @@ class FlowSolver2d(FrozenClass):
         :arg float cputime: Measured CPU time
         """
         if self.options.tracer_only:
-            for label in self.options.tracer_metadata:
-                norm_q = norm(self.fields[label])
+            for l in self.options.tracer_metadata:
+                norm_q = norm(self.fields[l])
 
                 line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                         '{l:16s}: {q:10.4f} {cpu:5.2f}')
 
+                label = l if len(l) < 3 or l[-3:] != '_2d' else l[:-3]
                 print_output(line.format(iexp=self.i_export, i=self.iteration,
                                          t=self.simulation_time,
                                          l=label + ' norm',
