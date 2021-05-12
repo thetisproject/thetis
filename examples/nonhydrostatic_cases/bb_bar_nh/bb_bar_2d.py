@@ -20,13 +20,11 @@ ny = 1
 mesh = RectangleMesh(nx, ny, lx, ly)
 outputdir = 'outputs_bbbar_2d'
 
+
 # --- bathymetry ---
-P1_2d = FunctionSpace(mesh, 'CG', 1)
-bathymetry_2d = Function(P1_2d, name='Bathymetry')
-
-
-def get_bathymetry():
-    mesh = bathymetry_2d.ufl_domain()
+def get_bathymetry(mesh):
+    P1_2d = FunctionSpace(mesh, 'CG', 1)
+    bathymetry_2d = Function(P1_2d, name='Bathymetry')
     x_vector = mesh.coordinates.dat.data[:, 0]
     b_vector = bathymetry_2d.dat.data
     assert x_vector.shape[0] == b_vector.shape[0]
@@ -49,7 +47,7 @@ def get_bathymetry():
     return bathymetry_2d
 
 
-bathymetry_2d = get_bathymetry()
+bathymetry_2d = get_bathymetry(mesh)
 
 # set time step, export interval and run duration
 dt = 0.01
@@ -103,8 +101,6 @@ def get_inputelevation(t):
 
 
 # boundary condition
-t = 0.
-H_2d = solver_obj.function_spaces.H_2d
 ele_bc = Constant(0.)
 inflow_tag = 1
 solver_obj.bnd_functions['shallow_water'] = {inflow_tag: {'elev': ele_bc}}

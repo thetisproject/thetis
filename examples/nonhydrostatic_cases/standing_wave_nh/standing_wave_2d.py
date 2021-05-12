@@ -70,4 +70,4 @@ solver_obj.iterate()
 # error show
 anal_elev = elev_amp*cos(2*pi*x[0]/lx)*cos(sqrt(9.81*2*pi/lx*tanh(2*pi*depth/lx))*t_end)
 L2_elev = errornorm(anal_elev, solver_obj.fields.elev_2d)/sqrt(lx*ly)
-print('L2 error for surface elevation is ', L2_elev)
+print_output('L2 error for surface elevation is {:}'.format(L2_elev))

@@ -8,7 +8,6 @@ Initial condition for elevation and velocity fields by Boussinesq solution.
 
 This example tests solitary wave propagation.
 """
-import numpy as np
 from thetis import *
 
 lx = 1000.0
@@ -63,15 +62,15 @@ g_grav = 9.81
 e = 0.2  # e = H/depth
 H = e*depth  # soliatry wave height
 x0 = 200
-c = np.sqrt(g_grav*(depth + H))
-alpha = np.sqrt(3./4.*H/depth**3)
+c = sqrt(g_grav*(depth + H))
+alpha = sqrt(3./4.*H/depth**3)
 
 elev_init = Function(solver_obj.function_spaces.H_2d)
 uv_init = Function(solver_obj.function_spaces.U_2d)
 x, y = SpatialCoordinate(mesh2d)
 t = 0
 elev_init.interpolate(H*cosh(alpha*(x - x0 - c*t))**(-2))
-uv_init.dat.data[:, 0] = np.sqrt(g_grav*depth)*elev_init.dat.data[:]/depth
+uv_init.interpolate(as_vector((sqrt(g_grav*depth)*elev_init/depth, 0)))
 solver_obj.assign_initial_conditions(elev=elev_init, uv=uv_init)
 
 solver_obj.iterate()
@@ -80,4 +79,4 @@ solver_obj.iterate()
 anal_elev = Function(solver_obj.function_spaces.H_2d)
 anal_elev.interpolate(H*cosh(alpha*(x - x0 - c*t_end))**(-2))
 L2_elev = errornorm(anal_elev, solver_obj.fields.elev_2d)/sqrt(lx*ly)
-print('L2 error for surface elevation is ', L2_elev)
+print_output('L2 error for surface elevation is {:}'.format(L2_elev))

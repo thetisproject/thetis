@@ -2,7 +2,6 @@
 Plots elevation time series
 """
 import h5py
-from netCDF4 import Dataset
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,30 +10,18 @@ from collections import OrderedDict
 from scipy import interpolate
 
 
-def read_netcdf(fn):
-    d = Dataset(fn)
-    assert 'time' in d.variables.keys(), 'netCDF file does not contain time variable'
-    out = OrderedDict()
-    out['time'] = d['time'][:]
-    for k in d.variables.keys():
-        if k == 'time':
-            continue
-        out[k] = d[k][:]
-    return out
-
-
 def read_hdf5(fn):
-    d = h5py.File(fn)
-    assert 'time' in d, 'hdf5 file does not contain time variable'
-    out = OrderedDict()
-    # assuming simulation time
-    time = d['time'][:]
-    out['time'] = time
-    for k in d.keys():
-        if k == 'time':
-            continue
-        out[k] = d[k][:]
-    return out
+    with h5py.File(fn) as d:
+        assert 'time' in d, 'hdf5 file does not contain time variable'
+        out = OrderedDict()
+        # assuming simulation time
+        time = d['time'][:]
+        out['time'] = time
+        for k in d.keys():
+            if k == 'time':
+                continue
+            out[k] = d[k][:]
+        return out
 
 
 def make_plot(data):
@@ -79,8 +66,6 @@ if __name__ == '__main__':
     DiagnosticFile = './outputs_bbbar_2d/diagnostic_gauges.hdf5'
     if DiagnosticFile.endswith('.hdf5'):
         d = read_hdf5(DiagnosticFile)
-    elif DiagnosticFile.endswith('.nc'):
-        d = read_netcdf(DiagnosticFile)
     else:
         raise IOError('Unknown file format {:}'.format(DiagnosticFile))
     make_plot(d)

@@ -136,7 +136,7 @@ class NonHydrostaticTimeIntegrator2D(CoupledTimeIntegrator2D):
     """
     def __init__(self, solver, swe_integrator, fs_integrator):
         self.swe_integrator = swe_integrator
-        super(NonHydrostaticTimeIntegrator2D, self).__init__(solver)
+        super().__init__(solver)
         self.poisson_solver = solver.poisson_solver
         print_output('  Non-hydrostatic pressure solver: {:}'.format(self.poisson_solver.__class__.__name__))
         print_output('  Free Surface time integrator: {:}'.format(fs_integrator.__name__))

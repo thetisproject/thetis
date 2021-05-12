@@ -390,6 +390,8 @@ class NonhydrostaticModelOptions(FrozenHasTraits):
         'ksp_type': 'preonly',
         'mat_type': 'aij',
         'pc_type': 'lu',
+        'pc_factor_mat_solver_type': 'mumps',
+        'mat_mumps_icntl_14': 200,
     }).tag(config=True)
 
 
@@ -464,6 +466,13 @@ class CommonModelOptions(FrozenConfigurable):
         Maximum horizontal viscosity
 
         Used to compute max stable diffusion time step.
+        """).tag(config=True)
+    horizontal_diffusivity_scale = FiredrakeConstantTraitlet(
+        Constant(1.0), help="""
+        Maximum horizontal diffusivity
+
+        Used to compute the mesh Peclet number in
+        the 2D tracer SUPG stabilization scheme.
         """).tag(config=True)
     output_directory = Unicode(
         'outputs', help="Directory where model output files are stored").tag(config=True)
@@ -682,6 +691,14 @@ class ModelOptions2d(CommonModelOptions):
 
         Advects tracer in the associated (constant) velocity field.
         """).tag(config=True)
+    tracer_element_family = Enum(
+        ['dg', 'cg'],
+        default_value='dg',
+        help="""Finite element family for tracer transport
+
+        2D solver supports 'dg' or 'cg'.""").tag(config=True)
+    use_supg_tracer = Bool(
+        False, help="Use SUPG stabilisation in tracer advection").tag(config=True)
 
 
 @attach_paired_options("timestepper_type",
