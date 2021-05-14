@@ -315,7 +315,7 @@ class SedimentModel(object):
         # maximum gradient allowed by sediment slide mechanism
         self.tanphi = tan(self.options.sediment_model_options.max_angle*pi/180)
         # approximate mesh step size for sediment slide mechanism
-        L = self.options.sediment_model_options.meshgrid_size
+        L = self.options.sediment_model_options.sed_slide_length_scale
 
         degree_h = self.P1_2d.ufl_element().degree()
 
@@ -328,8 +328,8 @@ class SedimentModel(object):
         x, y = SpatialCoordinate(self.mesh2d)
 
         if self.options.sediment_model_options.slide_region is not None:
-            dzdx = conditional(x < self.options.sediment_model_options.slide_region, bathymetry.dx(0), Constant(0.0))
-            dzdy = conditional(x < self.options.sediment_model_options.slide_region, bathymetry.dx(1), Constant(0.0))
+            dzdx = self.options.sediment_model_options.slide_region*bathymetry.dx(0)
+            dzdy = self.options.sediment_model_options.slide_region*bathymetry.dx(1)
         else:
             dzdx = bathymetry.dx(0)
             dzdy = bathymetry.dx(1)
@@ -340,10 +340,12 @@ class SedimentModel(object):
         self.betaangle = asin(sqrt(1 - (nz**2)))
         self.tanbeta = sqrt(1 - (nz**2))/nz
 
+        morfac = self.options.sediment_model_options.morphological_acceleration_factor
+
         # calculating magnitude of added component
         qaval = conditional(self.tanbeta - self.tanphi > 0, (1-self.options.sediment_model_options.porosity)
                             * 0.5*(L**2)*(self.tanbeta - self.tanphi)/(cos(self.betaangle*self.options.timestep
-                                                                           * self.options.sediment_model_options.morphological_acceleration_factor)), 0)
+                                                                           * morfac)), 0)
         # multiplying by direction
         alphaconst = conditional(sqrt(1 - (nz**2)) > 0, - qaval*(nz**2)/sqrt(1 - (nz**2)), 0)
 

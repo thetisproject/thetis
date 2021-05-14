@@ -44,7 +44,7 @@ options.sediment_model_options.solve_exner = True
 options.sediment_model_options.average_sediment_size = Constant(2.6e-4)
 options.sediment_model_options.bed_reference_height = Constant(0.0002)
 # average meshgrid stepsize
-options.sediment_model_options.meshgrid_size = Constant(0.2)
+options.sediment_model_options.sed_slide_length_scale = Constant(0.2)
 # maximum angle of repose which the slope should have (this is the target angle)
 options.sediment_model_options.max_angle = Constant(22)
 options.sediment_model_options.morphological_acceleration_factor = Constant(20)
@@ -62,13 +62,9 @@ left_bnd_id = 1
 right_bnd_id = 2
 
 swe_bnd = {}
-
 uv_vector = as_vector((0.46, 0.0))
-
 swe_bnd[left_bnd_id] = {'uv': uv_vector}
-
 swe_bnd[right_bnd_id] = {'elev': Constant(4)}
-
 solver_obj.bnd_functions['shallow_water'] = swe_bnd
 
 # set initial conditions
