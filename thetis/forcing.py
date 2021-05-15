@@ -16,7 +16,7 @@ import os
 import numpy
 
 
-def compute_wind_stress(wind_u, wind_v, method='LargePond1981'):
+def compute_wind_stress(wind_u, wind_v, method='LargeYeager2009'):
     r"""
     Compute wind stress from atmospheric 10 m wind.
 
@@ -25,8 +25,9 @@ def compute_wind_stress(wind_u, wind_v, method='LargePond1981'):
     .. math:
         tau_w = C_D \rho_{air} \|U_{10}\| U_{10}
 
-    where :math:`C_D` is the drag coefficient, :math:`\rho_{air}` is the density of
-    air, and :math:`U_{10}` is wind speed 10 m above the sea surface.
+    where :math:`C_D` is the drag coefficient, :math:`\rho_{air}` is the
+    density of air, and :math:`U_{10}` is wind speed 10 m above the sea
+    surface.
 
     In practice `C_D` depends on the wind speed.
 
@@ -36,18 +37,23 @@ def compute_wind_stress(wind_u, wind_v, method='LargePond1981'):
         Wind stress formulation by [1]
     - "SmithBanke1975":
         Wind stress formulation by [2]
+    - "LargeYeager2009":
+        Wind stress formulation by [2]
 
     [1] Large and Pond (1981). Open Ocean Momentum Flux Measurements in
         Moderate to Strong Winds. Journal of Physical Oceanography,
         11(3):324-336.
         https://doi.org/10.1175/1520-0485(1981)011%3C0324:OOMFMI%3E2.0.CO;2
-    [2] Smith and Banke (1975). Variation of the sea surface drag coefficient with
-        wind speed. Q J R Meteorol Soc., 101(429):665-673.
+    [2] Smith and Banke (1975). Variation of the sea surface drag coefficient
+        with wind speed. Q J R Meteorol Soc., 101(429):665-673.
         https://doi.org/10.1002/qj.49710142920
+    [3] Large and Yeager (2009). The global climatology of an interannually
+        varying air–sea flux data set. Climate Dynamics,
+        33:341–364. http://dx.doi.org/10.1007/s00382-008-0441-3
 
     :arg wind_u, wind_v: Wind u and v components as numpy arrays
     :kwarg method: Choose the stress formulation. Currently supports:
-        'LargePond1981' (default) or 'SmithBanke1975'.
+        'LargeYeager2009' (default), 'LargePond1981', or 'SmithBanke1975'.
     :returns: (tau_x, tau_y) wind stress x and y components as numpy arrays
     """
     rho_air = float(physical_constants['rho_air'])
@@ -59,6 +65,13 @@ def compute_wind_stress(wind_u, wind_v, method='LargePond1981'):
         C_D[high_wind] = 1.0e-3*(0.49 + 0.065*wind_mag[high_wind])
     elif method == 'SmithBanke1975':
         C_D = (0.63 + 0.066 * wind_mag)/1000.
+    elif method == 'LargeYeager2009':
+        # NOTE wind velocity should be shifted to 10 m neutral equivalent
+        # but it requires air temperature, humidity and iteration, see [3]
+        high_wind = wind_mag > 33.0
+        C_D = 1.e-3 * (2.7 / wind_mag + 0.142
+                       + wind_mag / 13.09 - 3.14807e-10*wind_mag**6)
+        C_D[high_wind] = 2.34e-3
     tau = C_D*rho_air*wind_mag
     tau_x = tau*wind_u
     tau_y = tau*wind_v
@@ -980,7 +993,6 @@ class TidalBoundaryForcing(object):
             uv = self.vect_rotator(lon_vel, lat_vel)
             uv_data[:, 0] = uv[0]
             uv_data[:, 1] = uv[1]
-
 
 
 class TPXOTidalBoundaryForcing(TidalBoundaryForcing):
