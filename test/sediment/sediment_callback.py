@@ -69,7 +69,7 @@ class SedimentTotalMassConservation2DCallback(DiagnosticCallback):
         scalar_func = self.solver_obj.fields[sediment_name]
 
         # calculate total depth
-        term = self.solver_obj.eq_sediment.terms['SedimentAdvectionTerm']
+        term = self.solver_obj.equations.sediment.terms['SedimentAdvectionTerm']
         H = term.depth.get_total_depth(eta)
 
         # normal
@@ -121,7 +121,7 @@ class SedimentTotalMassConservation2DCallback(DiagnosticCallback):
         scalar_func = self.solver_obj.fields[sediment_name]
 
         # calculate total depth
-        term = self.solver_obj.eq_sediment.terms['ConservativeSedimentAdvectionTerm']
+        term = self.solver_obj.equations.sediment.terms['ConservativeSedimentAdvectionTerm']
         H = term.depth.get_total_depth(eta)
 
         # normal

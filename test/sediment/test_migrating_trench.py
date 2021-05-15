@@ -13,7 +13,6 @@ Tests the implementation of the sediment model and corrective_velocity_factor
 from thetis import *
 import pytest
 
-import numpy as np
 import os
 
 from sediment_callback import SedimentTotalMassConservation2DCallback
