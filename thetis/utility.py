@@ -210,13 +210,11 @@ def create_directory(path, comm=COMM_WORLD):
     return path
 
 
-def get_facet_mask(function_space, mode='geometric', facet='bottom'):
+def get_facet_mask(function_space, facet='bottom'):
     """
     Returns the top/bottom nodes of extruded 3D elements.
 
     :arg function_space: Firedrake :class:`FunctionSpace` object
-    :kwarg str mode: 'topological', to retrieve nodes that lie on the facet, or
-        'geometric' for nodes whose basis functions do not vanish on the facet.
     :kwarg str facet: 'top' or 'bottom'
 
     .. note::
@@ -224,7 +222,7 @@ def get_facet_mask(function_space, mode='geometric', facet='bottom'):
         Here we assume that the mesh has been extruded upwards (along positive
         z axis).
     """
-    section, iset, facets = function_space.cell_boundary_masks[mode]
+    section, iset, facets = function_space.cell_boundary_masks
     ifacet = -2 if facet == 'bottom' else -1
     off = section.getOffset(facets[ifacet])
     dof = section.getDof(facets[ifacet])
@@ -266,7 +264,7 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, z_stretch_fact=1.0,
         for i, v in enumerate(min_depth):
             min_depth_arr[i] = v
 
-    nodes = get_facet_mask(fs_3d, 'geometric', 'bottom')
+    nodes = get_facet_mask(fs_3d, 'bottom')
     idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
     min_depth_op2 = op2.Global(len(min_depth_arr), min_depth_arr, name='min_depth')
     kernel = op2.Kernel("""
@@ -758,7 +756,7 @@ class Mesh3DConsistencyCalculator(object):
         self.fs_3d = self.solver_obj.function_spaces.P1DG
         assert self.output.function_space() == self.fs_3d
 
-        nodes = get_facet_mask(self.fs_3d, 'geometric', 'bottom')
+        nodes = get_facet_mask(self.fs_3d, 'bottom')
         self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
         self.kernel = op2.Kernel("""
             void my_kernel(double *output, double *z_field, int *idx) {
@@ -905,7 +903,7 @@ class ExpandFunctionTo3d(object):
         # number of nodes in vertical direction
         n_vert_nodes = self.fs_3d.finat_element.space_dimension() / self.fs_2d.finat_element.space_dimension()
 
-        nodes = get_facet_mask(self.fs_3d, 'geometric', 'bottom')
+        nodes = get_facet_mask(self.fs_3d, 'bottom')
         self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
         self.kernel = op2.Kernel("""
             void my_kernel(double *func, double *func2d, int *idx) {
@@ -1028,10 +1026,10 @@ class SubFunctionExtractor(object):
 
         assert elem_facet in ['top', 'bottom', 'average'], 'Unsupported elem_facet: {:}'.format(elem_facet)
         if elem_facet == 'average':
-            nodes = np.hstack((get_facet_mask(self.fs_3d, 'geometric', 'bottom'),
-                               get_facet_mask(self.fs_3d, 'geometric', 'top')))
+            nodes = np.hstack((get_facet_mask(self.fs_3d, 'bottom'),
+                               get_facet_mask(self.fs_3d, 'top')))
         else:
-            nodes = get_facet_mask(self.fs_3d, 'geometric', elem_facet)
+            nodes = get_facet_mask(self.fs_3d, elem_facet)
         if boundary == 'top':
             self.iter_domain = op2.ON_TOP
         elif boundary == 'bottom':
@@ -1414,7 +1412,7 @@ class ALEMeshUpdater(object):
         # number of nodes in vertical direction
         n_vert_nodes = self.fs_3d.finat_element.space_dimension() / self.fs_2d.finat_element.space_dimension()
 
-        nodes = get_facet_mask(self.fs_3d, 'geometric', 'bottom')
+        nodes = get_facet_mask(self.fs_3d, 'bottom')
         self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
         self.kernel_z_coord = op2.Kernel("""
             void my_kernel(double *z_coord_3d, double *z_ref_3d, double *elev_2d, double *bath_2d, int *idx) {

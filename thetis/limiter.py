@@ -146,8 +146,8 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         if not self.is_2d:
             # Add nodal values from surface/bottom boundaries
             # NOTE calling firedrake par_loop with measure=ds_t raises an error
-            bottom_nodes = get_facet_mask(self.P1CG, 'geometric', 'bottom')
-            top_nodes = get_facet_mask(self.P1CG, 'geometric', 'top')
+            bottom_nodes = get_facet_mask(self.P1CG, 'bottom')
+            top_nodes = get_facet_mask(self.P1CG, 'top')
             bottom_idx = op2.Global(len(bottom_nodes), bottom_nodes, dtype=np.int32, name='node_idx')
             top_idx = op2.Global(len(top_nodes), top_nodes, dtype=np.int32, name='node_idx')
             code = """
