@@ -610,100 +610,111 @@ class FlowSolver(FrozenClass):
         self.depth = DepthExpression(self.fields.bathymetry_2d,
                                      use_nonlinear_equations=self.options.use_nonlinear_equations)
 
-        self.eq_sw = shallowwater_eq.ModeSplit2DEquations(
+        self.equations = AttrDict()
+        self.equations.sw = shallowwater_eq.ModeSplit2DEquations(
             self.fields.solution_2d.function_space(),
             self.depth, self.options)
 
         expl_bottom_friction = self.options.use_bottom_friction and not self.options.use_implicit_vertical_diffusion
-        self.eq_momentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
-                                                        bathymetry=self.fields.bathymetry_2d.view_3d,
-                                                        v_elem_size=self.fields.v_elem_size_3d,
-                                                        h_elem_size=self.fields.h_elem_size_3d,
-                                                        use_nonlinear_equations=self.options.use_nonlinear_equations,
-                                                        use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
-                                                        use_bottom_friction=expl_bottom_friction,
-                                                        sipg_factor=self.options.sipg_factor,
-                                                        sipg_factor_vertical=self.options.sipg_factor_vertical)
+        self.equations.momentum = momentum_eq.MomentumEquation(
+            self.fields.uv_3d.function_space(),
+            bathymetry=self.fields.bathymetry_2d.view_3d,
+            v_elem_size=self.fields.v_elem_size_3d,
+            h_elem_size=self.fields.h_elem_size_3d,
+            use_nonlinear_equations=self.options.use_nonlinear_equations,
+            use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
+            use_bottom_friction=expl_bottom_friction,
+            sipg_factor=self.options.sipg_factor,
+            sipg_factor_vertical=self.options.sipg_factor_vertical)
         if self.options.use_implicit_vertical_diffusion:
-            self.eq_vertmomentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
-                                                                bathymetry=self.fields.bathymetry_2d.view_3d,
-                                                                v_elem_size=self.fields.v_elem_size_3d,
-                                                                h_elem_size=self.fields.h_elem_size_3d,
-                                                                use_nonlinear_equations=False,
-                                                                use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
-                                                                use_bottom_friction=self.options.use_bottom_friction,
-                                                                sipg_factor=self.options.sipg_factor,
-                                                                sipg_factor_vertical=self.options.sipg_factor_vertical)
+            self.equations.vertmomentum = momentum_eq.MomentumEquation(
+                self.fields.uv_3d.function_space(),
+                bathymetry=self.fields.bathymetry_2d.view_3d,
+                v_elem_size=self.fields.v_elem_size_3d,
+                h_elem_size=self.fields.h_elem_size_3d,
+                use_nonlinear_equations=False,
+                use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
+                use_bottom_friction=self.options.use_bottom_friction,
+                sipg_factor=self.options.sipg_factor,
+                sipg_factor_vertical=self.options.sipg_factor_vertical)
         if self.options.solve_salinity:
-            self.eq_salt = tracer_eq.TracerEquation(self.fields.salt_3d.function_space(),
-                                                    bathymetry=self.fields.bathymetry_2d.view_3d,
-                                                    v_elem_size=self.fields.v_elem_size_3d,
-                                                    h_elem_size=self.fields.h_elem_size_3d,
-                                                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                                                    use_symmetric_surf_bnd=self.options.element_family == 'dg-dg',
-                                                    sipg_factor=self.options.sipg_factor_tracer,
-                                                    sipg_factor_vertical=self.options.sipg_factor_vertical_tracer)
+            self.equations.salt = tracer_eq.TracerEquation(
+                self.fields.salt_3d.function_space(),
+                bathymetry=self.fields.bathymetry_2d.view_3d,
+                v_elem_size=self.fields.v_elem_size_3d,
+                h_elem_size=self.fields.h_elem_size_3d,
+                use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                use_symmetric_surf_bnd=self.options.element_family == 'dg-dg',
+                sipg_factor=self.options.sipg_factor_tracer,
+                sipg_factor_vertical=self.options.sipg_factor_vertical_tracer)
             if self.options.use_implicit_vertical_diffusion:
-                self.eq_salt_vdff = tracer_eq.TracerEquation(self.fields.salt_3d.function_space(),
-                                                             bathymetry=self.fields.bathymetry_2d.view_3d,
-                                                             v_elem_size=self.fields.v_elem_size_3d,
-                                                             h_elem_size=self.fields.h_elem_size_3d,
-                                                             use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                                                             sipg_factor=self.options.sipg_factor_tracer,
-                                                             sipg_factor_vertical=self.options.sipg_factor_vertical_tracer)
+                self.equations.salt_vdff = tracer_eq.TracerEquation(
+                    self.fields.salt_3d.function_space(),
+                    bathymetry=self.fields.bathymetry_2d.view_3d,
+                    v_elem_size=self.fields.v_elem_size_3d,
+                    h_elem_size=self.fields.h_elem_size_3d,
+                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                    sipg_factor=self.options.sipg_factor_tracer,
+                    sipg_factor_vertical=self.options.sipg_factor_vertical_tracer)
 
         if self.options.solve_temperature:
-            self.eq_temp = tracer_eq.TracerEquation(self.fields.temp_3d.function_space(),
-                                                    bathymetry=self.fields.bathymetry_2d.view_3d,
-                                                    v_elem_size=self.fields.v_elem_size_3d,
-                                                    h_elem_size=self.fields.h_elem_size_3d,
-                                                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                                                    use_symmetric_surf_bnd=self.options.element_family == 'dg-dg',
-                                                    sipg_factor=self.options.sipg_factor_tracer,
-                                                    sipg_factor_vertical=self.options.sipg_factor_vertical_tracer)
+            self.equations.temp = tracer_eq.TracerEquation(
+                self.fields.temp_3d.function_space(),
+                bathymetry=self.fields.bathymetry_2d.view_3d,
+                v_elem_size=self.fields.v_elem_size_3d,
+                h_elem_size=self.fields.h_elem_size_3d,
+                use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                use_symmetric_surf_bnd=self.options.element_family == 'dg-dg',
+                sipg_factor=self.options.sipg_factor_tracer,
+                sipg_factor_vertical=self.options.sipg_factor_vertical_tracer)
             if self.options.use_implicit_vertical_diffusion:
-                self.eq_temp_vdff = tracer_eq.TracerEquation(self.fields.temp_3d.function_space(),
-                                                             bathymetry=self.fields.bathymetry_2d.view_3d,
-                                                             v_elem_size=self.fields.v_elem_size_3d,
-                                                             h_elem_size=self.fields.h_elem_size_3d,
-                                                             use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                                                             sipg_factor=self.options.sipg_factor_tracer,
-                                                             sipg_factor_vertical=self.options.sipg_factor_vertical_tracer)
+                self.equations.temp_vdff = tracer_eq.TracerEquation(
+                    self.fields.temp_3d.function_space(),
+                    bathymetry=self.fields.bathymetry_2d.view_3d,
+                    v_elem_size=self.fields.v_elem_size_3d,
+                    h_elem_size=self.fields.h_elem_size_3d,
+                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                    sipg_factor=self.options.sipg_factor_tracer,
+                    sipg_factor_vertical=self.options.sipg_factor_vertical_tracer)
 
-        self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
-        self.eq_momentum.bnd_functions = self.bnd_functions['momentum']
+        self.equations.sw.bnd_functions = self.bnd_functions['shallow_water']
+        self.equations.momentum.bnd_functions = self.bnd_functions['momentum']
         if self.options.solve_salinity:
-            self.eq_salt.bnd_functions = self.bnd_functions['salt']
+            self.equations.salt.bnd_functions = self.bnd_functions['salt']
         if self.options.solve_temperature:
-            self.eq_temp.bnd_functions = self.bnd_functions['temp']
+            self.equations.temp.bnd_functions = self.bnd_functions['temp']
         if self.options.use_turbulence and self.options.turbulence_model_type == 'gls':
             if self.options.use_turbulence_advection:
                 # explicit advection equations
-                self.eq_tke_adv = tracer_eq.TracerEquation(self.fields.tke_3d.function_space(),
-                                                           bathymetry=self.fields.bathymetry_2d.view_3d,
-                                                           v_elem_size=self.fields.v_elem_size_3d,
-                                                           h_elem_size=self.fields.h_elem_size_3d,
-                                                           use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                                                           sipg_factor=self.options.sipg_factor_turb,
-                                                           sipg_factor_vertical=self.options.sipg_factor_vertical_turb)
-                self.eq_psi_adv = tracer_eq.TracerEquation(self.fields.psi_3d.function_space(),
-                                                           bathymetry=self.fields.bathymetry_2d.view_3d,
-                                                           v_elem_size=self.fields.v_elem_size_3d,
-                                                           h_elem_size=self.fields.h_elem_size_3d,
-                                                           use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                                                           sipg_factor=self.options.sipg_factor_turb,
-                                                           sipg_factor_vertical=self.options.sipg_factor_vertical_turb)
+                self.equations.tke_adv = tracer_eq.TracerEquation(
+                    self.fields.tke_3d.function_space(),
+                    bathymetry=self.fields.bathymetry_2d.view_3d,
+                    v_elem_size=self.fields.v_elem_size_3d,
+                    h_elem_size=self.fields.h_elem_size_3d,
+                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                    sipg_factor=self.options.sipg_factor_turb,
+                    sipg_factor_vertical=self.options.sipg_factor_vertical_turb)
+                self.equations.psi_adv = tracer_eq.TracerEquation(
+                    self.fields.psi_3d.function_space(),
+                    bathymetry=self.fields.bathymetry_2d.view_3d,
+                    v_elem_size=self.fields.v_elem_size_3d,
+                    h_elem_size=self.fields.h_elem_size_3d,
+                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                    sipg_factor=self.options.sipg_factor_turb,
+                    sipg_factor_vertical=self.options.sipg_factor_vertical_turb)
             # implicit vertical diffusion eqn with production terms
-            self.eq_tke_diff = turbulence.TKEEquation(self.fields.tke_3d.function_space(),
-                                                      self.turbulence_model,
-                                                      bathymetry=self.fields.bathymetry_2d.view_3d,
-                                                      v_elem_size=self.fields.v_elem_size_3d,
-                                                      h_elem_size=self.fields.h_elem_size_3d)
-            self.eq_psi_diff = turbulence.PsiEquation(self.fields.psi_3d.function_space(),
-                                                      self.turbulence_model,
-                                                      bathymetry=self.fields.bathymetry_2d.view_3d,
-                                                      v_elem_size=self.fields.v_elem_size_3d,
-                                                      h_elem_size=self.fields.h_elem_size_3d)
+            self.equations.tke_diff = turbulence.TKEEquation(
+                self.fields.tke_3d.function_space(),
+                self.turbulence_model,
+                bathymetry=self.fields.bathymetry_2d.view_3d,
+                v_elem_size=self.fields.v_elem_size_3d,
+                h_elem_size=self.fields.h_elem_size_3d)
+            self.equations.psi_diff = turbulence.PsiEquation(
+                self.fields.psi_3d.function_space(),
+                self.turbulence_model,
+                bathymetry=self.fields.bathymetry_2d.view_3d,
+                v_elem_size=self.fields.v_elem_size_3d,
+                h_elem_size=self.fields.h_elem_size_3d)
 
         # ----- Time integrators
         self.dt_mode = '3d'  # 'split'|'2d'|'3d' use constant 2d/3d dt, or split
@@ -739,7 +750,7 @@ class FlowSolver(FrozenClass):
         self.w_solver = VerticalVelocitySolver(self.fields.w_3d,
                                                tot_uv_3d,
                                                self.fields.bathymetry_2d.view_3d,
-                                               self.eq_momentum.bnd_functions)
+                                               self.equations.momentum.bnd_functions)
         self.uv_averager = VerticalIntegrator(self.fields.uv_3d,
                                               self.fields.uv_dav_3d,
                                               bottom_to_top=True,

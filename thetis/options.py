@@ -700,6 +700,31 @@ class ModelOptions2d(CommonModelOptions):
     use_supg_tracer = Bool(
         False, help="Use SUPG stabilisation in tracer advection").tag(config=True)
 
+    def __init__(self, *args, **kwargs):
+        self.tracer_metadata = {}
+        super(ModelOptions2d, self).__init__(*args, **kwargs)
+
+    def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', source=None):
+        """
+        Define a 2D tracer field
+
+        :arg label: field label used internally by Thetis, e.g. 'tracer_2d'
+        :arg name: human readable name for the tracer field, e.g. 'Tracer concentration'
+        :arg filename: file name for outputs, e.g. 'Tracer2d'
+        :kwarg shortname: short version of name, e.g. 'Tracer'
+        :kwarg unit: units for field, e.g. '-'
+        :kwarg source: associated source term
+        """
+        assert ' ' not in label, "Labels cannot contain spaces"
+        assert ' ' not in filename, "Filenames cannot contain spaces"
+        self.tracer_metadata[label] = {
+            'name': name,
+            'shortname': shortname or name,
+            'unit': unit,
+            'filename': filename,
+            'source': source,  # TODO: Validate input
+        }
+
 
 @attach_paired_options("timestepper_type",
                        PairedEnum([('LeapFrog', ExplicitTimestepperOptions3d),

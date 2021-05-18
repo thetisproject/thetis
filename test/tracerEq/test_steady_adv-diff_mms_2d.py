@@ -181,13 +181,13 @@ def run(setup, refinement, do_export=True, **options):
 
     # solve tracer advection-diffusion equation with residual source term
     ti = solver_obj.timestepper
-    ti.timesteppers.tracer.initialize(ti.fields.tracer_2d)
+    ti.timesteppers.tracer_2d.initialize(ti.fields.tracer_2d)
     if do_export:
         out_2.write(ti.fields.tracer_2d)
 
     t = 0
     while t < t_end:
-        ti.timesteppers.tracer.advance(t)
+        ti.timesteppers.tracer_2d.advance(t)
         if ti.options.use_limiter_for_tracers:
             ti.solver.tracer_limiter.apply(ti.fields.tracer_2d)
         t += solver_obj.dt
