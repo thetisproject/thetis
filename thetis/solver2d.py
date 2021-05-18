@@ -409,10 +409,10 @@ class FlowSolver2d(FrozenClass):
             self.fields.q_2d = Function(fs_q, name='q_2d')  # 2D non-hydrostatic pressure at bottom
             self.fields.w_2d = Function(self.function_spaces.H_2d, name='w_2d')  # depth-averaged vertical velocity
             # free surface equation
-            self.eq_free_surface = shallowwater_eq.FreeSurfaceEquation(
+            self.equations.fs = shallowwater_eq.FreeSurfaceEquation(
                 TestFunction(self.function_spaces.H_2d), self.function_spaces.H_2d, self.function_spaces.U_2d,
                 self.depth, self.options)
-            self.eq_free_surface.bnd_functions = self.bnd_functions['shallow_water']
+            self.equations.fs.bnd_functions = self.bnd_functions['shallow_water']
 
         self._isfrozen = True  # disallow creating new attributes
 
@@ -557,7 +557,7 @@ class FlowSolver2d(FrozenClass):
             'uv': self.fields.uv_2d,
             'volume_source': self.options.volume_source_2d,
         }
-        args = (self.eq_free_surface, self.fields.elev_2d, fields_fs, self.dt, )
+        args = (self.equations.fs, self.fields.elev_2d, fields_fs, self.dt, )
         kwargs = {
             # use default solver parameters
             'bnd_conditions': self.bnd_functions['shallow_water'],
