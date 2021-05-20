@@ -147,6 +147,23 @@ def get_functionspace(mesh, h_family, h_degree, v_family=None, v_degree=None,
     return constructor(mesh, elt, **kwargs)
 
 
+def get_extruded_base_element(ufl_element):
+    """
+    Return UFL TensorProductElement of an extruded UFL element.
+
+    In case of a non-extruded mesh, returns the element itself.
+    """
+    if isinstance(ufl_element, ufl.HDivElement):
+        ufl_element = ufl_element._element
+    if isinstance(ufl_element, ufl.MixedElement):
+        ufl_element = ufl_element.sub_elements()[0]
+    if isinstance(ufl_element, ufl.VectorElement):
+        ufl_element = ufl_element.sub_elements()[0]  # take the first component
+    if isinstance(ufl_element, ufl.EnrichedElement):
+        ufl_element = ufl_element._elements[0]
+    return ufl_element
+
+
 ElementContinuity = namedtuple("ElementContinuity", ["horizontal", "vertical"])
 """
 A named tuple describing the continuity of an element in the horizontal/vertical direction.
@@ -175,21 +192,16 @@ def element_continuity(ufl_element):
         'DQ': 'dg',
     }
 
-    if isinstance(elem, ufl.finiteelement.mixedelement.MixedElement):
-        elem = elem.sub_elements()[0]
-    if isinstance(elem, ufl.finiteelement.mixedelement.VectorElement):
-        elem = elem.sub_elements()[0]  # take the elem of first component
-    if isinstance(elem, ufl.finiteelement.enrichedelement.EnrichedElement):
-        elem = elem._elements[0]
-    if isinstance(elem, ufl.finiteelement.tensorproductelement.TensorProductElement):
-        a, b = elem.sub_elements()
-        horiz_type = elem_types[a.family()]
-        vert_type = elem_types[b.family()]
-    elif isinstance(elem, ufl.finiteelement.hdivcurl.HDivElement):
+    base_element = get_extruded_base_element(ufl_element)
+    if isinstance(elem, ufl.HDivElement):
         horiz_type = 'hdiv'
         vert_type = 'hdiv'
+    elif isinstance(base_element, ufl.TensorProductElement):
+        a, b = base_element.sub_elements()
+        horiz_type = elem_types[a.family()]
+        vert_type = elem_types[b.family()]
     else:
-        horiz_type = elem_types[elem.family()]
+        horiz_type = elem_types[base_element.family()]
         vert_type = horiz_type
     return ElementContinuity(horiz_type, vert_type)
 
@@ -222,11 +234,20 @@ def get_facet_mask(function_space, facet='bottom'):
         Here we assume that the mesh has been extruded upwards (along positive
         z axis).
     """
-    section, iset, facets = function_space.cell_boundary_masks
-    ifacet = -2 if facet == 'bottom' else -1
-    off = section.getOffset(facets[ifacet])
-    dof = section.getDof(facets[ifacet])
-    indices = iset[off:off+dof]
+    from tsfc.finatinterface import create_element as create_finat_element
+    # get base element
+    elem = get_extruded_base_element(function_space.ufl_element())
+    assert isinstance(elem, TensorProductElement), \
+        f'function space must be defined on an extruded 3D mesh: {elem}'
+    # figure out number of nodes in sub elements
+    h_elt, v_elt = elem.sub_elements()
+    nb_nodes_h = create_finat_element(h_elt).space_dimension()
+    nb_nodes_v = create_finat_element(v_elt).space_dimension()
+    # compute top/bottom facet indices
+    # extruded dimension is the inner loop in index
+    # on interval elements, the end points are the first two dofs
+    offset = 0 if facet == 'bottom' else 1
+    indices = np.arange(nb_nodes_h)*nb_nodes_v + offset
     return indices
 
 
@@ -882,18 +903,11 @@ class ExpandFunctionTo3d(object):
         self.fs_3d = self.output_3d.function_space()
 
         family_2d = self.fs_2d.ufl_element().family()
-        ufl_elem = self.fs_3d.ufl_element()
-        if isinstance(ufl_elem, ufl.VectorElement):
-            # Unwind vector
-            ufl_elem = ufl_elem.sub_elements()[0]
-        if isinstance(ufl_elem, ufl.HDivElement):
-            # RT case
-            ufl_elem = ufl_elem._element
-        if ufl_elem.family() == 'TensorProductElement':
-            # a normal tensorproduct element
-            family_3dh = ufl_elem.sub_elements()[0].family()
-            if family_2d != family_3dh:
-                raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
+        base_element_3d = get_extruded_base_element(self.fs_3d.ufl_element())
+        assert isinstance(base_element_3d, ufl.TensorProductElement)
+        family_3dh = base_element_3d.sub_elements()[0].family()
+        if family_2d != family_3dh:
+            raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
         self.do_hdiv_scaling = family_2d in ['Raviart-Thomas', 'RTCF', 'Brezzi-Douglas-Marini', 'BDMCF']
         if self.do_hdiv_scaling and elem_height is None:
             raise Exception('elem_height must be provided for HDiv spaces')
@@ -1010,16 +1024,11 @@ class SubFunctionExtractor(object):
             elem_facet = boundary
 
         family_2d = self.fs_2d.ufl_element().family()
-        elem = self.fs_3d.ufl_element()
-        if isinstance(elem, ufl.VectorElement):
-            elem = elem.sub_elements()[0]
-        if isinstance(elem, ufl.HDivElement):
-            elem = elem._element
-        if isinstance(elem, ufl.TensorProductElement):
-            # a normal tensorproduct element
-            family_3dh = elem.sub_elements()[0].family()
-            if family_2d != family_3dh:
-                raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
+        base_element_3d = get_extruded_base_element(self.fs_3d.ufl_element())
+        assert isinstance(base_element_3d, ufl.TensorProductElement)
+        family_3dh = base_element_3d.sub_elements()[0].family()
+        if family_2d != family_3dh:
+            raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
         self.do_hdiv_scaling = family_2d in ['Raviart-Thomas', 'RTCF', 'Brezzi-Douglas-Marini', 'BDMCF']
         if self.do_hdiv_scaling and elem_height is None:
             raise Exception('elem_height must be provided for HDiv spaces')
@@ -1396,18 +1405,11 @@ class ALEMeshUpdater(object):
         self.fs_2d = self.fields.elev_cg_2d.function_space()
 
         family_2d = self.fs_2d.ufl_element().family()
-        ufl_elem = self.fs_3d.ufl_element()
-        if isinstance(ufl_elem, ufl.VectorElement):
-            # Unwind vector
-            ufl_elem = ufl_elem.sub_elements()[0]
-        if isinstance(ufl_elem, ufl.HDivElement):
-            # RT case
-            ufl_elem = ufl_elem._element
-        if ufl_elem.family() == 'TensorProductElement':
-            # a normal tensorproduct element
-            family_3dh = ufl_elem.sub_elements()[0].family()
-            if family_2d != family_3dh:
-                raise Exception('2D and 3D spaces do not match: "{0:s}" != "{1:s}"'.format(family_2d, family_3dh))
+        base_element_3d = get_extruded_base_element(self.fs_3d.ufl_element())
+        assert isinstance(base_element_3d, ufl.TensorProductElement)
+        family_3dh = base_element_3d.sub_elements()[0].family()
+        if family_2d != family_3dh:
+            raise Exception('2D and 3D spaces do not match: "{0:s}" != "{1:s}"'.format(family_2d, family_3dh))
 
         # number of nodes in vertical direction
         n_vert_nodes = self.fs_3d.finat_element.space_dimension() / self.fs_2d.finat_element.space_dimension()
