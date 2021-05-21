@@ -17,16 +17,21 @@ def mesh(mesh2d):
     return utility.extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d)
 
 
-@pytest.fixture(params=["p1xp1", "P2xP2", "p1DGxp1DG", "P2DGxP2DG"])
+@pytest.fixture(params=[
+    "P1xP1", "P2xP2",
+    "P1DGxP1DG", "P2DGxP2DG",
+    "P1xP3", "P1DGxP3DG",
+    "P3xP1DG", "P3DGxP1",
+])
 def spaces(request):
-    if request.param == "p1xp1":
-        return (("CG", 1), ("CG", 1))
-    elif request.param == "P2xP2":
-        return (("CG", 2), ("CG", 2))
-    elif request.param == "p1DGxp1DG":
-        return (("DG", 1), ("DG", 1))
-    elif request.param == "P2DGxP2DG":
-        return (("DG", 2), ("DG", 2))
+    h_name, v_name = request.param.split('x')
+
+    def get_tuple(name):
+        degree = int(name[1:2])
+        family = 'DG' if 'DG' in name else 'CG'
+        return (family, degree)
+
+    return (get_tuple(h_name), get_tuple(v_name))
 
 
 @pytest.fixture
