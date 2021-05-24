@@ -19,6 +19,7 @@ __all__ = [
     "EquationOfState",
     "JackettEquationOfState",
     "LinearEquationOfState",
+    "get_horizontal_elem_size_3d",
 ]
 
 
@@ -1110,3 +1111,15 @@ class LinearEquationOfState(EquationOfState):
 
     def eval(self, s, th, p, rho0=0.0):
         return self.compute_rho(s, th, p, rho0)
+
+
+def get_horizontal_elem_size_3d(sol2d, sol3d):
+    """
+    Computes horizontal element size from the 2D mesh, then copies it on a 3D
+    field
+
+    :arg sol2d: 2D :class:`Function` for the element size field
+    :arg sol3d: 3D :class:`Function` for the element size field
+    """
+    get_horizontal_elem_size_2d(sol2d)
+    ExpandFunctionTo3d(sol2d, sol3d).solve()
