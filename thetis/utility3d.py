@@ -3,7 +3,6 @@ Utility solvers and calculators for 3D hydrostatic ocean model
 """
 from __future__ import absolute_import
 from .utility import *
-from abc import ABCMeta, abstractmethod
 
 
 __all__ = [
@@ -13,7 +12,7 @@ __all__ = [
     "DensitySolverWeak",
     "VelocityMagnitudeSolver",
     "Mesh3DConsistencyCalculator",
-    "ExpandFunctionTo3D",
+    "ExpandFunctionTo3d",
     "SubFunctionExtractor",
     "ALEMeshUpdater",
     "SmagorinskyViscosity",

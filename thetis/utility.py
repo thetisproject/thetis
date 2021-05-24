@@ -12,6 +12,7 @@ import ufl  # NOQA
 import coffee.base as ast  # NOQA
 from collections import OrderedDict, namedtuple  # NOQA
 from .field_defs import field_metadata
+from abc import ABCMeta, abstractmethod  # NOQA
 from .log import *
 
 ds_surf = ds_t
@@ -907,7 +908,7 @@ class VorticityCalculator2D(object):
     """
     def __init__(self, vorticity_2d, solver_obj, **kwargs):
         fs = vorticity_2d.function_space()
-        if element_continuity(fs.ufl_element()) != 'cg':
+        if element_continuity(fs.ufl_element()).horizontal != 'cg':
             raise NotImplementedError
         n = FacetNormal(fs.mesh())
 
@@ -919,7 +920,7 @@ class VorticityCalculator2D(object):
             + dot(perp(uv), n)*test*ds
 
         # Setup vorticity solver
-        prob = LinearVariationalProblem(a, L, omega)
+        prob = LinearVariationalProblem(a, L, vorticity_2d)
         sp = {
             'ksp_type': 'gmres',
             'ksp_gmres_restart': 20,
