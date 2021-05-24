@@ -1,6 +1,7 @@
 import pytest
 from firedrake import *
 import thetis.utility as utility
+import thetis.utility3d as utility3d
 from mpi4py import MPI
 
 comm = MPI.COMM_WORLD
@@ -40,7 +41,7 @@ def compute_hcc_metric(nelem, nlayers, slope, deform='uniform'):
 
     solver_obj.function_spaces.P1DG = P1DG
 
-    utility.Mesh3DConsistencyCalculator(solver_obj).solve()
+    utility3d.Mesh3DConsistencyCalculator(solver_obj).solve()
 
     hcc_min = f_hcc.dat.data.min()
     hcc_max = f_hcc.dat.data.max()

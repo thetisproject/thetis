@@ -3,6 +3,7 @@ Module for three dimensional baroclinic solver
 """
 from __future__ import absolute_import
 from .utility import *
+from .utility_solvers import *
 from . import shallowwater_eq
 from . import momentum_eq
 from . import tracer_eq
