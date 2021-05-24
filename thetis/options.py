@@ -681,8 +681,6 @@ class ModelOptions2d(CommonModelOptions):
         2D solver supports 'dg' or 'cg'.""").tag(config=True)
     use_supg_tracer = Bool(
         False, help="Use SUPG stabilisation in tracer advection").tag(config=True)
-    recover_vorticity = Bool(
-        False, help="Recover fluid vorticity as a P1 field").tag(config=True)
 
     def __init__(self, *args, **kwargs):
         self.tracer_metadata = {}

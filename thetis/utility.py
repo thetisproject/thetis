@@ -895,3 +895,42 @@ class DepthExpression:
         else:
             total_h = self.bathymetry_2d
         return total_h
+
+
+class VorticityCalculator2D(object):
+    """
+    Linear solver for recovering fluid vorticity.
+
+    :arg vorticity_2d: :class:`Function` to hold calculated vorticity.
+    :arg solver_obj: :class:`FlowSolver2d` object.
+    :kwargs: to be passed to the :class:`LinearVariationalSolver`.
+    """
+    def __init__(self, vorticity_2d, solver_obj, **kwargs):
+        fs = vorticity_2d.function_space()
+        if element_continuity(fs.ufl_element()) != 'cg':
+            raise NotImplementedError
+        n = FacetNormal(fs.mesh())
+
+        # Weak formulation
+        test = TestFunction(fs)
+        uv, elev = split(solver_obj.fields.solution_2d)
+        a = TrialFunction(fs)*test*dx
+        L = -inner(perp(uv), grad(test))*dx \
+            + dot(perp(uv), n)*test*ds
+
+        # Setup vorticity solver
+        prob = LinearVariationalProblem(a, L, omega)
+        sp = {
+            'ksp_type': 'gmres',
+            'ksp_gmres_restart': 20,
+            'ksp_rtol': 1.0e-05,
+            'pc_type': 'sor',
+        }
+        kwargs.setdefault('solver_parameters', sp)
+        self.solver = LinearVariationalSolver(prob, **kwargs)
+
+        if 'vorticity_2d' not in solver_obj.options.fields_to_export:
+            print_output("NOTE: 'vorticity_2d' will be calculated but not exported.")
+
+    def solve(self):
+        self.solver.solve()

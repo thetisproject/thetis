@@ -684,7 +684,6 @@ class FlowSolver2d(FrozenClass):
 
         Also evaluates all callbacks set to 'export' interval.
         """
-        self.recover_vorticity()
         self.callbacks.evaluate(mode='export')
         for e in self.exporters.values():
             e.export()
@@ -774,56 +773,6 @@ class FlowSolver2d(FrozenClass):
                                      t=self.simulation_time, e=norm_h,
                                      u=norm_u, cpu=cputime))
         sys.stdout.flush()
-
-    def setup_vorticity_recovery(self, **kwargs):
-        """
-        Create a linear solver for recovering fluid vorticity in P1 space.
-
-        :kwargs: to be passed to the :class:`LinearVariationalSolver`.
-        """
-        if not hasattr(self.fields, 'solution_2d'):
-            self.create_equations()
-        frozen = self._isfrozen
-        self._isfrozen = False
-
-        # Create a vorticity field
-        P1_2d = self.function_spaces.P1_2d
-        omega = Function(P1_2d, name='vorticity_2d')
-        self.add_new_field(omega,
-                           'vorticity_2d',
-                           'Vorticity',
-                           'Vorticity2d',
-                           unit='s-1')
-
-        # Weak formulation
-        test = TestFunction(P1_2d)
-        uv, elev = split(self.fields.solution_2d)
-        a = TrialFunction(P1_2d)*test*dx
-        L = -inner(perp(uv), grad(test))*dx \
-            + dot(perp(uv), FacetNormal(self.mesh2d))*test*ds
-
-        # Setup vorticity solver
-        prob = LinearVariationalProblem(a, L, omega)
-        sp = {
-            'ksp_type': 'gmres',
-            'ksp_gmres_restart': 20,
-            'ksp_rtol': 1.0e-05,
-            'pc_type': 'sor',
-        }
-        kwargs.setdefault('solver_parameters', sp)
-        self.vorticity_solver = LinearVariationalSolver(prob, **kwargs)
-        self._isfrozen = frozen
-
-    def recover_vorticity(self):
-        """
-        Recover fluid vorticity from fluid velocity as a P1 field.
-        """
-        if not self.options.recover_vorticity:
-            return
-        if not hasattr(self, 'vorticity_solver'):
-            self.setup_vorticity_recovery()
-            self.create_exporters()
-        self.vorticity_solver.solve()
 
     def iterate(self, update_forcings=None,
                 export_func=None):
