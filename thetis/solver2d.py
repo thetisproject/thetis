@@ -296,7 +296,7 @@ class FlowSolver2d(FrozenClass):
 
         self._isfrozen = True
 
-    def add_new_field(self, function, label, name, filename, shortname=None, unit='-'):
+    def add_new_field(self, function, label, name, filename, shortname=None, unit='-', export=True, preproc_func=None):
         """
         Add a field to :attr:`fields`.
 
@@ -306,6 +306,8 @@ class FlowSolver2d(FrozenClass):
         :arg filename: file name for outputs, e.g. 'Tracer2d'
         :kwarg shortname: short version of name, e.g. 'Tracer'
         :kwarg unit: units for field, e.g. '-'
+        :kwarg export: export the field to VTK?
+        :kwarg preproc_func: optional pre-processor function which will be called before exporting
         """
         assert ' ' not in label, "Labels cannot contain spaces"
         assert ' ' not in filename, "Filenames cannot contain spaces"
@@ -316,6 +318,14 @@ class FlowSolver2d(FrozenClass):
             'filename': filename,
         }
         self.fields[label] = function
+        if export and label not in self.options.fields_to_export:
+            self.options.fields_to_export.append(label)
+        if export:
+            if not hasattr(self, 'exporters'):
+                self.create_exporters()
+            self.exporters['vtk'].add_export(label, function, export_type='vtk', preproc_func=preproc_func)
+        elif preproc_func is not None:
+            print_output(f"NOTE: pre-processor function for {label} will be unused")
 
     def create_equations(self):
         """
