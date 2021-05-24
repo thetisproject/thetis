@@ -14,7 +14,6 @@ from . import sediment_eq_2d
 from . import exner_eq
 import weakref
 import time as time_mod
-import numpy as np
 from mpi4py import MPI
 from . import exporter
 from .field_defs import field_metadata

@@ -11,7 +11,6 @@ from . import turbulence
 from . import coupled_timeintegrator
 import thetis.limiter as limiter
 import time as time_mod
-import numpy as np
 from mpi4py import MPI
 from . import exporter
 import weakref

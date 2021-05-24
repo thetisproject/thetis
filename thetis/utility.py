@@ -1,10 +1,9 @@
 """
-Utility functions and classes common to both 2D and 3D models
+Utility functions and classes for 2D and 3D ocean models
 """
 from __future__ import absolute_import
 from firedrake import *
 import os
-import numpy as np
 import sys
 from .physical_constants import physical_constants
 from pyop2.profiling import timed_region, timed_function, timed_stage  # NOQA
