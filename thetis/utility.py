@@ -2054,12 +2054,7 @@ class DepthIntegratedPoissonSolver(object):
             func = self.bnd_functions['shallow_water'].get(bnd_marker)
             ds_bnd = ds(int(bnd_marker))
             if func is not None:  # e.g. inlet flow, TODO be more precise
-                q_is_dg = element_continuity(fs_q.ufl_element()).horizontal == 'dg'
-                if q_is_dg:
-                    bnd_method = "geometric"
-                else:
-                    bnd_method = "topological"
-                bc = DirichletBC(fs_q, 0., int(bnd_marker), method=bnd_method)
+                bc = DirichletBC(fs_q, 0., int(bnd_marker))
                 bcs.append(bc)
                 f += self.q_2d*test_q/h_star*dot(grad_hori, normal)*ds_bnd
                 f += -const*dot(self.uv_2d, normal)*test_q*ds_bnd
