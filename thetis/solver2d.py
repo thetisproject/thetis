@@ -136,6 +136,7 @@ class FlowSolver2d(FrozenClass):
 
         self.bnd_functions = {'shallow_water': {}, 'tracer': {}, 'sediment': {}}
 
+        self._field_preproc_funcs = {}
         self._isfrozen = True
 
     def compute_time_step(self, u_scale=Constant(0.0)):
@@ -296,7 +297,7 @@ class FlowSolver2d(FrozenClass):
 
         self._isfrozen = True
 
-    def add_new_field(self, function, label, name, filename, shortname=None, unit='-', export=True, preproc_func=None):
+    def add_new_field(self, function, label, name, filename, shortname=None, unit='-', preproc_func=None):
         """
         Add a field to :attr:`fields`.
 
@@ -306,7 +307,6 @@ class FlowSolver2d(FrozenClass):
         :arg filename: file name for outputs, e.g. 'Tracer2d'
         :kwarg shortname: short version of name, e.g. 'Tracer'
         :kwarg unit: units for field, e.g. '-'
-        :kwarg export: export the field to VTK?
         :kwarg preproc_func: optional pre-processor function which will be called before exporting
         """
         assert ' ' not in label, "Labels cannot contain spaces"
@@ -318,14 +318,8 @@ class FlowSolver2d(FrozenClass):
             'filename': filename,
         }
         self.fields[label] = function
-        if export and label not in self.options.fields_to_export:
-            self.options.fields_to_export.append(label)
-        if export:
-            if not hasattr(self, 'exporters'):
-                self.create_exporters()
-            self.exporters['vtk'].add_export(label, function, export_type='vtk', preproc_func=preproc_func)
-        elif preproc_func is not None:
-            print_output(f"NOTE: pre-processor function for {label} will be unused")
+        if preproc_func is not None:
+            self._field_preproc_funcs[label] = preproc_func
 
     def create_equations(self):
         """
@@ -609,7 +603,8 @@ class FlowSolver2d(FrozenClass):
                                        self.fields,
                                        field_metadata,
                                        export_type='vtk',
-                                       verbose=self.options.verbose > 0)
+                                       verbose=self.options.verbose > 0,
+                                       preproc_funcs=self._field_preproc_funcs)
             self.exporters['vtk'] = e
             hdf5_dir = os.path.join(self.options.output_directory, 'hdf5')
             e = exporter.ExportManager(hdf5_dir,
