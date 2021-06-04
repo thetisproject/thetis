@@ -413,6 +413,7 @@ class FlowSolver2d(FrozenClass):
             'atmospheric_pressure': self.options.atmospheric_pressure,
             'momentum_source': self.options.momentum_source_2d,
             'volume_source': self.options.volume_source_2d,
+            'potential_vorticity': self.fields.pv_2d,
         }
 
         args = (self.equations.sw, self.fields.solution_2d, fields, self.dt, )

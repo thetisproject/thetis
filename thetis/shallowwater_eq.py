@@ -610,6 +610,32 @@ class CoriolisTerm(ShallowWaterMomentumTerm):
         return -f
 
 
+class KineticEnergyGradientTerm(ShallowWaterMomentumTerm):
+    r"""
+    Kinetic energy gradient term, :math:`\nabla (\vert \bar{\textbf{u}} \vert^2))/2`
+
+    """
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+
+        kine = inner(uv, uv_old)/2
+        f = - kine * nabla_div(self.u_test)*self.dx
+        # TODO add boundary conditions
+
+        return -f
+
+
+class VorticityTerm(ShallowWaterMomentumTerm):
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        total_h = self.depth.get_total_depth(eta_old)
+        pv = fields['potential_vorticity']
+        assert pv is not None, 'potential vorticity must be defined'
+        skew_u_test = -uv[1]*self.u_test[0] + uv[0]*self.u_test[1]
+        f = pv * total_h * skew_u_test * dx
+        # TODO add boundary conditions
+
+        return -f
+
+
 class WindStressTerm(ShallowWaterMomentumTerm):
     r"""
     Wind stress term, :math:`-\tau_w/(H \rho_0)`
@@ -817,7 +843,9 @@ class BaseShallowWaterEquation(Equation):
         self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalViscosityTerm(*args), 'explicit')
-        self.add_term(CoriolisTerm(*args), 'explicit')
+        # self.add_term(CoriolisTerm(*args), 'explicit')
+        self.add_term(KineticEnergyGradientTerm(*args), 'explicit')
+        self.add_term(VorticityTerm(*args), 'explicit')
         self.add_term(WindStressTerm(*args), 'source')
         self.add_term(AtmosphericPressureTerm(*args), 'source')
         self.add_term(QuadraticDragTerm(*args), 'explicit')
