@@ -322,7 +322,7 @@ class FlowSolver2d(FrozenClass):
         """
         Creates shallow water equations
         """
-        if not hasattr(self, 'U_2d'):
+        if not hasattr(self.function_spaces, 'U_2d'):
             self.create_function_spaces()
         self._isfrozen = False
         # ----- fields
@@ -617,7 +617,7 @@ class FlowSolver2d(FrozenClass):
         """
         Creates function spaces, equations, time stepper and exporters
         """
-        if not hasattr(self, 'U_2d'):
+        if not hasattr(self.function_spaces, 'U_2d'):
             self.create_function_spaces()
         if not hasattr(self, 'equations'):
             self.create_equations()
