@@ -887,8 +887,11 @@ class DepthExpression:
 
 
 class VorticityCalculator2D(object):
-    """
+    r"""
     Linear solver for recovering fluid vorticity.
+
+    It is recommended that the vorticity is sought
+    in :math:`\mathbb P1` space.
 
     :arg vorticity_2d: :class:`Function` to hold calculated vorticity.
     :arg solver_obj: :class:`FlowSolver2d` object.
