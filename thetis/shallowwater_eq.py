@@ -390,7 +390,7 @@ class HUDivTerm(ShallowWaterContinuityTerm):
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.depth.get_total_depth(eta_old)
 
-        hu_by_parts = self.u_continuity in ['dg', 'hdiv']
+        hu_by_parts = self.u_continuity in ['dg']
 
         if hu_by_parts:
             f = -inner(grad(self.eta_test), total_h*uv)*self.dx
