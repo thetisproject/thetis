@@ -14,7 +14,6 @@ from . import sediment_eq_2d
 from . import exner_eq
 import weakref
 import time as time_mod
-import numpy as np
 from mpi4py import MPI
 from . import exporter
 from .field_defs import field_metadata
@@ -137,6 +136,7 @@ class FlowSolver2d(FrozenClass):
 
         self.bnd_functions = {'shallow_water': {}, 'tracer': {}, 'sediment': {}}
 
+        self._field_preproc_funcs = {}
         self._isfrozen = True
 
     def compute_time_step(self, u_scale=Constant(0.0)):
@@ -297,7 +297,7 @@ class FlowSolver2d(FrozenClass):
 
         self._isfrozen = True
 
-    def add_new_field(self, function, label, name, filename, shortname=None, unit='-'):
+    def add_new_field(self, function, label, name, filename, shortname=None, unit='-', preproc_func=None):
         """
         Add a field to :attr:`fields`.
 
@@ -307,6 +307,7 @@ class FlowSolver2d(FrozenClass):
         :arg filename: file name for outputs, e.g. 'Tracer2d'
         :kwarg shortname: short version of name, e.g. 'Tracer'
         :kwarg unit: units for field, e.g. '-'
+        :kwarg preproc_func: optional pre-processor function which will be called before exporting
         """
         assert ' ' not in label, "Labels cannot contain spaces"
         assert ' ' not in filename, "Filenames cannot contain spaces"
@@ -317,6 +318,8 @@ class FlowSolver2d(FrozenClass):
             'filename': filename,
         }
         self.fields[label] = function
+        if preproc_func is not None:
+            self._field_preproc_funcs[label] = preproc_func
 
     def create_equations(self):
         """
@@ -600,7 +603,8 @@ class FlowSolver2d(FrozenClass):
                                        self.fields,
                                        field_metadata,
                                        export_type='vtk',
-                                       verbose=self.options.verbose > 0)
+                                       verbose=self.options.verbose > 0,
+                                       preproc_funcs=self._field_preproc_funcs)
             self.exporters['vtk'] = e
             hdf5_dir = os.path.join(self.options.output_directory, 'hdf5')
             e = exporter.ExportManager(hdf5_dir,
