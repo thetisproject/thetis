@@ -35,7 +35,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self.fields = solver.fields
         self.timesteppers = AttrDict()
         print_output('Coupled time integrator: {:}'.format(self.__class__.__name__))
-        print_output('  Shallow Water time integrator: {:}'.format(self.swe_integrator.__name__))
+        if not self.options.tracer_only:
+            print_output('  Shallow Water time integrator: {:}'.format(self.swe_integrator.__name__))
         if self.options.solve_tracer:
             print_output('  Tracer time integrator: {:}'.format(self.tracer_integrator.__name__))
         if self.options.sediment_model_options.solve_suspended_sediment:
@@ -51,12 +52,27 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         Creates all time integrators with the correct arguments
         """
         self.timesteppers.swe2d = self.solver.get_swe_timestepper(self.swe_integrator)
-        if self.solver.options.solve_tracer:
-            for label in self.options.tracer_metadata:
-                self.timesteppers[label] = self.solver.get_tracer_timestepper(self.tracer_integrator, label)
-        if self.solver.options.sediment_model_options.solve_suspended_sediment:
+        if self.options.solve_tracer:
+            self.coupled = self.options.timestepper_type == 'CoupledTracerPicard'
+            if self.coupled:
+                equations, solutions, fields, bnd_conditions = {}, {}, {}, {}
+                for label in self.options.tracer_metadata:
+                    args, kwargs = self.solver_get_tracer_timestepper(self.tracer_integrator, label, coupled=True)
+                    equations[label], solutions[label], fields[label], dt = args
+                    bnd_conditions[label] = kwargs['bnd_conditions']
+                self.timesteppers.coupled_tracer = self.tracer_integrator(
+                    equations, solutions, fields, dt, bnd_conditions=bnd_conditions,
+                    solver_parameters=self.options.timestepper_options.solver_parameters_tracer,
+                    semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+                    theta=self.options.timestepper_options.implicitness_theta,
+                    iterations=self.options.timestepper_options.picard_iterations,
+                )
+            else:
+                for label in self.options.tracer_metadata:
+                    self.timesteppers[label] = self.solver.get_tracer_timestepper(self.tracer_integrator, label)
+        if self.options.sediment_model_options.solve_suspended_sediment:
             self.timesteppers.sediment = self.solver.get_sediment_timestepper(self.sediment_integrator)
-        if self.solver.options.sediment_model_options.solve_exner:
+        if self.options.sediment_model_options.solve_exner:
             self.timesteppers.exner = self.solver.get_exner_timestepper(self.exner_integrator)
 
     def set_dt(self, dt):
@@ -81,8 +97,15 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
 
         self.timesteppers.swe2d.initialize(self.fields.solution_2d)
         if self.options.solve_tracer:
-            for label in self.options.tracer_metadata:
-                self.timesteppers[label].initialize(self.fields[label])
+            if self.coupled:
+                solutions = {
+                    label: self.fields[label]
+                    for label in self.options.tracer_metadata
+                }
+                self.timesteppers.coupled_tracer.initialize(solutions)
+            else:
+                for label in self.options.tracer_metadata:
+                    self.timesteppers[label].initialize(self.fields[label])
         if self.options.sediment_model_options.solve_suspended_sediment:
             self.timesteppers.sediment.initialize(self.fields.sediment_2d)
         if self.options.sediment_model_options.solve_exner:
@@ -94,8 +117,11 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         if not self.options.tracer_only:
             self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
         if self.options.solve_tracer:
-            for label in self.options.tracer_metadata:
-                self.timesteppers[label].advance(t, update_forcings=update_forcings)
+            if self.coupled:
+                self.timesteppers.coupled_tracer.advance(t, update_forcings=update_forcings)
+            else:
+                for label in self.options.tracer_metadata:
+                    self.timesteppers[label].advance(t, update_forcings=update_forcings)
             if self.options.use_limiter_for_tracers:
                 for label in self.options.tracer_metadata:
                     self.solver.tracer_limiter.apply(self.fields[label])
