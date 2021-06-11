@@ -11,8 +11,10 @@ equation
 :eq:`tracer_eq_2d`.
 If solved in non-conservative form, the prognostic variable
 is the passive tracer concentration,
-:math:`T`. The corresponding field in Thetis is called
-``'tracer_2d'``.
+:math:`T`. By default he corresponding field in Thetis is called
+``'tracer_2d'``. An arbitrary number of custom tracer fields can
+also be defined, as detailed in
+`the multiple 2D tracer demo <demos/demo_2d_multiple_tracers.py.html>`__.
 
 A conservative tracer model is also available, given by
 :eq:`cons_tracer_eq_2d`.
