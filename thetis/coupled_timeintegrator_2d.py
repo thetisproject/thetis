@@ -51,13 +51,15 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         """
         Creates all time integrators with the correct arguments
         """
-        self.timesteppers.swe2d = self.solver.get_swe_timestepper(self.swe_integrator)
+        if not self.options.tracer_only:
+            args, kwargs = self.solver.get_swe_timestepper_setup()
+            self.timesteppers.swe2d = self.swe_integrator(*args, **kwargs)
         if self.options.solve_tracer:
             self.coupled = self.options.timestepper_type == 'CoupledTracerPicard'
             if self.coupled:
                 equations, solutions, fields, bnd_conditions = {}, {}, {}, {}
                 for label in self.options.tracer_metadata:
-                    args, kwargs = self.solver_get_tracer_timestepper(self.tracer_integrator, label, coupled=True)
+                    args, kwargs = self.solver.get_tracer_timestepper_setup(label)
                     equations[label], solutions[label], fields[label], dt = args
                     bnd_conditions[label] = kwargs['bnd_conditions']
                 self.timesteppers.coupled_tracer = self.tracer_integrator(
@@ -69,11 +71,14 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
                 )
             else:
                 for label in self.options.tracer_metadata:
-                    self.timesteppers[label] = self.solver.get_tracer_timestepper(self.tracer_integrator, label)
+                    args, kwargs = self.solver.get_tracer_timestepper_setup(label)
+                    self.timesteppers[label] = self.tracer_integrator(*args, **kwargs)
         if self.options.sediment_model_options.solve_suspended_sediment:
-            self.timesteppers.sediment = self.solver.get_sediment_timestepper(self.sediment_integrator)
+            args, kwargs = self.solver.get_sediment_timestepper()
+            self.timesteppers.sediment = self.solver.get_sediment_timestepper_setup(*args, **kwargs)
         if self.options.sediment_model_options.solve_exner:
-            self.timesteppers.exner = self.solver.get_exner_timestepper(self.exner_integrator)
+            args, kwargs = self.solver.get_exner_timestepper_setup()
+            self.timesteppers.exner = self.exner_integrator(*args, **kwargs)
 
     def set_dt(self, dt):
         """

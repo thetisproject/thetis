@@ -419,7 +419,7 @@ class FlowSolver2d(FrozenClass):
 
         self._isfrozen = True  # disallow creating new attributes
 
-    def get_swe_timestepper(self, integrator):
+    def get_swe_timestepper_setup(self):
         """
         Gets shallow water timestepper object with appropriate parameters
         """
@@ -471,9 +471,9 @@ class FlowSolver2d(FrozenClass):
             }
         else:
             kwargs['solver_parameters'] = self.options.timestepper_options.solver_parameters
-        return integrator(*args, **kwargs)
+        return args, kwargs
 
-    def get_tracer_timestepper(self, integrator, label):
+    def get_tracer_timestepper_setup(self, label):
         """
         Gets tracer timestepper object with appropriate parameters
         """
@@ -499,9 +499,9 @@ class FlowSolver2d(FrozenClass):
             kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
         if hasattr(self.options.timestepper_options, 'implicitness_theta'):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta
-        return args, kwargs if coupled else integrator(*args, **kwargs)
+        return args, kwargs
 
-    def get_sediment_timestepper(self, integrator):
+    def get_sediment_timestepper_setup(self):
         """
         Gets sediment timestepper object with appropriate parameters
         """
@@ -523,9 +523,9 @@ class FlowSolver2d(FrozenClass):
             kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
         if hasattr(self.options.timestepper_options, 'implicitness_theta'):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta
-        return integrator(*args, **kwargs)
+        return args, kwargs
 
-    def get_exner_timestepper(self, integrator):
+    def get_exner_timestepper_setup(self):
         """
         Gets exner timestepper object with appropriate parameters
         """
@@ -549,7 +549,7 @@ class FlowSolver2d(FrozenClass):
             kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
         if hasattr(self.options.timestepper_options, 'implicitness_theta'):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta
-        return integrator(*args, **kwargs)
+        return args, kwargs
 
     def get_fs_timestepper(self, integrator):
         """
