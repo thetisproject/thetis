@@ -108,6 +108,16 @@ class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
         help='number of Picard iterations to converge the nonlinearity in the equations.')
 
 
+class CoupledTracerTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
+    """Options for 2d coupled tracer time integrator"""
+    implicitness_theta = BoundedFloat(
+        default_value=0.5, bounds=[0.5, 1.0],
+        help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.').tag(config=True)
+    picard_iterations = PositiveInteger(
+        default_value=2,
+        help='number of Picard iterations to converge the nonlinearity in the equations.')
+
+
 class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
     """Options for 2d explicit time integrator"""
     solver_parameters = PETScSolverParameters({
@@ -633,6 +643,7 @@ class SedimentModelOptions(FrozenHasTraits):
                                    ('DIRK33', SemiImplicitTimestepperOptions2d),
                                    ('SteadyState', SteadyStateTimestepperOptions2d),
                                    ('PressureProjectionPicard', PressureProjectionTimestepperOptions2d),
+                                   ('CoupledTracerPicard', CoupledTracerTimestepperOptions2d),
                                    ('SSPIMEX', SemiImplicitTimestepperOptions2d),
                                    ],
                                   "timestepper_options",

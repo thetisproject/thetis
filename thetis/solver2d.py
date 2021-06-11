@@ -598,9 +598,10 @@ class FlowSolver2d(FrozenClass):
             'DIRK33': rungekutta.DIRK33UForm,
             'CrankNicolson': timeintegrator.CrankNicolson,
             'PressureProjectionPicard': timeintegrator.PressureProjectionPicard,
+            'CoupledTracerPicard': timeintegrator.CoupledTracerPicard,
             'SSPIMEX': implicitexplicit.IMEXLPUM2,
         }
-        if self.options.timestepper_type not in steppers
+        if self.options.timestepper_type not in steppers:
             raise Exception('Unknown time integrator type: {:s}'.format(self.options.timestepper_type))
         if self.options.nh_model_options.solve_nonhydrostatic_pressure:
             self.poisson_solver = DepthIntegratedPoissonSolver(
@@ -619,12 +620,14 @@ class FlowSolver2d(FrozenClass):
                 weakref.proxy(self), steppers[self.options.timestepper_type],
             )
         elif self.options.sediment_model_options.solve_suspended_sediment or self.options.sediment_model_options.solve_exner:
-            if self.options.timestepper_type in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState')
+            if self.options.timestepper_type in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState', 'CoupledTracerPicard'):
                 raise NotImplementedError("2D sediment model currently only supports SSPRK33, ForwardEuler, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
             self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
                 weakref.proxy(self), steppers[self.options.timestepper_type],
             )
         else:
+            if self.options.timestepper_type == 'CoupledTracerPicard':
+                raise NotImplementedError  # TODO: Need capability for mixed ts choices
             self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
 

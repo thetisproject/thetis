@@ -100,7 +100,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         # compatible with the 2d coupled timeintegrator
         assert solution2d == self.fields.solution_2d
 
-        self.timesteppers.swe2d.initialize(self.fields.solution_2d)
+        if not self.options.tracer_only:
+            self.timesteppers.swe2d.initialize(self.fields.solution_2d)
         if self.options.solve_tracer:
             if self.coupled:
                 solutions = {

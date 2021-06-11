@@ -164,7 +164,15 @@ def polynomial_degree(request):
     return request.param
 
 
-@pytest.fixture(params=['CrankNicolson', 'SSPRK33', 'ForwardEuler', 'BackwardEuler', 'DIRK22', 'DIRK33'])
+@pytest.fixture(params=[
+    'CrankNicolson',
+    'SSPRK33',
+    'ForwardEuler',
+    'BackwardEuler',
+    'DIRK22',
+    'DIRK33',
+    'CoupledTracerPicard',
+])
 def stepper(request):
     return request.param
 
@@ -180,7 +188,7 @@ def test_horizontal_advection(polynomial_degree, stepper, diffusivity, family):
 
 if __name__ == '__main__':
     run_convergence(polynomial_degree=1,
-                    timestepper_type='CrankNicolson',
+                    timestepper_type='CoupledTracerPicard',
                     horizontal_diffusivity=Constant(0.1),
                     tracer_element_family='cg',
                     no_exports=False)
