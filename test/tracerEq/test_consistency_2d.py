@@ -99,7 +99,15 @@ def run_tracer_consistency(constant_c=True, **model_options):
 # ---------------------------
 
 
-@pytest.fixture(params=['CrankNicolson', 'SSPRK33', 'ForwardEuler', 'BackwardEuler', 'DIRK22', 'DIRK33'])
+@pytest.fixture(params=[
+    'CrankNicolson',
+    'SSPRK33',
+    'ForwardEuler',
+    'BackwardEuler',
+    'DIRK22',
+    'DIRK33',
+    'CoupledTracerPicard',
+])
 def stepper(request):
     return request.param
 
@@ -155,4 +163,4 @@ if __name__ == '__main__':
                            solve_tracer=True,
                            use_limiter_for_tracers=False,
                            no_exports=False,
-                           timestepper_type='CrankNicolson')
+                           timestepper_type='CoupledTracerPicard')

@@ -614,20 +614,30 @@ class FlowSolver2d(FrozenClass):
                 steppers[self.options.nh_model_options.free_surface_timestepper_type]
             )
         elif self.options.solve_tracer:
-            if self.options.timestepper_type in ('PressureProjectionPicard', 'SSPIMEX')
-                raise NotImplementedError("2D tracer model currently only supports SSPRK33, ForwardEuler, SteadyState, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
-            self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
-                weakref.proxy(self), steppers[self.options.timestepper_type],
-            )
+            if self.options.timestepper_type in ('PressureProjectionPicard', 'SSPIMEX'):
+                raise NotImplementedError("2D tracer model currently only supports SSPRK33,"
+                                          + " ForwardEuler, SteadyState, BackwardEuler, DIRK22,"
+                                          + " DIRK33, CrankNicolson and CoupledTracerPicard time"
+                                          + " integrators.")
+            if self.options.timestepper_type == 'CoupledTracerPicard':
+                self.timestepper = coupled_timeintegrator_2d.CoupledTracerTimeIntegrator2D(
+                    weakref.proxy(self),
+                )
+            else:
+                self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
+                    weakref.proxy(self), steppers[self.options.timestepper_type],
+                )
         elif self.options.sediment_model_options.solve_suspended_sediment or self.options.sediment_model_options.solve_exner:
             if self.options.timestepper_type in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState', 'CoupledTracerPicard'):
-                raise NotImplementedError("2D sediment model currently only supports SSPRK33, ForwardEuler, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
+                raise NotImplementedError("2D sediment model currently only supports SSPRK33,"
+                                          + " ForwardEuler, BackwardEuler, DIRK22, DIRK33 and"
+                                          + " CrankNicolson time integrators.")
             self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
                 weakref.proxy(self), steppers[self.options.timestepper_type],
             )
         else:
             if self.options.timestepper_type == 'CoupledTracerPicard':
-                raise NotImplementedError  # TODO: Need capability for mixed ts choices
+                raise ValueError("Cannot use CoupledTracerPicard without tracers")
             self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
 

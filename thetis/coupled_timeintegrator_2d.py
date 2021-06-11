@@ -153,6 +153,19 @@ class CoupledMatchingTimeIntegrator2D(CoupledTimeIntegrator2D):
         super(CoupledMatchingTimeIntegrator2D, self).__init__(solver)
 
 
+class CoupledTracerTimeIntegrator2D(CoupledTimeIntegrator2D):
+    def __init__(self, solver):
+        if not solver.options.tracer_only:
+            self.swe_integrator = timeintegrator.CrankNicolson
+        if solver.options.solve_tracer:
+            self.tracer_integrator = timeintegrator.CoupledTracerPicard
+        if solver.options.sediment_model_options.solve_suspended_sediment:
+            self.sediment_integrator = timeintegrator.CrankNicolson
+        if solver.options.sediment_model_options.solve_exner:
+            self.exner_integrator = timeintegrator.CrankNicolson
+        super(CoupledTracerTimeIntegrator2D, self).__init__(solver)
+
+
 class CoupledCrankEuler2D(CoupledTimeIntegrator2D):
     swe_integrator = timeintegrator.CrankNicolson
     tracer_integrator = timeintegrator.ForwardEuler
