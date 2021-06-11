@@ -433,6 +433,126 @@ class PressureProjectionPicard(TimeIntegrator):
             self.fields_old[k].assign(self.fields[k])
 
 
+class CoupledTracerPicard(TimeIntegrator):
+    """
+    Picard iteration for coupled tracer equations.
+    """
+    cfl_coeff = 1.0  # FIXME what is the right value?
+
+    # TODO add more documentation
+    def __init__(self, equations, solutions, fields, dt,
+                 bnd_conditions=None, solver_parameters=None,
+                 theta=0.5, semi_implicit=False, iterations=2):
+        """
+        :arg equations: Dictionary of :class:`Equation` objects.
+        :arg solutions: Dictionary of :class:`Function` objects.
+        :arg fields: Dictionary of fields that are passed to each equation
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to each equation
+        :kwarg dict solver_parameters: PETSc solver options
+        :kwarg float theta: Implicitness parameter, default 0.5
+        :kwarg bool semi_implicit: If True use a linearized semi-implicit scheme
+        :kwarg int iterations: Number of Picard iterations
+        """
+        super(CoupledTracerPicard, self).__init__(equations, solutions, fields, dt, solver_parameters)
+        self.equations = equations
+        self.solutions = solutions
+        delattr(self, 'equation')
+        delattr(self, 'solution')
+
+        if semi_implicit:
+            self.solver_parameters.setdefault('snes_type', 'ksponly')
+        else:
+            self.solver_parameters.setdefault('snes_type', 'newtonls')
+        self.iterations = iterations
+
+        self.solutions_old = {
+            tracer: Function(equations.function_space)
+            for tracer, equation in self.equations.items()
+        }
+        if iterations > 1:
+            self.solutions_lagged = {
+                tracer: Function(equation.function_space)
+                for tracer, equation in self.equations.items()
+            }
+        else:
+            self.solutions_lagged = self.solutions_old
+
+        # Create functions to hold the values of previous time step
+        self.fields_old = {tracer: {} for tracer in self.fields}
+        for tracer, fields in self.fields.items():
+            for k in sorted(fields):
+                if fields[k] is not None:
+                    if isinstance(fields[k], Function):
+                        self.fields_old[k] = Function(
+                            fields[k].function_space())
+                    elif isinstance(fields[k], Constant):
+                        self.fields_old[k] = Constant(fields[k])
+
+        if semi_implicit:
+            solutions_nl = self.solutions_lagged
+        else:
+            solutions_nl = self.solutions
+
+        # Forms
+        theta_const = Constant(theta)
+        args = (
+            self.equations, self.solutions, self.solutions_old,
+            solutions_nl, fields, fields_old, bnd_conditions,
+        )
+        self.forms = {
+            tracer:
+                eq.mass_term(sol) - eq.mass_term(sol_old)
+                - self.dt_const*(
+                    theta_const*eq.residual('all', sol, sol_nl, f, f, bnd)
+                    + (1-theta_const)*eq.residual('all', sol_old, sol_old, f_old, f_old, bnd)
+                )
+            for eq, sol, sol_old, sol_nl, f, f_old, bnd in zip(*args)
+        }
+        self.update_solver()
+
+    def update_solver(self):
+        """Create solver objects"""
+        problems = AttrDict({
+            tracer: NonlinearVariationalProblem(F, self.solutions[tracer])
+            for tracer, F in self.forms.items()
+        })
+        if self.solver_parameters.get('pc_type') == 'lu':
+            self.solver_parameters['mat_type'] = 'aij'
+        self.solvers = {
+            tracer: NonlinearVariationalSolver(problem,
+                                               solver_parameters=self.solver_parameters,
+                                               options_prefix=self.name)
+            for tracer, problem in problems.items()
+        }
+
+    def initialize(self, solutions):
+        """Assigns initial conditions to all required fields."""
+        for tracer, solution in solutions:
+            self.solutions_old[tracer].assign(solution)
+            self.solutions_lagged[tracer].assign(solution)
+        for k in sorted(self.fields_old):
+            self.fields_old[k].assign(self.fields[k])
+
+    def advance(self, t, update_forcings=None):
+        """Advances equations for one time step."""
+        if update_forcings is not None:
+            update_forcings(t + self.dt)
+        for tracer, solution in self.solutions:
+            self.solutions_old[tracer].assign(solution)
+
+        for it in range(self.iterations):
+            if self.iterations > 1:
+                for tracer, solution in self.solutions.items():
+                    self.solutions_lagged[tracer].assign(solution)
+                    with timed_stage(f"{tracer} solve"):
+                        self.solver.solve()
+
+        # shift time
+        for k in sorted(self.fields_old):
+            self.fields_old[k].assign(self.fields[k])
+
+
 class LeapFrogAM3(TimeIntegrator):
     """
     Leap-Frog Adams-Moulton 3 ALE time integrator
