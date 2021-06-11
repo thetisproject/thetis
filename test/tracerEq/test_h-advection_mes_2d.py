@@ -28,9 +28,6 @@ def run(refinement, **model_options):
     t_init = 0.0
     t_export = (t_end - t_init)/8.0
 
-    # outputs
-    outputdir = 'outputs'
-
     # bathymetry
     P1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(P1_2d, name='Bathymetry')
@@ -44,13 +41,13 @@ def run(refinement, **model_options):
     options.use_lax_friedrichs_tracer = False
     options.horizontal_velocity_scale = Constant(abs(u))
     options.no_exports = True
-    options.output_directory = outputdir
     options.simulation_end_time = t_end
     options.simulation_export_time = t_export
     solverobj.create_function_spaces()
     corr_factor = Function(solverobj.function_spaces.H_2d, name='uv tracer factor').interpolate(Constant(1.0))
     options.tracer_advective_velocity_factor = corr_factor
     options.solve_tracer = True
+    options.tracer_only = True
     options.use_limiter_for_tracers = True
     options.fields_to_export = ['tracer_2d']
     options.update(model_options)
@@ -68,14 +65,12 @@ def run(refinement, **model_options):
 
     solverobj.create_equations()
 
-    t = t_init  # simulation time
-
     x0 = 0.3*lx
     sigma = 1600.
     xy = SpatialCoordinate(solverobj.mesh2d)
-    t_const = Constant(t)
+    t_const = Constant(t_init)
     ana_tracer_expr = exp(-(xy[0] - x0 - u*t_const)**2/sigma**2)
-    tracer_ana = Function(solverobj.function_spaces.H_2d, name='tracer analytical')
+    tracer_ana = Function(solverobj.function_spaces.Q_2d, name='tracer analytical')
     uv_init = Function(solverobj.function_spaces.U_2d, name='initial uv')
     uv_init.project(uv_expr)
     solverobj.assign_initial_conditions(uv=uv_init, tracer=ana_tracer_expr)
@@ -86,32 +81,14 @@ def run(refinement, **model_options):
 
     def export_func():
         if not options.no_exports:
-            solverobj.export()
             # update analytical solution to correct time
             t_const.assign(t)
             out_tracer_ana.write(tracer_ana.project(ana_tracer_expr))
 
-    # export initial conditions
-    export_func()
-
-    # custom time loop that solves tracer equation only
-    ti = solverobj.timestepper.timesteppers.tracer_2d
-
-    i = 0
-    iexport = 1
-    next_export_t = t + solverobj.options.simulation_export_time
-    while t < t_end - 1e-8:
-        ti.advance(t)
-        t += solverobj.dt
-        i += 1
-        if t >= next_export_t - 1e-8:
-            print_output('{:3d} i={:5d} t={:8.2f} s salt={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.tracer_2d)))
-            export_func()
-            next_export_t += solverobj.options.simulation_export_time
-            iexport += 1
+    solverobj.iterate(export_func=export_func)
 
     # project analytical solution on high order mesh
-    t_const.assign(t)
+    t_const.assign(t_end)
 
     # compute L2 norm
     l2_err = errornorm(ana_tracer_expr, solverobj.fields.tracer_2d)/numpy.sqrt(area)
@@ -181,7 +158,14 @@ def polynomial_degree(request):
     return request.param
 
 
-@pytest.fixture(params=['CrankNicolson', 'ForwardEuler', 'SSPRK33', 'DIRK22', 'DIRK33'])
+@pytest.fixture(params=[
+    'CrankNicolson',
+    'ForwardEuler',
+    'SSPRK33',
+    'DIRK22',
+    'DIRK33',
+    'CoupledTracerPicard',
+])
 def stepper(request):
     return request.param
 
@@ -197,5 +181,5 @@ def test_horizontal_advection(polynomial_degree, stepper):
 
 if __name__ == '__main__':
     run_convergence([1, 2, 3, 4], polynomial_degree=1,
-                    timestepper_type='CrankNicolson',
+                    timestepper_type='CoupledTracerPicard',
                     no_exports=False, saveplot=True)
