@@ -152,8 +152,14 @@ class VerticalIntegrator(object):
         if solver_parameters is None:
             solver_parameters = {}
         solver_parameters.setdefault('snes_type', 'ksponly')
-        if e_continuity.vertical != 'hdiv':
+        if e_continuity.horizontal == 'dg':
             solver_parameters.setdefault('ksp_type', 'preonly')
+            solver_parameters.setdefault('pc_type', 'bjacobi')
+            solver_parameters.setdefault('sub_ksp_type', 'preonly')
+            solver_parameters.setdefault('sub_pc_type', 'ilu')
+        else:
+            solver_parameters.setdefault('ksp_type', 'cg')
+            solver_parameters.setdefault('ksp_rtol', 1e-14)
             solver_parameters.setdefault('pc_type', 'bjacobi')
             solver_parameters.setdefault('sub_ksp_type', 'preonly')
             solver_parameters.setdefault('sub_pc_type', 'ilu')
@@ -196,7 +202,7 @@ class VerticalIntegrator(object):
             source = input
         self.l = inner(source, phi)*self.dx + bnd_term
         self.prob = LinearVariationalProblem(self.a, self.l, output, constant_jacobian=average)
-        self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
+        self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters, options_prefix='vert-int_' + input.name())
 
     def solve(self):
         """
