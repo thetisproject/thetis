@@ -179,7 +179,7 @@ def stepper(request):
 
 @pytest.mark.parametrize(('diffusivity'),
                          [(Constant(0.1))])
-def test_horizontal_advection(polynomial_degree, stepper, diffusivity, family):
+def test_diff_flux(polynomial_degree, stepper, diffusivity, family):
     run_convergence(polynomial_degree=polynomial_degree,
                     timestepper_type=stepper,
                     horizontal_diffusivity=diffusivity,

@@ -442,7 +442,7 @@ class CoupledTracerPicard(TimeIntegrator):
     # TODO add more documentation
     def __init__(self, equations, solutions, fields, dt,
                  bnd_conditions=None, solver_parameters=None,
-                 theta=0.5, semi_implicit=False, iterations=2):
+                 theta=0.5, semi_implicit=False, iterations=1):
         """
         :arg equations: Dictionary of :class:`Equation` objects.
         :arg solutions: Dictionary of :class:`Function` objects.
@@ -470,13 +470,6 @@ class CoupledTracerPicard(TimeIntegrator):
             tracer: Function(equation.function_space)
             for tracer, equation in self.equations.items()
         }
-        if iterations > 1:
-            self.solutions_lagged = {
-                tracer: Function(equation.function_space)
-                for tracer, equation in self.equations.items()
-            }
-        else:
-            self.solutions_lagged = self.solutions_old
 
         # Create functions to hold the values of previous time step
         self.fields_old = {tracer: {} for tracer in self.fields}
@@ -490,7 +483,7 @@ class CoupledTracerPicard(TimeIntegrator):
                         self.fields_old[tracer][k] = Constant(fields[k])
 
         if semi_implicit:
-            solutions_nl = self.solutions_lagged
+            solutions_nl = self.solutions_old
         else:
             solutions_nl = self.solutions
 
@@ -526,7 +519,6 @@ class CoupledTracerPicard(TimeIntegrator):
         """Assigns initial conditions to all required fields."""
         for tracer, solution in solutions.items():
             self.solutions_old[tracer].assign(solution)
-            self.solutions_lagged[tracer].assign(solution)
             for k in sorted(self.fields_old[tracer]):
                 self.fields_old[tracer][k].assign(self.fields[tracer][k])
 
@@ -538,11 +530,9 @@ class CoupledTracerPicard(TimeIntegrator):
             self.solutions_old[tracer].assign(solution)
 
         for it in range(self.iterations):
-            if self.iterations > 1:
-                for tracer, solution in self.solutions.items():
-                    self.solutions_lagged[tracer].assign(solution)
-                    with timed_stage(f"{tracer} solve"):
-                        self.solvers[tracer].solve()
+            for tracer, solver in self.solvers.items():
+                with timed_stage(f"{tracer} solve"):
+                    solver.solve()
 
         # shift time
         for tracer, fields in self.fields.items():
