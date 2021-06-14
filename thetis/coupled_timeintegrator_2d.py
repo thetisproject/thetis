@@ -75,7 +75,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
                     self.timesteppers[label] = self.tracer_integrator(*args, **kwargs)
         if self.options.sediment_model_options.solve_suspended_sediment:
             args, kwargs = self.solver.get_sediment_timestepper_setup()
-            self.timesteppers.sediment = self.sediment_timestepper(*args, **kwargs)
+            self.timesteppers.sediment = self.sediment_integrator(*args, **kwargs)
         if self.options.sediment_model_options.solve_exner:
             args, kwargs = self.solver.get_exner_timestepper_setup()
             self.timesteppers.exner = self.exner_integrator(*args, **kwargs)
