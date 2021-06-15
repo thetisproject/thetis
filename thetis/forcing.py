@@ -2,7 +2,6 @@
 Routines for interpolating forcing fields for the 3D solver.
 """
 from firedrake import *
-import numpy as np
 import scipy.spatial.qhull as qhull
 import thetis.timezone as timezone
 import thetis.interpolation as interpolation

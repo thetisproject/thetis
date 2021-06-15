@@ -1,6 +1,7 @@
 import pytest
 from firedrake import *
 import thetis.utility as utility
+import thetis.utility3d as utility3d
 import numpy as np
 
 
@@ -122,7 +123,7 @@ def uv_2d_x(u_2d):
                           ))
 def test_copy_3d_field_to_2d(c3d, c2d, params):
     boundary, facet, expect = params
-    utility.SubFunctionExtractor(c3d, c2d, boundary=boundary, elem_facet=facet).solve()
+    utility3d.SubFunctionExtractor(c3d, c2d, boundary=boundary, elem_facet=facet).solve()
     assert np.allclose(c2d.dat.data_ro[:], expect)
 
 
@@ -136,14 +137,14 @@ def test_copy_3d_field_to_2d(c3d, c2d, params):
                           ))
 def test_copy_3d_field_to_2d_vec(uv_3d, uv_2d, params):
     boundary, facet, expect = params
-    utility.SubFunctionExtractor(uv_3d, uv_2d, boundary=boundary, elem_facet=facet).solve()
+    utility3d.SubFunctionExtractor(uv_3d, uv_2d, boundary=boundary, elem_facet=facet).solve()
     assert np.allclose(uv_2d.dat.data_ro, expect)
 
 
 @pytest.mark.parametrize('boundary', ('top', 'bottom'))
 @pytest.mark.parametrize('facet', ('top', 'bottom', 'average'))
 def test_copy_3d_field_to_2d_x(c3d_x, c2d_x, boundary, facet):
-    utility.SubFunctionExtractor(c3d_x, c2d_x, boundary=boundary, elem_facet=facet).solve()
+    utility3d.SubFunctionExtractor(c3d_x, c2d_x, boundary=boundary, elem_facet=facet).solve()
     assert np.allclose(c2d_x.dat.data_ro.min(), 2.0)
     assert np.allclose(c2d_x.dat.data_ro.max(), 3.0)
 
@@ -151,7 +152,7 @@ def test_copy_3d_field_to_2d_x(c3d_x, c2d_x, boundary, facet):
 @pytest.mark.parametrize('boundary', ('top', 'bottom'))
 @pytest.mark.parametrize('facet', ('top', 'bottom', 'average'))
 def test_copy_3d_field_to_2d_x_vec(uv_3d_x, uv_2d_x, boundary, facet):
-    utility.SubFunctionExtractor(uv_3d_x, uv_2d_x, boundary=boundary, elem_facet=facet).solve()
+    utility3d.SubFunctionExtractor(uv_3d_x, uv_2d_x, boundary=boundary, elem_facet=facet).solve()
     assert np.allclose(uv_2d_x.dat.data_ro[:, 0].min(), 1.0)
     assert np.allclose(uv_2d_x.dat.data_ro[:, 0].max(), 2.0)
     assert np.allclose(uv_2d_x.dat.data_ro[:, 1].min(), 4.0)
@@ -159,18 +160,18 @@ def test_copy_3d_field_to_2d_x_vec(uv_3d_x, uv_2d_x, boundary, facet):
 
 
 def test_copy_2d_field_to_3d(c2d, c3d):
-    utility.ExpandFunctionTo3d(c2d, c3d).solve()
+    utility3d.ExpandFunctionTo3d(c2d, c3d).solve()
     assert np.allclose(c3d.dat.data_ro[:], 4.0)
 
 
 def test_copy_2d_field_to_3d_x(c2d_x, c3d_x):
-    utility.ExpandFunctionTo3d(c2d_x, c3d_x).solve()
+    utility3d.ExpandFunctionTo3d(c2d_x, c3d_x).solve()
     assert np.allclose(c3d_x.dat.data_ro.min(), 0.0)
     assert np.allclose(c3d_x.dat.data_ro.max(), 2.0)
 
 
 def test_copy_2d_field_to_3d_x_vec(uv_2d_x, uv_3d_x):
-    utility.ExpandFunctionTo3d(uv_2d_x, uv_3d_x).solve()
+    utility3d.ExpandFunctionTo3d(uv_2d_x, uv_3d_x).solve()
     assert np.allclose(uv_3d_x.dat.data_ro[:, 0].min(), 0.0)
     assert np.allclose(uv_3d_x.dat.data_ro[:, 0].max(), 4.0)
     assert np.allclose(uv_3d_x.dat.data_ro[:, 1].min(), 0.0)
@@ -178,7 +179,7 @@ def test_copy_2d_field_to_3d_x_vec(uv_2d_x, uv_3d_x):
 
 
 def test_copy_2d_field_to_3d_vec(uv_2d, uv_3d):
-    utility.ExpandFunctionTo3d(uv_2d, uv_3d).solve()
+    utility3d.ExpandFunctionTo3d(uv_2d, uv_3d).solve()
     assert np.allclose(uv_3d.dat.data_ro[:, 0], 4.0)
     assert np.allclose(uv_3d.dat.data_ro[:, 1], 8.0)
 

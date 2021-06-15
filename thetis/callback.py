@@ -9,7 +9,6 @@ import h5py
 from collections import defaultdict
 from .log import *
 from firedrake import *
-import numpy as np
 
 
 class CallbackManager(defaultdict):
