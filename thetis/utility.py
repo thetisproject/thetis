@@ -150,14 +150,14 @@ def get_extruded_base_element(ufl_element):
 
     In case of a non-extruded mesh, returns the element itself.
     """
+    if isinstance(ufl_element, ufl.EnrichedElement):
+        ufl_element = ufl_element._elements[0]
     if isinstance(ufl_element, ufl.HDivElement):
         ufl_element = ufl_element._element
     if isinstance(ufl_element, ufl.MixedElement):
         ufl_element = ufl_element.sub_elements()[0]
     if isinstance(ufl_element, ufl.VectorElement):
         ufl_element = ufl_element.sub_elements()[0]  # take the first component
-    if isinstance(ufl_element, ufl.EnrichedElement):
-        ufl_element = ufl_element._elements[0]
     return ufl_element
 
 
