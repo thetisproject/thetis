@@ -211,7 +211,8 @@ class ExportManager(object):
 
     """
     def __init__(self, outputdir, fields_to_export, functions, field_metadata,
-                 export_type='vtk', next_export_ix=0, verbose=False):
+                 export_type='vtk', next_export_ix=0, verbose=False,
+                 preproc_funcs={}):
         """
         :arg string outputdir: directory where files are stored
         :arg fields_to_export: list of fields to export
@@ -230,7 +231,7 @@ class ExportManager(object):
         self.functions.update(functions)
         self.field_metadata = field_metadata
         self.verbose = verbose
-        self.preproc_callbacks = {}
+        self.preproc_callbacks = preproc_funcs
         # for each field create an exporter
         self.exporters = OrderedDict()
         for key in fields_to_export:

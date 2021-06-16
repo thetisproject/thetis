@@ -14,7 +14,6 @@ from . import sediment_eq_2d
 from . import exner_eq
 import weakref
 import time as time_mod
-import numpy as np
 from mpi4py import MPI
 from . import exporter
 from .field_defs import field_metadata
@@ -137,6 +136,7 @@ class FlowSolver2d(FrozenClass):
 
         self.bnd_functions = {'shallow_water': {}, 'tracer': {}, 'sediment': {}}
 
+        self._field_preproc_funcs = {}
         self._isfrozen = True
 
     def compute_time_step(self, u_scale=Constant(0.0)):
@@ -297,7 +297,7 @@ class FlowSolver2d(FrozenClass):
 
         self._isfrozen = True
 
-    def add_new_field(self, function, label, name, filename, shortname=None, unit='-'):
+    def add_new_field(self, function, label, name, filename, shortname=None, unit='-', preproc_func=None):
         """
         Add a field to :attr:`fields`.
 
@@ -307,6 +307,7 @@ class FlowSolver2d(FrozenClass):
         :arg filename: file name for outputs, e.g. 'Tracer2d'
         :kwarg shortname: short version of name, e.g. 'Tracer'
         :kwarg unit: units for field, e.g. '-'
+        :kwarg preproc_func: optional pre-processor function which will be called before exporting
         """
         assert ' ' not in label, "Labels cannot contain spaces"
         assert ' ' not in filename, "Filenames cannot contain spaces"
@@ -317,6 +318,8 @@ class FlowSolver2d(FrozenClass):
             'filename': filename,
         }
         self.fields[label] = function
+        if preproc_func is not None:
+            self._field_preproc_funcs[label] = preproc_func
 
     def create_equations(self):
         """
@@ -327,6 +330,10 @@ class FlowSolver2d(FrozenClass):
         self._isfrozen = False
         # ----- fields
         self.fields.solution_2d = Function(self.function_spaces.V_2d, name='solution_2d')
+        # correct treatment of the split 2d functions
+        uv_2d, elev_2d = self.fields.solution_2d.split()
+        self.fields.uv_2d = uv_2d
+        self.fields.elev_2d = elev_2d
         self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
         get_horizontal_elem_size_2d(self.fields.h_elem_size_2d)
         self.set_wetting_and_drying_alpha()
@@ -395,6 +402,21 @@ class FlowSolver2d(FrozenClass):
                     depth_integrated_sediment=sediment_options.use_sediment_conservative_form, sediment_model=self.sediment_model)
             else:
                 raise NotImplementedError("Exner equation can currently only be implemented if the bathymetry is defined on a continuous space")
+
+        if self.options.nh_model_options.solve_nonhydrostatic_pressure:
+            print_output('Using non-hydrostatic pressure')
+            q_degree = self.options.polynomial_degree
+            if self.options.nh_model_options.q_degree is not None:
+                q_degree = self.options.nh_model_options.q_degree
+            fs_q = get_functionspace(self.mesh2d, 'CG', q_degree)
+            self.fields.q_2d = Function(fs_q, name='q_2d')  # 2D non-hydrostatic pressure at bottom
+            self.fields.w_2d = Function(self.function_spaces.H_2d, name='w_2d')  # depth-averaged vertical velocity
+            # free surface equation
+            self.equations.fs = shallowwater_eq.FreeSurfaceEquation(
+                TestFunction(self.function_spaces.H_2d), self.function_spaces.H_2d, self.function_spaces.U_2d,
+                self.depth, self.options)
+            self.equations.fs.bnd_functions = self.bnd_functions['shallow_water']
+
         self._isfrozen = True  # disallow creating new attributes
 
     def get_swe_timestepper(self, integrator):
@@ -417,7 +439,8 @@ class FlowSolver2d(FrozenClass):
 
         args = (self.equations.sw, self.fields.solution_2d, fields, self.dt, )
         kwargs = {'bnd_conditions': self.bnd_functions['shallow_water']}
-        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
+        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization') \
+                and self.options.timestepper_type != 'SSPIMEX':
             kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
         if hasattr(self.options.timestepper_options, 'implicitness_theta'):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta
@@ -528,6 +551,26 @@ class FlowSolver2d(FrozenClass):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta
         return integrator(*args, **kwargs)
 
+    def get_fs_timestepper(self, integrator):
+        """
+        Gets free-surface correction timestepper object with appropriate parameters
+        """
+        nh_options = self.options.nh_model_options
+        fields_fs = {
+            'uv': self.fields.uv_2d,
+            'volume_source': self.options.volume_source_2d,
+        }
+        args = (self.equations.fs, self.fields.elev_2d, fields_fs, self.dt, )
+        kwargs = {
+            # use default solver parameters
+            'bnd_conditions': self.bnd_functions['shallow_water'],
+        }
+        if hasattr(nh_options.free_surface_timestepper_options, 'use_semi_implicit_linearization'):
+            kwargs['semi_implicit'] = nh_options.free_surface_timestepper_options.use_semi_implicit_linearization
+        if hasattr(nh_options.free_surface_timestepper_options, 'implicitness_theta'):
+            kwargs['theta'] = nh_options.free_surface_timestepper_options.implicitness_theta
+        return integrator(*args, **kwargs)
+
     def create_timestepper(self):
         """
         Creates time stepper instance
@@ -561,7 +604,17 @@ class FlowSolver2d(FrozenClass):
             assert self.options.timestepper_type in steppers
         except AssertionError:
             raise Exception('Unknown time integrator type: {:s}'.format(self.options.timestepper_type))
-        if self.options.solve_tracer:
+        if self.options.nh_model_options.solve_nonhydrostatic_pressure:
+            self.poisson_solver = DepthIntegratedPoissonSolver(
+                self.fields.q_2d, self.fields.uv_2d, self.fields.w_2d,
+                self.fields.elev_2d, self.depth, self.dt, self.bnd_functions,
+                solver_parameters=self.options.nh_model_options.solver_parameters
+            )
+            self.timestepper = coupled_timeintegrator_2d.NonHydrostaticTimeIntegrator2D(
+                weakref.proxy(self), steppers[self.options.timestepper_type],
+                steppers[self.options.nh_model_options.free_surface_timestepper_type]
+            )
+        elif self.options.solve_tracer:
             try:
                 assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX')
             except AssertionError:
@@ -580,6 +633,7 @@ class FlowSolver2d(FrozenClass):
         else:
             self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
+
         self._isfrozen = True  # disallow creating new attributes
 
     def create_exporters(self):
@@ -589,10 +643,6 @@ class FlowSolver2d(FrozenClass):
         if not hasattr(self, 'timestepper'):
             self.create_timestepper()
         self._isfrozen = False
-        # correct treatment of the split 2d functions
-        uv_2d, elev_2d = self.fields.solution_2d.split()
-        self.fields.uv_2d = uv_2d
-        self.fields.elev_2d = elev_2d
         self.exporters = OrderedDict()
         if not self.options.no_exports:
             e = exporter.ExportManager(self.options.output_directory,
@@ -600,7 +650,8 @@ class FlowSolver2d(FrozenClass):
                                        self.fields,
                                        field_metadata,
                                        export_type='vtk',
-                                       verbose=self.options.verbose > 0)
+                                       verbose=self.options.verbose > 0,
+                                       preproc_funcs=self._field_preproc_funcs)
             self.exporters['vtk'] = e
             hdf5_dir = os.path.join(self.options.output_directory, 'hdf5')
             e = exporter.ExportManager(hdf5_dir,

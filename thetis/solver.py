@@ -3,6 +3,7 @@ Module for three dimensional baroclinic solver
 """
 from __future__ import absolute_import
 from .utility import *
+from .utility3d import *
 from . import shallowwater_eq
 from . import momentum_eq
 from . import tracer_eq
@@ -10,7 +11,6 @@ from . import turbulence
 from . import coupled_timeintegrator
 import thetis.limiter as limiter
 import time as time_mod
-import numpy as np
 from mpi4py import MPI
 from . import exporter
 import weakref
