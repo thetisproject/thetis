@@ -11,6 +11,8 @@ Also see `instructions for citing Firedrake <https://firedrakeproject.org/citing
 2021
 ----
 
+Bateman, M. D., Kinnaird, T. C., Hill, J., Ashurst, R. A., Mohan, J., Bateman, R. B. I., Robinson, R.: Detailing the impact of the Storegga Tsunami at Montrose, Scotland. *Boreas*, bor.12532, doi:`10.1111/bor.12532 <https://doi.org/10.1111/bor.12532>`_, 2021.
+
 Pan, W., Kramer, S. C., and Piggott, M. D.: A sigma-coordinate non-hydrostatic discontinuous finite element coastal ocean model. *Ocean Modelling*, 157:101732, doi:`10.1016/j.ocemod.2020.101732 <https://doi.org/10.1016/j.ocemod.2020.101732>`_, 2021.
 
 Rasheed, S., Warder, S. C., Plancherel, Y., and Piggott, M. D.:
