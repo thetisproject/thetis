@@ -114,7 +114,7 @@ class CoupledTracerTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
         default_value=0.5, bounds=[0.5, 1.0],
         help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.').tag(config=True)
     picard_iterations = PositiveInteger(
-        default_value=2,
+        default_value=1,
         help='number of Picard iterations to converge the nonlinearity in the equations.')
 
 
