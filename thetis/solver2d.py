@@ -604,6 +604,8 @@ class FlowSolver2d(FrozenClass):
         if self.options.timestepper_type not in steppers:
             raise Exception('Unknown time integrator type: {:s}'.format(self.options.timestepper_type))
         if self.options.nh_model_options.solve_nonhydrostatic_pressure:
+            if self.options.timestepper_type == 'CoupledTracerPicard':
+                raise ValueError("CoupledTracerPicard is not supported in non-hydostatic mode")
             self.poisson_solver = DepthIntegratedPoissonSolver(
                 self.fields.q_2d, self.fields.uv_2d, self.fields.w_2d,
                 self.fields.elev_2d, self.depth, self.dt, self.bnd_functions,
