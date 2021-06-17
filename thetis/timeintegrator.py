@@ -489,7 +489,7 @@ class CoupledTracerPicard(TimeIntegrator):
 
         # Forms
         theta_const = Constant(theta)
-        self.forms = {
+        self.forms = OrderedDict({
             tracer:
                 equation.mass_term(self.solutions[tracer]) - equation.mass_term(self.solutions_old[tracer])
                 - self.dt_const*(
@@ -497,23 +497,19 @@ class CoupledTracerPicard(TimeIntegrator):
                     + (1-theta_const)*equation.residual('all', self.solutions_old[tracer], self.solutions_old[tracer], self.fields_old[tracer], self.fields_old[tracer], bnd_conditions[tracer])
                 )
             for tracer, equation in self.equations.items()
-        }
+        })
         self.update_solver()
 
     def update_solver(self):
         """Create solver objects"""
-        problems = AttrDict({
-            tracer: NonlinearVariationalProblem(F, self.solutions[tracer])
-            for tracer, F in self.forms.items()
-        })
         if self.solver_parameters.get('pc_type') == 'lu':
             self.solver_parameters['mat_type'] = 'aij'
-        self.solvers = {
-            tracer: NonlinearVariationalSolver(problem,
+        self.solvers = OrderedDict({
+            tracer: NonlinearVariationalSolver(NonlinearVariationalProblem(F, self.solutions[tracer]),
                                                solver_parameters=self.solver_parameters,
                                                options_prefix=self.name)
-            for tracer, problem in problems.items()
-        }
+            for tracer, F in self.forms.items()
+        })
 
     def initialize(self, solutions):
         """Assigns initial conditions to all required fields."""

@@ -57,7 +57,7 @@ def run(refinement, **model_options):
     x0 = lx/2.0
     x, y = SpatialCoordinate(solverobj.mesh2d)
     tracer_expr = 0.5*(u_max + u_min) - 0.5*(u_max - u_min)*erf((x - x0)/sqrt(4*horizontal_diffusivity*t_const))
-    tracer_ana = Function(solverobj.function_spaces.H_2d, name='tracer analytical')
+    tracer_ana = Function(solverobj.function_spaces.Q_2d, name='tracer analytical')
     elev_init = Function(solverobj.function_spaces.H_2d, name='elev init')
     solverobj.assign_initial_conditions(elev=elev_init, tracer=tracer_expr)
 

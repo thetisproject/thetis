@@ -57,7 +57,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         if self.options.solve_tracer:
             self.coupled = self.options.timestepper_type == 'CoupledTracerPicard'
             if self.coupled:
-                equations, solutions, fields, bnd_conditions = {}, {}, {}, {}
+                equations, solutions, fields, bnd_conditions = OrderedDict(), {}, {}, {}
                 for label in self.options.tracer_metadata:
                     args, kwargs = self.solver.get_tracer_timestepper_setup(label)
                     equations[label], solutions[label], fields[label], dt = args

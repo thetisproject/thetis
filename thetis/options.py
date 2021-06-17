@@ -724,7 +724,8 @@ class ModelOptions2d(CommonModelOptions):
         False, help="Use SUPG stabilisation in tracer advection").tag(config=True)
 
     def __init__(self, *args, **kwargs):
-        self.tracer_metadata = {}
+        from collections import OrderedDict
+        self.tracer_metadata = OrderedDict()
         super(ModelOptions2d, self).__init__(*args, **kwargs)
 
     def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', source=None):
