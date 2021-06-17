@@ -41,7 +41,6 @@ def run(refinement, **model_options):
     options.simulation_end_time = t_end
     options.simulation_export_time = t_export
     options.solve_tracer = True
-    options.tracer_only = True
     options.use_limiter_for_tracers = True
     options.fields_to_export = ['tracer_2d']
     options.horizontal_diffusivity = Constant(horizontal_diffusivity)
@@ -50,13 +49,15 @@ def run(refinement, **model_options):
 
     solverobj.create_equations()
 
-    t_const = Constant(t_init)
+    t = t_init  # simulation time
+
+    t_const = Constant(t)
     u_max = 1.0
     u_min = -1.0
     x0 = lx/2.0
     x, y = SpatialCoordinate(solverobj.mesh2d)
     tracer_expr = 0.5*(u_max + u_min) - 0.5*(u_max - u_min)*erf((x - x0)/sqrt(4*horizontal_diffusivity*t_const))
-    tracer_ana = Function(solverobj.function_spaces.Q_2d, name='tracer analytical')
+    tracer_ana = Function(solverobj.function_spaces.H_2d, name='tracer analytical')
     elev_init = Function(solverobj.function_spaces.H_2d, name='elev init')
     solverobj.assign_initial_conditions(elev=elev_init, tracer=tracer_expr)
 
@@ -66,14 +67,35 @@ def run(refinement, **model_options):
 
     def export_func():
         if not options.no_exports:
+            solverobj.export()
             # update analytical solution to correct time
             t_const.assign(t)
             out_tracer_ana.write(tracer_ana.project(tracer_expr))
 
-    solverobj.iterate(export_func=export_func)
+    # export initial conditions
+    export_func()
+
+    # custom time loop that solves tracer equation only
+    if options.timestepper_type == 'CoupledTracerPicard':
+        ti = solverobj.timestepper.timesteppers.coupled_tracer
+    else:
+        ti = solverobj.timestepper.timesteppers.tracer_2d
+
+    i = 0
+    iexport = 1
+    next_export_t = t + solverobj.options.simulation_export_time
+    while t < t_end - 1e-8:
+        ti.advance(t)
+        t += solverobj.dt
+        i += 1
+        if t >= next_export_t - 1e-8:
+            print_output('{:3d} i={:5d} t={:8.2f} s tracer={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.tracer_2d)))
+            export_func()
+            next_export_t += solverobj.options.simulation_export_time
+            iexport += 1
 
     # project analytical solution on high order mesh
-    t_const.assign(t_end)
+    t_const.assign(t)
     # compute L2 norm
     l2_err = errornorm(tracer_expr, solverobj.fields.tracer_2d)/numpy.sqrt(area)
     print_output('L2 error {:.12f}'.format(l2_err))
@@ -161,6 +183,6 @@ def test_horizontal_diffusion(polynomial_degree, stepper, expected_rate):
 
 if __name__ == '__main__':
     run_convergence([1, 2, 4, 6, 8], polynomial_degree=1,
-                    timestepper_type='CoupledTracerPicard',
+                    timestepper_type='CrankNicolson',
                     expected_rate=1.8,
                     no_exports=False, saveplot=True)
