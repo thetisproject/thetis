@@ -213,6 +213,31 @@ class PETScSolverParameters(Dict):
         self.error(obj, value)
 
 
+class CoupledTracerImplicitness(Dict):
+    info_text = 'a dictionary of implicness values for CoupledTracerPicard'
+
+    def __init__(self, default_value=Undefined, bounds=None, **kwargs):
+        self.minval = bounds[0]
+        self.maxval = bounds[1]
+        super(CoupledTracerImplicitness, self).__init__(default_value=default_value, **kwargs)
+
+    def validate(self, obj, value):
+        if (isinstance(value, dict)
+                and all(self.minval <= theta <= self.maxval for key, theta in value.items())):
+            return value
+        self.error(obj, value)
+
+
+class CoupledTracerSemiImplicitness(Dict):
+    info_text = 'a dictionary of bools toggling semi-implicitness for CoupledTracerPicard'
+
+    def validate(self, obj, value):
+        if (isinstance(value, dict)
+                and all(isinstance(semi_implicit, bool) for key, semi_implicit in value.items())):
+            return value
+        self.error(obj, value)
+
+
 class PairedEnum(Enum):
     """A enum whose value must be in a given sequence.
 

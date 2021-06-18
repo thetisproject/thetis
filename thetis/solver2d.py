@@ -419,9 +419,9 @@ class FlowSolver2d(FrozenClass):
 
         self._isfrozen = True  # disallow creating new attributes
 
-    def get_swe_timestepper_setup(self):
+    def setup_swe_timestepper(self):
         """
-        Gets shallow water timestepper object with appropriate parameters
+        Gets parameters for shallow water timestepper
         """
         fields = {
             'linear_drag_coefficient': self.options.linear_drag_coefficient,
@@ -473,9 +473,9 @@ class FlowSolver2d(FrozenClass):
             kwargs['solver_parameters'] = self.options.timestepper_options.solver_parameters
         return args, kwargs
 
-    def get_tracer_timestepper_setup(self, label):
+    def setup_tracer_timestepper(self, label):
         """
-        Gets tracer timestepper object with appropriate parameters
+        Gets parameters for tracer timestepper
         """
         uv, elev = self.fields.solution_2d.split()
         fields = {
@@ -495,15 +495,21 @@ class FlowSolver2d(FrozenClass):
             kwargs['bnd_conditions'] = self.bnd_functions[label[:-3]]
         else:
             kwargs['bnd_conditions'] = {}
-        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
+        if (hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization_tracer')
+                and label in self.options.timestepper_options.use_semi_implicit_linearization_tracer):
+            kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization_tracer[label]
+        elif hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
             kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
-        if hasattr(self.options.timestepper_options, 'implicitness_theta'):
+        if (hasattr(self.options.timestepper_options, 'implicitness_theta_tracer') and
+                label in self.options.timestepper_options.implicitness_theta_tracer):
+            kwargs['theta'] = self.options.timestepper_options.implicitness_theta_tracer[label]
+        elif hasattr(self.options.timestepper_options, 'implicitness_theta'):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta
         return args, kwargs
 
-    def get_sediment_timestepper_setup(self):
+    def setup_sediment_timestepper(self):
         """
-        Gets sediment timestepper object with appropriate parameters
+        Gets parameters for sediment timestepper
         """
         uv, elev = self.fields.solution_2d.split()
         fields = {
@@ -525,9 +531,9 @@ class FlowSolver2d(FrozenClass):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta
         return args, kwargs
 
-    def get_exner_timestepper_setup(self):
+    def setup_exner_timestepper(self):
         """
-        Gets exner timestepper object with appropriate parameters
+        Gets parameters for Exner timestepper
         """
         uv, elev = self.fields.solution_2d.split()
         if not self.options.sediment_model_options.solve_suspended_sediment:
@@ -551,9 +557,9 @@ class FlowSolver2d(FrozenClass):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta
         return args, kwargs
 
-    def get_fs_timestepper(self, integrator):
+    def setup_fs_timestepper(self):
         """
-        Gets free-surface correction timestepper object with appropriate parameters
+        Gets parameters for free-surface correction timestepper
         """
         nh_options = self.options.nh_model_options
         fields_fs = {
@@ -569,7 +575,7 @@ class FlowSolver2d(FrozenClass):
             kwargs['semi_implicit'] = nh_options.free_surface_timestepper_options.use_semi_implicit_linearization
         if hasattr(nh_options.free_surface_timestepper_options, 'implicitness_theta'):
             kwargs['theta'] = nh_options.free_surface_timestepper_options.implicitness_theta
-        return integrator(*args, **kwargs)
+        return args, kwargs
 
     def create_timestepper(self):
         """

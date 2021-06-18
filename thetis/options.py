@@ -110,13 +110,19 @@ class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
 
 class CoupledTracerTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
     """Options for 2d coupled tracer time integrator"""
+    implicitness_theta_tracer = CoupledTracerImplicitness(
+        default_value={'tracer_2d': 0.5}, bounds=[0.5, 1.0],
+        help='implicitness parameter theta for tracer timesteppers. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.').tag(config=True)
     implicitness_theta = BoundedFloat(
         default_value=0.5, bounds=[0.5, 1.0],
-        help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.').tag(config=True)
+        help='implicitness parameter theta for other timesteppers. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.').tag(config=True)
     picard_iterations = PositiveInteger(
         default_value=1,
         help='number of Picard iterations to converge the nonlinearity in the equations.')
-
+    use_semi_implicit_linearization_tracer = CoupledTracerSemiImplicitness(
+        default_value={'tracer_2d': False}, help="Use linearized semi-implicit time integration for tracer timesteppers").tag(config=True)
+    use_semi_implicit_linearization = Bool(
+        False, help="Use linearized semi-implicit time integration for other timesteppers").tag(config=True)
 
 class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
     """Options for 2d explicit time integrator"""

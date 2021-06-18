@@ -434,12 +434,23 @@ class PressureProjectionPicard(TimeIntegrator):
 
 
 class CoupledTracerPicard(TimeIntegrator):
-    """
+    r"""
     Picard iteration for coupled tracer equations.
-    """
-    cfl_coeff = 1.0  # FIXME what is the right value?
 
-    # TODO add more documentation
+    Given an :class:`OrderedDict` of equations and an iteration count,
+    timestep each equation in sequence at each iteration. Timestepping
+    of each component is achieved using Crank-Nicolson with implictness
+    :class:`\theta`.
+
+    This :class:`TimeIntegrator` is designed for use with systems of
+    tracer equations. If the equations are all of advection-diffusion
+    type, then the order does not matter and only one iteration is
+    required. If reaction terms are included which provide couplings
+    between the equations, then the order is important and it may be
+    beneficial to take multiple iterations per timestep.
+    """
+    cfl_coeff = CFL_UNCONDITIONALLY_STABLE  # We have Crank-Nicolson in each component
+
     def __init__(self, equations, solutions, fields, dt,
                  bnd_conditions=None, solver_parameters=None,
                  theta=0.5, semi_implicit=False, iterations=1):
@@ -450,7 +461,8 @@ class CoupledTracerPicard(TimeIntegrator):
         :arg float dt: time step in seconds
         :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to each equation
         :kwarg dict solver_parameters: PETSc solver options
-        :kwarg float theta: Implicitness parameter, default 0.5
+        :kwarg theta: Implicitness parameter, which can be given as either a single value or
+            a dictionary corresponding to the different tracer fields
         :kwarg bool semi_implicit: If True use a linearized semi-implicit scheme
         :kwarg int iterations: Number of Picard iterations
         """
@@ -459,19 +471,14 @@ class CoupledTracerPicard(TimeIntegrator):
         self.solutions = solutions
         delattr(self, 'equation')
         delattr(self, 'solution')
-
-        if semi_implicit:
-            self.solver_parameters.setdefault('snes_type', 'ksponly')
-        else:
-            self.solver_parameters.setdefault('snes_type', 'newtonls')
         self.iterations = iterations
+        self.solver_parameters.setdefault('snes_type', 'newtonls')
 
+        # Create functions to hold the values of previous time step
         self.solutions_old = {
             tracer: Function(equation.function_space)
             for tracer, equation in self.equations.items()
         }
-
-        # Create functions to hold the values of previous time step
         self.fields_old = {tracer: {} for tracer in self.fields}
         for tracer, fields in self.fields.items():
             for k in sorted(fields):
@@ -482,19 +489,30 @@ class CoupledTracerPicard(TimeIntegrator):
                     elif isinstance(fields[k], Constant):
                         self.fields_old[tracer][k] = Constant(fields[k])
 
-        if semi_implicit:
-            solutions_nl = self.solutions_old
-        else:
-            solutions_nl = self.solutions
+        # Handle implicitness
+        if not isinstance(semi_implicit, dict):
+            semi_implicit = {tracer: semi_implicit for tracer in self.solutions}
+        if not isinstance(theta, dict):
+            theta = {tracer: theta for tracer in self.solutions}
+        theta_const = {tracer: Constant(theta[tracer]) for tracer in self.solutions}
+        solutions_nl = {
+            tracer: self.solutions_old[tracer] if semi_implicit[tracer] else self.solutions[tracer]
+            for tracer in self.solutions
+        }
 
         # Forms
-        theta_const = Constant(theta)
         self.forms = OrderedDict({
             tracer:
                 equation.mass_term(self.solutions[tracer]) - equation.mass_term(self.solutions_old[tracer])
                 - self.dt_const*(
-                    theta_const*equation.residual('all', self.solutions[tracer], solutions_nl[tracer], self.fields[tracer], self.fields[tracer], bnd_conditions[tracer])
-                    + (1-theta_const)*equation.residual('all', self.solutions_old[tracer], self.solutions_old[tracer], self.fields_old[tracer], self.fields_old[tracer], bnd_conditions[tracer])
+                    theta_const[tracer]*equation.residual(
+                        'all', self.solutions[tracer], solutions_nl[tracer], self.fields[tracer],
+                        self.fields[tracer], bnd_conditions[tracer],
+                    )
+                    + (1-theta_const[tracer])*equation.residual(
+                        'all', self.solutions_old[tracer], self.solutions_old[tracer],
+                        self.fields_old[tracer], self.fields_old[tracer], bnd_conditions[tracer],
+                    )
                 )
             for tracer, equation in self.equations.items()
         })

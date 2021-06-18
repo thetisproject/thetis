@@ -52,32 +52,34 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         Creates all time integrators with the correct arguments
         """
         if not self.options.tracer_only:
-            args, kwargs = self.solver.get_swe_timestepper_setup()
+            args, kwargs = self.solver.setup_swe_timestepper()
             self.timesteppers.swe2d = self.swe_integrator(*args, **kwargs)
         if self.options.solve_tracer:
             self.coupled = self.options.timestepper_type == 'CoupledTracerPicard'
             if self.coupled:
-                equations, solutions, fields, bnd_conditions = OrderedDict(), {}, {}, {}
+                equations, solutions, fields = OrderedDict(), {}, {}
+                bnd_conditions, theta, semi_implicit = {}, {}, {}
                 for label in self.options.tracer_metadata:
-                    args, kwargs = self.solver.get_tracer_timestepper_setup(label)
+                    args, kwargs = self.solver.setup_tracer_timestepper(label)
                     equations[label], solutions[label], fields[label], dt = args
                     bnd_conditions[label] = kwargs['bnd_conditions']
+                    theta[label] = kwargs['theta']
+                    semi_implicit[label] = kwargs['semi_implicit']
                 self.timesteppers.coupled_tracer = self.tracer_integrator(
                     equations, solutions, fields, dt, bnd_conditions=bnd_conditions,
                     solver_parameters=self.options.timestepper_options.solver_parameters_tracer,
-                    semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-                    theta=self.options.timestepper_options.implicitness_theta,
+                    semi_implicit=semi_implicit, theta=theta,
                     iterations=self.options.timestepper_options.picard_iterations,
                 )
             else:
                 for label in self.options.tracer_metadata:
-                    args, kwargs = self.solver.get_tracer_timestepper_setup(label)
+                    args, kwargs = self.solver.setup_tracer_timestepper(label)
                     self.timesteppers[label] = self.tracer_integrator(*args, **kwargs)
         if self.options.sediment_model_options.solve_suspended_sediment:
-            args, kwargs = self.solver.get_sediment_timestepper_setup()
+            args, kwargs = self.solver.setup_sediment_timestepper()
             self.timesteppers.sediment = self.sediment_integrator(*args, **kwargs)
         if self.options.sediment_model_options.solve_exner:
-            args, kwargs = self.solver.get_exner_timestepper_setup()
+            args, kwargs = self.solver.setup_exner_timestepper()
             self.timesteppers.exner = self.exner_integrator(*args, **kwargs)
 
     def set_dt(self, dt):
@@ -191,7 +193,8 @@ class NonHydrostaticTimeIntegrator2D(CoupledTimeIntegrator2D):
         print_output('  Free Surface time integrator: {:}'.format(fs_integrator.__name__))
         self.nh_options = solver.options.nh_model_options
         if self.nh_options.update_free_surface:
-            self.timesteppers.fs2d = self.solver.get_fs_timestepper(fs_integrator)
+            args, kwargs = self.solver.setup_fs_timestepper()
+            self.timesteppers.fs2d = fs_integrator(*args, **kwargs)
             self.elev_old = Function(self.fields.elev_2d)
         self.serial_advancing = not hasattr(self.timesteppers.swe2d, 'n_stages') \
             or self.options.timestepper_type == 'SSPIMEX'
