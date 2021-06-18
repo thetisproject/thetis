@@ -646,7 +646,7 @@ class FlowSolver2d(FrozenClass):
         else:
             if self.options.timestepper_type == 'CoupledTracerPicard':
                 raise ValueError("Cannot use CoupledTracerPicard without tracers")
-            args, kwargs = self.get_swe_timestepper_setup()
+            args, kwargs = self.setup_swe_timestepper()
             self.timestepper = steppers[self.options.timestepper_type](*args, **kwargs)
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
 
