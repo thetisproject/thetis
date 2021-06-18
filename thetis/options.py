@@ -124,6 +124,7 @@ class CoupledTracerTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
     use_semi_implicit_linearization = Bool(
         False, help="Use linearized semi-implicit time integration for other timesteppers").tag(config=True)
 
+
 class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
     """Options for 2d explicit time integrator"""
     solver_parameters = PETScSolverParameters({

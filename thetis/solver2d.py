@@ -500,8 +500,8 @@ class FlowSolver2d(FrozenClass):
             kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization_tracer[label]
         elif hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
             kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
-        if (hasattr(self.options.timestepper_options, 'implicitness_theta_tracer') and
-                label in self.options.timestepper_options.implicitness_theta_tracer):
+        if (hasattr(self.options.timestepper_options, 'implicitness_theta_tracer')
+                and label in self.options.timestepper_options.implicitness_theta_tracer):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta_tracer[label]
         elif hasattr(self.options.timestepper_options, 'implicitness_theta'):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta

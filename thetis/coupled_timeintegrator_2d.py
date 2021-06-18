@@ -144,8 +144,18 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
 
 
 class CoupledMatchingTimeIntegrator2D(CoupledTimeIntegrator2D):
+    """
+    A :class:`CoupledTimeIntegrator2D` which uses the
+    same time integrator for all components.
+    """
     def __init__(self, solver, integrator):
-        self.swe_integrator = integrator
+        """
+        :arg solver: the :class:`FlowSolver2d` object
+        :arg integrator: the time integrator to be used
+            for all equations
+        """
+        if not solver.options.tracer_only:
+            self.swe_integrator = integrator
         if solver.options.solve_tracer:
             self.tracer_integrator = integrator
         if solver.options.sediment_model_options.solve_suspended_sediment:
@@ -156,7 +166,16 @@ class CoupledMatchingTimeIntegrator2D(CoupledTimeIntegrator2D):
 
 
 class CoupledTracerTimeIntegrator2D(CoupledTimeIntegrator2D):
+    """
+    A :class:`CoupledTimeIntegrator2D` which uses a
+    Picard iteration to solve coupled tracer
+    equations and Crank-Nicolson for all other
+    components.
+    """
     def __init__(self, solver):
+        """
+        :arg solver: the :class:`FlowSolver2d` object
+        """
         if not solver.options.tracer_only:
             self.swe_integrator = timeintegrator.CrankNicolson
         if solver.options.solve_tracer:
@@ -169,6 +188,12 @@ class CoupledTracerTimeIntegrator2D(CoupledTimeIntegrator2D):
 
 
 class CoupledCrankEuler2D(CoupledTimeIntegrator2D):
+    """
+    A :class:`CoupledTimeIntegrator2D` which uses
+    Crank-Nicolson to integrate the shallow water
+    and Exner components and Forward Euler for any
+    tracer and sediment components.
+    """
     swe_integrator = timeintegrator.CrankNicolson
     tracer_integrator = timeintegrator.ForwardEuler
     sediment_integrator = timeintegrator.ForwardEuler
