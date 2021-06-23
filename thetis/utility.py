@@ -413,7 +413,7 @@ class VerticalVelocitySolver(object):
 
         # define measures with a reasonable quadrature degree
         p, q = fs.ufl_element().degree()
-        self.quad_degree = (2*p, 2*q)
+        self.quad_degree = (4, 2)  # (2*p, 2*q)
         self.dx = dx(degree=self.quad_degree)
         self.dS_h = dS_h(degree=self.quad_degree)
         self.dS_v = dS_v(degree=self.quad_degree)

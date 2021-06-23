@@ -371,12 +371,12 @@ class CommonModelOptions(FrozenConfigurable):
     name = 'Model options'
     polynomial_degree = NonNegativeInteger(1, help='Polynomial degree of elements').tag(config=True)
     element_family = Enum(
-        ['dg-dg', 'rt-dg', 'bdm-dg', 'dg-cg'],
+        ['dg-dg', 'rt-dg', 'bdm-dg', 'dg-cg', 'dg2-dg1'],
         default_value='dg-dg',
         help="""Finite element family
 
         2D solver supports 'dg-dg', 'rt-dg', 'bdm-dg', or 'dg-cg' velocity-pressure pairs.
-        3D solver supports 'dg-dg', 'rt-dg', or 'bdm-dg' velocity-pressure pairs.""").tag(config=True)
+        3D solver supports 'dg-dg', 'rt-dg', 'bdm-dg' or 'dg2-dg1' velocity-pressure pairs.""").tag(config=True)
 
     use_nonlinear_equations = Bool(True, help='Use nonlinear shallow water equations').tag(config=True)
     use_grad_div_viscosity_term = Bool(
