@@ -67,7 +67,7 @@ class TracerTerm(Term):
 
         # define measures with a reasonable quadrature degree
         p, q = self.function_space.ufl_element().degree()
-        self.quad_degree = (2*p + 1, 2*q + 1)
+        self.quad_degree = (4, 4)  # (2*p + 1, 2*q + 1)
         self.dx = dx(degree=self.quad_degree)
         self.dS_h = dS_h(degree=self.quad_degree)
         self.dS_v = dS_v(degree=self.quad_degree)

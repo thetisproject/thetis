@@ -406,10 +406,13 @@ class FlowSolver(FrozenClass):
             self.function_spaces.U = get_functionspace(self.mesh, hfam, h_degree, 'DG', self.options.polynomial_degree, name='U', hdiv=True)
             self.function_spaces.W = get_functionspace(self.mesh, 'DG', self.options.polynomial_degree, 'CG', self.options.polynomial_degree+1, name='W', hdiv=True)
             self.function_spaces.U_2d = get_functionspace(self.mesh2d, hfam, h_degree, name='U_2d')
-        elif self.options.element_family == 'dg-dg':
-            self.function_spaces.U = get_functionspace(self.mesh, 'DG', self.options.polynomial_degree, 'DG', self.options.polynomial_degree, name='U', vector=True)
+        elif self.options.element_family in ['dg-dg', 'dg2-dg1']:
+            h_degree = self.options.polynomial_degree
+            if self.options.element_family == 'dg2-dg1':
+                h_degree += 1
+            self.function_spaces.U = get_functionspace(self.mesh, 'DG', h_degree, 'DG', self.options.polynomial_degree, name='U', vector=True)
             self.function_spaces.W = get_functionspace(self.mesh, 'DG', self.options.polynomial_degree, 'DG', self.options.polynomial_degree, name='W', vector=True)
-            self.function_spaces.U_2d = get_functionspace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d', vector=True)
+            self.function_spaces.U_2d = get_functionspace(self.mesh2d, 'DG', h_degree, name='U_2d', vector=True)
         else:
             raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
 
@@ -637,6 +640,7 @@ class FlowSolver(FrozenClass):
                 use_bottom_friction=self.options.use_bottom_friction,
                 sipg_factor=self.options.sipg_factor,
                 sipg_factor_vertical=self.options.sipg_factor_vertical)
+        symm_surf_bnd = self.options.element_family in ['dg-dg', 'dg2-dg1']
         if self.options.solve_salinity:
             self.equations.salt = tracer_eq.TracerEquation(
                 self.fields.salt_3d.function_space(),
@@ -644,7 +648,7 @@ class FlowSolver(FrozenClass):
                 v_elem_size=self.fields.v_elem_size_3d,
                 h_elem_size=self.fields.h_elem_size_3d,
                 use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                use_symmetric_surf_bnd=self.options.element_family == 'dg-dg',
+                use_symmetric_surf_bnd=symm_surf_bnd,
                 sipg_factor=self.options.sipg_factor_tracer,
                 sipg_factor_vertical=self.options.sipg_factor_vertical_tracer)
             if self.options.use_implicit_vertical_diffusion:
@@ -664,7 +668,7 @@ class FlowSolver(FrozenClass):
                 v_elem_size=self.fields.v_elem_size_3d,
                 h_elem_size=self.fields.h_elem_size_3d,
                 use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                use_symmetric_surf_bnd=self.options.element_family == 'dg-dg',
+                use_symmetric_surf_bnd=symm_surf_bnd,
                 sipg_factor=self.options.sipg_factor_tracer,
                 sipg_factor_vertical=self.options.sipg_factor_vertical_tracer)
             if self.options.use_implicit_vertical_diffusion:
