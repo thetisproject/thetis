@@ -89,14 +89,14 @@ class DiagnosticHDF5(object):
                 if include_time:
                     hdf5file.create_dataset('time', (0, 1),
                                             maxshape=(None, 1), dtype=dtype)
+                dim_list = array_dim
+                if isinstance(dim_list, tuple):
+                    dim_list = list(dim_list)
+                elif not isinstance(dim_list, list):
+                    dim_list = list([dim_list])
+                shape = tuple([0] + dim_list)
+                max_shape = tuple([None] + dim_list)
                 for var in self.varnames:
-                    dim_list = array_dim
-                    if isinstance(dim_list, tuple):
-                        dim_list = list(array_dim)
-                    elif not isinstance(dim_list, list):
-                        dim_list = list([array_dim])
-                    shape = tuple([0] + dim_list)
-                    max_shape = tuple([None] + dim_list)
                     hdf5file.create_dataset(var, shape,
                                             maxshape=max_shape, dtype=dtype)
                 if attrs is not None:
@@ -903,8 +903,8 @@ class TransectCallback(DiagnosticCallback):
             By default solver's output directory is used.
         :kwarg bool export_to_hdf5: If True, diagnostics will be stored in hdf5
             format
-        :kwarg bool append_to_log: If True, callback output messages will be
-            printed in log
+        :kwarg bool append_to_log: If True, will print extracted min/max values
+            of each field to log
         """
         assert export_to_hdf5 is True
         self.fieldnames = fieldnames
@@ -999,22 +999,21 @@ class TransectCallback(DiagnosticCallback):
             except PointNotInDomainError as e:
                 error('{:}: Cannot evaluate data on transect {:}'.format(self.__class__.__name__, self.location_name))
                 raise e
+            # arr has shape (nxy, nz, ncomponents)
             shape = list(self.value_shape) + [field_dim]
             arr = np.array(vals).reshape(shape)
-            if field_dim == 3:
-                outvals.extend([arr[..., 0], arr[..., 1], arr[..., 2]])
-            elif field_dim == 2:
-                outvals.extend([arr[..., 0], arr[..., 1]])
-            else:
-                outvals.extend([arr[..., 0]])
+            # convert to list of components [(nxy, nz) , ...]
+            components = [arr[..., i] for i in range(arr.shape[-1])]
+            outvals.extend(components)
         return tuple(outvals)
 
     def message_str(self, *args):
         out = 'Evaluated transect "{:}":\n'.format(self.location_name)
+        lines = []
         for fieldname, arr in zip(self.variable_names[1:], args[1:]):
             minval = arr.min()
             maxval = arr.max()
-            out += '  {:} range: {:.3g} - {:.3g}\n'.format(
-                fieldname, minval, maxval)
-        out = out[:-1]  # suppress last line break
+            line = f'  {fieldname} range: {minval:.3g} - {maxval:.3g}'
+            lines.append(line)
+        out += '\n'.join(lines)
         return out
