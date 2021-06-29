@@ -468,13 +468,8 @@ class FlowSolver2d(FrozenClass):
             'volume_source': self.options.volume_source_2d,
         }
 
-        args = (self.equations.sw, self.fields.solution_2d, fields, self.dt, )
+        args = (self.equations.sw, self.fields.solution_2d, fields, self.dt, self.options.timestepper_options)
         kwargs = {'bnd_conditions': self.bnd_functions['shallow_water']}
-        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization') \
-                and self.options.timestepper_type != 'SSPIMEX':
-            kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
-        if hasattr(self.options.timestepper_options, 'implicitness_theta'):
-            kwargs['theta'] = self.options.timestepper_options.implicitness_theta
         if self.options.timestepper_type == 'PressureProjectionPicard':
             # TODO: Probably won't work in coupled mode
             u_test = TestFunction(self.function_spaces.U_2d)
@@ -484,22 +479,7 @@ class FlowSolver2d(FrozenClass):
                 options=self.options
             )
             self.equations.mom.bnd_functions = self.bnd_functions['shallow_water']
-            args = (self.equations.sw, self.equations.mom, self.fields.solution_2d, fields, self.dt, )
-            kwargs['solver_parameters'] = self.options.timestepper_options.solver_parameters_pressure
-            kwargs['solver_parameters_mom'] = self.options.timestepper_options.solver_parameters_momentum
-            kwargs['iterations'] = self.options.timestepper_options.picard_iterations
-        elif self.options.timestepper_type == 'SSPIMEX':
-            # TODO meaningful solver params
-            kwargs['solver_parameters'] = {
-                'ksp_type': 'gmres',
-                'pc_type': 'fieldsplit',
-                'pc_fieldsplit_type': 'multiplicative',
-            }
-            kwargs['solver_parameters_dirk'] = {
-                'ksp_type': 'gmres',
-                'pc_type': 'fieldsplit',
-                'pc_fieldsplit_type': 'multiplicative',
-            }
+            args = (self.equations.sw, self.equations.mom, self.fields.solution_2d, fields, self.dt, self.options.timestepper_options)
         else:
             kwargs['solver_parameters'] = self.options.timestepper_options.solver_parameters
         return integrator(*args, **kwargs)
@@ -518,7 +498,7 @@ class FlowSolver2d(FrozenClass):
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }
 
-        args = (self.equations[label], self.fields[label], fields, self.dt, )
+        args = (self.equations[label], self.fields[label], fields, self.dt, self.options.timestepper_options)
         kwargs = dict(solver_parameters=self.options.timestepper_options.solver_parameters_tracer)
         if label in self.bnd_functions:
             kwargs['bnd_conditions'] = self.bnd_functions[label]
@@ -526,10 +506,6 @@ class FlowSolver2d(FrozenClass):
             kwargs['bnd_conditions'] = self.bnd_functions[label[:-3]]
         else:
             kwargs['bnd_conditions'] = {}
-        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
-            kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
-        if hasattr(self.options.timestepper_options, 'implicitness_theta'):
-            kwargs['theta'] = self.options.timestepper_options.implicitness_theta
         return integrator(*args, **kwargs)
 
     def get_sediment_timestepper(self, integrator):
@@ -545,15 +521,11 @@ class FlowSolver2d(FrozenClass):
             'tracer_advective_velocity_factor': self.sediment_model.get_advective_velocity_correction_factor(),
         }
 
-        args = (self.equations.sediment, self.fields.sediment_2d, fields, self.dt, )
+        args = (self.equations.sediment, self.fields.sediment_2d, fields, self.dt, self.options.timestepper_options)
         kwargs = {
             'bnd_conditions': self.bnd_functions['sediment'],
             'solver_parameters': self.options.timestepper_options.solver_parameters_sediment,
         }
-        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
-            kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
-        if hasattr(self.options.timestepper_options, 'implicitness_theta'):
-            kwargs['theta'] = self.options.timestepper_options.implicitness_theta
         return integrator(*args, **kwargs)
 
     def get_exner_timestepper(self, integrator):
@@ -570,36 +542,27 @@ class FlowSolver2d(FrozenClass):
             'porosity': self.options.sediment_model_options.porosity,
         }
 
-        args = (self.equations.exner, self.fields.bathymetry_2d, fields, self.dt, )
+        args = (self.equations.exner, self.fields.bathymetry_2d, fields, self.dt, self.options.timestepper_options)
         kwargs = {
             # only pass SWE bcs, used to determine closed boundaries in bedload term
             'bnd_conditions': self.bnd_functions['shallow_water'],
             'solver_parameters': self.options.timestepper_options.solver_parameters_exner,
         }
-        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
-            kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
-        if hasattr(self.options.timestepper_options, 'implicitness_theta'):
-            kwargs['theta'] = self.options.timestepper_options.implicitness_theta
         return integrator(*args, **kwargs)
 
     def get_fs_timestepper(self, integrator):
         """
         Gets free-surface correction timestepper object with appropriate parameters
         """
-        nh_options = self.options.nh_model_options
         fields_fs = {
             'uv': self.fields.uv_2d,
             'volume_source': self.options.volume_source_2d,
         }
-        args = (self.equations.fs, self.fields.elev_2d, fields_fs, self.dt, )
+        args = (self.equations.fs, self.fields.elev_2d, fields_fs, self.dt, self.options.nh_model_options.free_surface_timestepper_options)
         kwargs = {
             # use default solver parameters
             'bnd_conditions': self.bnd_functions['shallow_water'],
         }
-        if hasattr(nh_options.free_surface_timestepper_options, 'use_semi_implicit_linearization'):
-            kwargs['semi_implicit'] = nh_options.free_surface_timestepper_options.use_semi_implicit_linearization
-        if hasattr(nh_options.free_surface_timestepper_options, 'implicitness_theta'):
-            kwargs['theta'] = nh_options.free_surface_timestepper_options.implicitness_theta
         return integrator(*args, **kwargs)
 
     def create_timestepper(self):
