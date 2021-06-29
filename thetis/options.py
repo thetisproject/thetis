@@ -124,6 +124,21 @@ class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
     }).tag(config=True)
 
 
+class IMEXTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
+    """Options for 2d implicit-explicit time integrators"""
+    # TODO: Meaningful solver parameters
+    solver_parameters = PETScSolverParameters({
+        'ksp_type': 'gmres',
+        'pc_type': 'fieldsplit',
+        'pc_fieldsplit_type': 'multiplicative',
+    }).tag(config=True)
+    solver_parameters_dirk = PETScSolverParameters({
+        'ksp_type': 'gmres',
+        'pc_type': 'fieldsplit',
+        'pc_fieldsplit_type': 'multiplicative',
+    }).tag(config=True)
+
+
 class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
     """Base class for all 3d time stepper options"""
     solver_parameters_2d_swe = PETScSolverParameters({
@@ -633,7 +648,7 @@ class SedimentModelOptions(FrozenHasTraits):
                                    ('DIRK33', SemiImplicitTimestepperOptions2d),
                                    ('SteadyState', SteadyStateTimestepperOptions2d),
                                    ('PressureProjectionPicard', PressureProjectionTimestepperOptions2d),
-                                   ('SSPIMEX', SemiImplicitTimestepperOptions2d),
+                                   ('SSPIMEX', IMEXTimestepperOptions2d),
                                    ],
                                   "timestepper_options",
                                   default_value='CrankNicolson',
