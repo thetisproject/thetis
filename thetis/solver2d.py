@@ -338,7 +338,8 @@ class FlowSolver2d(FrozenClass):
         assert shortname is None or isinstance(shortname, str)
         assert isinstance(unit, str)
         assert preproc_func is None or callable(preproc_func)
-        assert label not in self.fields, f"Field {label} already exists"
+        if label in self.fields:
+            print_output(f"Field {label} already exists. It will be overwritten.")
         assert ' ' not in label, "Labels cannot contain spaces"
         assert ' ' not in filename, "Filenames cannot contain spaces"
         field_metadata[label] = {
