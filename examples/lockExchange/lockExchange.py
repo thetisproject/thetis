@@ -181,7 +181,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
         solver_obj.add_callback(RPECalculator(solver_obj))
         solver_obj.add_callback(FrontLocationCalculator(solver_obj))
         solver_obj.add_callback(PlotCallback(solver_obj, append_to_log=False))
-        trans_x = np.linspace(-10e3, 30e3, 100)
+        trans_x = np.linspace(-30e3, 30e3, 300)
         trans_y = 10.0
         tcp = TransectCallback(solver_obj, ['temp_3d', 'uv_3d'],
                                trans_x, trans_y, 'along', append_to_log=True)
