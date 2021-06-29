@@ -595,9 +595,7 @@ class FlowSolver2d(FrozenClass):
             'PressureProjectionPicard': timeintegrator.PressureProjectionPicard,
             'SSPIMEX': implicitexplicit.IMEXLPUM2,
         }
-        try:
-            assert self.options.timestepper_type in steppers
-        except AssertionError:
+        if self.options.timestepper_type not in steppers:
             raise Exception('Unknown time integrator type: {:s}'.format(self.options.timestepper_type))
         if self.options.nh_model_options.solve_nonhydrostatic_pressure:
             self.poisson_solver = DepthIntegratedPoissonSolver(
@@ -610,17 +608,13 @@ class FlowSolver2d(FrozenClass):
                 steppers[self.options.nh_model_options.free_surface_timestepper_type]
             )
         elif self.options.solve_tracer:
-            try:
-                assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX')
-            except AssertionError:
+            if self.options.timestepper_type in ('PressureProjectionPicard', 'SSPIMEX'):
                 raise NotImplementedError("2D tracer model currently only supports SSPRK33, ForwardEuler, SteadyState, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
             self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
                 weakref.proxy(self), steppers[self.options.timestepper_type],
             )
         elif self.options.sediment_model_options.solve_suspended_sediment or self.options.sediment_model_options.solve_exner:
-            try:
-                assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState')
-            except AssertionError:
+            if self.options.timestepper_type in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState'):
                 raise NotImplementedError("2D sediment model currently only supports SSPRK33, ForwardEuler, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
             self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
                 weakref.proxy(self), steppers[self.options.timestepper_type],
