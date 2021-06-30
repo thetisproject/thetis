@@ -23,7 +23,7 @@ physical_constants['rho0'] = rho_0
 g_grav = physical_constants['g_grav']
 eos_params = {
     'rho_ref': rho_0,
-    's_ref': salt_const.dat.data[0],
+    's_ref': float(salt_const),
     'th_ref': temp_ref,
     'alpha': alpha,
     'beta': beta,

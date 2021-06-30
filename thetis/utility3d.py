@@ -248,7 +248,7 @@ class DensitySolver(object):
             assert self.fs == function.function_space()
             return function.dat.data[:]
         if isinstance(function, Constant):
-            return function.dat.data[0]
+            return float(function)
         # assume that function is a float
         return function
 

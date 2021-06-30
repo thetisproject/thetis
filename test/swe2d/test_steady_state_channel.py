@@ -16,7 +16,7 @@ def test_steady_state_channel(do_export=False):
 
     n = 200  # number of timesteps
     dt = 1000.
-    g = physical_constants['g_grav'].dat.data[0]
+    g = float(physical_constants['g_grav'])
     f = g/lx  # linear friction coef.
 
     # --- create solver ---

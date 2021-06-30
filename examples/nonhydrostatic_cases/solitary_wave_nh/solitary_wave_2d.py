@@ -58,7 +58,7 @@ if solve_nonhydrostatic_pressure:
 solver_obj.create_equations()
 
 # set initial elevation and velocity
-g_grav = 9.81
+g_grav = float(physical_constants['g_grav'])
 e = 0.2  # e = H/depth
 H = e*depth  # soliatry wave height
 x0 = 200

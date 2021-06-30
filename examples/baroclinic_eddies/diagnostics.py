@@ -49,10 +49,11 @@ class RPECalculator(DiagnosticCallback):
             rho_array = np.hstack(rho_array)
             volume_array = np.hstack(volume_array)
             sorted_ix = np.argsort(rho_array)[::-1]
-            rho_array = rho_array[sorted_ix] + physical_constants['rho0'].dat.data[0]
+            rho0 = float(physical_constants['rho0'])
+            rho_array = rho_array[sorted_ix] + rho0
             volume_array = volume_array[sorted_ix]
             z = (np.cumsum(volume_array) - 0.5*volume_array)/self.area_2d
-            g = physical_constants['g_grav'].dat.data[0]
+            g = float(physical_constants['g_grav'])
             rpe = g*np.sum(rho_array*volume_array*z)
         else:
             rpe = None
