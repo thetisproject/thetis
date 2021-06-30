@@ -289,24 +289,34 @@ class FlowSolver(FrozenClass):
         Computes number of elements, nodes etc and prints to sdtout
         """
         nnodes = self.function_spaces.P1_2d.dim()
-        ntriangles = int(self.function_spaces.P1DG_2d.dim()/3)
+        P1DG_2d = self.function_spaces.P1DG_2d
+        nelem2d = int(P1DG_2d.dim()/P1DG_2d.ufl_cell().num_vertices())
         nlayers = self.mesh.topology.layers - 1
-        nprisms = ntriangles*nlayers
-        dofs_per_elem = len(self.function_spaces.H.finat_element.entity_dofs())
-        ntracer_dofs = dofs_per_elem*nprisms
+        nprisms = nelem2d*nlayers
+        dofs_elev2d = self.function_spaces.H_2d.dim()
+        dofs_u2d = self.function_spaces.U_2d.dim()
+        dofs_u3d = self.function_spaces.U.dim()
+        dofs_w3d = self.function_spaces.W.dim()
+        dofs_t3d = self.function_spaces.H.dim()
+        dofs_t3d_core = int(dofs_t3d/self.comm.size)
         min_h_size = self.comm.allreduce(self.fields.h_elem_size_2d.dat.data.min(), MPI.MIN)
         max_h_size = self.comm.allreduce(self.fields.h_elem_size_2d.dat.data.max(), MPI.MAX)
         min_v_size = self.comm.allreduce(self.fields.v_elem_size_3d.dat.data.min(), MPI.MIN)
         max_v_size = self.comm.allreduce(self.fields.v_elem_size_3d.dat.data.max(), MPI.MAX)
 
-        print_output('2D mesh: {:} nodes, {:} triangles'.format(nnodes, ntriangles))
-        print_output('3D mesh: {:} layers, {:} prisms'.format(nlayers, nprisms))
-        print_output('Horizontal element size: {:.2f} ... {:.2f} m'.format(min_h_size, max_h_size))
-        print_output('Vertical element size: {:.3f} ... {:.3f} m'.format(min_v_size, max_v_size))
-        print_output('Element family: {:}, degree: {:}'.format(self.options.element_family, self.options.polynomial_degree))
-        print_output('Number of tracer DOFs: {:}'.format(ntracer_dofs))
-        print_output('Number of cores: {:}'.format(self.comm.size))
-        print_output('Tracer DOFs per core: ~{:.1f}'.format(float(ntracer_dofs)/self.comm.size))
+        print_output(f'Element family: {self.options.element_family}, degree: {self.options.polynomial_degree}')
+        print_output(f'2D cell type: {self.mesh2d.ufl_cell()}')
+        print_output(f'2D mesh: {nnodes} vertices, {nelem2d} elements')
+        print_output(f'3D mesh: {nlayers} layers, {nprisms} prisms')
+        print_output(f'Horizontal element size: {min_h_size:.2f} ... {max_h_size:.2f} m')
+        print_output(f'Vertical element size: {min_v_size:.3f} ... {max_v_size:.3f} m')
+        print_output(f'Number of 2D elevation DOFs: {dofs_elev2d}')
+        print_output(f'Number of 2D velocity DOFs: {dofs_u2d}')
+        print_output(f'Number of 3D h. velocity DOFs: {dofs_u3d}')
+        print_output(f'Number of 3D v. velocity DOFs: {dofs_w3d}')
+        print_output(f'Number of 3D tracer DOFs: {dofs_t3d}')
+        print_output(f'Number of cores: {self.comm.size}')
+        print_output(f'Tracer DOFs per core: ~{dofs_t3d_core:.1f}')
 
     def set_time_step(self):
         """
