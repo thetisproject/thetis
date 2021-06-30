@@ -17,8 +17,6 @@ jobs:
     # The type of runner that the job will run on
     runs-on: self-hosted
     # The docker container to use.
-    env:
-      PETSC_CONFIGURE_OPTIONS: --download-mumps --download-scalapack --download-parmetis --download-metis
     container:
       image: firedrakeproject/firedrake-vanilla:latest
     steps:
@@ -32,10 +30,6 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
-      - name: Update Firedrake
-        run: |
-          . /home/firedrake/firedrake/bin/activate
-          firedrake-update || (cat firedrake-update.log && /bin/false)
       - name: Install Thetis
         run: |
           . /home/firedrake/firedrake/bin/activate
