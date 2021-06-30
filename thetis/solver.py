@@ -154,6 +154,7 @@ class FlowSolver(FrozenClass):
         """Do export initial state. False if continuing a simulation"""
 
         self._simulation_continued = False
+        self._field_preproc_funcs = {}
         self._isfrozen = True
 
     def compute_dx_factor(self):
@@ -593,6 +594,30 @@ class FlowSolver(FrozenClass):
 
         self._isfrozen = True
 
+    def add_new_field(self, function, label, name, filename, shortname=None, unit='-', preproc_func=None):
+        """
+        Add a field to :attr:`fields`.
+
+        :arg function: representation of the field as a :class:`Function`
+        :arg label: field label used internally by Thetis, e.g. 'tracer_2d'
+        :arg name: human readable name for the tracer field, e.g. 'Tracer concentration'
+        :arg filename: file name for outputs, e.g. 'Tracer2d'
+        :kwarg shortname: short version of name, e.g. 'Tracer'
+        :kwarg unit: units for field, e.g. '-'
+        :kwarg preproc_func: optional pre-processor function which will be called before exporting
+        """
+        assert ' ' not in label, "Labels cannot contain spaces"
+        assert ' ' not in filename, "Filenames cannot contain spaces"
+        field_metadata[label] = {
+            'name': name,
+            'shortname': shortname or name,
+            'unit': unit,
+            'filename': filename,
+        }
+        self.fields[label] = function
+        if preproc_func is not None:
+            self._field_preproc_funcs[label] = preproc_func
+
     def create_equations(self):
         """
         Creates all dynamic equations and time integrators
@@ -734,7 +759,8 @@ class FlowSolver(FrozenClass):
                                        self.fields,
                                        field_metadata,
                                        export_type='vtk',
-                                       verbose=self.options.verbose > 0)
+                                       verbose=self.options.verbose > 0,
+                                       preproc_funcs=self._field_preproc_funcs)
             self.exporters['vtk'] = e
             hdf5_dir = os.path.join(self.options.output_directory, 'hdf5')
             e = exporter.ExportManager(hdf5_dir,
@@ -742,7 +768,8 @@ class FlowSolver(FrozenClass):
                                        self.fields,
                                        field_metadata,
                                        export_type='hdf5',
-                                       verbose=self.options.verbose > 0)
+                                       verbose=self.options.verbose > 0,
+                                       preproc_funcs=self._field_preproc_funcs)
             self.exporters['hdf5'] = e
 
         # ----- Operators
