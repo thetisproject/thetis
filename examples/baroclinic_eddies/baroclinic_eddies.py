@@ -61,9 +61,13 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
         quadrilateral=(elem_type == 'quad')
     )
     if elem_type == 'tri' and orthogonal_mesh:
+        # deform mesh to have equilateral triangles
+        # squeeze y dimension so that edge length is delta_x
         x = mesh2d.coordinates.dat.data[:, 0]
         y = mesh2d.coordinates.dat.data[:, 1]
-        mesh2d.coordinates.dat.data[:, 0] = 1.0/np.sqrt(3)*(2*x + y)
+        mesh2d.coordinates.dat.data[:, 0] = x + y/2 - lx/3
+        mesh2d.coordinates.dat.data[:, 1] *= np.sqrt(3)/2
+        ly *= np.sqrt(3)/2  # correct y length
 
     depth = 1000.
 
@@ -179,7 +183,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     t_sim = Constant(0.0)
     t_ramp = Constant(5*24*3600)
     ramp_expr = conditional(le(t_sim, t_ramp), t_sim/t_ramp, Constant(1.0))
-    int_pg_ramp = Constant(1.0)
+    int_pg_ramp = Constant(1.0).assign(ramp_expr)
     options.internal_pg_scalar = int_pg_ramp
 
     solver_obj.create_fields()
@@ -221,7 +225,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     temp_vert = temp_bot + (temp_surf - temp_bot)*(-depth - xyz[2])/-depth
     # sinusoidal temperature anomaly
     temp_delta = -1.2
-    y0 = 250.e3
+    y0 = ly/2
     ya = 40.e3
     k = 3
     yd = 40.e3
