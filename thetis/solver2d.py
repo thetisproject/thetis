@@ -464,7 +464,7 @@ class FlowSolver2d(FrozenClass):
             'momentum_source': self.options.momentum_source_2d,
             'volume_source': self.options.volume_source_2d,
         }
-
+        bnd_conditions = self.bnd_functions['shallow_water']
         if self.options.timestepper_type == 'PressureProjectionPicard':
             u_test = TestFunction(self.function_spaces.U_2d)
             self.equations.mom = shallowwater_eq.ShallowWaterMomentumEquation(
@@ -472,10 +472,13 @@ class FlowSolver2d(FrozenClass):
                 self.depth,
                 options=self.options
             )
-            self.equations.mom.bnd_functions = self.bnd_functions['shallow_water']
+            self.equations.mom.bnd_functions = bnd_conditions
             return integrator(self.equations.sw, self.equations.mom, self.fields.solution_2d,
-                              fields, self.dt, self.options.timestepper_options,
-                              self.bnd_functions['shallow_water'])
+                              fields, self.dt, self.options.timestepper_options, bnd_conditions)
+        else:
+            return integrator(self.equations.sw, self.fields.solution_2d, fields, self.dt,
+                              self.options.timestepper_options, bnd_conditions=bnd_conditions,
+                              solver_parameters=self.options.timestepper_options.solver_parameters)
 
     def get_tracer_timestepper(self, integrator, label):
         """
