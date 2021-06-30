@@ -620,7 +620,7 @@ class FlowSolver(FrozenClass):
 
     def create_equations(self):
         """
-        Creates all dynamic equations and time integrators
+        Creates equation instances
         """
         if 'uv_3d' not in self.fields:
             self.create_fields()
@@ -741,37 +741,6 @@ class FlowSolver(FrozenClass):
                 v_elem_size=self.fields.v_elem_size_3d,
                 h_elem_size=self.fields.h_elem_size_3d)
 
-        # ----- Time integrators
-        self.dt_mode = '3d'  # 'split'|'2d'|'3d' use constant 2d/3d dt, or split
-        if self.options.timestepper_type == 'LeapFrog':
-            self.timestepper = coupled_timeintegrator.CoupledLeapFrogAM3(weakref.proxy(self))
-        elif self.options.timestepper_type == 'SSPRK22':
-            self.timestepper = coupled_timeintegrator.CoupledTwoStageRK(weakref.proxy(self))
-        else:
-            raise Exception('Unknown time integrator type: '+str(self.options.timestepper_type))
-
-        # ----- File exporters
-        # create export_managers and store in a list
-        self.exporters = OrderedDict()
-        if not self.options.no_exports:
-            e = exporter.ExportManager(self.options.output_directory,
-                                       self.options.fields_to_export,
-                                       self.fields,
-                                       field_metadata,
-                                       export_type='vtk',
-                                       verbose=self.options.verbose > 0,
-                                       preproc_funcs=self._field_preproc_funcs)
-            self.exporters['vtk'] = e
-            hdf5_dir = os.path.join(self.options.output_directory, 'hdf5')
-            e = exporter.ExportManager(hdf5_dir,
-                                       self.options.fields_to_export_hdf5,
-                                       self.fields,
-                                       field_metadata,
-                                       export_type='hdf5',
-                                       verbose=self.options.verbose > 0,
-                                       preproc_funcs=self._field_preproc_funcs)
-            self.exporters['hdf5'] = e
-
         # ----- Operators
         tot_uv_3d = self.fields.uv_3d + self.fields.uv_dav_3d
         self.w_solver = VerticalVelocitySolver(self.fields.w_3d,
@@ -836,12 +805,32 @@ class FlowSolver(FrozenClass):
                                                                 self.fields.max_h_diff,
                                                                 weak_form=True)
 
-        # ----- set initial values
+        self._isfrozen = True
+
+    def create_timestepper(self):
+        """
+        Creates time stepper instance
+        """
+        if not hasattr(self, 'equations'):
+            self.create_equations()
+
+        self._isfrozen = False
+
+        self.dt_mode = '3d'  # 'split'|'2d'|'3d' use constant 2d/3d dt, or split
+        if self.options.timestepper_type == 'LeapFrog':
+            self.timestepper = coupled_timeintegrator.CoupledLeapFrogAM3(weakref.proxy(self))
+        elif self.options.timestepper_type == 'SSPRK22':
+            self.timestepper = coupled_timeintegrator.CoupledTwoStageRK(weakref.proxy(self))
+        else:
+            raise Exception('Unknown time integrator type: '+str(self.options.timestepper_type))
+
         self.fields.bathymetry_2d.project(self.bathymetry_cg_2d)
         self.mesh_updater.initialize()
         self.compute_mesh_stats()
         self.set_time_step()
         self.timestepper.set_dt(self.dt, self.dt_2d)
+        self.next_export_t = self.simulation_time + self.options.simulation_export_time
+
         # compute maximal diffusivity for explicit schemes
         degree_h, degree_v = self.function_spaces.H.ufl_element().degree()
         max_diff_alpha = 1.0/60.0/max((degree_h*(degree_h + 1)), 1.0)  # FIXME depends on element type and order
@@ -849,9 +838,53 @@ class FlowSolver(FrozenClass):
         d = self.fields.max_h_diff.dat.data
         print_output('max h diff {:} - {:}'.format(d.min(), d.max()))
 
-        self.next_export_t = self.simulation_time + self.options.simulation_export_time
-        self._initialized = True
         self._isfrozen = True
+
+    def create_exporters(self):
+        """
+        Creates file exporters
+        """
+        if not hasattr(self, 'timestepper'):
+            self.create_timestepper()
+        self._isfrozen = False
+
+        # ----- File exporters
+        # create export_managers and store in a list
+        self.exporters = OrderedDict()
+        if not self.options.no_exports:
+            e = exporter.ExportManager(self.options.output_directory,
+                                       self.options.fields_to_export,
+                                       self.fields,
+                                       field_metadata,
+                                       export_type='vtk',
+                                       verbose=self.options.verbose > 0,
+                                       preproc_funcs=self._field_preproc_funcs)
+            self.exporters['vtk'] = e
+            hdf5_dir = os.path.join(self.options.output_directory, 'hdf5')
+            e = exporter.ExportManager(hdf5_dir,
+                                       self.options.fields_to_export_hdf5,
+                                       self.fields,
+                                       field_metadata,
+                                       export_type='hdf5',
+                                       verbose=self.options.verbose > 0,
+                                       preproc_funcs=self._field_preproc_funcs)
+            self.exporters['hdf5'] = e
+
+        self._isfrozen = True
+
+    def initialize(self):
+        """
+        Creates function spaces, equations, time stepper and exporters
+        """
+        if not hasattr(self.function_spaces, 'U'):
+            self.create_function_spaces()
+        if not hasattr(self, 'equations'):
+            self.create_equations()
+        if not hasattr(self, 'timestepper'):
+            self.create_timestepper()
+        if not hasattr(self, 'exporters'):
+            self.create_exporters()
+        self._initialized = True
 
     def assign_initial_conditions(self, elev=None, salt=None, temp=None,
                                   uv_2d=None, uv_3d=None, tke=None, psi=None):
@@ -874,7 +907,7 @@ class FlowSolver(FrozenClass):
         :type psi: scalar 3D :class:`Function`, :class:`Constant`, or an expression
         """
         if not self._initialized:
-            self.create_equations()
+            self.initialize()
         if elev is not None:
             self.fields.elev_2d.project(elev)
         if uv_2d is not None:
@@ -958,7 +991,7 @@ class FlowSolver(FrozenClass):
         :kwarg int iteration: Overrides the iteration count in the hdf5 files.
         """
         if not self._initialized:
-            self.create_equations()
+            self.initialize()
         if outputdir is None:
             outputdir = self.options.output_directory
         self._simulation_continued = True
@@ -1090,7 +1123,7 @@ class FlowSolver(FrozenClass):
             be called on every export.
         """
         if not self._initialized:
-            self.create_equations()
+            self.initialize()
 
         self.options.check_salinity_conservation &= self.options.solve_salinity
         self.options.check_salinity_overshoot &= self.options.solve_salinity
