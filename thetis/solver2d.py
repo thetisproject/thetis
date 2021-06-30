@@ -464,22 +464,21 @@ class FlowSolver2d(FrozenClass):
             'momentum_source': self.options.momentum_source_2d,
             'volume_source': self.options.volume_source_2d,
         }
-
-        args = (self.equations.sw, self.fields.solution_2d, fields, self.dt, self.options.timestepper_options)
-        kwargs = {'bnd_conditions': self.bnd_functions['shallow_water']}
+        bnd_conditions = self.bnd_functions['shallow_water']
         if self.options.timestepper_type == 'PressureProjectionPicard':
-            # TODO: Probably won't work in coupled mode
             u_test = TestFunction(self.function_spaces.U_2d)
             self.equations.mom = shallowwater_eq.ShallowWaterMomentumEquation(
                 u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
                 self.depth,
                 options=self.options
             )
-            self.equations.mom.bnd_functions = self.bnd_functions['shallow_water']
-            args = (self.equations.sw, self.equations.mom, self.fields.solution_2d, fields, self.dt, self.options.timestepper_options)
+            self.equations.mom.bnd_functions = bnd_conditions
+            return integrator(self.equations.sw, self.equations.mom, self.fields.solution_2d, fields, self.dt,
+                              self.options.timestepper_options, bnd_conditions=bnd_conditions)
         else:
-            kwargs['solver_parameters'] = self.options.timestepper_options.solver_parameters
-        return integrator(*args, **kwargs)
+            return integrator(self.equations.sw, self.fields.solution_2d, fields, self.dt,
+                              self.options.timestepper_options, bnd_conditions=bnd_conditions,
+                              solver_parameters=self.options.timestepper_options.solver_parameters)
 
     def get_tracer_timestepper(self, integrator, label):
         """
@@ -494,16 +493,14 @@ class FlowSolver2d(FrozenClass):
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }
-
-        args = (self.equations[label], self.fields[label], fields, self.dt, self.options.timestepper_options)
-        kwargs = dict(solver_parameters=self.options.timestepper_options.solver_parameters_tracer)
+        bnd_conditions = {}
         if label in self.bnd_functions:
-            kwargs['bnd_conditions'] = self.bnd_functions[label]
+            bnd_conditions.update(self.bnd_functions[label])
         elif label[:-3] in self.bnd_functions:
-            kwargs['bnd_conditions'] = self.bnd_functions[label[:-3]]
-        else:
-            kwargs['bnd_conditions'] = {}
-        return integrator(*args, **kwargs)
+            bnd_conditions.update(self.bnd_functions[label[:-3]])
+        return integrator(self.equations[label], self.fields[label], fields, self.dt,
+                          self.options.timestepper_options, bnd_conditions=bnd_conditions,
+                          solver_parameters=self.options.timestepper_options.solver_parameters_tracer)
 
     def get_sediment_timestepper(self, integrator):
         """
@@ -517,13 +514,9 @@ class FlowSolver2d(FrozenClass):
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.sediment_model.get_advective_velocity_correction_factor(),
         }
-
-        args = (self.equations.sediment, self.fields.sediment_2d, fields, self.dt, self.options.timestepper_options)
-        kwargs = {
-            'bnd_conditions': self.bnd_functions['sediment'],
-            'solver_parameters': self.options.timestepper_options.solver_parameters_sediment,
-        }
-        return integrator(*args, **kwargs)
+        return integrator(self.equations.sediment, self.fields.sediment_2d, fields, self.dt,
+                          self.options.timestepper_options, bnd_conditions=self.bnd_functions['sediment'],
+                          solver_parameters=self.options.timestepper_options.solver_parameters_sediment)
 
     def get_exner_timestepper(self, integrator):
         """
@@ -538,14 +531,10 @@ class FlowSolver2d(FrozenClass):
             'morfac': self.options.sediment_model_options.morphological_acceleration_factor,
             'porosity': self.options.sediment_model_options.porosity,
         }
-
-        args = (self.equations.exner, self.fields.bathymetry_2d, fields, self.dt, self.options.timestepper_options)
-        kwargs = {
-            # only pass SWE bcs, used to determine closed boundaries in bedload term
-            'bnd_conditions': self.bnd_functions['shallow_water'],
-            'solver_parameters': self.options.timestepper_options.solver_parameters_exner,
-        }
-        return integrator(*args, **kwargs)
+        # only pass SWE bcs, used to determine closed boundaries in bedload term
+        return integrator(self.equations.exner, self.fields.bathymetry_2d, fields, self.dt,
+                          self.options.timestepper_options, bnd_conditions=self.bnd_functions['shallow_water'],
+                          solver_parameters=self.options.timestepper_options.solver_parameters_exner)
 
     def get_fs_timestepper(self, integrator):
         """
@@ -555,12 +544,10 @@ class FlowSolver2d(FrozenClass):
             'uv': self.fields.uv_2d,
             'volume_source': self.options.volume_source_2d,
         }
-        args = (self.equations.fs, self.fields.elev_2d, fields_fs, self.dt, self.options.nh_model_options.free_surface_timestepper_options)
-        kwargs = {
-            # use default solver parameters
-            'bnd_conditions': self.bnd_functions['shallow_water'],
-        }
-        return integrator(*args, **kwargs)
+        # use default solver parameters
+        return integrator(self.equations.fs, self.fields.elev_2d, fields_fs, self.dt,
+                          self.options.nh_model_options.free_surface_timestepper_options,
+                          bnd_conditions=self.bnd_functions['shallow_water'])
 
     def create_timestepper(self):
         """
