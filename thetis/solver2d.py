@@ -339,7 +339,7 @@ class FlowSolver2d(FrozenClass):
         assert isinstance(unit, str)
         assert preproc_func is None or callable(preproc_func)
         if label in self.fields:
-            print_output(f"Field {label} already exists. It will be overwritten.")
+            print_output(f"Field '{label}' already exists. It will be overwritten.")
         assert ' ' not in label, "Labels cannot contain spaces"
         assert ' ' not in filename, "Filenames cannot contain spaces"
         field_metadata[label] = {
@@ -384,15 +384,12 @@ class FlowSolver2d(FrozenClass):
         uv_2d, elev_2d = self.fields.solution_2d.split()
         if self.options.solve_tracer:
             if self.options.tracer_metadata == {}:
-                md = field_metadata['tracer_2d'].copy()
-                md['source'] = self.options.tracer_source_2d
-                self.options.tracer_metadata['tracer_2d'] = md
-                self.add_new_field(Function(self.function_spaces.Q_2d, name='tracer_2d'),
-                                   'tracer_2d',
-                                   md['name'],
-                                   md['filename'],
-                                   shortname=md['shortname'],
-                                   unit=md['unit'])
+                self.options.add_tracer_2d('tracer_2d',
+                                           field_metadata['tracer_2d']['name'],
+                                           field_metadata['tracer_2d']['filename'],
+                                           shortname=field_metadata['tracer_2d']['shortname'],
+                                           unit=field_metadata['tracer_2d']['unit'],
+                                           source=self.options.tracer_source_2d)
             args = (self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
             if self.options.use_tracer_conservative_form:
                 eq = conservative_tracer_eq_2d.ConservativeTracerEquation2D
@@ -401,10 +398,10 @@ class FlowSolver2d(FrozenClass):
             for label, md in self.options.tracer_metadata.items():
                 self.add_new_field(Function(self.function_spaces.Q_2d, name=label),
                                    label,
-                                   md['name'],
-                                   md['filename'],
-                                   shortname=md['shortname'],
-                                   unit=md['unit'])
+                                   md.name,
+                                   md.filename,
+                                   shortname=md.shortname,
+                                   unit=md.unit)
                 self.equations[label] = eq(*args)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
@@ -493,7 +490,7 @@ class FlowSolver2d(FrozenClass):
             'elev_2d': elev,
             'uv_2d': uv,
             'diffusivity_h': self.options.horizontal_diffusivity,
-            'source': self.options.tracer_metadata[label].get('source'),
+            'source': self.options.tracer_metadata[label].options.source,
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }

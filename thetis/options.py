@@ -7,6 +7,7 @@ objects.
 from .configuration import *
 from firedrake import Constant
 from .sediment_model import SedimentModel
+from .utility import AttrDict
 
 
 class TimeStepperOptions(FrozenHasTraits):
@@ -381,6 +382,13 @@ class TidalTurbineFarmOptions(FrozenHasTraits, TraitType):
         0.0, help='Average power production per turbine required to break even')
 
 
+class TracerFieldOptions(FrozenHasTraits):
+    """Tracer field options"""
+    name = 'Tracer options'
+    source = FiredrakeScalarExpression(
+        None, allow_none=True, help='Source term for the tracer equation')
+
+
 @attach_paired_options("free_surface_timestepper_type",
                        PairedEnum([('SSPRK33', ExplicitTimestepperOptions2d),
                                    ('ForwardEuler', ExplicitTimestepperOptions2d),
@@ -742,15 +750,24 @@ class ModelOptions2d(CommonModelOptions):
         :kwarg unit: units for field, e.g. '-'
         :kwarg source: associated source term
         """
+        assert isinstance(label, str)
+        assert isinstance(name, str)
+        assert isinstance(filename, str)
+        assert shortname is None or isinstance(shortname, str)
+        assert isinstance(unit, str)
+        if label in self.tracer_metadata:
+            print_output(f"Field '{label}' already exists. It will be overwritten.")
         assert ' ' not in label, "Labels cannot contain spaces"
         assert ' ' not in filename, "Filenames cannot contain spaces"
-        self.tracer_metadata[label] = {
+        options = TracerFieldOptions()
+        options.source = source
+        self.tracer_metadata[label] = AttrDict({
             'name': name,
             'shortname': shortname or name,
             'unit': unit,
             'filename': filename,
-            'source': source,  # TODO: Validate input
-        }
+            'options': options,
+        })
 
 
 @attach_paired_options("timestepper_type",
