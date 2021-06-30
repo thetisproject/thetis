@@ -8,6 +8,7 @@ from .configuration import *
 from firedrake import Constant
 from .sediment_model import SedimentModel
 from collections import OrderedDict
+from .utility import AttrDict
 
 
 class TimeStepperOptions(FrozenHasTraits):
