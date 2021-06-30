@@ -165,9 +165,8 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.check_temperature_conservation = True
     options.check_temperature_overshoot = True
     options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
-                                'w_3d', 'w_mesh_3d', 'temp_3d', 'salt_3d', 'density_3d',
-                                'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                                'smag_visc_3d']
+                                'w_3d', 'temp_3d', 'surf_temp_2d',
+                                'surf_uv_2d', 'surf_w_2d']
     options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
                                      'salt_3d', 'temp_3d', 'tke_3d', 'psi_3d']
     options.equation_of_state_type = 'linear'
@@ -183,10 +182,29 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     int_pg_ramp = Constant(1.0)
     options.internal_pg_scalar = int_pg_ramp
 
+    solver_obj.create_fields()
+
     solver_obj.add_callback(RPECalculator(solver_obj))
     solver_obj.add_callback(KineticEnergyCalculator(solver_obj))
     solver_obj.add_callback(EnstrophyCalculator(solver_obj))
     solver_obj.add_callback(SurfEnstrophyCalculator(solver_obj))
+
+    # custom export of surface temperature field
+    surf_temp_2d = Function(solver_obj.function_spaces.H_2d, name='surf temperature')
+    extract_surf_temp = SubFunctionExtractor(solver_obj.fields.temp_3d, surf_temp_2d)
+    solver_obj.add_new_field(
+        surf_temp_2d, 'surf_temp_2d', 'Temperature', 'SurfTemperature2d',
+        unit='C', preproc_func=extract_surf_temp.solve
+    )
+
+    if options.element_family == 'dg-dg':
+        surf_uv_2d = Function(solver_obj.function_spaces.U_2d, name='surf velocity')
+        extract_surf_uv = SubFunctionExtractor(solver_obj.fields.uv_3d, surf_uv_2d)
+
+        solver_obj.add_new_field(
+            surf_uv_2d, 'surf_uv_2d', 'Velocity', 'SurfVelocity2d',
+            unit='m s-1', preproc_func=extract_surf_uv.solve
+        )
 
     solver_obj.create_equations()
 
@@ -226,38 +244,6 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     temp_init3d = Function(solver_obj.function_spaces.H)
     temp_init3d.interpolate(temp_expr)
     solver_obj.assign_initial_conditions(temp=temp_init3d)
-
-    # custom export of surface temperature field
-    surf_temp_2d = Function(solver_obj.function_spaces.H_2d, name='surf temperature')
-    extract_surf_temp = SubFunctionExtractor(solver_obj.fields.temp_3d, surf_temp_2d)
-
-    def prepare_surf_temp():
-        extract_surf_temp.solve()
-
-    solver_obj.exporters['vtk'].add_export(
-        'surf_temp_2d', surf_temp_2d, export_type='vtk',
-        shortname='Temperature', filename='SurfTemperature2d',
-        preproc_func=prepare_surf_temp)
-
-    if options.element_family == 'dg-dg':
-        surf_uv_2d = Function(solver_obj.function_spaces.U_2d, name='surf velocity')
-        extract_surf_uv = SubFunctionExtractor(solver_obj.fields.uv_3d, surf_uv_2d)
-        surf_w_2d = Function(solver_obj.function_spaces.U_2d, name='surf vertical velocity')
-        extract_surf_w = SubFunctionExtractor(solver_obj.fields.w_3d, surf_w_2d)
-
-        def prepare_surf_uv():
-            extract_surf_uv.solve()
-
-        def prepare_surf_w():
-            extract_surf_w.solve()
-        solver_obj.exporters['vtk'].add_export(
-            'surf_uv_2d', surf_uv_2d, export_type='vtk',
-            shortname='Velocity', filename='SurfVelocity2d',
-            preproc_func=prepare_surf_uv)
-        solver_obj.exporters['vtk'].add_export(
-            'surf_w_2d', surf_w_2d, export_type='vtk',
-            shortname='Vertical velocity', filename='SurfVertVelo2d',
-            preproc_func=prepare_surf_w)
 
     def update_forcings(t):
         t_sim.assign(t)
