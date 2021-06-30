@@ -84,7 +84,7 @@ def run_bottom_friction(do_assert=True, do_export=False, **model_options):
 
     # drive flow with momentum source term equivalent to constant surface slope
     surf_slope = -1.0e-5  # d elev/dx
-    g = physical_constants['g_grav'].dat.data[0]
+    g = float(physical_constants['g_grav'])
     pressure_grad = -g * surf_slope
     options.momentum_source_2d = Constant((pressure_grad, 0))
 
@@ -103,7 +103,7 @@ def run_bottom_friction(do_assert=True, do_export=False, **model_options):
         u_b = sqrt(-g * surf_slope * depth)
         kappa = solver_obj.options.turbulence_model_options.kappa
         l2_tol = 0.05
-        z_0 = options.bottom_roughness.dat.data[0]
+        z_0 = float(options.bottom_roughness)
         log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')
         log_uv.project(as_vector((u_b / kappa * ln((xyz[2] + depth + z_0)/z_0), 0, 0)))
         if do_export:

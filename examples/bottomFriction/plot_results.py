@@ -89,11 +89,12 @@ z = numpy.linspace(0 - offset, -depth + offset, layers)
 # compute analytical log profiles
 u_max = 0.9  # max velocity in [2] Fig 2.
 kappa = 0.4
-z_0 = data[0]['bottom_roughness'].dat.data[0]
+z_0 = float(data[0]['bottom_roughness'])
 # bottom friction velocity from u_max
 u_b = u_max * kappa / numpy.log((depth + z_0)/z_0)
 # analytical bottom friction velocity
-u_b = numpy.sqrt(physical_constants['g_grav'].dat.data[0] * depth * abs(surf_slope))
+g = float(physical_constants['g_grav'])
+u_b = numpy.sqrt(g * depth * abs(surf_slope))
 
 u_log = u_b / kappa * numpy.log((z + depth + z_0)/z_0)
 # and viscosity profile

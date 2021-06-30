@@ -97,7 +97,7 @@ def bottom_friction_test(layers=25, gls_closure='k-omega',
     solver_obj.create_function_spaces()
 
     # drive flow with momentum source term equivalent to constant surface slope
-    g = physical_constants['g_grav'].dat.data[0]
+    g = float(physical_constants['g_grav'])
     pressure_grad = -g * surf_slope
     options.momentum_source_2d = Constant((pressure_grad, 0))
 
@@ -121,7 +121,7 @@ def bottom_friction_test(layers=25, gls_closure='k-omega',
             u_b = sqrt(-g * surf_slope * depth)
             kappa = solver_obj.options.turbulence_model_options.kappa
             l2_tol = 0.05
-            z_0 = options.bottom_roughness.dat.data[0]
+            z_0 = float(options.bottom_roughness)
             log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')
             log_uv.project(as_vector((u_b / kappa * ln((xyz[2] + depth + z_0)/z_0), 0, 0)))
             out = File(options.output_directory + '/log_uv/log_uv.pvd')

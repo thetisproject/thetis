@@ -230,7 +230,7 @@ class FlowSolver(FrozenClass):
         """
         u = u_scale
         if isinstance(u_scale, Constant):
-            u = u_scale.dat.data[0]
+            u = float(u_scale)
         min_dx = self.fields.h_elem_size_2d.dat.data.min()
         # alpha = 0.5 if self.options.element_family == 'rt-dg' else 1.0
         # dt = alpha*1.0/10.0/(self.options.polynomial_degree + 1)*min_dx/u
@@ -252,7 +252,7 @@ class FlowSolver(FrozenClass):
         """
         w = w_scale
         if isinstance(w_scale, Constant):
-            w = w_scale.dat.data[0]
+            w = float(w_scale)
         min_dz = self.fields.v_elem_size_2d.dat.data.min()
         # alpha = 0.5 if self.options.element_family == 'rt-dg' else 1.0
         # dt = alpha*1.0/1.5/(self.options.polynomial_degree + 1)*min_dz/w
@@ -271,7 +271,7 @@ class FlowSolver(FrozenClass):
         """
         nu = nu_scale
         if isinstance(nu_scale, Constant):
-            nu = nu_scale.dat.data[0]
+            nu = float(nu_scale)
         min_dx = self.fields.h_elem_size_2d.dat.data.min()
         factor = 2.0
         if self.options.element_family == 'bdm-dg':

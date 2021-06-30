@@ -13,7 +13,7 @@ def run(refinement=1, ncycles=2, **kwargs):
 
     conservation_check = kwargs.pop('conservation_check', False)
 
-    g_grav = physical_constants['g_grav'].dat.data[0]
+    g_grav = float(physical_constants['g_grav'])
     depth = 100.0
     c_wave = np.sqrt(g_grav*depth)
 

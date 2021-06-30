@@ -25,7 +25,7 @@ def test_standing_wave_channel(timesteps, max_rel_err, timestepper, tmpdir, do_e
 
     n = timesteps
     depth = 100.
-    g = physical_constants['g_grav'].dat.data[0]
+    g = float(physical_constants['g_grav'])
     c = math.sqrt(g*depth)
     period = 2*lx/c
     dt = period/n

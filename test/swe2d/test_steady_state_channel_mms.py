@@ -18,7 +18,7 @@ def test_steady_state_channel_mms(element_family, do_exports=False):
     min_cells = 48
     n = 1  # number of timesteps
     dt = 1.
-    g = physical_constants['g_grav'].dat.data[0]
+    g = float(physical_constants['g_grav'])
     H0 = 10.  # depth at rest
     area = lx*ly
 
