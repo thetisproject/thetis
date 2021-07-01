@@ -1,0 +1,52 @@
+name: Build Thetis
+
+on:
+  # Push to master or PR
+  push:
+    branches:
+      - master
+  pull_request:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    # Scheduled build at 0230 UTC on Monday mornings to detect bitrot.
+    - cron:  '30 2 * * 1'
+
+jobs:
+  build:
+    name: "Build Thetis"  
+    # The type of runner that the job will run on
+    runs-on: self-hosted
+    # The docker container to use.
+    container:
+      image: firedrakeproject/firedrake-vanilla:latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cleanup
+        if: ${{ always() }}
+        run: |
+          cd ..
+          rm -rf build
+      - name: Setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install Thetis
+        run: |
+          . /home/firedrake/firedrake/bin/activate
+          python -m pip install -r requirements.txt
+          python -m pip install -e .
+      - name: Test Thetis
+        run: |
+          . /home/firedrake/firedrake/bin/activate
+          python $(which firedrake-clean)
+          python -m pytest -n 12 -v test
+      - name: Test Thetis adjoint
+        run: |
+          . /home/firedrake/firedrake/bin/activate
+          python $(which firedrake-clean)
+          python -m pytest -n 12 -v test_adjoint
+      - name: Lint
+        if: ${{ always() }}
+        run: |
+          . /home/firedrake/firedrake/bin/activate
+          make lint
