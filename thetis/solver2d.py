@@ -389,7 +389,8 @@ class FlowSolver2d(FrozenClass):
                                            field_metadata['tracer_2d']['filename'],
                                            shortname=field_metadata['tracer_2d']['shortname'],
                                            unit=field_metadata['tracer_2d']['unit'],
-                                           source=self.options.tracer_source_2d)
+                                           source=self.options.tracer_source_2d,
+                                           diffusivity=self.options.horizontal_diffusivity)
             args = (self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
             if self.options.use_tracer_conservative_form:
                 eq = conservative_tracer_eq_2d.ConservativeTracerEquation2D
@@ -488,7 +489,7 @@ class FlowSolver2d(FrozenClass):
         fields = {
             'elev_2d': elev,
             'uv_2d': uv,
-            'diffusivity_h': self.options.horizontal_diffusivity,
+            'diffusivity_h': self.options.tracer_metadata[label].options.diffusivity,
             'source': self.options.tracer_metadata[label].options.source,
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,

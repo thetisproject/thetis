@@ -21,14 +21,14 @@ solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
 # single tracer field was used, with the default name
 # `tracer_2d`. To specify separate tracers, we need to
 # provide labels, names and filenames for each, as well
-# as any source terms and boundary conditions. The 'label'
-# identifies the field inside Thetis. It should not contain
-# spaces and typically ends with '_2d' for 2D problems. The
-# 'name' exists for users to identify the field and may
-# contain spaces. Finally, the 'filename' is used when
-# storing outputs, so cannot contain spaces. The usual
-# Thetis convention is to use CamelCase with a trailing
-# '2d'. ::
+# as any source terms, diffusion coefficients and boundary
+# conditions. The 'label' identifies the field inside Thetis.
+# It should not contain spaces and typically ends with '_2d'
+# for 2D problems. The 'name' exists for users to identify
+# the field and may contain spaces. Finally, the 'filename'
+# is used when storing outputs, so cannot contain spaces.
+# The usual Thetis convention is to use CamelCase with a
+# trailing '2d'. ::
 
 labels = ['bell_2d', 'cone_2d', 'slot_cyl_2d']
 names = ['Gaussian bell', 'Cone', 'Slotted cylinder']
@@ -39,7 +39,7 @@ options.tracer_only = True
 options.fields_to_export = labels
 bc = {'value': {'on_boundary': Constant(1.0)}}
 for label, name, filename in zip(labels, names, filenames):
-    options.add_tracer_2d(label, name, filename, source=None)
+    options.add_tracer_2d(label, name, filename, source=None, diffusivity=None)
     solver_obj.bnd_functions[label] = bc
 
 # Most of the remaining model setup is as before.

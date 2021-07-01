@@ -387,6 +387,8 @@ class TracerFieldOptions(FrozenHasTraits):
     name = 'Tracer options'
     source = FiredrakeScalarExpression(
         None, allow_none=True, help='Source term for the tracer equation')
+    diffusivity = FiredrakeScalarExpression(
+        None, allow_none=True, help='Diffusion coefficient for the tracer equation')
 
 
 @attach_paired_options("free_surface_timestepper_type",
@@ -739,7 +741,7 @@ class ModelOptions2d(CommonModelOptions):
         self.tracer_metadata = {}
         super(ModelOptions2d, self).__init__(*args, **kwargs)
 
-    def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', source=None):
+    def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', source=None, diffusivity=None):
         """
         Define a 2D tracer field
 
@@ -749,6 +751,7 @@ class ModelOptions2d(CommonModelOptions):
         :kwarg shortname: short version of name, e.g. 'Tracer'
         :kwarg unit: units for field, e.g. '-'
         :kwarg source: associated source term
+        :kwarg diffusivity: associated diffusivity coefficient
         """
         assert isinstance(label, str)
         assert isinstance(name, str)
@@ -761,6 +764,7 @@ class ModelOptions2d(CommonModelOptions):
         assert ' ' not in filename, "Filenames cannot contain spaces"
         options = TracerFieldOptions()
         options.source = source
+        options.diffusivity = diffusivity
         self.tracer_metadata[label] = AttrDict({
             'name': name,
             'shortname': shortname or name,
