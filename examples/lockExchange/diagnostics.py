@@ -120,10 +120,11 @@ class RPECalculator(DiagnosticCallback):
         self.nodal_volume = assemble(self.test*dx)
         rho_array = self.rho.dat.data[:]
         sorted_ix = np.argsort(rho_array)[::-1]
-        rho_array = rho_array[sorted_ix] + physical_constants['rho0'].dat.data[0]
+        rho0 = float(physical_constants['rho0'])
+        rho_array = rho_array[sorted_ix] + rho0
         volume_array = self.nodal_volume.dat.data[:][sorted_ix]
         z = (np.cumsum(volume_array) - 0.5*volume_array)/self.area_2d
-        g = physical_constants['g_grav'].dat.data[0]
+        g = float(physical_constants['g_grav'])
         rpe = g*np.sum(rho_array*volume_array*z)
         if self.initial_rpe is None:
             self.initial_rpe = rpe

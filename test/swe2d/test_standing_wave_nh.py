@@ -36,7 +36,7 @@ def test_nh_standing_wave(timesteps, max_rel_err, timestepper, tmpdir,
 
     depth = 8.
     elev_amp = 0.1
-    g_grav = physical_constants['g_grav'].dat.data[0]
+    g_grav = float(physical_constants['g_grav'])
 
     c = math.sqrt(g_grav*lx/(2*pi)*tanh(2*pi*depth/lx))
     period = lx/c

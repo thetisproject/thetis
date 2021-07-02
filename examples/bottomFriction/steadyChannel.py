@@ -97,7 +97,8 @@ def bottom_friction_test(layers=25, gls_closure='k-omega',
     solver_obj.create_function_spaces()
 
     # drive flow with momentum source term equivalent to constant surface slope
-    pressure_grad = -physical_constants['g_grav'] * surf_slope
+    g = float(physical_constants['g_grav'])
+    pressure_grad = -g * surf_slope
     options.momentum_source_2d = Constant((pressure_grad, 0))
 
     solver_obj.create_equations()
@@ -117,15 +118,13 @@ def bottom_friction_test(layers=25, gls_closure='k-omega',
         if verify and os.getenv('THETIS_REGRESSION_TEST') is None:
             # compare against logarithmic velocity profile
             # u = u_b / kappa * log((z + bath + z_0)/z_0)
-            # estimate bottom friction velocity from maximal u
-            u_max = 0.9  # max velocity in [2] Fig 2.
-            l2_tol = 0.05
+            u_b = sqrt(-g * surf_slope * depth)
             kappa = solver_obj.options.turbulence_model_options.kappa
-            z_0 = options.bottom_roughness.dat.data[0]
-            u_b = u_max * kappa / np.log((depth + z_0)/z_0)
+            l2_tol = 0.05
+            z_0 = float(options.bottom_roughness)
             log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')
             log_uv.project(as_vector((u_b / kappa * ln((xyz[2] + depth + z_0)/z_0), 0, 0)))
-            out = File(options.output_directory + '/log_uv.pvd')
+            out = File(options.output_directory + '/log_uv/log_uv.pvd')
             out.write(log_uv)
 
             uv_p1_dg = Function(solver_obj.function_spaces.P1DGv, name='velocity p1dg')

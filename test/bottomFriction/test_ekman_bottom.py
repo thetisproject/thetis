@@ -62,7 +62,8 @@ def run_test(layers=25, tolerance=0.05, verify=True, **model_options):
     solver_obj.create_function_spaces()
 
     # drive flow with momentum source term equivalent to constant surface slope
-    pressure_grad = -physical_constants['g_grav'] * surf_slope
+    g = float(physical_constants['g_grav'])
+    pressure_grad = -g * surf_slope
     options.momentum_source_2d = Constant((pressure_grad, 0))
 
     solver_obj.create_equations()
@@ -107,7 +108,7 @@ def timestepper_type(request):
 
 
 @pytest.mark.parametrize("nlayers,max_err",
-                         [(25, 0.035), (5, 0.065)],
+                         [(25, 0.04), (5, 0.065)],
                          ids=['nz25', 'nz5'])
 def test_bottom_friction(nlayers, max_err, element_family, timestepper_type):
     run_test(nlayers, tolerance=max_err, verify=True,
