@@ -102,6 +102,7 @@ def run(refinement, **model_options):
     export_func()
 
     # custom time loop that solves momemtum eq only
+    solverobj.create_timestepper()
     ti = solverobj.timestepper.timesteppers.mom_expl
     i = 0
     iexport = 1

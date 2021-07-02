@@ -226,7 +226,7 @@ solver_obj.bnd_functions['salt'] = {
     bnd_id_east: zero_salt_bnd,
 }
 
-solver_obj.create_equations()
+solver_obj.create_timestepper()
 
 solver_obj.add_callback(
     diagnostics.VerticalProfileCallback(

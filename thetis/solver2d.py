@@ -168,6 +168,28 @@ class FlowSolver2d(FrozenClass):
         solve(a == l, solution)
         return solution
 
+    def compute_mesh_stats(self):
+        """
+        Computes number of elements, nodes etc and prints to sdtout
+        """
+        nnodes = self.function_spaces.P1_2d.dim()
+        P1DG_2d = self.function_spaces.P1DG_2d
+        nelem2d = int(P1DG_2d.dim()/P1DG_2d.ufl_cell().num_vertices())
+        dofs_elev2d = self.function_spaces.H_2d.dim()
+        dofs_u2d = self.function_spaces.U_2d.dim()
+        dofs_elev3d_core = int(dofs_elev2d/self.comm.size)
+        min_h_size = self.comm.allreduce(self.fields.h_elem_size_2d.dat.data.min(), MPI.MIN)
+        max_h_size = self.comm.allreduce(self.fields.h_elem_size_2d.dat.data.max(), MPI.MAX)
+
+        print_output(f'Element family: {self.options.element_family}, degree: {self.options.polynomial_degree}')
+        print_output(f'2D cell type: {self.mesh2d.ufl_cell()}')
+        print_output(f'2D mesh: {nnodes} vertices, {nelem2d} elements')
+        print_output(f'Horizontal element size: {min_h_size:.2f} ... {max_h_size:.2f} m')
+        print_output(f'Number of 2D elevation DOFs: {dofs_elev2d}')
+        print_output(f'Number of 2D velocity DOFs: {dofs_u2d}')
+        print_output(f'Number of cores: {self.comm.size}')
+        print_output(f'Elevation DOFs per core: ~{dofs_elev3d_core:.1f}')
+
     def set_time_step(self, alpha=0.05):
         """
         Sets the model the model time step
@@ -323,7 +345,7 @@ class FlowSolver2d(FrozenClass):
 
     def create_equations(self):
         """
-        Creates shallow water equations
+        Creates equation instances
         """
         if not hasattr(self, 'U_2d'):
             self.create_function_spaces()
@@ -586,6 +608,7 @@ class FlowSolver2d(FrozenClass):
             filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
             output_logger.addHandler(filehandler)
 
+        self.compute_mesh_stats()
         self.set_time_step()
 
         # ----- Time integrators
@@ -659,7 +682,8 @@ class FlowSolver2d(FrozenClass):
                                        self.fields,
                                        field_metadata,
                                        export_type='hdf5',
-                                       verbose=self.options.verbose > 0)
+                                       verbose=self.options.verbose > 0,
+                                       preproc_funcs=self._field_preproc_funcs)
             self.exporters['hdf5'] = e
 
         self._isfrozen = True  # disallow creating new attributes
@@ -668,7 +692,7 @@ class FlowSolver2d(FrozenClass):
         """
         Creates function spaces, equations, time stepper and exporters
         """
-        if not hasattr(self, 'U_2d'):
+        if not hasattr(self.function_spaces, 'U_2d'):
             self.create_function_spaces()
         if not hasattr(self, 'equations'):
             self.create_equations()
