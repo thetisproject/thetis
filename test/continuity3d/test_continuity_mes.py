@@ -114,7 +114,7 @@ def run(setup, refinement, order, do_export=True):
     solver_obj.bnd_functions['momentum'] = {1: bnd_mom, 2: bnd_mom,
                                             3: bnd_mom, 4: bnd_mom}
 
-    solver_obj.create_equations()
+    solver_obj.create_timestepper()
     x, y, z = SpatialCoordinate(solver_obj.mesh)
     # elevation field
     solver_obj.fields.elev_2d.project(setup_obj.elev(x_2d, y_2d, lx, ly))

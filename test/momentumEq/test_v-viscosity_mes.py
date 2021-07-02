@@ -111,6 +111,7 @@ def run(refinement, **model_options):
     print_output('Initial L2 error {:.12f}'.format(l2_err))
 
     # custom time loop that solves momemtum eq only
+    solverobj.create_timestepper()
     if implicit:
         ti = solverobj.timestepper.timesteppers.mom_impl
     else:
