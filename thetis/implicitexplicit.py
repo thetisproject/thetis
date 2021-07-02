@@ -47,11 +47,13 @@ class IMEXGeneric(TimeIntegrator):
         solver_parameters_dirk = options.solver_parameters_dirk
 
         # implicit scheme
-        self.dirk = self.dirk_class(equation, solution, fields, dt, bnd_conditions,
+        self.dirk = self.dirk_class(equation, solution, fields, dt, options,
+                                    bnd_conditions=bnd_conditions,
                                     solver_parameters=solver_parameters_dirk,
                                     terms_to_add=('implicit'))
         # explicit scheme
-        self.erk = self.erk_class(equation, solution, fields, dt, bnd_conditions,
+        self.erk = self.erk_class(equation, solution, fields, dt, options,
+                                  bnd_conditions=bnd_conditions,
                                   solver_parameters=solver_parameters,
                                   terms_to_add=('explicit', 'source'))
         assert self.erk.n_stages == self.dirk.n_stages
