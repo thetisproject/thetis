@@ -671,6 +671,19 @@ class SedimentModelOptions(FrozenHasTraits):
                                   default_value='CrankNicolson',
                                   help='Name of the time integrator').tag(config=True),
                        Instance(TimeStepperOptions, args=()).tag(config=True))
+@attach_paired_options("tracer_timestepper_type",
+                       PairedEnum([('SSPRK33', ExplicitTimestepperOptions2d),
+                                   ('ForwardEuler', ExplicitTimestepperOptions2d),
+                                   ('BackwardEuler', SemiImplicitTimestepperOptions2d),
+                                   ('CrankNicolson', CrankNicolsonTimestepperOptions2d),
+                                   ('DIRK22', SemiImplicitTimestepperOptions2d),
+                                   ('DIRK33', SemiImplicitTimestepperOptions2d),
+                                   ('SteadyState', SteadyStateTimestepperOptions2d),
+                                   ],
+                                  "tracer_timestepper_options",
+                                  default_value='CrankNicolson',
+                                  help='Name of the tracer time integrator').tag(config=True),
+                       Instance(TimeStepperOptions, args=()).tag(config=True))
 class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
     name = 'Depth-averaged 2D model'
