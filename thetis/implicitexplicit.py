@@ -31,7 +31,6 @@ class IMEXGeneric(TimeIntegrator):
         pass
 
     def __init__(self, equation, solution, fields, dt, options, bnd_conditions, solver_parameters=None):
-        super(IMEXGeneric, self).__init__(equation, solution, fields, dt, options, solver_parameters=solver_parameters)
         """
         :arg equation: equation to solve
         :type equation: :class:`Equation` object
@@ -43,6 +42,7 @@ class IMEXGeneric(TimeIntegrator):
         :arg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
         :kwarg solver_parameters: PETSc solver options
         """
+        super(IMEXGeneric, self).__init__(equation, solution, fields, dt, options, solver_parameters=solver_parameters)
         solver_parameters = options.solver_parameters
         solver_parameters_dirk = options.solver_parameters_dirk
 

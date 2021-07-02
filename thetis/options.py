@@ -34,7 +34,7 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
         False, help="Use linearized semi-implicit time integration").tag(config=True)
 
 
-class SemiImplicitTracerTimestepperOptions2d(SemiImplicitTimeStepperOptions2d):
+class SemiImplicitTracerTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
     """
     Options for 2d semi-implicit time integrator
     applied to tracer equations.
