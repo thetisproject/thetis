@@ -592,16 +592,21 @@ class FlowSolver2d(FrozenClass):
                 steppers[self.options.nh_model_options.free_surface_timestepper_type]
             )
         elif self.options.solve_tracer:
-            if self.options.timestepper_type in ('PressureProjectionPicard', 'SSPIMEX'):
-                raise NotImplementedError("2D tracer model currently only supports SSPRK33, ForwardEuler, SteadyState, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
-            self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
-                weakref.proxy(self), steppers[self.options.timestepper_type],
+            self.timestepper = coupled_timeintegrator_2d.GeneralCoupledTimeIntegrator2D(
+                weakref.proxy(self), {
+                    'shallow_water': steppers[self.options.timestepper_type],
+                    'tracer': steppers[self.options.tracer_timestepper_type],
+                },
             )
         elif self.options.sediment_model_options.solve_suspended_sediment or self.options.sediment_model_options.solve_exner:
             if self.options.timestepper_type in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState'):
                 raise NotImplementedError("2D sediment model currently only supports SSPRK33, ForwardEuler, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
-            self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
-                weakref.proxy(self), steppers[self.options.timestepper_type],
+            self.timestepper = coupled_timeintegrator_2d.GeneralCoupledTimeIntegrator2D(
+                weakref.proxy(self), {
+                    'shallow_water': steppers[self.options.timestepper_type],
+                    'sediment': steppers[self.options.timestepper_type],  # TODO: Allow different
+                    'exner': steppers[self.options.timestepper_type],  # TODO: Allow different
+                },
             )
         else:
             self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])

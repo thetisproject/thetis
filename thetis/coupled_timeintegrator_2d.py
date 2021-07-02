@@ -35,7 +35,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self.fields = solver.fields
         self.timesteppers = AttrDict()
         print_output('Coupled time integrator: {:}'.format(self.__class__.__name__))
-        print_output('  Shallow Water time integrator: {:}'.format(self.swe_integrator.__name__))
+        if not self.options.tracer_only:
+            print_output('  Shallow Water time integrator: {:}'.format(self.swe_integrator.__name__))
         if self.options.solve_tracer:
             print_output('  Tracer time integrator: {:}'.format(self.tracer_integrator.__name__))
         if self.options.sediment_model_options.solve_suspended_sediment:
@@ -50,7 +51,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         """
         Creates all time integrators with the correct arguments
         """
-        self.timesteppers.swe2d = self.solver.get_swe_timestepper(self.swe_integrator)
+        if not self.options.tracer_only:
+            self.timesteppers.swe2d = self.solver.get_swe_timestepper(self.swe_integrator)
         if self.solver.options.solve_tracer:
             for label in self.options.tracer:
                 self.timesteppers[label] = self.solver.get_tracer_timestepper(self.tracer_integrator, label)
@@ -79,7 +81,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         # compatible with the 2d coupled timeintegrator
         assert solution2d == self.fields.solution_2d
 
-        self.timesteppers.swe2d.initialize(self.fields.solution_2d)
+        if not self.options.tracer_only:
+            self.timesteppers.swe2d.initialize(self.fields.solution_2d)
         if self.options.solve_tracer:
             for label in self.options.tracer:
                 self.timesteppers[label].initialize(self.fields[label])
@@ -109,23 +112,27 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
             self.timesteppers.exner.advance(t, update_forcings=update_forcings)
 
 
-class CoupledMatchingTimeIntegrator2D(CoupledTimeIntegrator2D):
-    def __init__(self, solver, integrator):
-        self.swe_integrator = integrator
+class GeneralCoupledTimeIntegrator2D(CoupledTimeIntegrator2D):
+    """
+    A :class:`CoupledTimeIntegrator2D` which supports
+    a general set of time integrators for the different
+    components.
+    """
+    def __init__(self, solver, integrators):
+        """
+        :arg solver: the :class:`FlowSolver2d` object
+        :arg integrators: dictionary of time integrators
+            to be used for each equation
+        """
+        if not solver.options.tracer_only:
+            self.swe_integrator = integrators['shallow_water']
         if solver.options.solve_tracer:
-            self.tracer_integrator = integrator
+            self.tracer_integrator = integrators['tracer']
         if solver.options.sediment_model_options.solve_suspended_sediment:
-            self.sediment_integrator = integrator
+            self.sediment_integrator = integrators['sediment']
         if solver.options.sediment_model_options.solve_exner:
-            self.exner_integrator = integrator
-        super(CoupledMatchingTimeIntegrator2D, self).__init__(solver)
-
-
-class CoupledCrankEuler2D(CoupledTimeIntegrator2D):
-    swe_integrator = timeintegrator.CrankNicolson
-    tracer_integrator = timeintegrator.ForwardEuler
-    sediment_integrator = timeintegrator.ForwardEuler
-    exner_integrator = timeintegrator.CrankNicolson
+            self.exner_integrator = integrators['exner']
+        super(GeneralCoupledTimeIntegrator2D, self).__init__(solver)
 
 
 class NonHydrostaticTimeIntegrator2D(CoupledTimeIntegrator2D):
