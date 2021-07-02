@@ -66,9 +66,7 @@ class TimeIntegrator(TimeIntegratorBase):
         # unique identifier for solver
         self.name = '-'.join([self.__class__.__name__,
                               self.equation.__class__.__name__])
-        self.solver_parameters = {}
-        if solver_parameters is not None:
-            self.solver_parameters.update(solver_parameters)
+        self.solver_parameters = solver_parameters or options.solver_parameters
 
     def set_dt(self, dt):
         """Update time step"""

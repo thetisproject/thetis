@@ -477,8 +477,7 @@ class FlowSolver2d(FrozenClass):
                               fields, self.dt, self.options.timestepper_options, bnd_conditions)
         else:
             return integrator(self.equations.sw, self.fields.solution_2d, fields, self.dt,
-                              self.options.timestepper_options, bnd_conditions=bnd_conditions,
-                              solver_parameters=self.options.timestepper_options.solver_parameters)
+                              self.options.timestepper_options, bnd_conditions=bnd_conditions)
 
     def get_tracer_timestepper(self, integrator, label):
         """
@@ -544,7 +543,6 @@ class FlowSolver2d(FrozenClass):
             'uv': self.fields.uv_2d,
             'volume_source': self.options.volume_source_2d,
         }
-        # use default solver parameters
         return integrator(self.equations.fs, self.fields.elev_2d, fields_fs, self.dt,
                           self.options.nh_model_options.free_surface_timestepper_options,
                           self.bnd_functions['shallow_water'])
