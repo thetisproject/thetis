@@ -3,6 +3,7 @@ Plotting routines
 """
 from thetis import *
 import itertools
+import copy
 
 try:
     import matplotlib
@@ -52,7 +53,7 @@ class PlotCallback(DiagnosticCallback):
             x_max = x.max()
             x_min = x.min()
             delta_x = self.solver_obj.fields.h_elem_size_2d.dat.data.mean()*np.sqrt(2)
-            n_x = np.round((x_max - x_min)/delta_x)
+            n_x = int(np.round((x_max - x_min)/delta_x))
             npoints = layers*4
             epsilon = 1e-10  # nudge points to avoid libspatialindex errors
             z_min = -(depth - epsilon)
@@ -67,7 +68,7 @@ class PlotCallback(DiagnosticCallback):
             self.x_plot = x/1000.0  # to km
             self.z_plot = z
 
-            self.cmap = plt.get_cmap('RdBu_r')
+            self.cmap = copy.copy(plt.get_cmap('RdBu_r'))
             self.cmap.set_over('#ffa500')
             self.cmap.set_under('#00e639')
 
@@ -79,8 +80,9 @@ class PlotCallback(DiagnosticCallback):
             overshoot_tol = 1e-6
             # divide each integer in color array to this many levels
             cbar_reso = max(min(int(np.round(5.0/(cmax - cmin)*4)), 6), 1)
+            nlevels = int(cbar_reso*(cmax-cmin) + 1)
             levels = np.linspace(cmin - overshoot_tol, cmax + overshoot_tol,
-                                 cbar_reso*(cmax-cmin) + 1)
+                                 nlevels)
             p = ax.contourf(self.x_plot, self.z_plot, color_array, levels, cmap=cmap, extend='both')
             ax.set_xlabel('x [km]')
             ax.set_ylabel('z [m]')
@@ -110,7 +112,7 @@ class PlotCallback(DiagnosticCallback):
             nplots = 1
             fix, ax = plt.subplots(nrows=nplots, figsize=(12, 3.5*nplots))
 
-            iexp = self.export_count.next()
+            iexp = next(self.export_count)
             title = 'Time {:.2f} h'.format(self.solver_obj.simulation_time/3600.0)
             fname = 'plot_density_{0:06d}.png'.format(iexp)
             fname = os.path.join(self.imgdir, fname)

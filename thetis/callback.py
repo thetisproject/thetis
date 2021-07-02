@@ -70,7 +70,8 @@ class DiagnosticHDF5(object):
         :arg str filename: Full filename of the HDF5 file.
         :arg varnames: List of variable names that the diagnostic callback
             provides
-        :kwarg int array_dim: Dimension of the output array. 1 for scalars.
+        :kwarg array_dim: Dimension of the output array.
+            Can be a tuple for multi-dimensional output. Use "1" for scalars.
         :kwarg dict attrs: Additional attributes to be saved in the hdf5 file.
         :kwarg comm: MPI communicator
         :kwarg bool new_file: Define whether to create a new hdf5 file or
@@ -88,21 +89,28 @@ class DiagnosticHDF5(object):
                 if include_time:
                     hdf5file.create_dataset('time', (0, 1),
                                             maxshape=(None, 1), dtype=dtype)
+                dim_list = array_dim
+                if isinstance(dim_list, tuple):
+                    dim_list = list(dim_list)
+                elif not isinstance(dim_list, list):
+                    dim_list = list([dim_list])
+                shape = tuple([0] + dim_list)
+                max_shape = tuple([None] + dim_list)
                 for var in self.varnames:
-                    hdf5file.create_dataset(var, (0, array_dim),
-                                            maxshape=(None, array_dim), dtype=dtype)
+                    hdf5file.create_dataset(var, shape,
+                                            maxshape=max_shape, dtype=dtype)
                 if attrs is not None:
                     hdf5file.attrs.update(attrs)
 
     def _expand_array(self, hdf5file, varname):
         """Expands array varname by 1 entry"""
         arr = hdf5file[varname]
-        shape = arr.shape
-        arr.resize((shape[0] + 1, shape[1]))
+        new_shape = list(arr.shape)
+        new_shape[0] += 1
+        arr.resize(tuple(new_shape))
 
     def _expand(self, hdf5file):
         """Expands data arrays by 1 entry"""
-        # TODO is there an easier way for doing this?
         for var in self.varnames:
             self._expand_array(hdf5file, var)
         if self.include_time:
@@ -156,7 +164,8 @@ class DiagnosticCallback(ABC):
         :arg solver_obj: Thetis solver object
         :kwarg str outputdir: Custom directory where hdf5 files will be stored.
             By default solver's output directory is used.
-        :kwarg int array_dim: Dimension of the output array. 1 for scalars.
+        :kwarg array_dim: Dimension of the output array.
+            Can be a tuple for multi-dimensional output. Use "1" for scalars.
         :kwarg dict attrs: Additional attributes to be saved in the hdf5 file.
         :kwarg bool export_to_hdf5: If True, diagnostics will be stored in hdf5
             format
@@ -860,4 +869,151 @@ class VerticalProfileCallback(DiagnosticCallback):
             out += 'Evaluated {:} profile at {:}: range {:.3g} - {:.3g}\n'.format(
                 fieldname, self.location_name, minval, maxval)
         out = out[:-1]  # suppress last line break
+        return out
+
+
+class TransectCallback(DiagnosticCallback):
+    """
+    Extract a vertical transect of a 3D field at a given (x,y) locations.
+
+    Only for the 3D model.
+    """
+    name = 'transect'
+    variable_names = ['z_coord', 'value']
+
+    def __init__(self, solver_obj, fieldnames, x, y,
+                 location_name,
+                 n_points_z=48,
+                 z_min=None, z_max=None,
+                 outputdir=None, export_to_hdf5=True,
+                 append_to_log=True):
+        """
+        :arg solver_obj: Thetis :class:`FlowSolver` object
+        :arg fieldnames: List of fields to extract
+        :arg x, y: location coordinates in model coordinate system.
+        :arg location_name: Unique name for this location. This
+            determines the name of the output h5 file (prefixed with
+            `diagnostic_`).
+        :arg int n_points_z: Number of points along the vertical axis. The 3D
+            field will be interpolated on these points, ranging from the bottom
+            to the (time dependent) free surface.
+        :kwarg float z_min, zmax: Force min/max value of z coordinate extent.
+            By default, transect will cover entire depth from bed to surface.
+        :kwarg str outputdir: Custom directory where hdf5 files will be stored.
+            By default solver's output directory is used.
+        :kwarg bool export_to_hdf5: If True, diagnostics will be stored in hdf5
+            format
+        :kwarg bool append_to_log: If True, will print extracted min/max values
+            of each field to log
+        """
+        assert export_to_hdf5 is True
+        self.fieldnames = fieldnames
+        self.location_name = location_name
+        field_short_names = [f.split('_')[0] for f in self.fieldnames]
+        field_str = '-'.join(field_short_names)
+        self.name += '_' + self.location_name
+        self.name += '_' + field_str
+
+        self.x = np.array([x]).ravel()
+        self.y = np.array([y]).ravel()
+        if len(self.x) == 1:
+            self.x = np.ones_like(self.y) * self.x
+        if len(self.y) == 1:
+            self.y = np.ones_like(self.x) * self.y
+
+        attrs = {'x': self.x, 'y': self.y}
+        attrs['location_name'] = self.location_name
+
+        assert len(self.y) == len(self.x)
+        self.n_points_xy = len(self.x)
+        self.n_points_z = n_points_z
+        self.value_shape = (self.n_points_z, self.n_points_xy)
+        self.force_z_min = z_min
+        self.force_z_max = z_max
+
+        self.field_dims = {}
+        for f in self.fieldnames:
+            func = solver_obj.fields[f]
+            self.field_dims[f] = func.function_space().value_size
+        self.variable_names = ['z_coord']
+        for f, f_short in zip(fieldnames, field_short_names):
+            if self.field_dims[f] == 1:
+                self.variable_names.append(f_short)
+            else:
+                coords = ['x', 'y', 'z']
+                for k in range(self.field_dims[f]):
+                    f_comp_name = f_short + '_' + coords[k]
+                    self.variable_names.append(f_comp_name)
+
+        super().__init__(
+            solver_obj,
+            outputdir=outputdir,
+            array_dim=self.value_shape,
+            attrs=attrs,
+            export_to_hdf5=export_to_hdf5,
+            append_to_log=append_to_log)
+        self._initialized = False
+
+    def _initialize(self):
+        outputdir = self.outputdir
+        if outputdir is None:
+            outputdir = self.solver_obj.options.outputdir
+
+        # construct mesh points for evaluation
+        self.xy = list(zip(self.x, self.y))
+        self.trans_x = np.tile(self.x[np.newaxis, :], (self.n_points_z, 1))
+        self.trans_y = np.tile(self.y[np.newaxis, :], (self.n_points_z, 1))
+
+    def _update_coords(self):
+        try:
+            depth = np.array(self.solver_obj.fields.bathymetry_2d.at(self.xy))
+            elev = np.array(self.solver_obj.fields.elev_cg_2d.at(self.xy))
+        except PointNotInDomainError as e:
+            error('{:}: Transect "{:}" point out of horizontal domain'.format(self.__class__.__name__, self.location_name))
+            raise e
+        epsilon = 1e-5  # nudge points to avoid libspatialindex errors
+        z_min = -(depth - epsilon)
+        z_max = elev - epsilon
+        if self.force_z_min is not None:
+            z_min = np.maximum(z_min, self.force_z_min)
+        if self.force_z_max is not None:
+            z_max = np.minimum(z_max, self.force_z_max)
+        self.trans_z = np.linspace(z_max, z_min, self.n_points_z)
+        self.trans_z = self.trans_z.reshape(self.value_shape)
+        self.xyz = np.vstack((self.trans_x.ravel(),
+                              self.trans_y.ravel(),
+                              self.trans_z.ravel())).T
+
+    def __call__(self):
+        if not self._initialized:
+            self._initialize()
+        self._update_coords()
+
+        outvals = [self.trans_z]
+        for fieldname in self.fieldnames:
+            field = self.solver_obj.fields[fieldname]
+            field_dim = self.field_dims[fieldname]
+            try:
+                vals = field.at(tuple(self.xyz))
+                arr = np.array(vals)
+            except PointNotInDomainError as e:
+                error('{:}: Cannot evaluate data on transect {:}'.format(self.__class__.__name__, self.location_name))
+                raise e
+            # arr has shape (nxy, nz, ncomponents)
+            shape = list(self.value_shape) + [field_dim]
+            arr = np.array(vals).reshape(shape)
+            # convert to list of components [(nxy, nz) , ...]
+            components = [arr[..., i] for i in range(arr.shape[-1])]
+            outvals.extend(components)
+        return tuple(outvals)
+
+    def message_str(self, *args):
+        out = 'Evaluated transect "{:}":\n'.format(self.location_name)
+        lines = []
+        for fieldname, arr in zip(self.variable_names[1:], args[1:]):
+            minval = arr.min()
+            maxval = arr.max()
+            line = f'  {fieldname} range: {minval:.3g} - {maxval:.3g}'
+            lines.append(line)
+        out += '\n'.join(lines)
         return out
