@@ -599,13 +599,11 @@ class FlowSolver2d(FrozenClass):
                 },
             )
         elif self.options.sediment_model_options.solve_suspended_sediment or self.options.sediment_model_options.solve_exner:
-            if self.options.timestepper_type in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState'):
-                raise NotImplementedError("2D sediment model currently only supports SSPRK33, ForwardEuler, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
             self.timestepper = coupled_timeintegrator_2d.GeneralCoupledTimeIntegrator2D(
                 weakref.proxy(self), {
                     'shallow_water': steppers[self.options.timestepper_type],
-                    'sediment': steppers[self.options.timestepper_type],  # TODO: Allow different
-                    'exner': steppers[self.options.timestepper_type],  # TODO: Allow different
+                    'sediment': steppers[self.options.sediment_model_options.sediment_timestepper_type],
+                    'exner': steppers[self.options.sediment_model_options.exner_timestepper_type],
                 },
             )
         else:

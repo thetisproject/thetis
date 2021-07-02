@@ -578,6 +578,30 @@ class CommonModelOptions(FrozenConfigurable):
         Constant(1.0), help="Penalty parameter scaling factor for horizontal diffusivity terms.").tag(config=True)
 
 
+@attach_paired_options("sediment_timestepper_type",
+                       PairedEnum([('SSPRK33', ExplicitTimestepperOptions2d),
+                                   ('ForwardEuler', ExplicitTimestepperOptions2d),
+                                   ('BackwardEuler', SemiImplicitTimestepperOptions2d),
+                                   ('CrankNicolson', CrankNicolsonTimestepperOptions2d),
+                                   ('DIRK22', SemiImplicitTimestepperOptions2d),
+                                   ('DIRK33', SemiImplicitTimestepperOptions2d),
+                                   ],
+                                  "sediment_timestepper_options",
+                                  default_value='CrankNicolson',
+                                  help='Name of the sediment time integrator').tag(config=True),
+                       Instance(TimeStepperOptions, args=()).tag(config=True))
+@attach_paired_options("exner_timestepper_type",
+                       PairedEnum([('SSPRK33', ExplicitTimestepperOptions2d),
+                                   ('ForwardEuler', ExplicitTimestepperOptions2d),
+                                   ('BackwardEuler', SemiImplicitTimestepperOptions2d),
+                                   ('CrankNicolson', CrankNicolsonTimestepperOptions2d),
+                                   ('DIRK22', SemiImplicitTimestepperOptions2d),
+                                   ('DIRK33', SemiImplicitTimestepperOptions2d),
+                                   ],
+                                  "exner_timestepper_options",
+                                  default_value='CrankNicolson',
+                                  help='Name of the exner time integrator').tag(config=True),
+                       Instance(TimeStepperOptions, args=()).tag(config=True))
 class SedimentModelOptions(FrozenHasTraits):
     solve_exner = Bool(False, help='Solve exner equation for bed morphology').tag(config=True)
     solve_suspended_sediment = Bool(False, help='Solve suspended sediment transport equation').tag(config=True)
