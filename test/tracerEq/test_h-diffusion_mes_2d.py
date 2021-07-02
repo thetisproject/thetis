@@ -173,7 +173,8 @@ def run_convergence(ref_list, expected_rate=None, saveplot=False, **options):
 )
 def test_horizontal_diffusion(polynomial_degree, stepper, expected_rate):
     run_convergence([1, 2, 3], polynomial_degree=polynomial_degree,
-                    timestepper_type=stepper, expected_rate=expected_rate,
+                    timestepper_type=stepper, tracer_timestepper_type=stepper,
+                    expected_rate=expected_rate,
                     )
 
 # ---------------------------
@@ -183,6 +184,6 @@ def test_horizontal_diffusion(polynomial_degree, stepper, expected_rate):
 
 if __name__ == '__main__':
     run_convergence([1, 2, 4, 6, 8], polynomial_degree=1,
-                    timestepper_type='CrankNicolson',
+                    tracer_timestepper_type='CrankNicolson',
                     expected_rate=1.8,
                     no_exports=False, saveplot=True)

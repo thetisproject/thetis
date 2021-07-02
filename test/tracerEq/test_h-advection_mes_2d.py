@@ -188,7 +188,7 @@ def stepper(request):
 
 def test_horizontal_advection(polynomial_degree, stepper):
     run_convergence([1, 2, 3], polynomial_degree=polynomial_degree,
-                    timestepper_type=stepper)
+                    timestepper_type=stepper, tracer_timestepper_type=stepper)
 
 # ---------------------------
 # run individual setup for debugging
@@ -197,5 +197,5 @@ def test_horizontal_advection(polynomial_degree, stepper):
 
 if __name__ == '__main__':
     run_convergence([1, 2, 3, 4], polynomial_degree=1,
-                    timestepper_type='CrankNicolson',
+                    tracer_timestepper_type='CrankNicolson',
                     no_exports=False, saveplot=True)

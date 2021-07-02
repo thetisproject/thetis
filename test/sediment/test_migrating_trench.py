@@ -81,13 +81,15 @@ def run_migrating_trench(conservative):
     options.horizontal_diffusivity = Constant(diffusivity)
     options.horizontal_viscosity = Constant(viscosity_hydro)
 
-    # crank-nicholson used to integrate in time system of ODEs resulting from application of galerkin FEM
+    # crank-nicolson used to integrate in time system of ODEs resulting from application of galerkin FEM
     options.timestepper_type = 'CrankNicolson'
+    options.sediment_timestepper_type = 'CrankNicolson'
+    options.exner_timestepper_type = 'CrankNicolson'
     options.timestepper_options.implicitness_theta = 1.0
+    options.sediment_timestepper_options.implicitness_theta = 1.0
+    options.exner_timestepper_options.implicitness_theta = 1.0
     options.norm_smoother = Constant(0.1)
-
-    if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
-        options.timestep = dt
+    options.timestep = dt
 
     c = SedimentTotalMassConservation2DCallback('sediment_2d',
                                                 solver_obj, export_to_hdf5=True, append_to_log=False)

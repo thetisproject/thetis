@@ -181,14 +181,15 @@ def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg'):
     solver_obj = solver2d.FlowSolver2d(mesh2d, params.bathymetry(P1_2d))
     options = solver_obj.options
     options.timestepper_type = 'SteadyState'
+    options.tracer_timestepper_type = 'SteadyState'
     options.tracer_element_family = tracer_family
     options.timestep = 20.0
     options.simulation_end_time = 18.0
     options.simulation_export_time = 18.0
-    ts_options = options.timestepper_options
-    for sp in (ts_options.solver_parameters, ts_options.solver_parameters_tracer):
-        sp['pc_factor_mat_solver_type'] = 'mumps'
-        sp['snes_monitor'] = None
+    options.timestepper_options.solver_parameters['pc_factor_mat_solver_type'] = 'mumps'
+    options.timestepper_options.solver_parameters['snes_monitor'] = None
+    options.tracer_timestepper_options.solver_parameters['pc_factor_mat_solver_type'] = 'mumps'
+    options.tracer_timestepper_options.solver_parameters['snes_monitor'] = None
     options.fields_to_export = ['tracer_2d', 'uv_2d', 'elev_2d']
 
     # Hydrodynamics
