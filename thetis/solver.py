@@ -609,9 +609,9 @@ class FlowSolver(FrozenClass):
         Add a field to :attr:`fields`.
 
         :arg function: representation of the field as a :class:`Function`
-        :arg label: field label used internally by Thetis, e.g. 'tracer_2d'
+        :arg label: field label used internally by Thetis, e.g. 'tracer_3d'
         :arg name: human readable name for the tracer field, e.g. 'Tracer concentration'
-        :arg filename: file name for outputs, e.g. 'Tracer2d'
+        :arg filename: file name for outputs, e.g. 'Tracer3d'
         :kwarg shortname: short version of name, e.g. 'Tracer'
         :kwarg unit: units for field, e.g. '-'
         :kwarg preproc_func: optional pre-processor function which will be called before exporting
