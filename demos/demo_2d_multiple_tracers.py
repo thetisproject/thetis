@@ -2,9 +2,9 @@
 # =============================
 #
 # The problem setup of this demo is almost identical to
-# `demo_2d_tracer`. The main difference is that it shows
-# how to treat the three advected quantities as separate
-# tracer fields.
+# `the first tracer demo <./demo_2d_tracer.py.html>`__.
+# The main difference is that it shows how to treat the
+# three advected quantities as separate tracer fields.
 
 from thetis import *
 
@@ -17,7 +17,7 @@ solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
 
 # Again, tracer functionality is activated by setting the
 # option ``solve_tracer = True`` and for this problem we
-# also set ``tracer_only = True``. In `demo_2d_tracer`, a
+# also set ``tracer_only = True``. In the previous demo, a
 # single tracer field was used, with the default name
 # `tracer_2d`. To specify separate tracers, we need to
 # provide labels, names and filenames for each, as well
@@ -25,7 +25,8 @@ solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
 # conditions. The 'label' identifies the field inside Thetis.
 # It should not contain spaces and typically ends with '_2d'
 # for 2D problems. The 'name' exists for users to identify
-# the field and may contain spaces. Finally, the 'filename'
+# the field and may contain spaces. It will appear in the
+# colourbar of any vtk outputs. Finally, the 'filename'
 # is used when storing outputs, so cannot contain spaces.
 # The usual Thetis convention is to use CamelCase with a
 # trailing '2d'. ::
@@ -42,7 +43,9 @@ for label, name, filename in zip(labels, names, filenames):
     options.add_tracer_2d(label, name, filename, source=None, diffusivity=None)
     solver_obj.bnd_functions[label] = bc
 
-# Most of the remaining model setup is as before.
+# Note that tracer equations will be solved in the order
+# in which they were added using `add_tracer_2d`. Most of
+# the remaining model setup is as before.
 
 options.timestepper_type = 'SSPRK33'
 options.timestep = pi/300.0
@@ -50,7 +53,6 @@ options.simulation_end_time = 2*pi
 options.simulation_export_time = pi/15.0
 options.timestepper_options.use_automatic_timestep = False
 options.use_lax_friedrichs_tracer = False
-options.horizontal_diffusivity = None
 options.use_limiter_for_tracers = False
 
 vP1_2d = VectorFunctionSpace(mesh2d, "CG", 1)
