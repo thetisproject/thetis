@@ -136,6 +136,8 @@ class FlowSolver2d(FrozenClass):
 
         self.bnd_functions = {'shallow_water': {}, 'tracer': {}, 'sediment': {}}
 
+        if 'tracer_2d' in field_metadata:
+            field_metadata.pop('tracer_2d')
         self._field_preproc_funcs = {}
         self._isfrozen = True
 
@@ -355,7 +357,7 @@ class FlowSolver2d(FrozenClass):
         """
         Creates equation instances
         """
-        if not hasattr(self, 'U_2d'):
+        if not hasattr(self.function_spaces, 'U_2d'):
             self.create_function_spaces()
         self._isfrozen = False
         # ----- fields
@@ -383,11 +385,7 @@ class FlowSolver2d(FrozenClass):
         uv_2d, elev_2d = self.fields.solution_2d.split()
         if self.options.solve_tracer:
             if self.options.tracer == {}:
-                self.options.add_tracer_2d('tracer_2d',
-                                           field_metadata['tracer_2d']['name'],
-                                           field_metadata['tracer_2d']['filename'],
-                                           shortname=field_metadata['tracer_2d']['shortname'],
-                                           unit=field_metadata['tracer_2d']['unit'],
+                self.options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d', 'Tracer', '-',
                                            source=self.options.tracer_source_2d,
                                            diffusivity=self.options.horizontal_diffusivity)
             args = (self.function_spaces.Q_2d, self.depth, self.options, uv_2d)

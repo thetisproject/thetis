@@ -392,7 +392,7 @@ class TracerFieldOptions(FrozenHasTraits):
         None, allow_none=True, help='Diffusion coefficient for the tracer equation')
     metadata = Dict({
         'label': 'tracer_2d',
-        'name': 'Tracer concentration',
+        'name': 'Depth averaged tracer',
         'filename': 'Tracer2d',
         'shortname': 'Tracer',
         'unit': '-',
@@ -754,7 +754,7 @@ class ModelOptions2d(CommonModelOptions):
         Define a 2D tracer field
 
         :arg label: field label used internally by Thetis, e.g. 'tracer_2d'
-        :arg name: human readable name for the tracer field, e.g. 'Tracer concentration'
+        :arg name: human readable name for the tracer field, e.g. 'Depth averaged tracer'
         :arg filename: file name for outputs, e.g. 'Tracer2d'
         :kwarg shortname: short version of name, e.g. 'Tracer'
         :kwarg unit: units for field, e.g. '-'
