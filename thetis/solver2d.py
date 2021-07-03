@@ -338,8 +338,7 @@ class FlowSolver2d(FrozenClass):
         assert shortname is None or isinstance(shortname, str)
         assert isinstance(unit, str)
         assert preproc_func is None or callable(preproc_func)
-        if label in self.fields:
-            print_output(f"Field '{label}' already exists. It will be overwritten.")
+        assert label not in field_metadata, f"Field '{label}' already exists."
         assert ' ' not in label, "Labels cannot contain spaces"
         assert ' ' not in filename, "Filenames cannot contain spaces"
         field_metadata[label] = {
@@ -383,7 +382,7 @@ class FlowSolver2d(FrozenClass):
         self.equations.sw.bnd_functions = self.bnd_functions['shallow_water']
         uv_2d, elev_2d = self.fields.solution_2d.split()
         if self.options.solve_tracer:
-            if self.options.tracer_metadata == {}:
+            if self.options.tracer == {}:
                 self.options.add_tracer_2d('tracer_2d',
                                            field_metadata['tracer_2d']['name'],
                                            field_metadata['tracer_2d']['filename'],
@@ -396,13 +395,13 @@ class FlowSolver2d(FrozenClass):
                 eq = conservative_tracer_eq_2d.ConservativeTracerEquation2D
             else:
                 eq = tracer_eq_2d.TracerEquation2D
-            for label, md in self.options.tracer_metadata.items():
+            for label, tracer in self.options.tracer.items():
                 self.add_new_field(Function(self.function_spaces.Q_2d, name=label),
                                    label,
-                                   md.name,
-                                   md.filename,
-                                   shortname=md.shortname,
-                                   unit=md.unit)
+                                   tracer.metadata['name'],
+                                   tracer.metadata['filename'],
+                                   shortname=tracer.metadata['shortname'],
+                                   unit=tracer.metadata['unit'])
                 self.equations[label] = eq(*args)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
@@ -489,8 +488,8 @@ class FlowSolver2d(FrozenClass):
         fields = {
             'elev_2d': elev,
             'uv_2d': uv,
-            'diffusivity_h': self.options.tracer_metadata[label].options.diffusivity,
-            'source': self.options.tracer_metadata[label].options.source,
+            'diffusivity_h': self.options.tracer[label].diffusivity,
+            'source': self.options.tracer[label].source,
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }
@@ -676,7 +675,7 @@ class FlowSolver2d(FrozenClass):
         if self.options.solve_tracer:
             for l, func in tracers.items():
                 label = l if len(l) > 3 and l[-3:] == '_2d' else l + '_2d'
-                assert label in self.options.tracer_metadata, f"Unknown tracer label {label}"
+                assert label in self.options.tracer, f"Unknown tracer label {label}"
                 self.fields[label].project(func)
 
         sediment_options = self.options.sediment_model_options
@@ -779,7 +778,7 @@ class FlowSolver2d(FrozenClass):
         :arg float cputime: Measured CPU time
         """
         if self.options.tracer_only:
-            for l in self.options.tracer_metadata:
+            for l in self.options.tracer:
                 norm_q = norm(self.fields[l])
 
                 line = ('{iexp:5d} {i:5d} T={t:10.2f} '
@@ -834,13 +833,13 @@ class FlowSolver2d(FrozenClass):
 
         if self.options.check_tracer_conservation:
             if self.options.use_tracer_conservative_form:
-                for label in self.options.tracer_metadata:
+                for label in self.options.tracer:
                     c = callback.ConservativeTracerMassConservation2DCallback(label,
                                                                               self,
                                                                               export_to_hdf5=dump_hdf5,
                                                                               append_to_log=True)
             else:
-                for label in self.options.tracer_metadata:
+                for label in self.options.tracer:
                     c = callback.TracerMassConservation2DCallback(label,
                                                                   self,
                                                                   export_to_hdf5=dump_hdf5,
@@ -860,7 +859,7 @@ class FlowSolver2d(FrozenClass):
             self.add_callback(c, eval_interval='export')
 
         if self.options.check_tracer_overshoot:
-            for label in self.options.tracer_metadata:
+            for label in self.options.tracer:
                 c = callback.TracerOvershootCallBack(label,
                                                      self,
                                                      export_to_hdf5=dump_hdf5,

@@ -8,6 +8,7 @@ from .configuration import *
 from firedrake import Constant
 from .sediment_model import SedimentModel
 from .utility import AttrDict
+from collections import OrderedDict
 
 
 class TimeStepperOptions(FrozenHasTraits):
@@ -389,6 +390,13 @@ class TracerFieldOptions(FrozenHasTraits):
         None, allow_none=True, help='Source term for the tracer equation')
     diffusivity = FiredrakeScalarExpression(
         None, allow_none=True, help='Diffusion coefficient for the tracer equation')
+    metadata = Dict({
+        'label': 'tracer_2d',
+        'name': 'Tracer concentration',
+        'filename': 'Tracer2d',
+        'shortname': 'Tracer',
+        'unit': '-',
+    }, help='Dictionary of metadata for the tracer field')
 
 
 @attach_paired_options("free_surface_timestepper_type",
@@ -738,7 +746,7 @@ class ModelOptions2d(CommonModelOptions):
         False, help="Use SUPG stabilisation in tracer advection").tag(config=True)
 
     def __init__(self, *args, **kwargs):
-        self.tracer_metadata = {}
+        self.tracer = OrderedDict()
         super(ModelOptions2d, self).__init__(*args, **kwargs)
 
     def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', source=None, diffusivity=None):
@@ -758,20 +766,18 @@ class ModelOptions2d(CommonModelOptions):
         assert isinstance(filename, str)
         assert shortname is None or isinstance(shortname, str)
         assert isinstance(unit, str)
-        if label in self.tracer_metadata:
-            print_output(f"Field '{label}' already exists. It will be overwritten.")
+        assert label not in self.tracer, f"Field '{label}' already exists."
         assert ' ' not in label, "Labels cannot contain spaces"
         assert ' ' not in filename, "Filenames cannot contain spaces"
-        options = TracerFieldOptions()
-        options.source = source
-        options.diffusivity = diffusivity
-        self.tracer_metadata[label] = AttrDict({
+        self.tracer[label] = TracerFieldOptions()
+        self.tracer[label].metadata = {
             'name': name,
             'shortname': shortname or name,
             'unit': unit,
             'filename': filename,
-            'options': options,
-        })
+        }
+        self.tracer[label].source = source
+        self.tracer[label].diffusivity = diffusivity
 
 
 @attach_paired_options("timestepper_type",
