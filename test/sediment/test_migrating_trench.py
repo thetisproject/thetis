@@ -83,11 +83,11 @@ def run_migrating_trench(conservative):
 
     # crank-nicolson used to integrate in time system of ODEs resulting from application of galerkin FEM
     options.timestepper_type = 'CrankNicolson'
-    options.sediment_timestepper_type = 'CrankNicolson'
-    options.exner_timestepper_type = 'CrankNicolson'
+    options.sediment_model_options.sediment_timestepper_type = 'CrankNicolson'
+    options.sediment_model_options.exner_timestepper_type = 'CrankNicolson'
     options.timestepper_options.implicitness_theta = 1.0
-    options.sediment_timestepper_options.implicitness_theta = 1.0
-    options.exner_timestepper_options.implicitness_theta = 1.0
+    options.sediment_model_options.sediment_timestepper_options.implicitness_theta = 1.0
+    options.sediment_model_options.exner_timestepper_options.implicitness_theta = 1.0
     options.norm_smoother = Constant(0.1)
     options.timestep = dt
 

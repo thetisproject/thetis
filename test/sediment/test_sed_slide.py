@@ -54,11 +54,11 @@ options.nikuradse_bed_roughness = Constant(3*options.sediment_model_options.aver
 
 # crank-nicolson used to integrate in time system of ODEs resulting from application of galerkin FEM
 options.timestepper_type = 'CrankNicolson'
-options.sediment_timestepper_type = 'CrankNicolson'
-options.exner_timestepper_type = 'CrankNicolson'
+options.sediment_model_options.sediment_timestepper_type = 'CrankNicolson'
+options.sediment_model_options.exner_timestepper_type = 'CrankNicolson'
 options.timestepper_options.implicitness_theta = 1.0
-options.sediment_timestepper_options.implicitness_theta = 1.0
-options.exner_timestepper_options.implicitness_theta = 1.0
+options.sediment_model_options.sediment_timestepper_options.implicitness_theta = 1.0
+options.sediment_model_options.exner_timestepper_options.implicitness_theta = 1.0
 options.timestep = 0.1
 
 # set boundary conditions
