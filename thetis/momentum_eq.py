@@ -151,7 +151,7 @@ class PressureGradientTerm(MomentumTerm):
             = - \int_\Omega g (s -\bar{s}) H \nabla_h \cdot \boldsymbol{\psi} dx
             + \int_{\mathcal{I}_h \cup \mathcal{I}_v} g (s -\bar{s}) H \boldsymbol{\psi}  \cdot \textbf{n}_h dx
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         int_pg = fields.get('int_pg')
         if int_pg is None:
             return 0
@@ -179,7 +179,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
     upwind value, and :math:`\text{jump}` and :math:`\text{avg}` denote the
     jump and average operators across the interface.
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         if not self.use_nonlinear_equations:
             return 0
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
@@ -278,7 +278,7 @@ class VerticalAdvectionTerm(MomentumTerm):
         = - \int_\Omega \left( w \textbf{u} \right) \cdot \frac{\partial \boldsymbol{\psi}}{\partial z} dx
         + \int_{\mathcal{I}_{h}} \textbf{u}^{\text{up}} \cdot \text{jump}(\boldsymbol{\psi} n_z) \text{avg}(w) dS
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         w = fields_old.get('w')
         w_mesh = fields_old.get('w_mesh')
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
@@ -335,7 +335,7 @@ class HorizontalViscosityTerm(MomentumTerm):
     geometries. PhD Thesis. Université catholique de Louvain.
     https://dial.uclouvain.be/pr/boreal/object/boreal:128254/
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         viscosity_h = fields_old.get('viscosity_h')
         sipg_factor = self.sipg_factor
         if viscosity_h is None:
@@ -410,7 +410,7 @@ class VerticalViscosityTerm(MomentumTerm):
     geometries. PhD Thesis. Université catholique de Louvain.
     https://dial.uclouvain.be/pr/boreal/object/boreal:128254/
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         viscosity_v = fields_old.get('viscosity_v')
         sipg_factor = self.sipg_factor_vertical
         if viscosity_v is None:
@@ -469,7 +469,7 @@ class BottomFrictionTerm(MomentumTerm):
     The user can override the :math:`C_D` value by providing ``quadratic_drag_coefficient``
     field.
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         f = 0
         if self.use_bottom_friction:
             uv_depth_av = fields_old.get('uv_depth_av')
@@ -504,7 +504,7 @@ class LinearDragTerm(MomentumTerm):
 
     where :math:`D` is the drag coefficient, read from ``linear_drag_coefficient`` field.
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         linear_drag_coefficient = fields_old.get('linear_drag_coefficient')
         f = 0
         # Linear drag (consistent with drag in 2D mode)
@@ -523,7 +523,7 @@ class CoriolisTerm(MomentumTerm):
     r"""
     Coriolis term, :math:`f\textbf{e}_z\wedge \bar{\textbf{u}}`
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         coriolis = fields_old.get('coriolis')
         f = 0
         if coriolis is not None:
@@ -553,7 +553,7 @@ class SourceTerm(MomentumTerm):
     Wind stress is only included if vertical viscosity is provided.
     """
     # TODO implement wind stress as a separate term
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         f = 0
         source = fields_old.get('source')
         viscosity_v = fields_old.get('viscosity_v')
@@ -658,7 +658,7 @@ class InternalPressureGradientCalculator(MomentumTerm):
         """
         self.lin_solver.solve()
 
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
 
         bhead = fields_old.get('baroc_head')
 

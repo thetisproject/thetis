@@ -324,7 +324,7 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
     If :math:`\eta` belongs to a discontinuous function space, the form on the
     right hand side is used.
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         total_h = self.depth.get_total_depth(eta_old)
 
         head = eta
@@ -387,7 +387,7 @@ class HUDivTerm(ShallowWaterContinuityTerm):
     If :math:`\bar{\textbf{u}}` belongs to a discontinuous function space,
     the form on the right hand side is used.
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         total_h = self.depth.get_total_depth(eta_old)
 
         hu_by_parts = self.u_continuity in ['dg', 'hdiv']
@@ -441,7 +441,7 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
     the element interfaces, and :math:`\text{jump}` and :math:`\text{avg}` denote the
     jump and average operators across the interface.
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
 
         if not self.options.use_nonlinear_equations:
             return 0
@@ -525,7 +525,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
     geometries. PhD Thesis. Université catholique de Louvain.
     https://dial.uclouvain.be/pr/boreal/object/boreal:128254/
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         total_h = self.depth.get_total_depth(eta_old)
 
         nu = fields_old.get('viscosity_h')
@@ -594,7 +594,7 @@ class CoriolisTerm(ShallowWaterMomentumTerm):
     r"""
     Coriolis term, :math:`f\textbf{e}_z\wedge \bar{\textbf{u}}`
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         coriolis = fields_old.get('coriolis')
         f = 0
         if coriolis is not None:
@@ -614,7 +614,7 @@ class WindStressTerm(ShallowWaterMomentumTerm):
 
     Here :math:`\tau_w` is a user-defined wind stress :class:`Function`.
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         wind_stress = fields_old.get('wind_stress')
         total_h = self.depth.get_total_depth(eta_old)
         f = 0
@@ -629,7 +629,7 @@ class AtmosphericPressureTerm(ShallowWaterMomentumTerm):
 
     Here :math:`p_a` is a user-defined atmospheric pressure :class:`Function`.
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         atmospheric_pressure = fields_old.get('atmospheric_pressure')
         f = 0
         if atmospheric_pressure is not None:
@@ -650,7 +650,7 @@ class QuadraticDragTerm(ShallowWaterMomentumTerm):
     if the Manning coefficient :math:`\mu` is defined (see field :attr:`manning_drag_coefficient`).
     Otherwise :math:`C_D` is taken as a constant (see field :attr:`quadratic_drag_coefficient`).
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         total_h = self.depth.get_total_depth(eta_old)
         manning_drag_coefficient = fields_old.get('manning_drag_coefficient')
         nikuradse_bed_roughness = fields_old.get('nikuradse_bed_roughness')
@@ -681,7 +681,7 @@ class LinearDragTerm(ShallowWaterMomentumTerm):
 
     Here :math:`C` is a user-defined drag coefficient.
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         linear_drag_coefficient = fields_old.get('linear_drag_coefficient')
         f = 0
         if linear_drag_coefficient is not None:
@@ -699,7 +699,7 @@ class BottomDrag3DTerm(ShallowWaterMomentumTerm):
     :math:`C_D` the corresponding bottom drag.
     These fields are computed in the 3D model.
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         total_h = self.depth.get_total_depth(eta_old)
         bottom_drag = fields_old.get('bottom_drag')
         uv_bottom = fields_old.get('uv_bottom')
@@ -725,7 +725,7 @@ class TurbineDragTerm(ShallowWaterMomentumTerm):
         c_t = (C_T A_T d)/2
 
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         total_h = self.depth.get_total_depth(eta_old)
         f = 0
         for subdomain_id, farm_options in self.options.tidal_turbine_farms.items():
@@ -749,7 +749,7 @@ class MomentumSourceTerm(ShallowWaterMomentumTerm):
 
     where :math:`\boldsymbol{\tau}` is a user defined vector valued :class:`Function`.
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         f = 0
         momentum_source = fields_old.get('momentum_source')
 
@@ -769,7 +769,7 @@ class ContinuitySourceTerm(ShallowWaterContinuityTerm):
 
     where :math:`S` is a user defined scalar :class:`Function`.
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         f = 0
         volume_source = fields_old.get('volume_source')
 

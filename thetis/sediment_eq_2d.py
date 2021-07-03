@@ -86,7 +86,7 @@ class SedimentDiffusionTerm(SedimentTerm, HorizontalDiffusionTerm):
 class SedimentErosionTerm(SedimentTerm):
     """
     Erosion term for sediment equation"""
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         ero = self.sediment_model.get_erosion_term()
         if not self.conservative:
             elev = fields['elev_2d']
@@ -98,7 +98,7 @@ class SedimentErosionTerm(SedimentTerm):
 class SedimentDepositionTerm(SedimentTerm):
     """
     Deposition term for sediment equation"""
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         depo = self.sediment_model.get_deposition_coefficient()
         elev = fields['elev_2d']
         H = self.depth.get_total_depth(elev)

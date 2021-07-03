@@ -116,7 +116,7 @@ class HorizontalAdvectionTerm(TracerTerm):
         \int_\Omega \bar{\textbf{u}} \cdot \boldsymbol{\psi} \cdot \nabla T  dx
         = - \int_\Omega \nabla_h \cdot (\bar{\textbf{u}} \boldsymbol{\psi}) \cdot T dx.
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         if fields_old.get('uv_2d') is None:
             return 0
         elev = fields_old['elev_2d']
@@ -145,22 +145,21 @@ class HorizontalAdvectionTerm(TracerTerm):
                 gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                 f += gamma*dot(jump(self.test), jump(solution))*self.dS
 
-        if bnd_conditions is not None:
-            for bnd_marker in self.boundary_markers:
-                funcs = bnd_conditions.get(bnd_marker)
-                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                c_in = solution
-                if funcs is not None:
-                    c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
-                    uv_av = 0.5*(uv + uv_ext)
-                    un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
-                    s = 0.5*(sign(un_av) + 1.0)
-                    c_up = c_in*s + c_ext*(1-s)
-                    f += c_up*(uv_av[0]*self.normal[0]
-                               + uv_av[1]*self.normal[1])*self.test*ds_bnd
-                else:
-                    f += c_in * (uv[0]*self.normal[0]
-                                 + uv[1]*self.normal[1])*self.test*ds_bnd
+        for bnd_marker in self.boundary_markers:
+            funcs = bnd_conditions.get(bnd_marker)
+            ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+            c_in = solution
+            if funcs is not None:
+                c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                uv_av = 0.5*(uv + uv_ext)
+                un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
+                s = 0.5*(sign(un_av) + 1.0)
+                c_up = c_in*s + c_ext*(1-s)
+                f += c_up*(uv_av[0]*self.normal[0]
+                           + uv_av[1]*self.normal[1])*self.test*ds_bnd
+            else:
+                f += c_in * (uv[0]*self.normal[0]
+                             + uv[1]*self.normal[1])*self.test*ds_bnd
 
         return -f
 
@@ -195,7 +194,7 @@ class HorizontalDiffusionTerm(TracerTerm):
     geometries. PhD Thesis. Université catholique de Louvain.
     https://dial.uclouvain.be/pr/boreal/object/boreal:128254/
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         if fields_old.get('diffusivity_h') is None:
             return 0
         diffusivity_h = fields_old['diffusivity_h']
@@ -227,25 +226,24 @@ class HorizontalDiffusionTerm(TracerTerm):
             f += -inner(jump(self.test, self.normal),
                         avg(dot(diff_tensor, grad(solution))))*ds_interior
 
-        if bnd_conditions is not None:
-            for bnd_marker in self.boundary_markers:
-                funcs = bnd_conditions.get(bnd_marker)
-                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                c_in = solution
-                elev = fields_old['elev_2d']
-                self.corr_factor = fields_old.get('tracer_advective_velocity_factor')
-                uv = self.corr_factor * fields_old['uv_2d']
-                if funcs is not None:
-                    if 'diff_flux' in funcs:
-                        f += -self.test*funcs['diff_flux']*ds_bnd
-                    else:
-                        c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
-                        uv_av = 0.5*(uv + uv_ext)
-                        un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
-                        s = 0.5*(sign(un_av) + 1.0)
-                        c_up = c_in*s + c_ext*(1-s)
-                        diff_flux_up = dot(diff_tensor, grad(c_up))
-                        f += -self.test*dot(diff_flux_up, self.normal)*ds_bnd
+        for bnd_marker in self.boundary_markers:
+            funcs = bnd_conditions.get(bnd_marker)
+            ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+            c_in = solution
+            elev = fields_old['elev_2d']
+            self.corr_factor = fields_old.get('tracer_advective_velocity_factor')
+            uv = self.corr_factor * fields_old['uv_2d']
+            if funcs is not None:
+                if 'diff_flux' in funcs:
+                    f += -self.test*funcs['diff_flux']*ds_bnd
+                else:
+                    c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                    uv_av = 0.5*(uv + uv_ext)
+                    un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
+                    s = 0.5*(sign(un_av) + 1.0)
+                    c_up = c_in*s + c_ext*(1-s)
+                    diff_flux_up = dot(diff_tensor, grad(c_up))
+                    f += -self.test*dot(diff_flux_up, self.normal)*ds_bnd
 
         return -f
 
@@ -262,7 +260,7 @@ class SourceTerm(TracerTerm):
     where :math:`\sigma` is a user defined scalar :class:`Function`.
 
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         f = 0
         source = fields_old.get('source')
         if source is not None:
