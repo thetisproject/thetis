@@ -616,6 +616,14 @@ class FlowSolver(FrozenClass):
         :kwarg unit: units for field, e.g. '-'
         :kwarg preproc_func: optional pre-processor function which will be called before exporting
         """
+        assert isinstance(function, Function)
+        assert isinstance(label, str)
+        assert isinstance(name, str)
+        assert isinstance(filename, str)
+        assert shortname is None or isinstance(shortname, str)
+        assert isinstance(unit, str)
+        assert preproc_func is None or callable(preproc_func)
+        assert label not in field_metadata, f"Field '{label}' already exists."
         assert ' ' not in label, "Labels cannot contain spaces"
         assert ' ' not in filename, "Filenames cannot contain spaces"
         field_metadata[label] = {
