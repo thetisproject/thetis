@@ -7,7 +7,6 @@ objects.
 from .configuration import *
 from firedrake import Constant
 from .sediment_model import SedimentModel
-from .utility import AttrDict
 from collections import OrderedDict
 
 
