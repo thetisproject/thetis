@@ -30,7 +30,7 @@ class IMEXGeneric(TimeIntegrator):
         """Explicit Runge-Kutta class"""
         pass
 
-    def __init__(self, equation, solution, fields, dt, options, bnd_conditions=None, solver_parameters=None):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, solver_parameters=None):
         super(IMEXGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
         """
         :arg equation: equation to solve
@@ -40,8 +40,8 @@ class IMEXGeneric(TimeIntegrator):
         :type fields: dict of :class:`Function` or :class:`Constant` objects
         :arg float dt: time step in seconds
         :arg options: :class:`TimeStepperOptions` instance containing parameter values.
-        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :kwarg solver_parameters: PETSc solver options
+        :arg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg solver_parameters: PETSc solver options for explicit solver
         """
         solver_parameters = options.solver_parameters
         solver_parameters_dirk = options.solver_parameters_dirk
