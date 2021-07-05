@@ -131,7 +131,7 @@ def run(timeintegrator_class, timeintegrator_options, refinement=1):
     times = np.zeros((ntimesteps+1, ))
     values = np.zeros((ntimesteps+1, 2))
 
-    ti = timeintegrator_class(equation, solution, fields, dt, timeintegrator_options())
+    ti = timeintegrator_class(equation, solution, fields, dt, timeintegrator_options(), {})
     ti.initialize(solution)
     simulation_time = 0
     sol_a, sol_b = solution.split()

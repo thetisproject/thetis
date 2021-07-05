@@ -323,10 +323,12 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'bottom_roughness': self.options.bottom_roughness,
                       }
             self.timesteppers.tke_impl = self.integrator_vert_3d(
-                eq_tke_diff, solver.fields.tke_3d, fields, solver.dt, self.options.timestepper_options,
+                eq_tke_diff, solver.fields.tke_3d, fields, solver.dt,
+                self.options.timestepper_options, {},
                 solver_parameters=self.options.timestepper_options.solver_parameters_tracer_implicit)
             self.timesteppers.psi_impl = self.integrator_vert_3d(
-                eq_psi_diff, solver.fields.psi_3d, fields, solver.dt, self.options.timestepper_options,
+                eq_psi_diff, solver.fields.psi_3d, fields, solver.dt,
+                self.options.timestepper_options, {},
                 solver_parameters=self.options.timestepper_options.solver_parameters_tracer_implicit)
             if eq_tke_adv is not None and eq_psi_adv is not None:
                 fields = {'elev_3d': self.fields.elev_domain_2d.view_3d,
@@ -337,10 +339,12 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                           'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                           }
                 self.timesteppers.tke_expl = self.integrator_3d(
-                    eq_tke_adv, solver.fields.tke_3d, fields, solver.dt, self.options.timestepper_options,
+                    eq_tke_adv, solver.fields.tke_3d, fields, solver.dt,
+                    self.options.timestepper_options, {},
                     solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
                 self.timesteppers.psi_expl = self.integrator_3d(
-                    eq_psi_adv, solver.fields.psi_3d, fields, solver.dt, self.options.timestepper_options,
+                    eq_psi_adv, solver.fields.psi_3d, fields, solver.dt,
+                    self.options.timestepper_options, {},
                     solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
 
     def _create_integrators(self):
