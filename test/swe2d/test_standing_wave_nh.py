@@ -81,6 +81,7 @@ def test_nh_standing_wave(timesteps, max_rel_err, timestepper, tmpdir,
         if hasattr(options.timestepper_options, 'use_automatic_timestep'):
             # use the same explicit timestepper, but CrankNicolson is ok
             options_nh.free_surface_timestepper_type = timestepper
+            options_nh.free_surface_timestepper_options.use_automatic_timestep = False
 
     # boundary conditions
     solver_obj.bnd_functions['shallow_water'] = {}
