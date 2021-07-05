@@ -577,13 +577,11 @@ class FlowSolver2d(FrozenClass):
             'PressureProjectionPicard': timeintegrator.PressureProjectionPicard,
             'SSPIMEX': implicitexplicit.IMEXLPUM2,
         }
-        if self.options.timestepper_type not in steppers:
-            raise Exception('Unknown time integrator type: {:s}'.format(self.options.timestepper_type))
         if self.options.nh_model_options.solve_nonhydrostatic_pressure:
             self.poisson_solver = DepthIntegratedPoissonSolver(
                 self.fields.q_2d, self.fields.uv_2d, self.fields.w_2d,
                 self.fields.elev_2d, self.depth, self.dt, self.bnd_functions,
-                solver_parameters=self.options.nh_model_options.solver_parameters
+                solver_parameters=self.options.nh_model_options.free_surface_timestepper_options.solver_parameters
             )
             self.timestepper = coupled_timeintegrator_2d.NonHydrostaticTimeIntegrator2D(
                 weakref.proxy(self), steppers[self.options.timestepper_type],

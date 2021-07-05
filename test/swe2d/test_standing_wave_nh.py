@@ -117,4 +117,4 @@ def test_nh_standing_wave(timesteps, max_rel_err, timestepper, tmpdir,
 
 
 if __name__ == '__main__':
-    test_nh_standing_wave(do_export=True)
+    test_nh_standing_wave(10, 1.6e-2, 'CrankNicolson', 'outputs', do_export=True)

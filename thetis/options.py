@@ -443,14 +443,17 @@ class NonhydrostaticModelOptions(FrozenHasTraits):
     q_degree = NonNegativeInteger(
         None, allow_none=True, help="Polynomial degree of the non-hydrostatic pressure space").tag(config=True)
     update_free_surface = Bool(True, help='Update free surface elevation after pressure projection/correction step').tag(config=True)
-    solver_parameters = PETScSolverParameters({
-        'snes_type': 'ksponly',
-        'ksp_type': 'preonly',
-        'mat_type': 'aij',
-        'pc_type': 'lu',
-        'pc_factor_mat_solver_type': 'mumps',
-        'mat_mumps_icntl_14': 200,
-    }).tag(config=True)
+
+    def __init__(self, *args, **kwargs):
+        super(NonhydrostaticModelOptions, self).__init__(*args, **kwargs)
+        self.free_surface_timestepper_options.solver_parameters = {
+            'snes_type': 'ksponly',
+            'ksp_type': 'preonly',
+            'mat_type': 'aij',
+            'pc_type': 'lu',
+            'pc_factor_mat_solver_type': 'mumps',
+            'mat_mumps_icntl_14': 200,
+        }
 
 
 class CommonModelOptions(FrozenConfigurable):
