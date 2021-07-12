@@ -494,13 +494,13 @@ class FlowSolver2d(FrozenClass):
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }
-        bnd_conditions = {}
+        bcs = {}
         if label in self.bnd_functions:
-            bnd_conditions.update(self.bnd_functions[label])
+            bcs = self.bnd_functions[label]
         elif label[:-3] in self.bnd_functions:
-            bnd_conditions.update(self.bnd_functions[label[:-3]])
+            bcs = self.bnd_functions[label[:-3]]
         return integrator(self.equations[label], self.fields[label], fields, self.dt,
-                          self.options.timestepper_options, bnd_conditions,
+                          self.options.timestepper_options, bcs,
                           solver_parameters=self.options.timestepper_options.solver_parameters_tracer)
 
     def get_sediment_timestepper(self, integrator):
