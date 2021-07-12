@@ -776,16 +776,16 @@ class FlowSolver2d(FrozenClass):
         :arg float cputime: Measured CPU time
         """
         if self.options.tracer_only:
-            for l in self.options.tracer:
-                norm_q = norm(self.fields[l])
+            for label in self.options.tracer:
+                norm_q = norm(self.fields[label])
 
                 line = ('{iexp:5d} {i:5d} T={t:10.2f} '
-                        '{l:16s}: {q:10.4f} {cpu:5.2f}')
+                        '{label:16s}: {q:10.4f} {cpu:5.2f}')
 
-                label = l if len(l) < 3 or l[-3:] != '_2d' else l[:-3]
+                norm_label = label if len(label) < 3 or label[-3:] != '_2d' else label[:-3]
                 print_output(line.format(iexp=self.i_export, i=self.iteration,
                                          t=self.simulation_time,
-                                         l=label + ' norm',
+                                         label=norm_label + ' norm',
                                          q=norm_q, cpu=cputime))
         else:
             norm_h = norm(self.fields.solution_2d.split()[1])
