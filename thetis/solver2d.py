@@ -385,6 +385,8 @@ class FlowSolver2d(FrozenClass):
         uv_2d, elev_2d = self.fields.solution_2d.split()
         if self.options.solve_tracer:
             if self.options.tracer == {}:
+                warning("Usage of solve_tracer is soon to be deprecated. Use add_tracer_2d to"
+                        " provide tracer fields to be solved for.")
                 self.options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d', 'Tracer', '-',
                                            source=self.options.tracer_source_2d,
                                            diffusivity=self.options.horizontal_diffusivity)
