@@ -616,7 +616,7 @@ class TKESourceTerm(TracerTerm):
                                             bathymetry, v_elem_size, h_elem_size)
         self.gls_model = gls_model
 
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         # TKE: P + B - eps
         # P = viscosity M**2           (production)
         # B = - diffusivity N**2       (byoyancy production)
@@ -681,7 +681,7 @@ class PsiSourceTerm(TracerTerm):
                                             bathymetry, v_elem_size, h_elem_size)
         self.gls_model = gls_model
 
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         # psi: psi/k*(c1*P + c3*B - c2*eps*f_wall)
         # P = viscosity M**2           (production)
         # B = - diffusivity N**2       (byoyancy production)
@@ -771,10 +771,10 @@ class GLSVerticalDiffusionTerm(VerticalDiffusionTerm):
                                                        sipg_factor_vertical=sipg_factor)
         self.schmidt_nb = schmidt_nb
 
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         d = {'diffusivity_v': fields_old['viscosity_v']/self.schmidt_nb}
         f = super(GLSVerticalDiffusionTerm, self).residual(solution, solution_old,
-                                                           d, d, bnd_conditions=None)
+                                                           d, d, bnd_conditions)
         return f
 
 

@@ -79,8 +79,7 @@ class ForwardEuler(TimeIntegrator):
     """Standard forward Euler time integration scheme."""
     cfl_coeff = 1.0
 
-    def __init__(self, equation, solution, fields, dt, options,
-                 bnd_conditions=None, solver_parameters=None):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, solver_parameters=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -89,7 +88,7 @@ class ForwardEuler(TimeIntegrator):
         :type fields: dict of :class:`Function` or :class:`Constant` objects
         :arg float dt: time step in seconds
         :arg options: :class:`TimeStepperOptions` instance containing parameter values.
-        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :arg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
         :kwarg dict solver_parameters: PETSc solver options
         """
         super(ForwardEuler, self).__init__(equation, solution, fields, dt, solver_parameters)
@@ -141,7 +140,7 @@ class CrankNicolson(TimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
-    def __init__(self, equation, solution, fields, dt, options, bnd_conditions=None, solver_parameters=None):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, solver_parameters=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -150,7 +149,7 @@ class CrankNicolson(TimeIntegrator):
         :type fields: dict of :class:`Function` or :class:`Constant` objects
         :arg float dt: time step in seconds
         :arg options: :class:`TimeStepperOptions` instance containing parameter values.
-        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :arg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
         :kwarg dict solver_parameters: PETSc solver options
         """
         super(CrankNicolson, self).__init__(equation, solution, fields, dt, solver_parameters)
@@ -229,8 +228,7 @@ class SteadyState(TimeIntegrator):
     """
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
-    def __init__(self, equation, solution, fields, dt, options,
-                 bnd_conditions=None, solver_parameters=None):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, solver_parameters=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -239,7 +237,7 @@ class SteadyState(TimeIntegrator):
         :type fields: dict of :class:`Function` or :class:`Constant` objects
         :arg float dt: time step in seconds
         :arg options: :class:`TimeStepperOptions` instance containing parameter values.
-        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :arg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
         :kwarg dict solver_parameters: PETSc solver options
         """
         super(SteadyState, self).__init__(equation, solution, fields, dt, solver_parameters)
@@ -279,7 +277,7 @@ class PressureProjectionPicard(TimeIntegrator):
 
     # TODO add more documentation
     def __init__(self, equation, equation_mom, solution, fields, dt, options,
-                 bnd_conditions=None, solver_parameters=None):
+                 bnd_conditions, solver_parameters=None):
         """
         :arg equation: free surface equation
         :type equation: :class:`Equation` object
@@ -290,7 +288,7 @@ class PressureProjectionPicard(TimeIntegrator):
         :type fields: dict of :class:`Function` or :class:`Constant` objects
         :arg float dt: time step in seconds
         :arg options: :class:`TimeStepperOptions` instance containing parameter values.
-        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :arg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
         :kwarg dict solver_parameters: PETSc solver options
         """
         super(PressureProjectionPicard, self).__init__(equation, solution, fields, dt, solver_parameters)
@@ -455,8 +453,8 @@ class LeapFrogAM3(TimeIntegrator):
     """
     cfl_coeff = 1.5874
 
-    def __init__(self, equation, solution, fields, dt, options,
-                 bnd_conditions=None, solver_parameters=None, terms_to_add='all'):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions,
+                 solver_parameters=None, terms_to_add='all'):
         """
         :arg equation: equation to solve
         :type equation: :class:`Equation` object
@@ -465,7 +463,7 @@ class LeapFrogAM3(TimeIntegrator):
         :type fields: dict of :class:`Function` or :class:`Constant` objects
         :arg float dt: time step in seconds
         :arg options: :class:`TimeStepperOptions` instance containing parameter values.
-        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :arg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
         :kwarg dict solver_parameters: PETSc solver options
         :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
@@ -591,8 +589,8 @@ class SSPRK22ALE(TimeIntegrator):
     """
     cfl_coeff = 1.0
 
-    def __init__(self, equation, solution, fields, dt, options,
-                 bnd_conditions=None, solver_parameters=None, terms_to_add='all'):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions,
+                 solver_parameters=None, terms_to_add='all'):
         """
         :arg equation: equation to solve
         :type equation: :class:`Equation` object
@@ -601,7 +599,7 @@ class SSPRK22ALE(TimeIntegrator):
         :type fields: dict of :class:`Function` or :class:`Constant` objects
         :arg float dt: time step in seconds
         :arg options: :class:`TimeStepperOptions` instance containing parameter values.
-        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :arg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
         :kwarg dict solver_parameters: PETSc solver options
         :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].

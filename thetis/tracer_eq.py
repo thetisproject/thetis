@@ -137,7 +137,7 @@ class HorizontalAdvectionTerm(TracerTerm):
     :math:`\text{avg}` denote the jump and average operators across the
     interface.
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         if fields_old.get('uv_3d') is None:
             return 0
         elev = fields_old['elev_3d']
@@ -168,23 +168,22 @@ class HorizontalAdvectionTerm(TracerTerm):
             if self.use_lax_friedrichs:
                 gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                 f += gamma*dot(jump(self.test), jump(solution))*(self.dS_v + self.dS_h)
-            if bnd_conditions is not None:
-                for bnd_marker in self.boundary_markers:
-                    funcs = bnd_conditions.get(bnd_marker)
-                    ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
-                    if funcs is None:
-                        continue
-                    else:
-                        c_in = solution
-                        c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
-                        # add interior tracer flux
-                        f += c_in*(uv[0]*self.normal[0]
-                                   + uv[1]*self.normal[1])*self.test*ds_bnd
-                        # add boundary contribution if inflow
-                        uv_av = 0.5*(uv + uv_ext)
-                        un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
-                        s = 0.5*(sign(un_av) + 1.0)
-                        f += (1-s)*(c_ext - c_in)*un_av*self.test*ds_bnd
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
+                if funcs is None:
+                    continue
+                else:
+                    c_in = solution
+                    c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                    # add interior tracer flux
+                    f += c_in*(uv[0]*self.normal[0]
+                               + uv[1]*self.normal[1])*self.test*ds_bnd
+                    # add boundary contribution if inflow
+                    uv_av = 0.5*(uv + uv_ext)
+                    un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
+                    s = 0.5*(sign(un_av) + 1.0)
+                    f += (1-s)*(c_ext - c_in)*un_av*self.test*ds_bnd
 
         if self.use_symmetric_surf_bnd:
             f += solution*(uv[0]*self.normal[0] + uv[1]*self.normal[1])*self.test*ds_surf
@@ -212,7 +211,7 @@ class VerticalAdvectionTerm(TracerTerm):
     In the case of ALE moving mesh we substitute :math:`w` with :math:`w - w_m`,
     :math:`w_m` being the mesh velocity.
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         w = fields_old.get('w')
         if w is None:
             return 0
@@ -263,7 +262,7 @@ class HorizontalDiffusionTerm(TracerTerm):
     geometries. PhD Thesis. Université catholique de Louvain.
     https://dial.uclouvain.be/pr/boreal/object/boreal:128254/
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         if fields_old.get('diffusivity_h') is None:
             return 0
         diffusivity_h = fields_old['diffusivity_h']
@@ -325,7 +324,7 @@ class VerticalDiffusionTerm(TracerTerm):
     geometries. PhD Thesis. Université catholique de Louvain.
     https://dial.uclouvain.be/pr/boreal/object/boreal:128254/
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         if fields_old.get('diffusivity_v') is None:
             return 0
 
@@ -371,7 +370,7 @@ class SourceTerm(TracerTerm):
 
     where :math:`\sigma` is a user defined scalar :class:`Function`.
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         f = 0
         source = fields_old.get('source')
         if source is not None:

@@ -67,7 +67,7 @@ class ExnerSourceTerm(ExnerTerm):
     where :math:`\sigma` is a user defined source scalar field :class:`Function`
     and :math:`\phi` is a user defined source scalar field :class:`Function`.
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
 
         f = 0
         sediment = fields.get('sediment')
@@ -99,7 +99,7 @@ class ExnerBedloadTerm(ExnerTerm):
 
     where :math:`\textbf{n}` is the unit normal of the element interfaces.
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         f = 0
 
         qbx, qby = self.sediment_model.get_bedload_term(solution)
@@ -135,7 +135,7 @@ class ExnerSedimentSlideTerm(ExnerTerm):
     r"""
     Term which adds component to bedload transport to ensure the slope angle does not exceed a certain value
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         f = 0
 
         diff_tensor = self.sediment_model.get_sediment_slide_term(solution)

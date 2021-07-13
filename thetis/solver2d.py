@@ -464,7 +464,7 @@ class FlowSolver2d(FrozenClass):
             'momentum_source': self.options.momentum_source_2d,
             'volume_source': self.options.volume_source_2d,
         }
-        bnd_conditions = self.bnd_functions['shallow_water']
+
         if self.options.timestepper_type == 'PressureProjectionPicard':
             u_test = TestFunction(self.function_spaces.U_2d)
             self.equations.mom = shallowwater_eq.ShallowWaterMomentumEquation(
@@ -472,12 +472,13 @@ class FlowSolver2d(FrozenClass):
                 self.depth,
                 options=self.options
             )
-            self.equations.mom.bnd_functions = bnd_conditions
-            return integrator(self.equations.sw, self.equations.mom, self.fields.solution_2d, fields, self.dt,
-                              self.options.timestepper_options, bnd_conditions=bnd_conditions)
+            self.equations.mom.bnd_functions = self.bnd_functions['shallow_water']
+            return integrator(self.equations.sw, self.equations.mom, self.fields.solution_2d,
+                              fields, self.dt, self.options.timestepper_options,
+                              self.bnd_functions['shallow_water'])
         else:
             return integrator(self.equations.sw, self.fields.solution_2d, fields, self.dt,
-                              self.options.timestepper_options, bnd_conditions=bnd_conditions,
+                              self.options.timestepper_options, self.bnd_functions['shallow_water'],
                               solver_parameters=self.options.timestepper_options.solver_parameters)
 
     def get_tracer_timestepper(self, integrator, label):
@@ -493,13 +494,13 @@ class FlowSolver2d(FrozenClass):
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }
-        bnd_conditions = {}
+        bcs = {}
         if label in self.bnd_functions:
-            bnd_conditions.update(self.bnd_functions[label])
+            bcs = self.bnd_functions[label]
         elif label[:-3] in self.bnd_functions:
-            bnd_conditions.update(self.bnd_functions[label[:-3]])
+            bcs = self.bnd_functions[label[:-3]]
         return integrator(self.equations[label], self.fields[label], fields, self.dt,
-                          self.options.timestepper_options, bnd_conditions=bnd_conditions,
+                          self.options.timestepper_options, bcs,
                           solver_parameters=self.options.timestepper_options.solver_parameters_tracer)
 
     def get_sediment_timestepper(self, integrator):
@@ -515,7 +516,7 @@ class FlowSolver2d(FrozenClass):
             'tracer_advective_velocity_factor': self.sediment_model.get_advective_velocity_correction_factor(),
         }
         return integrator(self.equations.sediment, self.fields.sediment_2d, fields, self.dt,
-                          self.options.timestepper_options, bnd_conditions=self.bnd_functions['sediment'],
+                          self.options.timestepper_options, self.bnd_functions['sediment'],
                           solver_parameters=self.options.timestepper_options.solver_parameters_sediment)
 
     def get_exner_timestepper(self, integrator):
@@ -533,7 +534,7 @@ class FlowSolver2d(FrozenClass):
         }
         # only pass SWE bcs, used to determine closed boundaries in bedload term
         return integrator(self.equations.exner, self.fields.bathymetry_2d, fields, self.dt,
-                          self.options.timestepper_options, bnd_conditions=self.bnd_functions['shallow_water'],
+                          self.options.timestepper_options, self.bnd_functions['shallow_water'],
                           solver_parameters=self.options.timestepper_options.solver_parameters_exner)
 
     def get_fs_timestepper(self, integrator):
@@ -547,7 +548,7 @@ class FlowSolver2d(FrozenClass):
         # use default solver parameters
         return integrator(self.equations.fs, self.fields.elev_2d, fields_fs, self.dt,
                           self.options.nh_model_options.free_surface_timestepper_options,
-                          bnd_conditions=self.bnd_functions['shallow_water'])
+                          self.bnd_functions['shallow_water'])
 
     def create_timestepper(self):
         """
