@@ -30,8 +30,7 @@ class IMEXGeneric(TimeIntegrator):
         """Explicit Runge-Kutta class"""
         pass
 
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
-                 solver_parameters=None, solver_parameters_dirk=None):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions=None, solver_parameters=None):
         super(IMEXGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
         """
         :arg equation: equation to solve
@@ -40,17 +39,21 @@ class IMEXGeneric(TimeIntegrator):
         :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
         :arg float dt: time step in seconds
+        :arg options: :class:`TimeStepperOptions` instance containing parameter values.
         :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :kwarg solver_parameters: PETSc solver options for explicit solver
-        :kwarg dict solver_parameters_dirk: PETSc solver options for implicit solver
+        :kwarg solver_parameters: PETSc solver options
         """
+        solver_parameters = options.solver_parameters
+        solver_parameters_dirk = options.solver_parameters_dirk
 
         # implicit scheme
-        self.dirk = self.dirk_class(equation, solution, fields, dt, bnd_conditions,
+        self.dirk = self.dirk_class(equation, solution, fields, dt, options,
+                                    bnd_conditions=bnd_conditions,
                                     solver_parameters=solver_parameters_dirk,
                                     terms_to_add=('implicit'))
         # explicit scheme
-        self.erk = self.erk_class(equation, solution, fields, dt, bnd_conditions,
+        self.erk = self.erk_class(equation, solution, fields, dt, options,
+                                  bnd_conditions=bnd_conditions,
                                   solver_parameters=solver_parameters,
                                   terms_to_add=('explicit', 'source'))
         assert self.erk.n_stages == self.dirk.n_stages

@@ -3,6 +3,7 @@ Convergence tests for time integrators
 """
 from thetis import *
 from thetis.equation import Term, Equation
+from thetis.options import *
 from thetis.timeintegrator import *
 from thetis.rungekutta import *
 from thetis.implicitexplicit import *
@@ -94,7 +95,7 @@ class SimpleODEEquation(Equation):
         return f
 
 
-def run(timeintegrator_class, refinement=1):
+def run(timeintegrator_class, timeintegrator_options, refinement=1):
     """
     Run test for the given time integrator
     """
@@ -130,7 +131,7 @@ def run(timeintegrator_class, refinement=1):
     times = np.zeros((ntimesteps+1, ))
     values = np.zeros((ntimesteps+1, 2))
 
-    ti = timeintegrator_class(equation, solution, fields, dt)
+    ti = timeintegrator_class(equation, solution, fields, dt, timeintegrator_options())
     ti.initialize(solution)
     simulation_time = 0
     sol_a, sol_b = solution.split()
@@ -148,12 +149,12 @@ def run(timeintegrator_class, refinement=1):
     return l2_err
 
 
-def run_convergence(timeintegrator_class, ref_list,
-                    expected_slope, tolerance=0.05):
+def run_convergence(timeintegrator_class, timeintegrator_options,
+                    ref_list, expected_slope, tolerance=0.05):
     print('Testing {:}'.format(timeintegrator_class.__name__))
     err_list = []
     for r in ref_list:
-        l2_err = run(timeintegrator_class, r)
+        l2_err = run(timeintegrator_class, timeintegrator_options, r)
         err_list.append(l2_err)
     x_log = np.log10(np.array(ref_list, dtype=float)**-1)
     y_log = np.log10(np.array(err_list))
@@ -167,31 +168,31 @@ def run_convergence(timeintegrator_class, ref_list,
     return slope
 
 
-@pytest.mark.parametrize(('ti_class', 'convergence_rate'), [
-    (ForwardEuler, 1.0),
-    (CrankNicolson, 2.0),
-    (SSPRK22ALE, 2.0),
-    (LeapFrogAM3, 2.0),
-    (BackwardEuler, 1.0),
-    (ImplicitMidpoint, 2.0),
-    (CrankNicolsonRK, 2.0),
-    (DIRK22, 2.0),
-    (DIRK23, 3.0),
-    (DIRK33, 3.0),
-    (DIRK43, 3.0),
-    (DIRKLSPUM2, 2.0),
-    (DIRKLPUM2, 2.0),
-    (ERKLSPUM2, 2.0),
-    (SSPRK33, 3.0),
-    (ERKLSPUM2, 2.0),
-    (ERKLPUM2, 2.0),
-    (ERKMidpoint, 2.0),
-    (ESDIRKMidpoint, 2.0),
-    (ESDIRKTrapezoid, 2.0),
-    (IMEXLPUM2, 2.0),
-    (IMEXLSPUM2, 2.0),
-    (IMEXMidpoint, 2.0),
-    (IMEXEuler, 1.0),
+@pytest.mark.parametrize(('ti_class', 'options', 'convergence_rate'), [
+    (ForwardEuler, ExplicitTimestepperOptions2d, 1.0),
+    (CrankNicolson, CrankNicolsonTimestepperOptions2d, 2.0),
+    (SSPRK22ALE, ExplicitTimestepperOptions2d, 2.0),
+    (LeapFrogAM3, ExplicitTimestepperOptions2d, 2.0),
+    (BackwardEuler, SemiImplicitTimestepperOptions2d, 1.0),
+    (ImplicitMidpoint, SemiImplicitTimestepperOptions2d, 2.0),
+    (CrankNicolsonRK, SemiImplicitTimestepperOptions2d, 2.0),
+    (DIRK22, SemiImplicitTimestepperOptions2d, 2.0),
+    (DIRK23, SemiImplicitTimestepperOptions2d, 3.0),
+    (DIRK33, SemiImplicitTimestepperOptions2d, 3.0),
+    (DIRK43, SemiImplicitTimestepperOptions2d, 3.0),
+    (DIRKLSPUM2, SemiImplicitTimestepperOptions2d, 2.0),
+    (DIRKLPUM2, SemiImplicitTimestepperOptions2d, 2.0),
+    (ERKLSPUM2, SemiImplicitTimestepperOptions2d, 2.0),
+    (SSPRK33, ExplicitTimestepperOptions2d, 3.0),
+    (ERKLSPUM2, ExplicitTimestepperOptions2d, 2.0),
+    (ERKLPUM2, ExplicitTimestepperOptions2d, 2.0),
+    (ERKMidpoint, ExplicitTimestepperOptions2d, 2.0),
+    (ESDIRKMidpoint, SemiImplicitTimestepperOptions2d, 2.0),
+    (ESDIRKTrapezoid, SemiImplicitTimestepperOptions2d, 2.0),
+    (IMEXLPUM2, IMEXTimestepperOptions2d, 2.0),
+    (IMEXLSPUM2, IMEXTimestepperOptions2d, 2.0),
+    (IMEXMidpoint, IMEXTimestepperOptions2d, 2.0),
+    (IMEXEuler, IMEXTimestepperOptions2d, 1.0),
 ])
-def test_timeintegrator_convergence(ti_class, convergence_rate):
-    run_convergence(ti_class, [1, 2, 3, 4], convergence_rate)
+def test_timeintegrator_convergence(ti_class, options, convergence_rate):
+    run_convergence(ti_class, options, [1, 2, 3, 4], convergence_rate)

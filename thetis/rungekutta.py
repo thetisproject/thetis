@@ -446,7 +446,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
     All derived classes must define the Butcher tableau coefficients :attr:`a`,
     :attr:`b`, :attr:`c`.
     """
-    def __init__(self, equation, solution, fields, dt,
+    def __init__(self, equation, solution, fields, dt, options,
                  bnd_conditions=None, solver_parameters=None, terms_to_add='all'):
         """
         :arg equation: the equation to solve
@@ -455,6 +455,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
         :arg float dt: time step in seconds
+        :arg options: :class:`TimeStepperOptions` instance containing parameter values.
         :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
         :kwarg dict solver_parameters: PETSc solver options
         :kwarg terms_to_add: Defines which terms of the equation are to be
@@ -561,9 +562,8 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
 class DIRKGenericUForm(RungeKuttaTimeIntegrator):
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
-    def __init__(self, equation, solution, fields, dt,
-                 bnd_conditions=None, solver_parameters=None, terms_to_add='all',
-                 semi_implicit=False):
+    def __init__(self, equation, solution, fields, dt, options,
+                 bnd_conditions=None, solver_parameters=None, terms_to_add='all'):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -571,14 +571,15 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
         :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
         :arg float dt: time step in seconds
+        :arg options: :class:`TimeStepperOptions` instance containing parameter values.
         :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
         :kwarg dict solver_parameters: PETSc solver options
         :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
-        :kwarg bool semi_implicit: If True use a linearized semi-implicit scheme
         """
         super().__init__(equation, solution, fields, dt, solver_parameters)
+        semi_implicit = options.use_semi_implicit_linearization
         if semi_implicit:
             self.solver_parameters.setdefault('snes_type', 'ksponly')
         else:
@@ -742,8 +743,8 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
 
     Implements the Butcher form. All terms in the equation are treated explicitly.
     """
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
-                 solver_parameters=None, terms_to_add='all'):
+    def __init__(self, equation, solution, fields, dt, options,
+                 bnd_conditions=None, solver_parameters=None, terms_to_add='all'):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -751,6 +752,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
         :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
         :arg float dt: time step in seconds
+        :arg options: :class:`TimeStepperOptions` instance containing parameter values.
         :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
         :kwarg dict solver_parameters: PETSc solver options
         :kwarg terms_to_add: Defines which terms of the equation are to be
@@ -843,7 +845,8 @@ class ERKGenericShuOsher(TimeIntegrator):
 
     Implements the Shu-Osher form.
     """
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters=None, terms_to_add='all'):
+    def __init__(self, equation, solution, fields, dt, options,
+                 bnd_conditions=None, solver_parameters=None, terms_to_add='all'):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -851,6 +854,7 @@ class ERKGenericShuOsher(TimeIntegrator):
         :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
         :arg float dt: time step in seconds
+        :arg options: :class:`TimeStepperOptions` instance containing parameter values.
         :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
         :kwarg dict solver_parameters: PETSc solver options
         :kwarg terms_to_add: Defines which terms of the equation are to be
