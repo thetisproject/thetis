@@ -41,7 +41,7 @@ class IMEXGeneric(TimeIntegrator):
         :arg float dt: time step in seconds
         :arg options: :class:`TimeStepperOptions` instance containing parameter values.
         :arg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :kwarg solver_parameters: PETSc solver options for explicit solver
+        :kwarg solver_parameters: PETSc solver options
         """
         solver_parameters = options.solver_parameters
         solver_parameters_dirk = options.solver_parameters_dirk

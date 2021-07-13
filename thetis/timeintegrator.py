@@ -140,8 +140,7 @@ class CrankNicolson(TimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
-    def __init__(self, equation, solution, fields, dt, options, bnd_conditions,
-                 solver_parameters=None):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, solver_parameters=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
