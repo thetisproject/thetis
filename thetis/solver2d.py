@@ -486,7 +486,7 @@ class FlowSolver2d(FrozenClass):
                               fields, self.dt, self.options.timestepper_options, bnd_conditions)
         else:
             return integrator(self.equations.sw, self.fields.solution_2d, fields, self.dt,
-                              self.options.timestepper_options, bnd_conditions=bnd_conditions)
+                              self.options.timestepper_options, bnd_conditions)
 
     def get_tracer_timestepper(self, integrator, label):
         """
@@ -507,8 +507,7 @@ class FlowSolver2d(FrozenClass):
         elif label[:-3] in self.bnd_functions:
             bcs = self.bnd_functions[label[:-3]]
         return integrator(self.equations[label], self.fields[label], fields, self.dt,
-                          self.options.timestepper_options, bcs,
-                          solver_parameters=self.options.timestepper_options.solver_parameters_tracer)
+                          self.options.tracer_timestepper_options, bcs)
 
     def get_sediment_timestepper(self, integrator):
         """
@@ -523,8 +522,8 @@ class FlowSolver2d(FrozenClass):
             'tracer_advective_velocity_factor': self.sediment_model.get_advective_velocity_correction_factor(),
         }
         return integrator(self.equations.sediment, self.fields.sediment_2d, fields, self.dt,
-                          self.options.timestepper_options, self.bnd_functions['sediment'],
-                          solver_parameters=self.options.timestepper_options.solver_parameters_sediment)
+                          self.options.sediment_model_options.sediment_timestepper_options,
+                          self.bnd_functions['sediment'])
 
     def get_exner_timestepper(self, integrator):
         """
@@ -541,8 +540,8 @@ class FlowSolver2d(FrozenClass):
         }
         # only pass SWE bcs, used to determine closed boundaries in bedload term
         return integrator(self.equations.exner, self.fields.bathymetry_2d, fields, self.dt,
-                          self.options.timestepper_options, self.bnd_functions['shallow_water'],
-                          solver_parameters=self.options.timestepper_options.solver_parameters_exner)
+                          self.options.sediment_model_options.exner_timestepper_options,
+                          self.bnd_functions['shallow_water'])
 
     def get_fs_timestepper(self, integrator):
         """
