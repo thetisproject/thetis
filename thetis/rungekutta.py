@@ -462,7 +462,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
         """
-        super(DIRKGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
+        super(DIRKGeneric, self).__init__(equation, solution, fields, dt, options, solver_parameters=solver_parameters)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
         self._initialized = False
 
@@ -578,7 +578,7 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
         """
-        super().__init__(equation, solution, fields, dt, solver_parameters)
+        super().__init__(equation, solution, fields, dt, options, solver_parameters=solver_parameters)
         semi_implicit = options.use_semi_implicit_linearization
         if semi_implicit:
             self.solver_parameters.setdefault('snes_type', 'ksponly')
@@ -759,7 +759,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
         """
-        super(ERKGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
+        super(ERKGeneric, self).__init__(equation, solution, fields, dt, options, solver_parameters=solver_parameters)
         self._initialized = False
         self.solution_old = Function(self.equation.function_space, name='old solution')
 
@@ -861,7 +861,7 @@ class ERKGenericShuOsher(TimeIntegrator):
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
         """
-        super(ERKGenericShuOsher, self).__init__(equation, solution, fields, dt, solver_parameters)
+        super(ERKGenericShuOsher, self).__init__(equation, solution, fields, dt, options, solver_parameters=solver_parameters)
 
         self.tendency = Function(self.equation.function_space, name='tendency')
         self.stage_sol = []
