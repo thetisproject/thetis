@@ -730,7 +730,7 @@ class TurbineDragTerm(ShallowWaterMomentumTerm):
         super().__init__(u_test, u_space, eta_space, depth, options=options)
         self.tidal_farms = tidal_farms
 
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         total_h = self.depth.get_total_depth(eta_old)
         f = 0
         for farm in self.tidal_farms:
