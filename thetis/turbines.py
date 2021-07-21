@@ -16,30 +16,31 @@ class TidalTurbine:
         self.A_support = options.A_support
         self.upwind_correction = upwind_correction
 
-    def _thrust_area(self, uv):
-        C_T = self.thrust_coefficient(uv)
+    def _thrust_area(self, uv, depth, C_T=None):
+        if C_T is None:
+            C_T = self.thrust_coefficient(uv, depth)
         A_T = pi * self.diameter**2 / 4
         fric = C_T * A_T
         if self.C_support:
             fric += self.C_support * self.A_support
         return fric
 
-    def velocity_correction(self, uv, depth):
-        fric = self._thrust_area(uv)
+    def velocity_correction(self, uv, depth, C_T=None):
+        fric = self._thrust_area(uv, depth, C_T=C_T)
         if self.upwind_correction:
             return 0.5*(1+sqrt(1-fric/(self.diameter*depth)))
         else:
             return 1
 
     def friction_coefficient(self, uv, depth):
-        thrust_area = self._thrust_area(uv)
+        thrust_area = self._thrust_area(uv, depth)
         alpha = self.velocity_correction(uv, depth)
         return thrust_area/2./alpha**2
 
     def power(self, uv, depth):
         # ratio of discrete to upstream velocity (NOTE: should include support drag!)
         alpha = self.velocity_correction(uv, depth)
-        C_T = self.thrust_coefficient(uv)
+        C_T = self.thrust_coefficient(uv, depth)
         A_T = pi * self.diameter**2 / 4
         uv3 = dot(uv, uv)**1.5 / alpha**3  # upwind cubed velocity
         # this assumes the velocity through the turbine does not change due to the support (is this correct?)
@@ -51,7 +52,7 @@ class ConstantThrustTurbine(TidalTurbine):
         super().__init__(options, upwind_correction=upwind_correction)
         self.C_T = options.thrust_coefficient
 
-    def thrust_coefficient(self, uv):
+    def thrust_coefficient(self, uv, depth):
         return self.C_T
 
 
@@ -63,7 +64,7 @@ class RatedThrustTurbine(TidalTurbine):
         self.cut_in_speed = options.cut_in_speed
         self.cut_out_speed = options.cut_out_speed
 
-    def thrust_coefficient(self, uv):
+    def thrust_coefficient(self, uv, depth):
         umag = dot(uv, uv)**0.5
         # C_P for |u|>u_rated:
         y = self.C_T * (1+sqrt(1-self.C_T))/2 * self.cut_out_speed**3 / umag**3
@@ -72,12 +73,20 @@ class RatedThrustTurbine(TidalTurbine):
         # a cube root from this cubic equation is obtained using Cardano's formula
         d = 4*y**4-64/27*y**3
         C = (-d+4*y**4)**(1/6)
-        # the additiona 4pi/3 ensures we obtained the "right" cube with 0<C_T<0.85
+        # the additional 4pi/3 ensures we obtained the "right" cube with 0<C_T<0.85
         C_T_rated = (C+4*y/(3*C)) * cos(atan_2(sqrt(-d), -2*y**2)/3 + 4*pi/3)
 
-        return conditional(umag < self.cut_in_speed, 0,
-                           conditional(umag < self.rated_speed, self.C_T,
-                                       conditional(umag < self.cut_out_speed, C_T_rated, 0)))
+        alpha_in = self.velocity_correction(self.cut_in_speed, depth, C_T=self.C_T)
+
+        heavy = lambda x,y,z: y + (tanh(10*x) + 1)/2.*(z-y)
+
+        #return conditional(umag < self.cut_in_speed/alpha_in, 0,
+        #                   conditional(umag < self.rated_speed, self.C_T,
+        #                               conditional(umag < self.cut_out_speed, C_T_rated, 0)))
+        return self.C_T
+        return heavy(umag - self.cut_in_speed/alpha_in, 0,
+                           heavy(umag - self.rated_speed, self.C_T, 0))
+                                       #heavy(umag - self.cut_out_speed, C_T_rated, 0)))
 
 
 def linearly_interpolate_table(x_list, y_list, y_final, x):
@@ -107,7 +116,7 @@ class TabulatedThrustTurbine(TidalTurbine):
         if not len(self.C_T) == len(self.speeds):
             raise ValueError("In tabulated thrust curve the number of thrust coefficients and speed values should be the same.")
 
-    def thrust_coefficient(self, uv):
+    def thrust_coefficient(self, uv, depth):
         umag = dot(uv, uv)**0.5
         return conditional(umag < self.speeds[0], 0, linearly_interpolate_table(self.speeds, self.C_T, 0, umag))
 
@@ -169,7 +178,7 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
         """
         x = SpatialCoordinate(self.mesh)
 
-        radius = self.turbine.diameter * 0.5
+        radius = self.turbine.diameter * 0.6
         for coord in coordinates:
             dx0 = (x[0] - coord[0])/radius
             dx1 = (x[1] - coord[1])/radius
