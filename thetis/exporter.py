@@ -6,6 +6,7 @@ from .utility import *
 from firedrake.output import is_cg
 from collections import OrderedDict
 import itertools
+from .netcdf_io import write_nc_field
 
 
 def is_2d(fs):
@@ -22,7 +23,14 @@ def get_visu_space(fs):
     """
     is_vector = len(fs.ufl_element().value_shape()) == 1
     mesh = fs.mesh()
-    family = 'Lagrange' if is_cg(fs) else 'Discontinuous Lagrange'
+    cell = mesh.ufl_cell()
+    family_selector = {
+        (True, triangle): 'Lagrange',
+        (False, triangle): 'Discontinuous Lagrange',
+        (True, quadrilateral): 'Q',
+        (False, quadrilateral): 'DQ',
+    }
+    family = family_selector[(is_cg(fs), cell)]
     if is_vector:
         dim = fs.ufl_element().value_shape()[0]
         visu_fs = get_functionspace(mesh, family, 1, family, 1,
@@ -194,6 +202,83 @@ class HDF5Exporter(ExporterBase):
             f.load(function)
 
 
+class NetCDFExporter(ExporterBase):
+    """
+    Stores fields in disk in netCDF format
+    """
+    def __init__(self, fs_visu, func_name, outputdir, filename_prefix,
+                 next_export_ix=0, project_output=False, verbose=False):
+        """
+        Create exporter object for given function.
+
+        :arg fs_visu: function space where input function will be cast
+            before exporting
+        :arg func_name: name of the function
+        :arg string outputdir: directory where outputs will be stored
+        :arg string filename_prefix: prefix of output filename. Filename is
+            prefix_nnnnn.nc where nnnnn is the export number.
+        :kwarg int next_export_ix: index for next export (default 0)
+        :kwarg bool project_output: project function to output space instead of
+            interpolating
+        :kwarg bool verbose: print debug info to stdout
+        """
+        super().__init__(filename_prefix, outputdir, next_export_ix, verbose)
+        self.fs_visu = fs_visu
+        self.func_name = func_name
+        self.project_output = project_output
+        odir = create_directory(os.path.join(outputdir, filename_prefix))
+        self.outputdir = odir
+        self.cast_operators = {}
+
+    def gen_filename(self, iexport):
+        """
+        Generate file name 'prefix_nnnnn.nc' for i-th export
+
+        :arg int iexport: export index >= 0
+        """
+        filename = '{0:s}_{1:05d}.nc'.format(self.filename, iexport)
+        return os.path.join(self.outputdir, filename)
+
+    def export_as_index(self, iexport, function):
+        """
+        Export function to disk using the specified export index number
+
+        :arg int iexport: export index >= 0
+        :arg function: :class:`Function` to export
+        """
+        filename = self.gen_filename(iexport)
+        if self.verbose:
+            print_output('saving {:} state to {:}'.format(function.name(), filename))
+
+        assert self.fs_visu.max_work_functions == 1
+        tmp_proj_func = self.fs_visu.get_work_function()
+        op = self.cast_operators.get(function)
+        if self.project_output:
+            if op is None:
+                op = Projector(function, tmp_proj_func)
+                self.cast_operators[function] = op
+            op.project()
+        else:
+            if op is None:
+                op = Interpolator(function, tmp_proj_func)
+                self.cast_operators[function] = op
+            op.interpolate()
+
+        write_nc_field(tmp_proj_func, filename, self.func_name)
+        self.fs_visu.restore_work_function(tmp_proj_func)
+        self.next_export_ix = iexport + 1
+
+    def export(self, function):
+        """
+        Export function to disk.
+
+        Increments export index by 1.
+
+        :arg function: :class:`Function` to export
+        """
+        self.export_as_index(self.next_export_ix, function)
+
+
 class ExportManager(object):
     """
     Helper object for exporting multiple fields simultaneously
@@ -265,7 +350,8 @@ class ExportManager(object):
         self.functions[fieldname] = function
         if shortname is None or filename is None:
             assert fieldname in self.field_metadata, \
-                'Unknown field "{:}". For custom fields shortname and filename must be defined.'.format(fieldname)
+                'Unknown field "{:}". For custom fields shortname ' \
+                'and filename must be defined.'.format(fieldname)
         if shortname is None:
             shortname = self.field_metadata[fieldname]['shortname']
         if filename is None:
@@ -277,13 +363,17 @@ class ExportManager(object):
             native_space = field.function_space()
             visu_space = get_visu_space(native_space)
             if export_type.lower() == 'vtk':
-                self.exporters[fieldname] = VTKExporter(visu_space, shortname,
-                                                        outputdir, filename,
-                                                        next_export_ix=next_export_ix)
+                self.exporters[fieldname] = VTKExporter(
+                    visu_space, shortname, outputdir, filename,
+                    next_export_ix=next_export_ix)
             elif export_type.lower() == 'hdf5':
-                self.exporters[fieldname] = HDF5Exporter(native_space,
-                                                         outputdir, filename,
-                                                         next_export_ix=next_export_ix)
+                self.exporters[fieldname] = HDF5Exporter(
+                    native_space, outputdir, filename,
+                    next_export_ix=next_export_ix)
+            elif export_type.lower() == 'netcdf':
+                self.exporters[fieldname] = NetCDFExporter(
+                    visu_space, fieldname, outputdir, filename,
+                    next_export_ix=next_export_ix)
 
     def set_next_export_ix(self, next_export_ix):
         """Set export index to all child exporters"""
