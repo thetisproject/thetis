@@ -13,6 +13,9 @@ def write_nc_field(function, filename, fieldname):
     """
     fs = function.function_space()
     mesh = fs.mesh()
+    is_vector = fs.shape != ()
+    if is_vector:
+        vector_dim = fs.shape[0]
 
     fs_p0 = get_functionspace(mesh, 'DG', 0)
     fs_p1 = get_functionspace(mesh, 'CG', 1)
@@ -87,8 +90,15 @@ def write_nc_field(function, filename, fieldname):
             var[local2global_vertex_ix] = f_coords.dat.data_ro[:, i]
 
         if data_at_cells:
-            var = ncfile.createVariable(fieldname, 'f', ('face', ))
-            var[local2global_cell_ix] = function.dat.data_ro
+            l2g_ix = local2global_cell_ix
+            shape = ('face', )
         else:
-            var = ncfile.createVariable(fieldname, 'f', ('vertex', ))
-            var[local2global_vertex_ix] = function.dat.data_ro
+            l2g_ix = local2global_vertex_ix
+            shape = ('vertex', )
+        if is_vector:
+            for i, label in zip(range(vector_dim), ('x', 'y', 'z')):
+                var = ncfile.createVariable(f'{fieldname}_{label}', 'f', shape)
+                var[l2g_ix] = function.dat.data_ro[:, i]
+        else:
+            var = ncfile.createVariable(fieldname, 'f', shape)
+            var[l2g_ix] = function.dat.data_ro
