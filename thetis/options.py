@@ -20,7 +20,17 @@ class ExplicitTimestepperOptions(TimeStepperOptions):
     use_automatic_timestep = Bool(True, help='Set time step automatically based on local CFL conditions.').tag(config=True)
 
 
+class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
+    """Options for 2D explicit time integrator"""
+
+
 class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
+    """Options for 2d semi-implicit time integrator"""
+    use_semi_implicit_linearization = Bool(
+        False, help="Use linearized semi-implicit time integration").tag(config=True)
+
+
+class SemiImplicitSWETimestepperOptions2d(SemiImplicitTimeStepperOptions2d):
     """
     Options for 2d semi-implicit time integrator
     applied to shallow water equations.
@@ -30,8 +40,6 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
         'pc_type': 'fieldsplit',
         'pc_fieldsplit_type': 'multiplicative',
     }).tag(config=True)
-    use_semi_implicit_linearization = Bool(
-        False, help="Use linearized semi-implicit time integration").tag(config=True)
 
 
 class SemiImplicitTracerTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
@@ -54,7 +62,7 @@ class SteadyStateTimestepperOptions2d(TimeStepperOptions):
     }).tag(config=True)
 
 
-class CrankNicolsonTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
+class CrankNicolsonSWETimestepperOptions2d(SemiImplicitSWETimestepperOptions2d):
     """
     Options for 2d Crank-Nicolson time integrator
     applied to shallow water equations.
@@ -74,7 +82,7 @@ class CrankNicolsonTracerTimestepperOptions2d(SemiImplicitTracerTimestepperOptio
         help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.').tag(config=True)
 
 
-class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
+class PressureProjectionSWETimestepperOptions2d(TimeStepperOptions):
     """
     Options for 2d pressure-projection time integrator
     applied to shallow water equations.
@@ -122,7 +130,7 @@ class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
         help='number of Picard iterations to converge the nonlinearity in the equations.')
 
 
-class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
+class ExplicitSWETimestepperOptions2d(ExplicitTimestepperOptions2d):
     """
     Options for 2d explicit time integrator
     applied to shallow water equations.
@@ -148,7 +156,7 @@ class ExplicitTracerTimestepperOptions2d(ExplicitTimestepperOptions2d):
     }).tag(config=True)
 
 
-class IMEXTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
+class IMEXTimestepperSWEOptions2d(SemiImplicitTimestepperOptions2d):
     """
     Options for 2d implicit-explicit time integrators
     applied to shallow water equations.
@@ -443,17 +451,14 @@ class NonhydrostaticModelOptions(FrozenHasTraits):
     q_degree = NonNegativeInteger(
         None, allow_none=True, help="Polynomial degree of the non-hydrostatic pressure space").tag(config=True)
     update_free_surface = Bool(True, help='Update free surface elevation after pressure projection/correction step').tag(config=True)
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.free_surface_timestepper_options.solver_parameters = {
-            'snes_type': 'ksponly',
-            'ksp_type': 'preonly',
-            'mat_type': 'aij',
-            'pc_type': 'lu',
-            'pc_factor_mat_solver_type': 'mumps',
-            'mat_mumps_icntl_14': 200,
-        }
+    solver_parameters = PETScSolverParameters({
+        'snes_type': 'ksponly',
+        'ksp_type': 'preonly',
+        'mat_type': 'aij',
+        'pc_type': 'lu',
+        'pc_factor_mat_solver_type': 'mumps',
+        'mat_mumps_icntl_14': 200,
+    }).tag(config=True)
 
 
 class CommonModelOptions(FrozenConfigurable):
@@ -710,15 +715,15 @@ class SedimentModelOptions(FrozenHasTraits):
 # NOTE all parameters are now case sensitive
 # TODO rename time stepper types? Allow capitals and spaces?
 @attach_paired_options("timestepper_type",
-                       PairedEnum([('SSPRK33', ExplicitTimestepperOptions2d),
-                                   ('ForwardEuler', ExplicitTimestepperOptions2d),
-                                   ('BackwardEuler', SemiImplicitTimestepperOptions2d),
-                                   ('CrankNicolson', CrankNicolsonTimestepperOptions2d),
-                                   ('DIRK22', SemiImplicitTimestepperOptions2d),
-                                   ('DIRK33', SemiImplicitTimestepperOptions2d),
+                       PairedEnum([('SSPRK33', ExplicitSWETimestepperOptions2d),
+                                   ('ForwardEuler', ExplicitSWETimestepperOptions2d),
+                                   ('BackwardEuler', SemiImplicitSWETimestepperOptions2d),
+                                   ('CrankNicolson', CrankNicolsonSWETimestepperOptions2d),
+                                   ('DIRK22', SemiImplicitSWETimestepperOptions2d),
+                                   ('DIRK33', SemiImplicitSWETimestepperOptions2d),
                                    ('SteadyState', SteadyStateTimestepperOptions2d),
-                                   ('PressureProjectionPicard', PressureProjectionTimestepperOptions2d),
-                                   ('SSPIMEX', IMEXTimestepperOptions2d),
+                                   ('PressureProjectionPicard', PressureProjectionSWETimestepperOptions2d),
+                                   ('SSPIMEX', IMEXSWETimestepperOptions2d),
                                    ],
                                   "timestepper_options",
                                   default_value='CrankNicolson',
