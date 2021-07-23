@@ -79,6 +79,7 @@ def write_nc_field(function, filename, fieldname):
         ncfile.createDimension('face', global_nb_cells)
         ncfile.createDimension('face_nb_nodes', face_nodes)
         ncfile.createDimension('vertex', global_nb_vertices)
+        ncfile.createDimension('time', None)
 
         mesh_prefix = 'Mesh'
 
@@ -93,14 +94,18 @@ def write_nc_field(function, filename, fieldname):
 
         if data_at_cells:
             l2g_ix = local2global_cell_ix
-            shape = ('face', )
+            shape = ('time', 'face', )
         else:
             l2g_ix = local2global_vertex_ix
-            shape = ('vertex', )
+            shape = ('time', 'vertex', )
+
+        time_index = 0
         if is_vector:
             for i, label in zip(range(vector_dim), ('x', 'y', 'z')):
                 var = ncfile.createVariable(f'{fieldname}_{label}', 'f', shape)
-                var[l2g_ix] = function.dat.data_ro[:, i]
+                var.set_collective(True)  # needed for unlimited time dim
+                var[time_index, l2g_ix] = function.dat.data_ro[:, i]
         else:
             var = ncfile.createVariable(fieldname, 'f', shape)
-            var[l2g_ix] = function.dat.data_ro
+            var.set_collective(True)  # needed for unlimited time dim
+            var[time_index, l2g_ix] = function.dat.data_ro
