@@ -433,12 +433,12 @@ class TracerFieldOptions(FrozenHasTraits):
 
 
 @attach_paired_options("free_surface_timestepper_type",
-                       PairedEnum([('SSPRK33', ExplicitTimestepperOptions2d),
-                                   ('ForwardEuler', ExplicitTimestepperOptions2d),
-                                   ('BackwardEuler', SemiImplicitTimestepperOptions2d),
-                                   ('CrankNicolson', CrankNicolsonTimestepperOptions2d),
-                                   ('DIRK22', SemiImplicitTimestepperOptions2d),
-                                   ('DIRK33', SemiImplicitTimestepperOptions2d),
+                       PairedEnum([('SSPRK33', ExplicitTracerTimestepperOptions2d),
+                                   ('ForwardEuler', ExplicitTracerTimestepperOptions2d),
+                                   ('BackwardEuler', SemiImplicitTracerTimestepperOptions2d),
+                                   ('CrankNicolson', CrankNicolsonTracerTimestepperOptions2d),
+                                   ('DIRK22', SemiImplicitTracerTimestepperOptions2d),
+                                   ('DIRK33', SemiImplicitTracerTimestepperOptions2d),
                                    ],
                                   "free_surface_timestepper_options",
                                   default_value='CrankNicolson',
