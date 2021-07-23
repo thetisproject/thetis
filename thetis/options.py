@@ -525,6 +525,10 @@ class CommonModelOptions(FrozenConfigurable):
         trait=Unicode(),
         default_value=[],
         help="Fields to export in HDF5 format").tag(config=True)
+    fields_to_export_netcdf = List(
+        trait=Unicode(),
+        default_value=[],
+        help="Fields to export in NetCDF format").tag(config=True)
     verbose = Integer(0, help="Verbosity level").tag(config=True)
     linear_drag_coefficient = FiredrakeScalarExpression(
         None, allow_none=True, help=r"""
@@ -743,10 +747,6 @@ class ModelOptions2d(CommonModelOptions):
         2D solver supports 'dg' or 'cg'.""").tag(config=True)
     use_supg_tracer = Bool(
         False, help="Use SUPG stabilisation in tracer advection").tag(config=True)
-    fields_to_export_netcdf = List(
-        trait=Unicode(),
-        default_value=[],
-        help="Fields to export in NetCDF format").tag(config=True)
 
     def __init__(self, *args, **kwargs):
         self.tracer = OrderedDict()
