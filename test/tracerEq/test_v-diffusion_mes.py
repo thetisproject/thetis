@@ -67,8 +67,7 @@ def run(refinement, **model_options):
     options.fields_to_export = ['salt_3d']
     options.vertical_diffusivity = Constant(vertical_diffusivity)
     options.update(model_options)
-    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
-        options.timestepper_options.use_automatic_timestep = False
+    options.explicit_tracer_timestepper_options.use_automatic_timestep = False
 
     solverobj.create_equations()
 

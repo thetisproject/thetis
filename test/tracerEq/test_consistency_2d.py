@@ -55,7 +55,7 @@ def run_tracer_consistency(constant_c=True, **model_options):
     options.check_volume_conservation_2d = True
     options.check_tracer_conservation = True
     options.check_tracer_overshoot = True
-    options.timestepper_type = 'CrankNicolson'
+    options.swe_timestepper_type = 'CrankNicolson'
     options.tracer_timestepper_type = 'CrankNicolson'
     options.output_directory = outputdir
     options.fields_to_export = ['uv_2d', 'elev_2d', 'tracer_2d']
@@ -155,5 +155,4 @@ if __name__ == '__main__':
                            use_nonlinear_equations=True,
                            solve_tracer=True,
                            use_limiter_for_tracers=False,
-                           no_exports=False,
-                           timestepper_type='CrankNicolson')
+                           no_exports=False)

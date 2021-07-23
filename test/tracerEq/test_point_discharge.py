@@ -186,8 +186,8 @@ def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg'):
     options.timestep = 20.0
     options.simulation_end_time = 18.0
     options.simulation_export_time = 18.0
-    options.timestepper_options.solver_parameters['pc_factor_mat_solver_type'] = 'mumps'
-    options.timestepper_options.solver_parameters['snes_monitor'] = None
+    options.swe_timestepper_options.solver_parameters['pc_factor_mat_solver_type'] = 'mumps'
+    options.swe_timestepper_options.solver_parameters['snes_monitor'] = None
     options.tracer_timestepper_options.solver_parameters['pc_factor_mat_solver_type'] = 'mumps'
     options.tracer_timestepper_options.solver_parameters['snes_monitor'] = None
     options.fields_to_export = ['tracer_2d', 'uv_2d', 'elev_2d']

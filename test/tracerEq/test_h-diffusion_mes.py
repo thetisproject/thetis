@@ -74,8 +74,7 @@ def run(refinement, **model_options):
     options.horizontal_diffusivity = Constant(horizontal_diffusivity)
     options.horizontal_viscosity_scale = Constant(horizontal_diffusivity)
     options.update(model_options)
-    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
-        options.timestepper_options.use_automatic_timestep = True
+    options.explicit_tracer_timestepper_options.use_automatic_timestep = True
 
     solverobj.create_equations()
 

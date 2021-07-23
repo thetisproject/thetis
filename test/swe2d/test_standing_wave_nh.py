@@ -60,9 +60,9 @@ def test_nh_standing_wave(timesteps, max_rel_err, timestepper, tmpdir,
         options.element_family = 'dg-dg'
     options.polynomial_degree = 1
     # time stepper
-    options.timestepper_type = timestepper
-    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
-        options.timestepper_options.use_automatic_timestep = False
+    options.swe_timestepper_type = timestepper
+    if hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
+        options.swe_timestepper_options.use_automatic_timestep = False
         timesteps *= 40
         dt = period/timesteps
     options.timestep = dt
@@ -78,7 +78,7 @@ def test_nh_standing_wave(timesteps, max_rel_err, timestepper, tmpdir,
         options_nh.q_degree = 2
         options_nh.update_free_surface = True
         options_nh.free_surface_timestepper_type = 'CrankNicolson'
-        if hasattr(options.timestepper_options, 'use_automatic_timestep'):
+        if hasattr(options_nh.free_surface_timestepper_options, 'use_automatic_timestep'):
             # use the same explicit timestepper, but CrankNicolson is ok
             options_nh.free_surface_timestepper_type = timestepper
             options_nh.free_surface_timestepper_options.use_automatic_timestep = False

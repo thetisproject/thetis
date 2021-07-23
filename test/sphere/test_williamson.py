@@ -179,7 +179,7 @@ def run(refinement, cell='triangle', setup=setup_williamson2, **model_options):
     options.coriolis_frequency = coriolis_2d
     options.simulation_export_time = t_export
     options.simulation_end_time = t_end
-    options.timestepper_type = 'CrankNicolson'
+    options.swe_timestepper_type = 'CrankNicolson'
     options.timestep = dt
     options.output_directory = outputdir
     options.horizontal_velocity_scale = Constant(0.1)
@@ -302,7 +302,7 @@ def test_convergence(element_family, cell, setup):
 def test_convergence_explicit():
     run_convergence([1, 2, 3], cell='triangle', setup=setup_williamson2,
                     element_family='bdm-dg',
-                    timestepper_type='SSPRK33')
+                    swe_timestepper_type='SSPRK33')
 
 
 def test_williamson5():

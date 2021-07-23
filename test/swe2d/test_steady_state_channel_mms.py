@@ -57,15 +57,15 @@ def test_steady_state_channel_mms(element_family, do_exports=False):
         solver_obj.options.simulation_export_time = dt
         solver_obj.options.simulation_end_time = n*dt
         solver_obj.options.momentum_source_2d = source_func
-        solver_obj.options.timestepper_type = 'SteadyState'
-        solver_obj.options.timestepper_options.solver_parameters = {
+        solver_obj.options.swe_timestepper_type = 'SteadyState'
+        solver_obj.options.swe_timestepper_options.solver_parameters = {
             'ksp_type': 'preonly',
             'pc_type': 'lu',
             'pc_factor_mat_solver_type': 'mumps',
             'snes_type': 'newtonls',
         }
-        if hasattr(solver_obj.options.timestepper_options, 'use_automatic_timestep'):
-            solver_obj.options.timestepper_options.use_automatic_timestep = False
+        if hasattr(solver_obj.options.swe_timestepper_options, 'use_automatic_timestep'):
+            solver_obj.options.swe_timestepper_options.use_automatic_timestep = False
         solver_obj.options.timestep = dt
         solver_obj.options.no_exports = not do_exports
 

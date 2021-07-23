@@ -151,8 +151,8 @@ def run(setup, refinement, do_export=True, **options):
     solver_obj.options.horizontal_viscosity_scale = Constant(50.0)
     solver_obj.options.update(options)
     solver_obj.options.solve_tracer = True
-    if hasattr(solver_obj.options.timestepper_options, 'implicitness_theta'):
-        solver_obj.options.timestepper_options.implicitness_theta = 1.0
+    if hasattr(solver_obj.options.swe_timestepper_options, 'implicitness_theta'):
+        solver_obj.options.swe_timestepper_options.implicitness_theta = 1.0
     if hasattr(solver_obj.options.tracer_timestepper_options, 'implicitness_theta'):
         solver_obj.options.tracer_timestepper_options.implicitness_theta = 1.0
     solver_obj.create_function_spaces()
@@ -275,7 +275,7 @@ def conservative_form(request):
 
 def test_convergence(setup, timestepper_type, conservative_form):
     run_convergence(setup, [1, 2, 3], save_plot=False,
-                    timestepper_type=timestepper_type,
+                    swe_timestepper_type=timestepper_type,
                     tracer_timestepper_type=timestepper_type,
                     use_tracer_conservative_form=conservative_form)
 
@@ -283,7 +283,7 @@ def test_convergence(setup, timestepper_type, conservative_form):
 # setup4 is valid for conservative only
 def test_convergence_conservative_only(timestepper_type):
     run_convergence(Setup4, [1, 2, 3], save_plot=False,
-                    timestepper_type=timestepper_type,
+                    swe_timestepper_type=timestepper_type,
                     tracer_timestepper_type=timestepper_type,
                     use_tracer_conservative_form=True)
 

@@ -63,7 +63,7 @@ def test_thacker(stepper, n, dt, max_err):
     options.simulation_end_time = 43200
     options.simulation_export_time = 600.
     options.no_exports = True
-    options.timestepper_type = stepper
+    options.swe_timestepper_type = stepper
     options.use_wetting_and_drying = True
     options.use_automatic_wetting_and_drying_alpha = True
 

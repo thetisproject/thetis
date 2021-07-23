@@ -742,7 +742,7 @@ class SedimentModelOptions(FrozenHasTraits):
 
 
 # TODO rename time stepper types? Allow capitals and spaces?
-@attach_paired_options("timestepper_type",
+@attach_paired_options("swe_timestepper_type",
                        PairedEnum([('SSPRK33', ExplicitSWETimeStepperOptions2d),
                                    ('ForwardEuler', ExplicitSWETimeStepperOptions2d),
                                    ('BackwardEuler', SemiImplicitSWETimeStepperOptions2d),
@@ -753,7 +753,7 @@ class SedimentModelOptions(FrozenHasTraits):
                                    ('PressureProjectionPicard', PressureProjectionSWETimeStepperOptions2d),
                                    ('SSPIMEX', IMEXSWETimeStepperOptions2d),
                                    ],
-                                  "timestepper_options",
+                                  "swe_timestepper_options",
                                   default_value='CrankNicolson',
                                   help='Name of the time integrator').tag(config=True),
                        Instance(TimeStepperOptions, args=()).tag(config=True))
