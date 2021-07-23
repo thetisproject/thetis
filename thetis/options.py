@@ -21,7 +21,7 @@ class ExplicitTimestepperOptions(TimeStepperOptions):
 
 
 class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
-    """Options for 2D explicit time integrator"""
+    """Options for 2d explicit time integrator"""
 
 
 class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
@@ -33,7 +33,7 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
 class SemiImplicitSWETimestepperOptions2d(SemiImplicitTimeStepperOptions2d):
     """
     Options for 2d semi-implicit time integrator
-    applied to shallow water equations.
+    applied to shallow water equations
     """
     solver_parameters = PETScSolverParameters({
         'ksp_type': 'gmres',
@@ -45,7 +45,7 @@ class SemiImplicitSWETimestepperOptions2d(SemiImplicitTimeStepperOptions2d):
 class SemiImplicitTracerTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
     """
     Options for 2d semi-implicit time integrator
-    applied to tracer equations.
+    applied to tracer equations
     """
     solver_parameters = PETScSolverParameters({
         'ksp_type': 'gmres',
@@ -65,7 +65,7 @@ class SteadyStateTimestepperOptions2d(TimeStepperOptions):
 class CrankNicolsonSWETimestepperOptions2d(SemiImplicitSWETimestepperOptions2d):
     """
     Options for 2d Crank-Nicolson time integrator
-    applied to shallow water equations.
+    applied to shallow water equations
     """
     implicitness_theta = BoundedFloat(
         default_value=0.5, bounds=[0.5, 1.0],
@@ -75,7 +75,7 @@ class CrankNicolsonSWETimestepperOptions2d(SemiImplicitSWETimestepperOptions2d):
 class CrankNicolsonTracerTimestepperOptions2d(SemiImplicitTracerTimestepperOptions2d):
     """
     Options for 2d Crank-Nicolson time integrator
-    applied to tracer equations.
+    applied to tracer equations
     """
     implicitness_theta = BoundedFloat(
         default_value=0.5, bounds=[0.5, 1.0],
@@ -85,7 +85,7 @@ class CrankNicolsonTracerTimestepperOptions2d(SemiImplicitTracerTimestepperOptio
 class PressureProjectionSWETimestepperOptions2d(TimeStepperOptions):
     """
     Options for 2d pressure-projection time integrator
-    applied to shallow water equations.
+    applied to shallow water equations
     """
     solver_parameters_pressure = PETScSolverParameters({
         'ksp_type': 'preonly',  # we solve the full schur complement exactly, so no need for outer krylov
@@ -133,7 +133,7 @@ class PressureProjectionSWETimestepperOptions2d(TimeStepperOptions):
 class ExplicitSWETimestepperOptions2d(ExplicitTimestepperOptions2d):
     """
     Options for 2d explicit time integrator
-    applied to shallow water equations.
+    applied to shallow water equations
     """
     solver_parameters = PETScSolverParameters({
         'snes_type': 'ksponly',
@@ -148,7 +148,7 @@ class ExplicitSWETimestepperOptions2d(ExplicitTimestepperOptions2d):
 class ExplicitTracerTimestepperOptions2d(ExplicitTimestepperOptions2d):
     """
     Options for 2d explicit time integrator
-    applied to tracer equations.
+    applied to tracer equations
     """
     solver_parameters = PETScSolverParameters({
         'ksp_type': 'gmres',
@@ -159,7 +159,7 @@ class ExplicitTracerTimestepperOptions2d(ExplicitTimestepperOptions2d):
 class IMEXTimestepperSWEOptions2d(SemiImplicitTimestepperOptions2d):
     """
     Options for 2d implicit-explicit time integrators
-    applied to shallow water equations.
+    applied to shallow water equations
     """
     # TODO: Meaningful solver parameters
     solver_parameters = PETScSolverParameters({
@@ -174,27 +174,56 @@ class IMEXTimestepperSWEOptions2d(SemiImplicitTimestepperOptions2d):
     }).tag(config=True)
 
 
-class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
-    """Base class for all 3d time stepper options"""
-    solver_parameters_2d_swe = PETScSolverParameters({
+class TimestepperOptions3d(TimestepperOptions):
+    """Options for 3d explicit time integrator"""
+    use_automatic_timestep = Bool(True, help='Set time step automatically based on local CFL conditions.').tag(config=True)
+
+
+class SWETimestepperOptions3d(TimestepperOptions3d):
+    """
+    Options for 3d explicit time integrator
+    shallow water component
+    """
+    solver_parameters = PETScSolverParameters({
         'ksp_type': 'gmres',
         'pc_type': 'fieldsplit',
         'pc_fieldsplit_type': 'multiplicative',
     }).tag(config=True)
-    solver_parameters_momentum_explicit = PETScSolverParameters({
+
+
+class ExplicitMomentumTimestepperOptions3d(TimestepperOptions3d):
+    """
+    Options for 3d explicit time integrator
+    momentum component
+    """
+    solver_parameters = PETScSolverParameters({
         'snes_type': 'ksponly',
         'ksp_type': 'cg',
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
     }).tag(config=True)
-    solver_parameters_momentum_implicit = PETScSolverParameters({
+
+
+class ImplicitMomentumTimestepperOptions3d(TimestepperOptions3d):
+    """
+    Options for 3d explicit time integrator
+    momentum component
+    """
+    solver_parameters = PETScSolverParameters({
         'snes_type': 'ksponly',
         'ksp_type': 'preonly',
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
     }).tag(config=True)
+
+
+class ExplicitTracerTimestepperOptions3d(TimestepperOptions3d):
+    """
+    Options for 3d explicit time integrator
+    applied to tracer equations
+    """
     solver_parameters_tracer_explicit = PETScSolverParameters({
         'snes_type': 'ksponly',
         'ksp_type': 'cg',
@@ -202,20 +231,20 @@ class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
     }).tag(config=True)
-    solver_parameters_tracer_implicit = PETScSolverParameters({
+
+
+class ImplicitTracerTimestepperOptions3d(TimestepperOptions3d):
+    """
+    Options for 3d implicit time integrator
+    applied to tracer equations
+    """
+    solver_parameters_tracer_explicit = PETScSolverParameters({
         'snes_type': 'ksponly',
         'ksp_type': 'preonly',
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
     }).tag(config=True)
-
-
-class SemiImplicitTimestepperOptions3d(ExplicitTimestepperOptions3d):
-    """Class for all 3d time steppers that have a configurable semi-implicit 2D solver"""
-    implicitness_theta_2d = BoundedFloat(
-        default_value=0.5, bounds=[0.5, 1.0],
-        help='implicitness parameter theta for 2D solver. Value 1.0 implies fully implicit formulation.').tag(config=True)
 
 
 class TurbulenceModelOptions(FrozenHasTraits):
@@ -851,13 +880,45 @@ class ModelOptions2d(CommonModelOptions):
         self.tracer[label].diffusivity = diffusivity
 
 
-@attach_paired_options("timestepper_type",
-                       PairedEnum([('LeapFrog', ExplicitTimestepperOptions3d),
-                                   ('SSPRK22', ExplicitTimestepperOptions3d),
+@attach_paired_options("swe_timestepper_type",
+                       PairedEnum([('LeapFrog', ExplicitSWETimestepperOptions3d),
+                                   ('SSPRK22', ExplicitSWETimestepperOptions3d),
                                    ],
-                                  "timestepper_options",
+                                  "swe_timestepper_options",
                                   default_value='SSPRK22',
-                                  help='Name of the time integrator').tag(config=True),
+                                  help='Name of the shallow water time integrator').tag(config=True),
+                       Instance(TimeStepperOptions, args=()).tag(config=True))
+@attach_paired_options("explicit_momentum_timestepper_type",
+                       PairedEnum([('LeapFrog', ExplicitMomentumTimestepperOptions3d),
+                                   ('SSPRK22', ExplicitMomentumTimestepperOptions3d),
+                                   ],
+                                  "explicit_momentum_timestepper_options",
+                                  default_value='SSPRK22',
+                                  help='Name of the explicit momentum time integrator').tag(config=True),
+                       Instance(TimeStepperOptions, args=()).tag(config=True))
+@attach_paired_options("implicit_momentum_timestepper_type",
+                       PairedEnum([('LeapFrog', ImplicitMomentumTimestepperOptions3d),
+                                   ('SSPRK22', ImplicitMomentumTimestepperOptions3d),
+                                   ],
+                                  "implicit_momentum_timestepper_options",
+                                  default_value='SSPRK22',
+                                  help='Name of the implicit momentum time integrator').tag(config=True),
+                       Instance(TimeStepperOptions, args=()).tag(config=True))
+@attach_paired_options("explicit_tracer_timestepper_type",
+                       PairedEnum([('LeapFrog', ExplicitTracerTimestepperOptions3d),
+                                   ('SSPRK22', ExplicitTracerTimestepperOptions3d),
+                                   ],
+                                  "explicit_tracer_timestepper_options",
+                                  default_value='SSPRK22',
+                                  help='Name of the explicit tracer time integrator').tag(config=True),
+                       Instance(TimeStepperOptions, args=()).tag(config=True))
+@attach_paired_options("implicit_tracer_timestepper_type",
+                       PairedEnum([('LeapFrog', ImplicitTracerTimestepperOptions3d),
+                                   ('SSPRK22', ImplicitTracerTimestepperOptions3d),
+                                   ],
+                                  "implicit_tracer_timestepper_options",
+                                  default_value='SSPRK22',
+                                  help='Name of the implicit tracer time integrator').tag(config=True),
                        Instance(TimeStepperOptions, args=()).tag(config=True))
 @attach_paired_options("turbulence_model_type",
                        PairedEnum([('gls', GLSModelOptions),
