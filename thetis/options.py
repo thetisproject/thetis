@@ -15,22 +15,22 @@ class TimeStepperOptions(FrozenHasTraits):
     name = 'Time stepper'
 
 
-class ExplicitTimestepperOptions(TimeStepperOptions):
+class ExplicitTimeStepperOptions(TimeStepperOptions):
     """Options for explicit time integrator"""
     use_automatic_timestep = Bool(True, help='Set time step automatically based on local CFL conditions.').tag(config=True)
 
 
-class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
+class ExplicitTimeStepperOptions2d(ExplicitTimeStepperOptions):
     """Options for 2d explicit time integrator"""
 
 
-class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
+class SemiImplicitTimeStepperOptions2d(TimeStepperOptions):
     """Options for 2d semi-implicit time integrator"""
     use_semi_implicit_linearization = Bool(
         False, help="Use linearized semi-implicit time integration").tag(config=True)
 
 
-class SemiImplicitSWETimestepperOptions2d(SemiImplicitTimeStepperOptions2d):
+class SemiImplicitSWETimeStepperOptions2d(SemiImplicitTimeStepperOptions2d):
     """
     Options for 2d semi-implicit time integrator
     applied to shallow water equations
@@ -42,7 +42,7 @@ class SemiImplicitSWETimestepperOptions2d(SemiImplicitTimeStepperOptions2d):
     }).tag(config=True)
 
 
-class SemiImplicitTracerTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
+class SemiImplicitTracerTimeStepperOptions2d(SemiImplicitTimeStepperOptions2d):
     """
     Options for 2d semi-implicit time integrator
     applied to tracer equations
@@ -53,7 +53,7 @@ class SemiImplicitTracerTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
     }).tag(config=True)
 
 
-class SteadyStateTimestepperOptions2d(TimeStepperOptions):
+class SteadyStateTimeStepperOptions2d(TimeStepperOptions):
     """Options for 2d steady state solver"""
     solver_parameters = PETScSolverParameters({
         'ksp_type': 'preonly',
@@ -62,7 +62,7 @@ class SteadyStateTimestepperOptions2d(TimeStepperOptions):
     }).tag(config=True)
 
 
-class CrankNicolsonSWETimestepperOptions2d(SemiImplicitSWETimestepperOptions2d):
+class CrankNicolsonSWETimeStepperOptions2d(SemiImplicitSWETimeStepperOptions2d):
     """
     Options for 2d Crank-Nicolson time integrator
     applied to shallow water equations
@@ -72,7 +72,7 @@ class CrankNicolsonSWETimestepperOptions2d(SemiImplicitSWETimestepperOptions2d):
         help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.').tag(config=True)
 
 
-class CrankNicolsonTracerTimestepperOptions2d(SemiImplicitTracerTimestepperOptions2d):
+class CrankNicolsonTracerTimeStepperOptions2d(SemiImplicitTracerTimeStepperOptions2d):
     """
     Options for 2d Crank-Nicolson time integrator
     applied to tracer equations
@@ -82,7 +82,7 @@ class CrankNicolsonTracerTimestepperOptions2d(SemiImplicitTracerTimestepperOptio
         help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.').tag(config=True)
 
 
-class PressureProjectionSWETimestepperOptions2d(TimeStepperOptions):
+class PressureProjectionSWETimeStepperOptions2d(TimeStepperOptions):
     """
     Options for 2d pressure-projection time integrator
     applied to shallow water equations
@@ -130,7 +130,7 @@ class PressureProjectionSWETimestepperOptions2d(TimeStepperOptions):
         help='number of Picard iterations to converge the nonlinearity in the equations.')
 
 
-class ExplicitSWETimestepperOptions2d(ExplicitTimestepperOptions2d):
+class ExplicitSWETimeStepperOptions2d(ExplicitTimeStepperOptions2d):
     """
     Options for 2d explicit time integrator
     applied to shallow water equations
@@ -145,7 +145,7 @@ class ExplicitSWETimestepperOptions2d(ExplicitTimestepperOptions2d):
     }).tag(config=True)
 
 
-class ExplicitTracerTimestepperOptions2d(ExplicitTimestepperOptions2d):
+class ExplicitTracerTimeStepperOptions2d(ExplicitTimeStepperOptions2d):
     """
     Options for 2d explicit time integrator
     applied to tracer equations
@@ -156,7 +156,7 @@ class ExplicitTracerTimestepperOptions2d(ExplicitTimestepperOptions2d):
     }).tag(config=True)
 
 
-class IMEXTimestepperSWEOptions2d(SemiImplicitTimestepperOptions2d):
+class IMEXSWETimeStepperOptions2d(SemiImplicitTimeStepperOptions2d):
     """
     Options for 2d implicit-explicit time integrators
     applied to shallow water equations
@@ -174,12 +174,12 @@ class IMEXTimestepperSWEOptions2d(SemiImplicitTimestepperOptions2d):
     }).tag(config=True)
 
 
-class TimestepperOptions3d(TimestepperOptions):
+class TimeStepperOptions3d(TimeStepperOptions):
     """Options for 3d explicit time integrator"""
     use_automatic_timestep = Bool(True, help='Set time step automatically based on local CFL conditions.').tag(config=True)
 
 
-class SWETimestepperOptions3d(TimestepperOptions3d):
+class SWETimeStepperOptions3d(TimeStepperOptions3d):
     """
     Options for 3d explicit time integrator
     shallow water component
@@ -191,7 +191,7 @@ class SWETimestepperOptions3d(TimestepperOptions3d):
     }).tag(config=True)
 
 
-class ExplicitMomentumTimestepperOptions3d(TimestepperOptions3d):
+class ExplicitMomentumTimeStepperOptions3d(TimeStepperOptions3d):
     """
     Options for 3d explicit time integrator
     momentum component
@@ -205,7 +205,7 @@ class ExplicitMomentumTimestepperOptions3d(TimestepperOptions3d):
     }).tag(config=True)
 
 
-class ImplicitMomentumTimestepperOptions3d(TimestepperOptions3d):
+class ImplicitMomentumTimeStepperOptions3d(TimeStepperOptions3d):
     """
     Options for 3d explicit time integrator
     momentum component
@@ -219,7 +219,7 @@ class ImplicitMomentumTimestepperOptions3d(TimestepperOptions3d):
     }).tag(config=True)
 
 
-class ExplicitTracerTimestepperOptions3d(TimestepperOptions3d):
+class ExplicitTracerTimeStepperOptions3d(TimeStepperOptions3d):
     """
     Options for 3d explicit time integrator
     applied to tracer equations
@@ -233,7 +233,7 @@ class ExplicitTracerTimestepperOptions3d(TimestepperOptions3d):
     }).tag(config=True)
 
 
-class ImplicitTracerTimestepperOptions3d(TimestepperOptions3d):
+class ImplicitTracerTimeStepperOptions3d(TimeStepperOptions3d):
     """
     Options for 3d implicit time integrator
     applied to tracer equations
@@ -462,12 +462,12 @@ class TracerFieldOptions(FrozenHasTraits):
 
 
 @attach_paired_options("free_surface_timestepper_type",
-                       PairedEnum([('SSPRK33', ExplicitTracerTimestepperOptions2d),
-                                   ('ForwardEuler', ExplicitTracerTimestepperOptions2d),
-                                   ('BackwardEuler', SemiImplicitTracerTimestepperOptions2d),
-                                   ('CrankNicolson', CrankNicolsonTracerTimestepperOptions2d),
-                                   ('DIRK22', SemiImplicitTracerTimestepperOptions2d),
-                                   ('DIRK33', SemiImplicitTracerTimestepperOptions2d),
+                       PairedEnum([('SSPRK33', ExplicitTracerTimeStepperOptions2d),
+                                   ('ForwardEuler', ExplicitTracerTimeStepperOptions2d),
+                                   ('BackwardEuler', SemiImplicitTracerTimeStepperOptions2d),
+                                   ('CrankNicolson', CrankNicolsonTracerTimeStepperOptions2d),
+                                   ('DIRK22', SemiImplicitTracerTimeStepperOptions2d),
+                                   ('DIRK33', SemiImplicitTracerTimeStepperOptions2d),
                                    ],
                                   "free_surface_timestepper_options",
                                   default_value='CrankNicolson',
@@ -642,24 +642,24 @@ class CommonModelOptions(FrozenConfigurable):
 
 
 @attach_paired_options("sediment_timestepper_type",
-                       PairedEnum([('SSPRK33', ExplicitTracerTimestepperOptions2d),
-                                   ('ForwardEuler', ExplicitTracerTimestepperOptions2d),
-                                   ('BackwardEuler', SemiImplicitTracerTimestepperOptions2d),
-                                   ('CrankNicolson', CrankNicolsonTracerTimestepperOptions2d),
-                                   ('DIRK22', SemiImplicitTracerTimestepperOptions2d),
-                                   ('DIRK33', SemiImplicitTracerTimestepperOptions2d),
+                       PairedEnum([('SSPRK33', ExplicitTracerTimeStepperOptions2d),
+                                   ('ForwardEuler', ExplicitTracerTimeStepperOptions2d),
+                                   ('BackwardEuler', SemiImplicitTracerTimeStepperOptions2d),
+                                   ('CrankNicolson', CrankNicolsonTracerTimeStepperOptions2d),
+                                   ('DIRK22', SemiImplicitTracerTimeStepperOptions2d),
+                                   ('DIRK33', SemiImplicitTracerTimeStepperOptions2d),
                                    ],
                                   "sediment_timestepper_options",
                                   default_value='CrankNicolson',
                                   help='Name of the sediment time integrator').tag(config=True),
                        Instance(TimeStepperOptions, args=()).tag(config=True))
 @attach_paired_options("exner_timestepper_type",
-                       PairedEnum([('SSPRK33', ExplicitTracerTimestepperOptions2d),
-                                   ('ForwardEuler', ExplicitTracerTimestepperOptions2d),
-                                   ('BackwardEuler', SemiImplicitTracerTimestepperOptions2d),
-                                   ('CrankNicolson', CrankNicolsonTracerTimestepperOptions2d),
-                                   ('DIRK22', SemiImplicitTracerTimestepperOptions2d),
-                                   ('DIRK33', SemiImplicitTracerTimestepperOptions2d),
+                       PairedEnum([('SSPRK33', ExplicitTracerTimeStepperOptions2d),
+                                   ('ForwardEuler', ExplicitTracerTimeStepperOptions2d),
+                                   ('BackwardEuler', SemiImplicitTracerTimeStepperOptions2d),
+                                   ('CrankNicolson', CrankNicolsonTracerTimeStepperOptions2d),
+                                   ('DIRK22', SemiImplicitTracerTimeStepperOptions2d),
+                                   ('DIRK33', SemiImplicitTracerTimeStepperOptions2d),
                                    ],
                                   "exner_timestepper_options",
                                   default_value='CrankNicolson',
@@ -743,28 +743,28 @@ class SedimentModelOptions(FrozenHasTraits):
 
 # TODO rename time stepper types? Allow capitals and spaces?
 @attach_paired_options("timestepper_type",
-                       PairedEnum([('SSPRK33', ExplicitSWETimestepperOptions2d),
-                                   ('ForwardEuler', ExplicitSWETimestepperOptions2d),
-                                   ('BackwardEuler', SemiImplicitSWETimestepperOptions2d),
-                                   ('CrankNicolson', CrankNicolsonSWETimestepperOptions2d),
-                                   ('DIRK22', SemiImplicitSWETimestepperOptions2d),
-                                   ('DIRK33', SemiImplicitSWETimestepperOptions2d),
-                                   ('SteadyState', SteadyStateTimestepperOptions2d),
-                                   ('PressureProjectionPicard', PressureProjectionSWETimestepperOptions2d),
-                                   ('SSPIMEX', IMEXSWETimestepperOptions2d),
+                       PairedEnum([('SSPRK33', ExplicitSWETimeStepperOptions2d),
+                                   ('ForwardEuler', ExplicitSWETimeStepperOptions2d),
+                                   ('BackwardEuler', SemiImplicitSWETimeStepperOptions2d),
+                                   ('CrankNicolson', CrankNicolsonSWETimeStepperOptions2d),
+                                   ('DIRK22', SemiImplicitSWETimeStepperOptions2d),
+                                   ('DIRK33', SemiImplicitSWETimeStepperOptions2d),
+                                   ('SteadyState', SteadyStateTimeStepperOptions2d),
+                                   ('PressureProjectionPicard', PressureProjectionSWETimeStepperOptions2d),
+                                   ('SSPIMEX', IMEXSWETimeStepperOptions2d),
                                    ],
                                   "timestepper_options",
                                   default_value='CrankNicolson',
                                   help='Name of the time integrator').tag(config=True),
                        Instance(TimeStepperOptions, args=()).tag(config=True))
 @attach_paired_options("tracer_timestepper_type",
-                       PairedEnum([('SSPRK33', ExplicitTracerTimestepperOptions2d),
-                                   ('ForwardEuler', ExplicitTracerTimestepperOptions2d),
-                                   ('BackwardEuler', SemiImplicitTracerTimestepperOptions2d),
-                                   ('CrankNicolson', CrankNicolsonTracerTimestepperOptions2d),
-                                   ('DIRK22', SemiImplicitTracerTimestepperOptions2d),
-                                   ('DIRK33', SemiImplicitTracerTimestepperOptions2d),
-                                   ('SteadyState', SteadyStateTimestepperOptions2d),
+                       PairedEnum([('SSPRK33', ExplicitTracerTimeStepperOptions2d),
+                                   ('ForwardEuler', ExplicitTracerTimeStepperOptions2d),
+                                   ('BackwardEuler', SemiImplicitTracerTimeStepperOptions2d),
+                                   ('CrankNicolson', CrankNicolsonTracerTimeStepperOptions2d),
+                                   ('DIRK22', SemiImplicitTracerTimeStepperOptions2d),
+                                   ('DIRK33', SemiImplicitTracerTimeStepperOptions2d),
+                                   ('SteadyState', SteadyStateTimeStepperOptions2d),
                                    ],
                                   "tracer_timestepper_options",
                                   default_value='CrankNicolson',
@@ -881,40 +881,40 @@ class ModelOptions2d(CommonModelOptions):
 
 
 @attach_paired_options("swe_timestepper_type",
-                       PairedEnum([('LeapFrog', ExplicitSWETimestepperOptions3d),
-                                   ('SSPRK22', ExplicitSWETimestepperOptions3d),
+                       PairedEnum([('LeapFrog', SWETimeStepperOptions3d),
+                                   ('SSPRK22', SWETimeStepperOptions3d),
                                    ],
                                   "swe_timestepper_options",
                                   default_value='SSPRK22',
                                   help='Name of the shallow water time integrator').tag(config=True),
                        Instance(TimeStepperOptions, args=()).tag(config=True))
 @attach_paired_options("explicit_momentum_timestepper_type",
-                       PairedEnum([('LeapFrog', ExplicitMomentumTimestepperOptions3d),
-                                   ('SSPRK22', ExplicitMomentumTimestepperOptions3d),
+                       PairedEnum([('LeapFrog', ExplicitMomentumTimeStepperOptions3d),
+                                   ('SSPRK22', ExplicitMomentumTimeStepperOptions3d),
                                    ],
                                   "explicit_momentum_timestepper_options",
                                   default_value='SSPRK22',
                                   help='Name of the explicit momentum time integrator').tag(config=True),
                        Instance(TimeStepperOptions, args=()).tag(config=True))
 @attach_paired_options("implicit_momentum_timestepper_type",
-                       PairedEnum([('LeapFrog', ImplicitMomentumTimestepperOptions3d),
-                                   ('SSPRK22', ImplicitMomentumTimestepperOptions3d),
+                       PairedEnum([('LeapFrog', ImplicitMomentumTimeStepperOptions3d),
+                                   ('SSPRK22', ImplicitMomentumTimeStepperOptions3d),
                                    ],
                                   "implicit_momentum_timestepper_options",
                                   default_value='SSPRK22',
                                   help='Name of the implicit momentum time integrator').tag(config=True),
                        Instance(TimeStepperOptions, args=()).tag(config=True))
 @attach_paired_options("explicit_tracer_timestepper_type",
-                       PairedEnum([('LeapFrog', ExplicitTracerTimestepperOptions3d),
-                                   ('SSPRK22', ExplicitTracerTimestepperOptions3d),
+                       PairedEnum([('LeapFrog', ExplicitTracerTimeStepperOptions3d),
+                                   ('SSPRK22', ExplicitTracerTimeStepperOptions3d),
                                    ],
                                   "explicit_tracer_timestepper_options",
                                   default_value='SSPRK22',
                                   help='Name of the explicit tracer time integrator').tag(config=True),
                        Instance(TimeStepperOptions, args=()).tag(config=True))
 @attach_paired_options("implicit_tracer_timestepper_type",
-                       PairedEnum([('LeapFrog', ImplicitTracerTimestepperOptions3d),
-                                   ('SSPRK22', ImplicitTracerTimestepperOptions3d),
+                       PairedEnum([('LeapFrog', ImplicitTracerTimeStepperOptions3d),
+                                   ('SSPRK22', ImplicitTracerTimeStepperOptions3d),
                                    ],
                                   "implicit_tracer_timestepper_options",
                                   default_value='SSPRK22',
