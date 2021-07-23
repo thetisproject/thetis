@@ -879,6 +879,25 @@ class ModelOptions2d(CommonModelOptions):
         self.tracer[label].source = source
         self.tracer[label].diffusivity = diffusivity
 
+    def set_timestepper_type(self, timestepper_type, **kwargs):
+        """
+        Set the same timestepper type for all components.
+
+        Any keyword arguments are passed through to the
+        associated :class:`TimeStepperOptions` object.
+        """
+        self.swe_timestepper_type = timestepper_type
+        self.tracer_timestepper_type = timestepper_type
+        if hasattr(self, sediment_model_options):
+            self.sediment_timestepper_type = timestepper_type
+            self.exner_timestepper_type = timestepper_type
+        for key, value in kwargs.items():
+            setattr(self.swe_timestepper_options, key, value)
+            setattr(self.tracer_timestepper_options, key, value)
+            if hasattr(self, sediment_model_options):
+                setattr(self.sediment_model_options.sediment_timestepper_options, key, value)
+                setattr(self.sediment_model_options.exner_timestepper_options, key, value)
+
 
 @attach_paired_options("swe_timestepper_type",
                        PairedEnum([('LeapFrog', SWETimeStepperOptions3d),
@@ -1050,3 +1069,22 @@ class ModelOptions3d(CommonModelOptions):
         Constant(1.0), help="Penalty parameter scaling factor for vertical diffusivity terms of the turbulence model.").tag(config=True)
     internal_pg_scalar = FiredrakeConstantTraitlet(
         None, allow_none=True, help="A constant to scale the internal pressure gradient. Used to ramp up the model.").tag(config=True)
+
+    def set_timestepper_type(self, timestepper_type, **kwargs):
+        """
+        Set the same timestepper type for all components.
+
+        Any keyword arguments are passed through to the
+        associated :class:`TimeStepperOptions` object.
+        """
+        self.swe_timestepper_type = timestepper_type
+        self.explicit_momentum_timestepper_type = timestepper_type
+        self.implicit_momentum_timestepper_type = timestepper_type
+        self.explicit_tracer_timestepper_type = timestepper_type
+        self.implicit_tracer_timestepper_type = timestepper_type
+        for key, value in kwargs.items():
+            setattr(self.swe_timestepper_options, key, value)
+            setattr(self.explicit_momentum_timestepper_options, key, value)
+            setattr(self.implicit_momentum_timestepper_options, key, value)
+            setattr(self.explicit_tracer_timestepper_options, key, value)
+            setattr(self.implicit_tracer_timestepper_options, key, value)

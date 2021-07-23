@@ -52,7 +52,7 @@ class FlowSolver2d(FrozenClass):
         options = solver_obj.options
         options.element_family = 'dg-dg'
         options.polynomial_degree = 1
-        options.timestepper_type = 'CrankNicolson'
+        options.swe_timestepper_type = 'CrankNicolson'
         options.simulation_export_time = 50.0
         options.simulation_end_time = 3600.
         options.timestep = 25.0
@@ -206,7 +206,7 @@ class FlowSolver2d(FrozenClass):
         automatic_timestep = False
         sed_options = self.options.sediment_model_options
         ts_options = (
-            self.options.timestepper_options, self.options.tracer_timestepper_options,
+            self.options.swe_timestepper_options, self.options.tracer_timestepper_options,
             sed_options.sediment_timestepper_options, sed_options.exner_timestepper_options,
             self.options.nh_model_options.free_surface_timestepper_options,
         )
@@ -474,7 +474,7 @@ class FlowSolver2d(FrozenClass):
             'volume_source': self.options.volume_source_2d,
         }
         bnd_conditions = self.bnd_functions['shallow_water']
-        if self.options.timestepper_type == 'PressureProjectionPicard':
+        if self.options.swe_timestepper_type == 'PressureProjectionPicard':
             u_test = TestFunction(self.function_spaces.U_2d)
             self.equations.mom = shallowwater_eq.ShallowWaterMomentumEquation(
                 u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
@@ -486,7 +486,7 @@ class FlowSolver2d(FrozenClass):
                               fields, self.dt, self.options.timestepper_options, bnd_conditions)
         else:
             return integrator(self.equations.sw, self.fields.solution_2d, fields, self.dt,
-                              self.options.timestepper_options, bnd_conditions)
+                              self.options.swe_timestepper_options, bnd_conditions)
 
     def get_tracer_timestepper(self, integrator, label):
         """
@@ -592,26 +592,26 @@ class FlowSolver2d(FrozenClass):
                 solver_parameters=self.options.nh_model_options.solver_parameters
             )
             self.timestepper = coupled_timeintegrator_2d.NonHydrostaticTimeIntegrator2D(
-                weakref.proxy(self), steppers[self.options.timestepper_type],
+                weakref.proxy(self), steppers[self.options.swe_timestepper_type],
                 steppers[self.options.nh_model_options.free_surface_timestepper_type]
             )
         elif self.options.solve_tracer:
             self.timestepper = coupled_timeintegrator_2d.GeneralCoupledTimeIntegrator2D(
                 weakref.proxy(self), {
-                    'shallow_water': steppers[self.options.timestepper_type],
+                    'shallow_water': steppers[self.options.swe_timestepper_type],
                     'tracer': steppers[self.options.tracer_timestepper_type],
                 },
             )
         elif self.options.sediment_model_options.solve_suspended_sediment or self.options.sediment_model_options.solve_exner:
             self.timestepper = coupled_timeintegrator_2d.GeneralCoupledTimeIntegrator2D(
                 weakref.proxy(self), {
-                    'shallow_water': steppers[self.options.timestepper_type],
+                    'shallow_water': steppers[self.options.swe_timestepper_type],
                     'sediment': steppers[self.options.sediment_model_options.sediment_timestepper_type],
                     'exner': steppers[self.options.sediment_model_options.exner_timestepper_type],
                 },
             )
         else:
-            self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])
+            self.timestepper = self.get_swe_timestepper(steppers[self.options.swe_timestepper_type])
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
 
         self._isfrozen = True  # disallow creating new attributes

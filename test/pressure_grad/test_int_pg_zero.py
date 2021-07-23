@@ -61,7 +61,7 @@ def compute_pg_error(**kwargs):
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
     options = solver_obj.options
     options.element_family = 'dg-dg'
-    options.timestepper_type = 'SSPRK22'
+    options.set_timestepper_type('SSPRK22', use_automatic_timestep=False)
     options.solve_salinity = False
     options.solve_temperature = True
     options.constant_salinity = Constant(salt_const)
@@ -78,7 +78,6 @@ def compute_pg_error(**kwargs):
     options.horizontal_diffusivity = None
     options.simulation_export_time = 900.
     options.simulation_end_time = 4*900.
-    options.timestepper_options.use_automatic_timestep = False
     options.timestep = 100.
     options.no_exports = True
     options.check_temperature_overshoot = False

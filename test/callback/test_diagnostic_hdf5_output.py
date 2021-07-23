@@ -51,8 +51,7 @@ def test_callbacks(tmp_outputdir):
     options.use_implicit_vertical_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = False
-    options.timestepper_type = 'SSPRK22'
-    options.timestepper_options.use_automatic_timestep = False
+    options.set_timestepper_type('SSPRK22', use_automatic_timestep=False)
     options.timestep = dt/40.0
     options.simulation_export_time = t_export
     options.simulation_end_time = t_end

@@ -40,7 +40,7 @@ def test_closed_channel(**user_options):
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     options = solver_obj.options
     options.element_family = 'dg-dg'
-    options.timestepper_type = 'SSPRK22'
+    options.set_timestepper_type('SSPRK22')
     options.solve_salinity = True
     options.solve_temperature = False
     options.use_implicit_vertical_diffusion = False

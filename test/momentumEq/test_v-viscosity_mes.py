@@ -64,9 +64,8 @@ def run(refinement, **model_options):
     options.use_implicit_vertical_diffusion = implicit
     options.fields_to_export = ['uv_3d']
     options.vertical_viscosity = Constant(vertical_viscosity)
+    options.set_timestepper_type(model_options.pop('timestepper_type'), use_automatic_timestep=False)
     options.update(model_options)
-    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
-        options.timestepper_options.use_automatic_timestep = False
     options.timestep = dt
     options.timestep_2d = dt_2d
 

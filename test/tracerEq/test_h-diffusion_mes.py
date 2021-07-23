@@ -73,8 +73,8 @@ def run(refinement, **model_options):
     options.fields_to_export = ['salt_3d']
     options.horizontal_diffusivity = Constant(horizontal_diffusivity)
     options.horizontal_viscosity_scale = Constant(horizontal_diffusivity)
+    options.set_timestepper_type(model_options.pop('timestepper_type'), use_automatic_timestep=False)
     options.update(model_options)
-    options.explicit_tracer_timestepper_options.use_automatic_timestep = True
 
     solverobj.create_equations()
 

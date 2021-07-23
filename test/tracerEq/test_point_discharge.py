@@ -180,7 +180,7 @@ def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg'):
     # Solve tracer transport problem
     solver_obj = solver2d.FlowSolver2d(mesh2d, params.bathymetry(P1_2d))
     options = solver_obj.options
-    options.timestepper_type = 'SteadyState'
+    options.swe_timestepper_type = 'SteadyState'
     options.tracer_timestepper_type = 'SteadyState'
     options.tracer_element_family = tracer_family
     options.timestep = 20.0

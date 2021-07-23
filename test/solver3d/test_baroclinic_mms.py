@@ -251,7 +251,7 @@ def run(setup, refinement, polynomial_degree, do_export=True, **options):
     options.constant_salinity = Constant(salt_const)
     options.horizontal_velocity_scale = Constant(2.0)
     options.horizontal_viscosity_scale = Constant(1e-2)
-    options.timestepper_options.use_automatic_timestep = False
+    options.set_timestepper_type('SSPRK22', use_automatic_timestep=False)
     options.timestep = dt
     options.no_exports = not do_export
     options.simulation_end_time = t_end
@@ -269,7 +269,7 @@ def run(setup, refinement, polynomial_degree, do_export=True, **options):
     options.update(sdict['options'])
     options.update(options)
     # NOTE needed for 2d swe boundary conditions
-    options.timestepper_options.solver_parameters_2d_swe['snes_atol'] = 1e-10
+    options.swe_timestepper_options.solver_parameters['snes_atol'] = 1e-10
 
     solver_obj.create_function_spaces()
 

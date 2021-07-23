@@ -45,6 +45,7 @@ def run_bottom_friction(do_assert=True, do_export=False, **model_options):
     t_end = 5 * 3600.0  # sufficient to reach ~steady state
     t_export = 400.0
     u_mag = 1.0
+    timestepper_type = model_options.pop('timestepper_type')
 
     # bathymetry
     p1_2d = get_functionspace(mesh2d, 'CG', 1)
@@ -74,11 +75,10 @@ def run_bottom_friction(do_assert=True, do_export=False, **model_options):
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                                 'uv_dav_2d', 'eddy_visc_3d', 'shear_freq_3d',
                                 'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
+    options.set_timestepper_type(timestepper_type, use_automatic_timestep=False)
     options.update(model_options)
-    if options.timestepper_type == 'LeapFrog':
+    if timestepper_type == 'LeapFrog':
         options.use_ale_moving_mesh = True
-    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
-        options.timestepper_options.use_automatic_timestep = False
 
     solver_obj.create_function_spaces()
 
