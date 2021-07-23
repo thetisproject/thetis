@@ -589,7 +589,7 @@ class FlowSolver2d(FrozenClass):
             self.poisson_solver = DepthIntegratedPoissonSolver(
                 self.fields.q_2d, self.fields.uv_2d, self.fields.w_2d,
                 self.fields.elev_2d, self.depth, self.dt, self.bnd_functions,
-                solver_parameters=self.options.nh_model_options.free_surface_timestepper_options.solver_parameters
+                solver_parameters=self.options.nh_model_options.solver_parameters
             )
             self.timestepper = coupled_timeintegrator_2d.NonHydrostaticTimeIntegrator2D(
                 weakref.proxy(self), steppers[self.options.timestepper_type],
