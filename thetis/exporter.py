@@ -24,6 +24,8 @@ def get_visu_space(fs):
     is_vector = len(fs.ufl_element().value_shape()) == 1
     mesh = fs.mesh()
     cell = mesh.ufl_cell()
+    if isinstance(cell, TensorProductCell):
+        cell = cell.sub_cells()[0]
     family_selector = {
         (True, triangle): 'Lagrange',
         (False, triangle): 'Discontinuous Lagrange',
@@ -63,7 +65,7 @@ class ExporterBase(object):
         """Sets the index of next export"""
         self.next_export_ix = next_export_ix
 
-    def export(self, function):
+    def export(self, function, time):
         """Exports given function to disk"""
         raise NotImplementedError('This method must be implemented in the derived class')
 
@@ -104,8 +106,13 @@ class VTKExporter(ExporterBase):
         # FIXME hack to change correct output file count
         self.outfile.counter = itertools.count(start=self.next_export_ix)
 
-    def export(self, function):
-        """Exports given function to disk"""
+    def export(self, function, time):
+        """
+        Export function to disk.
+
+        :arg function: :class:`Function` to export
+        :arg float time: simulation time in seconds
+        """
         assert self.fs_visu.max_work_functions == 1
         tmp_proj_func = self.fs_visu.get_work_function()
         # NOTE tmp function must be invariant as the projector is built only once
@@ -160,12 +167,13 @@ class HDF5Exporter(ExporterBase):
         filename = '{0:s}_{1:05d}'.format(self.filename, iexport)
         return os.path.join(self.outputdir, filename)
 
-    def export_as_index(self, iexport, function):
+    def export_as_index(self, iexport, function, time):
         """
         Export function to disk using the specified export index number
 
         :arg int iexport: export index >= 0
         :arg function: :class:`Function` to export
+        :arg float time: simulation time in seconds
         """
         assert function.function_space() == self.function_space,\
             'Function space does not match'
@@ -176,15 +184,16 @@ class HDF5Exporter(ExporterBase):
             f.store(function)
         self.next_export_ix = iexport + 1
 
-    def export(self, function):
+    def export(self, function, time):
         """
         Export function to disk.
 
         Increments export index by 1.
 
         :arg function: :class:`Function` to export
+        :arg float time: simulation time in seconds
         """
-        self.export_as_index(self.next_export_ix, function)
+        self.export_as_index(self.next_export_ix, function, time)
 
     def load(self, iexport, function):
         """
@@ -232,19 +241,20 @@ class NetCDFExporter(ExporterBase):
 
     def gen_filename(self, iexport):
         """
-        Generate file name 'prefix_nnnnn.nc' for i-th export
+        Generate file name for i-th export
 
         :arg int iexport: export index >= 0
         """
-        filename = '{0:s}_{1:05d}.nc'.format(self.filename, iexport)
+        filename = f'{self.filename}.nc'
         return os.path.join(self.outputdir, filename)
 
-    def export_as_index(self, iexport, function):
+    def export_as_index(self, iexport, function, time):
         """
         Export function to disk using the specified export index number
 
         :arg int iexport: export index >= 0
         :arg function: :class:`Function` to export
+        :arg float time: simulation time in seconds
         """
         filename = self.gen_filename(iexport)
         if self.verbose:
@@ -264,19 +274,21 @@ class NetCDFExporter(ExporterBase):
                 self.cast_operators[function] = op
             op.interpolate()
 
-        write_nc_field(tmp_proj_func, filename, self.func_name)
+        write_nc_field(tmp_proj_func, time, filename, self.func_name,
+                       time_index=iexport)
         self.fs_visu.restore_work_function(tmp_proj_func)
         self.next_export_ix = iexport + 1
 
-    def export(self, function):
+    def export(self, function, time):
         """
         Export function to disk.
 
         Increments export index by 1.
 
         :arg function: :class:`Function` to export
+        :arg float time: simulation time in seconds
         """
-        self.export_as_index(self.next_export_ix, function)
+        self.export_as_index(self.next_export_ix, function, time)
 
 
 class ExportManager(object):
@@ -380,11 +392,13 @@ class ExportManager(object):
         for k in self.exporters:
             self.exporters[k].set_next_export_ix(next_export_ix)
 
-    def export(self):
+    def export(self, time):
         """
         Export all designated functions to disk
 
         Increments export index by 1.
+
+        :arg float time: simulation time in seconds
         """
         if self.verbose and COMM_WORLD.rank == 0:
             sys.stdout.write('Exporting: ')
@@ -396,7 +410,7 @@ class ExportManager(object):
                     sys.stdout.flush()
                 if key in self.preproc_callbacks:
                     self.preproc_callbacks[key]()
-                self.exporters[key].export(field)
+                self.exporters[key].export(field, time)
         if self.verbose and COMM_WORLD.rank == 0:
             sys.stdout.write('\n')
             sys.stdout.flush()

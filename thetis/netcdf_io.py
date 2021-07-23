@@ -3,13 +3,15 @@ import firedrake as fd
 from .utility import get_functionspace
 
 
-def write_nc_field(function, filename, fieldname):
+def write_nc_field(function, time, filename, fieldname, time_index=0):
     """
     Write Function to disk in netCDF format
 
     :arg function: Firedrake function to export
+    :arg float time: simulation time in seconds
     :arg string filename: output filename
     :arg string fieldname: canonical field name
+    :kwarg int time_index: write to specified time index in the output file
     """
     fs = function.function_space()
     mesh = fs.mesh()
@@ -38,8 +40,7 @@ def write_nc_field(function, filename, fieldname):
     is_dg = family in ['Discontinuous Lagrange', 'DQ']
     fs_vertex = fs_p1dg if (is_dg and degree == 1) else fs_p1
     is_vector = fs.shape != ()
-    if is_vector:
-        vector_dim = fs.shape[0]
+    vector_dim = fs.shape[0] if is_vector else None
     face_nodes = elem.cell().num_vertices()
 
     gdim = mesh.geometric_dimension()
@@ -75,37 +76,68 @@ def write_nc_field(function, filename, fieldname):
     x, y = fd.SpatialCoordinate(mesh)
     f_coords.interpolate(fd.as_vector((x, y)))
 
-    with netCDF4.Dataset(filename, 'w', parallel=True) as ncfile:
-        ncfile.createDimension('face', global_nb_cells)
-        ncfile.createDimension('face_nb_nodes', face_nodes)
-        ncfile.createDimension('vertex', global_nb_vertices)
-        ncfile.createDimension('time', None)
+    def _append_data(ncfile, time_index, function, time, fieldname,
+                     is_vector, vector_dim, l2g_ix):
 
-        mesh_prefix = 'Mesh'
-
-        var = ncfile.createVariable(
-            f'{mesh_prefix}_face_nodes', 'u8', ('face', 'face_nb_nodes'))
-        var.start_index = 0
-        var[local2global_cell_ix, :] = global_cell_nodes
-
-        for i, label in zip(range(gdim), ('x', 'y', 'z')):
-            var = ncfile.createVariable(f'{mesh_prefix}_node_{label}', 'f', ('vertex', ))
-            var[local2global_vertex_ix] = f_coords.dat.data_ro[:, i]
-
-        if data_at_cells:
-            l2g_ix = local2global_cell_ix
-            shape = ('time', 'face', )
-        else:
-            l2g_ix = local2global_vertex_ix
-            shape = ('time', 'vertex', )
-
-        time_index = 0
+        var = ncfile['time']
+        var.set_collective(True)
+        var[time_index] = time
         if is_vector:
             for i, label in zip(range(vector_dim), ('x', 'y', 'z')):
-                var = ncfile.createVariable(f'{fieldname}_{label}', 'f', shape)
-                var.set_collective(True)  # needed for unlimited time dim
+                var = ncfile[f'{fieldname}_{label}']
+                var.set_collective(True)
                 var[time_index, l2g_ix] = function.dat.data_ro[:, i]
         else:
-            var = ncfile.createVariable(fieldname, 'f', shape)
-            var.set_collective(True)  # needed for unlimited time dim
+            var = ncfile[fieldname]
+            var.set_collective(True)
             var[time_index, l2g_ix] = function.dat.data_ro
+
+    if data_at_cells:
+        l2g_ix = local2global_cell_ix
+        shape = ('time', 'face', )
+    else:
+        l2g_ix = local2global_vertex_ix
+        shape = ('time', 'vertex', )
+
+    if time_index == 0:
+        # create new file
+        with netCDF4.Dataset(filename, 'w', parallel=True) as ncfile:
+            ncfile.createDimension('face', global_nb_cells)
+            ncfile.createDimension('face_nb_nodes', face_nodes)
+            ncfile.createDimension('vertex', global_nb_vertices)
+            ncfile.createDimension('time', None)
+
+            mesh_prefix = 'Mesh'
+
+            var = ncfile.createVariable(
+                f'{mesh_prefix}_face_nodes', 'u8', ('face', 'face_nb_nodes'))
+            var.start_index = 0
+            var[local2global_cell_ix, :] = global_cell_nodes
+
+            for i, label in zip(range(gdim), ('x', 'y', 'z')):
+                var = ncfile.createVariable(f'{mesh_prefix}_node_{label}', 'f', ('vertex', ))
+                var[local2global_vertex_ix] = f_coords.dat.data_ro[:, i]
+
+            var = ncfile.createVariable('time', 'f', ('time'))
+            var.standard_name = 'time'
+            var.units = 's'
+
+            if is_vector:
+                for i, label in zip(range(vector_dim), ('x', 'y', 'z')):
+                    var = ncfile.createVariable(f'{fieldname}_{label}', 'f', shape)
+                    var.set_collective(True)  # needed for unlimited time dim
+            else:
+                var = ncfile.createVariable(fieldname, 'f', shape)
+                var.set_collective(True)  # needed for unlimited time dim
+
+            _append_data(
+                ncfile, time_index, function, time, fieldname, is_vector,
+                vector_dim, l2g_ix
+            )
+    else:
+        # append to existing file
+        with netCDF4.Dataset(filename, 'r+', parallel=True) as ncfile:
+            _append_data(
+                ncfile, time_index, function, time, fieldname, is_vector,
+                vector_dim, l2g_ix
+            )

@@ -983,7 +983,7 @@ class FlowSolver(FrozenClass):
         # TODO find a cleaner way of doing this ...
         self.fields.uv_3d += self.fields.uv_dav_3d
         for e in self.exporters.values():
-            e.export()
+            e.export(self.simulation_time)
         # restore uv_3d
         self.fields.uv_3d -= self.fields.uv_dav_3d
 

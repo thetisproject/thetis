@@ -722,7 +722,7 @@ class FlowSolver2d(FrozenClass):
         """
         self.callbacks.evaluate(mode='export')
         for e in self.exporters.values():
-            e.export()
+            e.export(self.simulation_time)
 
     def load_state(self, i_export, outputdir=None, t=None, iteration=None):
         """
