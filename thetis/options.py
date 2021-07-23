@@ -712,7 +712,6 @@ class SedimentModelOptions(FrozenHasTraits):
     """)
 
 
-# NOTE all parameters are now case sensitive
 # TODO rename time stepper types? Allow capitals and spaces?
 @attach_paired_options("timestepper_type",
                        PairedEnum([('SSPRK33', ExplicitSWETimestepperOptions2d),
