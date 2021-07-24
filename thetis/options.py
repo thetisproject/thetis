@@ -224,7 +224,7 @@ class ExplicitTracerTimeStepperOptions3d(TimeStepperOptions3d):
     Options for 3d explicit time integrator
     applied to tracer equations
     """
-    solver_parameters_tracer_explicit = PETScSolverParameters({
+    solver_parameters = PETScSolverParameters({
         'snes_type': 'ksponly',
         'ksp_type': 'cg',
         'pc_type': 'bjacobi',
@@ -238,7 +238,7 @@ class ImplicitTracerTimeStepperOptions3d(TimeStepperOptions3d):
     Options for 3d implicit time integrator
     applied to tracer equations
     """
-    solver_parameters_tracer_explicit = PETScSolverParameters({
+    solver_parameters = PETScSolverParameters({
         'snes_type': 'ksponly',
         'ksp_type': 'preonly',
         'pc_type': 'bjacobi',
@@ -888,15 +888,19 @@ class ModelOptions2d(CommonModelOptions):
         """
         self.swe_timestepper_type = timestepper_type
         self.tracer_timestepper_type = timestepper_type
-        if hasattr(self, sediment_model_options):
-            self.sediment_timestepper_type = timestepper_type
-            self.exner_timestepper_type = timestepper_type
-        for key, value in kwargs.items():
-            setattr(self.swe_timestepper_options, key, value)
-            setattr(self.tracer_timestepper_options, key, value)
-            if hasattr(self, sediment_model_options):
-                setattr(self.sediment_model_options.sediment_timestepper_options, key, value)
-                setattr(self.sediment_model_options.exner_timestepper_options, key, value)
+        self.sediment_model_options.sediment_timestepper_type = timestepper_type
+        self.sediment_model_options.exner_timestepper_type = timestepper_type
+        options = (
+            self.swe_timestepper_options,
+            self.tracer_timestepper_options,
+            self.sediment_model_options.sediment_timestepper_options,
+            self.sediment_model_options.exner_timestepper_options,
+            self.nh_model_options.free_surface_timestepper_options,
+        )
+        for option in options:
+            for key, value in kwargs.items():
+                if hasattr(options, key):
+                    setattr(options, key, value)
 
 
 @attach_paired_options("swe_timestepper_type",
@@ -1009,6 +1013,12 @@ class ModelOptions3d(CommonModelOptions):
 
         Prints overshoot values that exceed the initial range to stdout.
         """).tag(config=True)
+    timestepper_type = Enum(
+        ['LeapFrog', 'SSPRK22'],
+        default_value='SSPRK22',
+        help="""
+        Coupled timestepper type to use.
+        """).tag(config=True)  # TODO: Custom behaviour
     timestep_2d = PositiveFloat(
         10.0, help="""
         Time step of the 2d mode
@@ -1072,19 +1082,21 @@ class ModelOptions3d(CommonModelOptions):
 
     def set_timestepper_type(self, timestepper_type, **kwargs):
         """
-        Set the same timestepper type for all components.
+        Set the coupled timestepper type.
 
         Any keyword arguments are passed through to the
         associated :class:`TimeStepperOptions` object.
         """
-        self.swe_timestepper_type = timestepper_type
-        self.explicit_momentum_timestepper_type = timestepper_type
-        self.implicit_momentum_timestepper_type = timestepper_type
-        self.explicit_tracer_timestepper_type = timestepper_type
-        self.implicit_tracer_timestepper_type = timestepper_type
-        for key, value in kwargs.items():
-            setattr(self.swe_timestepper_options, key, value)
-            setattr(self.explicit_momentum_timestepper_options, key, value)
-            setattr(self.implicit_momentum_timestepper_options, key, value)
-            setattr(self.explicit_tracer_timestepper_options, key, value)
-            setattr(self.implicit_tracer_timestepper_options, key, value)
+        self.timestepper_type = timestepper_type
+        options = (
+            self.swe_timestepper_options,
+            self.explicit_momentum_timestepper_options,
+            self.implicit_momentum_timestepper_options,
+            self.explicit_tracer_timestepper_options,
+            self.implicit_tracer_timestepper_options,
+            self.nh_model_options.free_surface_timestepper_options,
+        )
+        for option in options:
+            for key, value in kwargs.items():
+                if hasattr(options, key):
+                    setattr(options, key, value)
