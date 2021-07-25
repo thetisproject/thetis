@@ -87,8 +87,7 @@ def katophillips_test(layers=25, gls_closure='k-omega',
     options.vertical_diffusivity = Constant(1.4e-7)  # background value
     options.wind_stress = wind_stress_2d
     options.simulation_export_time = t_export
-    options.timestepper_type = 'SSPRK22'
-    options.timestepper_options.use_automatic_timestep = False
+    options.set_timestepper_type('SSPRK22', use_automatic_timestep=False)
     options.timestep = dt
     options.simulation_end_time = t_end
     options.output_directory = outputdir

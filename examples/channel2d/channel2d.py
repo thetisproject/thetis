@@ -48,8 +48,8 @@ options.simulation_end_time = t_end
 options.horizontal_velocity_scale = u_mag
 options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
-options.timestepper_type = 'SSPRK33'
-if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
+options.swe_timestepper_type = 'SSPRK33'
+if not hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
     options.timestep = 10.0
 # set initial condition for elevation, piecewise linear function
 elev_init = Function(P1_2d)

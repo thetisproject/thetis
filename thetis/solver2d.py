@@ -483,7 +483,7 @@ class FlowSolver2d(FrozenClass):
             )
             self.equations.mom.bnd_functions = bnd_conditions
             return integrator(self.equations.sw, self.equations.mom, self.fields.solution_2d,
-                              fields, self.dt, self.options.timestepper_options, bnd_conditions)
+                              fields, self.dt, self.options.swe_timestepper_options, bnd_conditions)
         else:
             return integrator(self.equations.sw, self.fields.solution_2d, fields, self.dt,
                               self.options.swe_timestepper_options, bnd_conditions)

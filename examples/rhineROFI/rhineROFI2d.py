@@ -73,8 +73,8 @@ options.coriolis_frequency = Constant(coriolis_f)
 options.horizontal_viscosity = Constant(10.0)
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
-options.timestepper_type = 'CrankNicolson'
-if hasattr(options.timestepper_options, 'use_automatic_timestep'):
+options.swe_timestepper_type = 'CrankNicolson'
+if hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
     options.timestep = dt
 options.output_directory = outputdir
 options.horizontal_velocity_scale = Constant(1.5)

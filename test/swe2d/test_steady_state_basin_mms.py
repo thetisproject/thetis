@@ -123,7 +123,7 @@ def run(setup, refinement, order, do_export=True, options=None,
     ny = 5*refinement
     mesh2d = RectangleMesh(nx, ny, lx, ly)
     dt = 4.0/refinement
-    if options is not None and options.get('timestepper_type') == 'CrankNicolson':
+    if options is not None and options.get('swe_timestepper_type') == 'CrankNicolson':
         dt *= 100.
 
     x = SpatialCoordinate(mesh2d)

@@ -77,7 +77,7 @@ def run_bottom_friction(do_assert=True, do_export=False, **model_options):
                                 'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
     options.set_timestepper_type(timestepper_type, use_automatic_timestep=False)
     options.update(model_options)
-    if timestepper_type == 'LeapFrog':
+    if options.timestepper_type == 'LeapFrog':
         options.use_ale_moving_mesh = True
 
     solver_obj.create_function_spaces()

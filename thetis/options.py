@@ -13,6 +13,7 @@ from collections import OrderedDict
 class TimeStepperOptions(FrozenHasTraits):
     """Base class for all time stepper options"""
     name = 'Time stepper'
+    solver_parameters = PETScSolverParameters({}).tag(config=True)
 
 
 class ExplicitTimeStepperOptions(TimeStepperOptions):
@@ -161,13 +162,8 @@ class IMEXSWETimeStepperOptions2d(SemiImplicitTimeStepperOptions2d):
     Options for 2d implicit-explicit time integrators
     applied to shallow water equations
     """
-    # TODO: Meaningful solver parameters
+    # TODO: Meaningful solver parameters for DIRK
     solver_parameters = PETScSolverParameters({
-        'ksp_type': 'gmres',
-        'pc_type': 'fieldsplit',
-        'pc_fieldsplit_type': 'multiplicative',
-    }).tag(config=True)
-    solver_parameters_dirk = PETScSolverParameters({
         'ksp_type': 'gmres',
         'pc_type': 'fieldsplit',
         'pc_fieldsplit_type': 'multiplicative',
@@ -888,19 +884,22 @@ class ModelOptions2d(CommonModelOptions):
         """
         self.swe_timestepper_type = timestepper_type
         self.tracer_timestepper_type = timestepper_type
-        self.sediment_model_options.sediment_timestepper_type = timestepper_type
-        self.sediment_model_options.exner_timestepper_type = timestepper_type
         options = (
             self.swe_timestepper_options,
             self.tracer_timestepper_options,
-            self.sediment_model_options.sediment_timestepper_options,
-            self.sediment_model_options.exner_timestepper_options,
-            self.nh_model_options.free_surface_timestepper_options,
         )
+        if self.sediment_model_options.solve_suspended_sediment:
+            options += (self.sediment_model_options.sediment_timestepper_options,)
+            self.sediment_model_options.sediment_timestepper_type = timestepper_type
+        if self.sediment_model_options.solve_exner:
+            options += (self.sediment_model_options.exner_timestepper_options,)
+            self.sediment_model_options.exner_timestepper_type = timestepper_type
+        if self.nh_model_options.solve_nonhydrostatic_pressure:
+            options += (self.nh_model_options.free_surface_timestepper_options,)
         for option in options:
             for key, value in kwargs.items():
-                if hasattr(options, key):
-                    setattr(options, key, value)
+                if hasattr(option, key):
+                    setattr(option, key, value)
 
 
 @attach_paired_options("swe_timestepper_type",
@@ -1094,9 +1093,10 @@ class ModelOptions3d(CommonModelOptions):
             self.implicit_momentum_timestepper_options,
             self.explicit_tracer_timestepper_options,
             self.implicit_tracer_timestepper_options,
-            self.nh_model_options.free_surface_timestepper_options,
         )
+        if self.nh_model_options.solve_nonhydrostatic_pressure:
+            options += (self.nh_model_options.free_surface_timestepper_options,)
         for option in options:
             for key, value in kwargs.items():
-                if hasattr(options, key):
-                    setattr(options, key, value)
+                if hasattr(option, key):
+                    setattr(option, key, value)

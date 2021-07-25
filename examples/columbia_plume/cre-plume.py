@@ -132,7 +132,7 @@ solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, nlayers,
                                extrude_options=extrude_options)
 options = solver_obj.options
 options.element_family = 'dg-dg'
-options.timestepper_type = 'SSPRK22'
+options.set_timestepper_type('SSPRK22', use_automatic_timestep=dt is None)
 options.solve_salinity = not simple_barotropic
 options.solve_temperature = not simple_barotropic
 options.use_implicit_vertical_diffusion = True  # not simple_barotropic
@@ -158,7 +158,6 @@ options.coriolis_frequency = Constant(coriolis_f)
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
 if dt is not None:
-    options.timestepper_options.use_automatic_timestep = False
     options.timestep = dt
 options.output_directory = outputdir
 options.horizontal_velocity_scale = Constant(u_scale)

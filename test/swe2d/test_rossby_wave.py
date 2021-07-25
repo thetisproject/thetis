@@ -158,7 +158,7 @@ def run(refinement_level, **model_options):
     # Create solver object
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
     options = solver_obj.options
-    options.swe_timestepper_type = stepper
+    options.set_timestepper_type(stepper, use_automatic_timestep=False)
     options.timestep = 0.96/refinement_level if stepper == 'SSPRK33' else 9.6/refinement_level
     options.simulation_export_time = 5.0
     options.simulation_end_time = model_options.get('simulation_end_time')
@@ -168,8 +168,6 @@ def run(refinement_level, **model_options):
     solver_obj.create_function_spaces()
     options.coriolis_frequency = interpolate(y, solver_obj.function_spaces.P1_2d)
     options.swe_timestepper_options.solver_parameters['ksp_rtol'] = 1.0e-04
-    if hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
-        options.swe_timestepper_options.use_automatic_timestep = False
     options.no_exports = True
     options.update(model_options)
 

@@ -55,8 +55,7 @@ def run_tracer_consistency(constant_c=True, **model_options):
     options.check_volume_conservation_2d = True
     options.check_tracer_conservation = True
     options.check_tracer_overshoot = True
-    options.swe_timestepper_type = 'CrankNicolson'
-    options.tracer_timestepper_type = 'CrankNicolson'
+    options.set_timestepper_type(model_options.pop('timestepper_type', 'CrankNicolson'))
     options.output_directory = outputdir
     options.fields_to_export = ['uv_2d', 'elev_2d', 'tracer_2d']
     options.use_tracer_conservative_form = False

@@ -65,7 +65,7 @@ options.horizontal_velocity_scale = Constant(0.01)
 options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
-options.timestepper_type = 'PressureProjectionPicard'
-options.timestepper_options.implicitness_theta = 1.0
+options.swe_timestepper_type = 'PressureProjectionPicard'
+options.swe_timestepper_options.implicitness_theta = 1.0
 
 solver_obj.iterate()

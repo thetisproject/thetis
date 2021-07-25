@@ -156,13 +156,13 @@ class NonHydrostaticTimeIntegrator2D(CoupledTimeIntegrator2D):
             self.timesteppers.fs2d = self.solver.get_fs_timestepper(fs_integrator)
             self.elev_old = Function(self.fields.elev_2d)
         self.serial_advancing = not hasattr(self.timesteppers.swe2d, 'n_stages') \
-            or self.options.timestepper_type == 'SSPIMEX'
+            or self.options.swe_timestepper_type == 'SSPIMEX'
         self.multi_stages_fs = hasattr(self.timesteppers.fs2d, 'n_stages') \
             and self.nh_options.free_surface_timestepper_type != 'BackwardEuler'
         if self.multi_stages_fs:
             msg = 'The multi-stage type of Shallow Water and ' \
                   'Free Surface time integrators should be the same.'
-            assert self.options.timestepper_type == self.nh_options.free_surface_timestepper_type, msg
+            assert self.options.swe_timestepper_type == self.nh_options.free_surface_timestepper_type, msg
 
     def initialize(self, solution2d):
         """
@@ -190,7 +190,7 @@ class NonHydrostaticTimeIntegrator2D(CoupledTimeIntegrator2D):
                 self.timesteppers.fs2d.advance(t, update_forcings=update_forcings)
                 self.elev_old.assign(self.fields.elev_2d)
             # update old solution
-            if self.options.timestepper_type == 'SSPIMEX':
+            if self.options.swe_timestepper_type == 'SSPIMEX':
                 self.timesteppers.swe2d.erk.solution_old.assign(self.fields.solution_2d)
                 self.timesteppers.swe2d.dirk.solution_old.assign(self.fields.solution_2d)
         else:

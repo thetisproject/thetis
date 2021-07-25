@@ -42,18 +42,15 @@ class IMEXGeneric(TimeIntegrator):
         :arg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
         """
         super(IMEXGeneric, self).__init__(equation, solution, fields, dt, options)
-        solver_parameters = options.solver_parameters
-        solver_parameters_dirk = options.solver_parameters_dirk
+        # NOTE: The same solver parameters are currently used for both implicit and explicit schemes
 
         # implicit scheme
         self.dirk = self.dirk_class(equation, solution, fields, dt, options,
                                     bnd_conditions=bnd_conditions,
-                                    solver_parameters=solver_parameters_dirk,
                                     terms_to_add=('implicit'))
         # explicit scheme
         self.erk = self.erk_class(equation, solution, fields, dt, options,
                                   bnd_conditions=bnd_conditions,
-                                  solver_parameters=solver_parameters,
                                   terms_to_add=('explicit', 'source'))
         assert self.erk.n_stages == self.dirk.n_stages
         self.n_stages = self.erk.n_stages
