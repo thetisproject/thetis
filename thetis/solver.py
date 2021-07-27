@@ -887,6 +887,15 @@ class FlowSolver(FrozenClass):
                                        verbose=self.options.verbose > 0,
                                        preproc_funcs=self._field_preproc_funcs)
             self.exporters['hdf5'] = e
+            nc_dir = os.path.join(self.options.output_directory, 'nc')
+            e = exporter.ExportManager(nc_dir,
+                                       self.options.fields_to_export_netcdf,
+                                       self.fields,
+                                       field_metadata,
+                                       export_type='netcdf',
+                                       verbose=self.options.verbose > 0,
+                                       preproc_funcs=self._field_preproc_funcs)
+            self.exporters['netcdf'] = e
 
         self._isfrozen = True
 
@@ -983,7 +992,7 @@ class FlowSolver(FrozenClass):
         # TODO find a cleaner way of doing this ...
         self.fields.uv_3d += self.fields.uv_dav_3d
         for e in self.exporters.values():
-            e.export()
+            e.export(self.simulation_time)
         # restore uv_3d
         self.fields.uv_3d -= self.fields.uv_dav_3d
 

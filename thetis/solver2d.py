@@ -636,6 +636,15 @@ class FlowSolver2d(FrozenClass):
                                        verbose=self.options.verbose > 0,
                                        preproc_funcs=self._field_preproc_funcs)
             self.exporters['hdf5'] = e
+            nc_dir = os.path.join(self.options.output_directory, 'nc')
+            e = exporter.ExportManager(nc_dir,
+                                       self.options.fields_to_export_netcdf,
+                                       self.fields,
+                                       field_metadata,
+                                       export_type='netcdf',
+                                       verbose=self.options.verbose > 0,
+                                       preproc_funcs=self._field_preproc_funcs)
+            self.exporters['netcdf'] = e
 
         self._isfrozen = True  # disallow creating new attributes
 
@@ -713,7 +722,7 @@ class FlowSolver2d(FrozenClass):
         """
         self.callbacks.evaluate(mode='export')
         for e in self.exporters.values():
-            e.export()
+            e.export(self.simulation_time)
 
     def load_state(self, i_export, outputdir=None, t=None, iteration=None):
         """

@@ -112,7 +112,7 @@ class DeferredExportManager(object):
         for function, function_arg in zip(self.functions, functions):
             assert function.function_space() is function_arg.function_space()
             function.assign(function_arg)
-        self.export_manager.export()
+        self.export_manager.export(time=0)
 
 
 class UserExportOptimisationCallback(UserExportManager):
@@ -139,7 +139,7 @@ class UserExportOptimisationCallback(UserExportManager):
         :args: these are ignored"""
         for name in self.fields_to_export:
             self.functions[name] = self.orig_functions[name].block_variable.saved_output
-        self.export()
+        self.export(time=0)
 
 
 class ControlsExportOptimisationCallback(DeferredExportManager):
