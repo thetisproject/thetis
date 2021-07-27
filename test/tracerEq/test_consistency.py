@@ -92,7 +92,6 @@ def run_tracer_consistency(**model_options):
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'salt_3d', 'temp_3d',
                                 'uv_dav_2d']
-    options.set_timestepper_type(model_options.pop('timestepper_type'))
     options.update(model_options)
     if not options.no_exports:
         print_output('Exporting to {:}'.format(options.output_directory))

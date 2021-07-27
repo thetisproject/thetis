@@ -60,7 +60,7 @@ def bottom_friction_test(layers=25, gls_closure='k-omega',
     solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
     options = solver_obj.options
     options.element_family = 'dg-dg'
-    options.set_timestepper_type('SSPRK22', use_automatic_timestep=False)
+    options.timestepper_type = 'SSPRK22'
     options.solve_salinity = False
     options.solve_temperature = False
     options.use_implicit_vertical_diffusion = True
@@ -72,6 +72,7 @@ def bottom_friction_test(layers=25, gls_closure='k-omega',
     # options.use_ale_moving_mesh = False
     options.use_limiter_for_tracers = True
     options.simulation_export_time = t_export
+    options.timestepper_options.use_automatic_timestep = False
     options.timestep = dt
     options.simulation_end_time = t_end
     options.horizontal_velocity_scale = Constant(u_mag)

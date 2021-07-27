@@ -54,7 +54,6 @@ def run(refinement, **model_options):
     options.use_bottom_friction = False
     options.use_limiter_for_tracers = True
     options.fields_to_export = ['salt_3d']
-    options.set_timestepper_type(model_options.pop('timestepper_type'))
     options.update(model_options)
 
     uv_expr = as_vector((u, 0, 0))

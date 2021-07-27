@@ -52,11 +52,11 @@ def run_test(layers=25, tolerance=0.05, verify=True, **model_options):
     options.vertical_viscosity = Constant(nu_v)
     options.vertical_diffusivity = Constant(nu_v)
     options.simulation_export_time = t_export
+    options.timestepper_options.use_automatic_timestep = False
     options.timestep = dt
     options.simulation_end_time = t_end
     options.horizontal_velocity_scale = Constant(u_mag)
     options.no_exports = True
-    options.set_timestepper_type(model_options.pop('timestepper_type'), use_automatic_timestep=False)
     options.update(model_options)
 
     solver_obj.create_function_spaces()

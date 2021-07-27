@@ -58,8 +58,9 @@ def run(refinement, **model_options):
     options.fields_to_export = ['uv_3d']
     options.horizontal_viscosity = Constant(horizontal_viscosity)
     options.horizontal_viscosity_scale = Constant(horizontal_viscosity)
-    options.set_timestepper_type(model_options.pop('timestepper_type'), use_automatic_timestep=True)
     options.update(model_options)
+    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
+        options.timestepper_options.use_automatic_timestep = True
 
     solverobj.create_equations()
 

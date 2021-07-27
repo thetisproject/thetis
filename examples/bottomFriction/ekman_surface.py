@@ -47,7 +47,7 @@ def surface_ekman_test(layers=50, verify=True, iterate=True,
     solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
     options = solver_obj.options
     options.element_family = 'dg-dg'
-    options.set_timestepper_type('SSPRK22', use_automatic_timestep=False)
+    options.timestepper_type = 'SSPRK22'
     options.solve_salinity = False
     options.solve_temperature = False
     options.use_implicit_vertical_diffusion = True
@@ -58,6 +58,7 @@ def surface_ekman_test(layers=50, verify=True, iterate=True,
     options.vertical_diffusivity = Constant(nu_v)
     options.wind_stress = wind_stress_2d
     options.simulation_export_time = t_export
+    options.timestepper_options.use_automatic_timestep = False
     options.timestep = dt
     options.simulation_end_time = t_end
     options.horizontal_velocity_scale = Constant(u_mag)

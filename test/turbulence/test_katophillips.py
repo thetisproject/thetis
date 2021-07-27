@@ -72,6 +72,7 @@ def run_katophillips(**model_options):
     options.wind_stress = wind_stress_2d
     options.no_exports = True
     options.simulation_export_time = t_export
+    options.timestepper_options.use_automatic_timestep = False
     options.timestep = dt
     options.simulation_end_time = t_end
     options.output_directory = outputdir
@@ -82,9 +83,11 @@ def run_katophillips(**model_options):
                                 'baroc_head_3d', 'uv_dav_2d', 'eddy_visc_3d',
                                 'shear_freq_3d', 'buoy_freq_3d',
                                 'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
-    options.set_timestepper_type(model_options.pop('timestepper_type'), use_automatic_timestep=False)
     options.update(model_options)
-    options.use_ale_moving_mesh = True
+    if options.timestepper_type in ['LeapFrog', 'SSPRK22']:
+        options.use_ale_moving_mesh = True
+    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
+        options.timestepper_options.use_automatic_timestep = False
 
     solver_obj.create_function_spaces()
 

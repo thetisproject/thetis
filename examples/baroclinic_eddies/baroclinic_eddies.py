@@ -119,7 +119,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options = solver_obj.options
     options.polynomial_degree = poly_order
     options.element_family = element_family
-    options.set_timestepper_type('SSPRK22', use_automatic_timestep=False)
+    options.timestepper_type = 'SSPRK22'
     options.solve_salinity = False
     options.constant_salinity = Constant(salt_const)
     options.solve_temperature = True
@@ -146,6 +146,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
         raise Exception('Unknow viscosity type {:}'.format(viscosity))
     options.horizontal_diffusivity = None
     if dt is not None:
+        options.timestepper_options.use_automatic_timestep = False
         options.timestep = dt
     options.simulation_export_time = t_export
     options.simulation_end_time = t_end
