@@ -737,7 +737,6 @@ class SedimentModelOptions(FrozenHasTraits):
     """)
 
 
-# TODO rename time stepper types? Allow capitals and spaces?
 @attach_paired_options("swe_timestepper_type",
                        PairedEnum([('SSPRK33', ExplicitSWETimeStepperOptions2d),
                                    ('ForwardEuler', ExplicitSWETimeStepperOptions2d),
