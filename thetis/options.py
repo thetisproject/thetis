@@ -1063,15 +1063,3 @@ class ModelOptions3d(CommonModelOptions):
         Constant(1.0), help="Penalty parameter scaling factor for vertical diffusivity terms of the turbulence model.").tag(config=True)
     internal_pg_scalar = FiredrakeConstantTraitlet(
         None, allow_none=True, help="A constant to scale the internal pressure gradient. Used to ramp up the model.").tag(config=True)
-
-    def set_timestepper_type(self, timestepper_type, **kwargs):
-        """
-        Set the coupled timestepper type.
-
-        Any keyword arguments are passed through to the
-        associated :class:`TimeStepperOptions` object.
-        """
-        self.timestepper_type = timestepper_type
-        for key, value in kwargs.items():
-            if hasattr(self.timestepper_options, key):
-                setattr(self.timestepper_options, key, value)
