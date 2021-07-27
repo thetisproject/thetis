@@ -50,7 +50,8 @@ class FlowSolver(FrozenClass):
         options = solver_obj.options
         options.element_family = 'dg-dg'
         options.polynomial_degree = 1
-        options.set_timestepper_type('SSPRK22', use_automatic_timestep=False)
+        options.timestepper_type = 'SSPRK22'
+        options.timestepper_options.use_automatic_timestep = False
         options.solve_salinity = False
         options.solve_temperature = False
         options.simulation_export_time = 50.0
@@ -322,15 +323,15 @@ class FlowSolver(FrozenClass):
         Sets the model the model time step
 
         If the time integrator supports automatic time step, and
-        :attr:`ModelOptions3d.explicit_momentum_timestepper_options.use_automatic_timestep` is
+        :attr:`ModelOptions3d.timestepper_options.use_automatic_timestep` is
         `True`, we compute the maximum time step allowed by the CFL condition.
         Otherwise uses :attr:`ModelOptions3d.timestep`.
 
         Once the time step is determined, will adjust it to be an integer
         fraction of export interval ``options.simulation_export_time``.
         """
-        automatic_timestep = (hasattr(self.options.explicit_momentum_timestepper_options, 'use_automatic_timestep')
-                              and self.options.explicit_momentum_timestepper_options.use_automatic_timestep)
+        automatic_timestep = (hasattr(self.options.timestepper_options, 'use_automatic_timestep')
+                              and self.options.timestepper_options.use_automatic_timestep)
 
         cfl2d = self.timestepper.cfl_coeff_2d
         cfl3d = self.timestepper.cfl_coeff_3d
@@ -805,7 +806,7 @@ class FlowSolver(FrozenClass):
                 self.fields, self.fields.bathymetry_2d.view_3d,
                 self.bnd_functions['momentum'],
                 internal_pg_scalar=self.options.internal_pg_scalar,
-                solver_parameters=self.options.explicit_momentum_timestepper_options.solver_parameters)
+                solver_parameters=self.options.timestepper_options.solver_parameters)
         self.extract_surf_dav_uv = SubFunctionExtractor(self.fields.uv_dav_3d,
                                                         self.fields.uv_dav_2d,
                                                         boundary='top', elem_facet='top',

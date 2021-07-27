@@ -172,12 +172,11 @@ class IMEXSWETimeStepperOptions2d(SemiImplicitTimeStepperOptions2d):
 
 class TimeStepperOptions3d(TimeStepperOptions):
     """Options for 3d explicit time integrator"""
-    use_automatic_timestep = Bool(True, help='Set time step automatically based on local CFL conditions.').tag(config=True)
 
 
 class SWETimeStepperOptions3d(TimeStepperOptions3d):
     """
-    Options for 3d explicit time integrator
+    Options for 3d time integrator
     shallow water component
     """
     solver_parameters = PETScSolverParameters({
@@ -185,6 +184,16 @@ class SWETimeStepperOptions3d(TimeStepperOptions3d):
         'pc_type': 'fieldsplit',
         'pc_fieldsplit_type': 'multiplicative',
     }).tag(config=True)
+
+
+class ImplicitSWETimeStepperOptions3d(SWETimeStepperOptions3d):
+    """
+    Options for 3d implicit time integrator
+    shallow water component
+    """
+    implicitness_theta = BoundedFloat(
+        default_value=0.5, bounds=[0.5, 1.0],
+        help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.').tag(config=True)
 
 
 class ExplicitMomentumTimeStepperOptions3d(TimeStepperOptions3d):
@@ -203,7 +212,7 @@ class ExplicitMomentumTimeStepperOptions3d(TimeStepperOptions3d):
 
 class ImplicitMomentumTimeStepperOptions3d(TimeStepperOptions3d):
     """
-    Options for 3d explicit time integrator
+    Options for 3d implicit time integrator
     momentum component
     """
     solver_parameters = PETScSolverParameters({
@@ -241,6 +250,21 @@ class ImplicitTracerTimeStepperOptions3d(TimeStepperOptions3d):
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
     }).tag(config=True)
+
+
+class SSPRKTimeStepperOptions3d(TimeStepperOptions3d):
+    """Options for 3d SSPRK coupled time integrator"""
+    use_automatic_timestep = Bool(True, help='Set time step automatically based on local CFL conditions.').tag(config=True)
+    swe_options = SWETimeStepperOptions3d()
+    implicit_momentum_options = ImplicitMomentumTimeStepperOptions3d()
+    explicit_momentum_options = ExplicitMomentumTimeStepperOptions3d()
+    implicit_tracer_options = ImplicitTracerTimeStepperOptions3d()
+    explicit_tracer_options = ExplicitTracerTimeStepperOptions3d()
+
+
+class LeapFrogTimeStepperOptions3d(SSPRKTimeStepperOptions3d):
+    """Options for 3d LeapFrog coupled time integrator"""
+    swe_options = ImplicitSWETimeStepperOptions3d()
 
 
 class TurbulenceModelOptions(FrozenHasTraits):
@@ -901,45 +925,13 @@ class ModelOptions2d(CommonModelOptions):
                     setattr(option, key, value)
 
 
-@attach_paired_options("swe_timestepper_type",
-                       PairedEnum([('LeapFrog', SWETimeStepperOptions3d),
-                                   ('SSPRK22', SWETimeStepperOptions3d),
+@attach_paired_options("timestepper_type",
+                       PairedEnum([('LeapFrog', LeapFrogTimeStepperOptions3d),
+                                   ('SSPRK22', SSPRKTimeStepperOptions3d),
                                    ],
-                                  "swe_timestepper_options",
+                                  "timestepper_options",
                                   default_value='SSPRK22',
                                   help='Name of the shallow water time integrator').tag(config=True),
-                       Instance(TimeStepperOptions, args=()).tag(config=True))
-@attach_paired_options("explicit_momentum_timestepper_type",
-                       PairedEnum([('LeapFrog', ExplicitMomentumTimeStepperOptions3d),
-                                   ('SSPRK22', ExplicitMomentumTimeStepperOptions3d),
-                                   ],
-                                  "explicit_momentum_timestepper_options",
-                                  default_value='SSPRK22',
-                                  help='Name of the explicit momentum time integrator').tag(config=True),
-                       Instance(TimeStepperOptions, args=()).tag(config=True))
-@attach_paired_options("implicit_momentum_timestepper_type",
-                       PairedEnum([('LeapFrog', ImplicitMomentumTimeStepperOptions3d),
-                                   ('SSPRK22', ImplicitMomentumTimeStepperOptions3d),
-                                   ],
-                                  "implicit_momentum_timestepper_options",
-                                  default_value='SSPRK22',
-                                  help='Name of the implicit momentum time integrator').tag(config=True),
-                       Instance(TimeStepperOptions, args=()).tag(config=True))
-@attach_paired_options("explicit_tracer_timestepper_type",
-                       PairedEnum([('LeapFrog', ExplicitTracerTimeStepperOptions3d),
-                                   ('SSPRK22', ExplicitTracerTimeStepperOptions3d),
-                                   ],
-                                  "explicit_tracer_timestepper_options",
-                                  default_value='SSPRK22',
-                                  help='Name of the explicit tracer time integrator').tag(config=True),
-                       Instance(TimeStepperOptions, args=()).tag(config=True))
-@attach_paired_options("implicit_tracer_timestepper_type",
-                       PairedEnum([('LeapFrog', ImplicitTracerTimeStepperOptions3d),
-                                   ('SSPRK22', ImplicitTracerTimeStepperOptions3d),
-                                   ],
-                                  "implicit_tracer_timestepper_options",
-                                  default_value='SSPRK22',
-                                  help='Name of the implicit tracer time integrator').tag(config=True),
                        Instance(TimeStepperOptions, args=()).tag(config=True))
 @attach_paired_options("turbulence_model_type",
                        PairedEnum([('gls', GLSModelOptions),
@@ -1011,12 +1003,6 @@ class ModelOptions3d(CommonModelOptions):
 
         Prints overshoot values that exceed the initial range to stdout.
         """).tag(config=True)
-    timestepper_type = Enum(
-        ['LeapFrog', 'SSPRK22'],
-        default_value='SSPRK22',
-        help="""
-        Coupled timestepper type to use.
-        """).tag(config=True)  # TODO: Custom behaviour
     timestep_2d = PositiveFloat(
         10.0, help="""
         Time step of the 2d mode
@@ -1086,16 +1072,6 @@ class ModelOptions3d(CommonModelOptions):
         associated :class:`TimeStepperOptions` object.
         """
         self.timestepper_type = timestepper_type
-        options = (
-            self.swe_timestepper_options,
-            self.explicit_momentum_timestepper_options,
-            self.implicit_momentum_timestepper_options,
-            self.explicit_tracer_timestepper_options,
-            self.implicit_tracer_timestepper_options,
-        )
-        if self.nh_model_options.solve_nonhydrostatic_pressure:
-            options += (self.nh_model_options.free_surface_timestepper_options,)
-        for option in options:
-            for key, value in kwargs.items():
-                if hasattr(option, key):
-                    setattr(option, key, value)
+        for key, value in kwargs.items():
+            if hasattr(self.timestepper_options, key):
+                setattr(self.timestepper_options, key, value)

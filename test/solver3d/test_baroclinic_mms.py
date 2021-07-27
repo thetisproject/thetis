@@ -269,7 +269,7 @@ def run(setup, refinement, polynomial_degree, do_export=True, **options):
     options.update(sdict['options'])
     options.update(options)
     # NOTE needed for 2d swe boundary conditions
-    options.swe_timestepper_options.solver_parameters['snes_atol'] = 1e-10
+    options.timestepper_options.swe_options.solver_parameters['snes_atol'] = 1e-10
 
     solver_obj.create_function_spaces()
 
