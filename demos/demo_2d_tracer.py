@@ -44,7 +44,7 @@ options.fields_to_export = ['tracer_2d']
 # computation functionality is switched off and the simulation time is
 # split into 600 steps, giving a timestep close to the CFL limit. ::
 
-options.timestepper_type = 'SSPRK33'
+options.tracer_timestepper_type = 'SSPRK33'
 options.timestep = pi/300.0
 options.simulation_end_time = 2*pi
 options.simulation_export_time = pi/15.0

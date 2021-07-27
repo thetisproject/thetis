@@ -50,9 +50,10 @@ options.simulation_end_time = t_end
 # export interval. See :py:class:`~.ModelOptions` for more information about the
 # available options.
 # 
-# Next we define the used time integrator, and set the time step::
+# Next we define the used time integrator for the shallow water
+# equations and set the time step::
 
-options.timestepper_type = 'CrankNicolson'
+options.swe_timestepper_type = 'CrankNicolson'
 options.timestep = 50.0
 
 # Because Crank-Nicolson is an uncondionally stable method, we can set
