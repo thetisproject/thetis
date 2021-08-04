@@ -109,10 +109,7 @@ options.horizontal_diffusivity = Constant(diffusivity)
 options.horizontal_viscosity = Constant(viscosity_hydro)
 
 # crank-nicholson used to integrate in time system of ODEs resulting from application of galerkin FEM
-options.set_timestepper_type('CrankNicolson')
-options.swe_timestepper_options.implicitness_theta = 1.0
-options.sediment_timestepper_options.implicitness_theta = 1.0
-options.exner_timestepper_options.implicitness_theta = 1.0
+options.set_timestepper_type('CrankNicolson', implicitness_theta=1.0)
 options.norm_smoother = Constant(0.1)
 
 if not hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):

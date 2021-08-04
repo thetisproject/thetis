@@ -907,12 +907,19 @@ class ModelOptions2d(CommonModelOptions):
         """
         self.swe_timestepper_type = timestepper_type
         self.tracer_timestepper_type = timestepper_type
+        options = (self.swe_timestepper_options, self.tracer_timestepper_options)
         if self.sediment_model_options.solve_suspended_sediment:
             self.sediment_model_options.sediment_timestepper_type = timestepper_type
+            options += (self.sediment_model_options.sediment_timestepper_options,)
         if self.sediment_model_options.solve_exner:
             self.sediment_model_options.exner_timestepper_type = timestepper_type
+            options += (self.sediment_model_options.exner_timestepper_options,)
         if self.nh_model_options.solve_nonhydrostatic_pressure:
             self.nh_model_options.free_surface_timestepper_type = timestepper_type
+            options += (self.nh_model_options.free_surface_timestepper_options,)
+        for key, value in kwargs.items():
+            for option in options:
+                setattr(option, key, value)
 
 
 @attach_paired_options("timestepper_type",
