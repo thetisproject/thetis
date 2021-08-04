@@ -6,14 +6,14 @@
 
     .. container:: buildstatus
 
-    Latest status: |thetisbuild|
+    |thetisbuild|
 
     Thetis source code is hosted on  `Github
     <https://github.com/thetisproject/thetis/>`__ and is being
-    continually tested using `Jenkins <https://jenkins.io/>`__.
+    continually tested using GitHub Actions.
 
-    .. |thetisbuild| image:: https://jenkins.ese.ic.ac.uk:1080/job/thetis/job/master/badge/icon
-                             :target: https://jenkins.ese.ic.ac.uk:1080/blue/organizations/jenkins/thetis/branches/
+    .. |thetisbuild| image:: https://github.com/thetisproject/thetis/actions/workflows/build.yml/badge.svg
+                             :target: https://github.com/thetisproject/thetis/actions/workflows/build.yml
 
 The Thetis project
 ==================
