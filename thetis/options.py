@@ -868,7 +868,7 @@ class ModelOptions2d(CommonModelOptions):
 
     def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', source=None, diffusivity=None):
         """
-        Add a 2D tracer field to :attr:`tracer_metadata`.
+        Add a 2D tracer field to :attr:`tracer`.
 
         Note that the tracer equations will be solved in the order in which they are added.
 
@@ -929,7 +929,7 @@ class ModelOptions2d(CommonModelOptions):
                                   "timestepper_options",
                                   default_value='SSPRK22',
                                   help='Name of the 3D time integrator').tag(config=True),
-                       Instance(TimeStepperOptions, args=()).tag(config=True))
+                       Instance(TimeStepperOptions3d, args=()).tag(config=True))
 @attach_paired_options("turbulence_model_type",
                        PairedEnum([('gls', GLSModelOptions),
                                    ('pacanowski', PacanowskiPhilanderModelOptions)
