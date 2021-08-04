@@ -158,7 +158,7 @@ def run(refinement_level, **model_options):
     # Create solver object
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
     options = solver_obj.options
-    options.swe_timestepper_type = timestepper
+    options.swe_timestepper_type = stepper
     if hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
         options.swe_timestepper_options.use_automatic_timestep = False
     options.timestep = 0.96/refinement_level if stepper == 'SSPRK33' else 9.6/refinement_level
