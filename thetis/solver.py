@@ -806,7 +806,7 @@ class FlowSolver(FrozenClass):
                 self.fields, self.fields.bathymetry_2d.view_3d,
                 self.bnd_functions['momentum'],
                 internal_pg_scalar=self.options.internal_pg_scalar,
-                solver_parameters=self.options.timestepper_options.solver_parameters)
+                solver_parameters=self.options.timestepper_options.explicit_momentum_options.solver_parameters)
         self.extract_surf_dav_uv = SubFunctionExtractor(self.fields.uv_dav_3d,
                                                         self.fields.uv_dav_2d,
                                                         boundary='top', elem_facet='top',
@@ -840,7 +840,7 @@ class FlowSolver(FrozenClass):
         elif self.options.timestepper_type == 'SSPRK22':
             self.timestepper = coupled_timeintegrator.CoupledTwoStageRK(weakref.proxy(self))
         else:
-            raise NotImplementedError("Custom coupled time integrators not yet accounted for")  # TODO
+            raise NotImplementedError(f"Unsupported time integrator type: {str(self.options.timestepper_type)}")
 
         self.fields.bathymetry_2d.project(self.bathymetry_cg_2d)
         self.mesh_updater.initialize()

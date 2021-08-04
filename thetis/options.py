@@ -170,7 +170,7 @@ class IMEXSWETimeStepperOptions2d(SemiImplicitTimeStepperOptions2d):
     }).tag(config=True)
 
 
-class TimeStepperOptions3d(TimeStepperOptions):
+class TimeStepperOptions3d(FrozenHasTraits):
     """Options for 3d explicit time integrator"""
 
 
@@ -907,22 +907,12 @@ class ModelOptions2d(CommonModelOptions):
         """
         self.swe_timestepper_type = timestepper_type
         self.tracer_timestepper_type = timestepper_type
-        options = (
-            self.swe_timestepper_options,
-            self.tracer_timestepper_options,
-        )
         if self.sediment_model_options.solve_suspended_sediment:
-            options += (self.sediment_model_options.sediment_timestepper_options,)
             self.sediment_model_options.sediment_timestepper_type = timestepper_type
         if self.sediment_model_options.solve_exner:
-            options += (self.sediment_model_options.exner_timestepper_options,)
             self.sediment_model_options.exner_timestepper_type = timestepper_type
         if self.nh_model_options.solve_nonhydrostatic_pressure:
-            options += (self.nh_model_options.free_surface_timestepper_options,)
-        for option in options:
-            for key, value in kwargs.items():
-                if hasattr(option, key):
-                    setattr(option, key, value)
+            self.nh_model_options.free_surface_timestepper_type = timestepper_type
 
 
 @attach_paired_options("timestepper_type",
@@ -931,7 +921,7 @@ class ModelOptions2d(CommonModelOptions):
                                    ],
                                   "timestepper_options",
                                   default_value='SSPRK22',
-                                  help='Name of the shallow water time integrator').tag(config=True),
+                                  help='Name of the 3D time integrator').tag(config=True),
                        Instance(TimeStepperOptions, args=()).tag(config=True))
 @attach_paired_options("turbulence_model_type",
                        PairedEnum([('gls', GLSModelOptions),

@@ -39,7 +39,7 @@ options = solver_obj.options
 options.element_family = 'dg-dg'
 options.polynomial_degree = 1
 # time stepper
-options.set_timestepper_type('CrankNicolson', use_automatic_timestep=False)
+options.swe_timestepper_type = 'CrankNicolson'
 options.timestep = dt
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
