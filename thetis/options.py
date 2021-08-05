@@ -651,8 +651,6 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Source term for 2D momentum equation").tag(config=True)
     volume_source_2d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for 2D continuity equation").tag(config=True)
-    tracer_source_2d = FiredrakeScalarExpression(
-        None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
     sipg_factor = FiredrakeScalarExpression(
         Constant(1.0), help="Penalty parameter scaling factor for horizontal viscosity terms.").tag(config=True)
     sipg_factor_tracer = FiredrakeScalarExpression(
