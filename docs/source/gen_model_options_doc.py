@@ -4,7 +4,7 @@
 Generates rst files for model options
 """
 from thetis.configuration import *
-from thetis.options import CommonModelOptions, ModelOptions2d, ModelOptions3d, GLSModelOptions, LinearEquationOfStateOptions
+from thetis.options import CommonModelOptions, ModelOptions2d, ModelOptions3d, GLSModelOptions, LinearEquationOfStateOptions, SedimentModelOptions
 
 
 with open('model_options_2d.rst', 'w') as f:
@@ -48,7 +48,7 @@ Turbulence model options
 
 This page lists all available options for turbulence closure models.
 
-Generic Lenght Scale model options
+Generic Length Scale model options
 ----------------------------------
 
 """
@@ -70,4 +70,18 @@ Linear Equation of State
 
 """
     content += rst_all_options(LinearEquationOfStateOptions)
+    f.write(content)
+
+
+with open('sediment_model_options.rst', 'w') as f:
+    content = """
+.. _sediment_model_options:
+
+2D sediment model options
+=========================
+
+This page lists all available options for the 2D sediment model.
+
+"""
+    content += rst_all_options(SedimentModelOptions) + "\n"
     f.write(content)
