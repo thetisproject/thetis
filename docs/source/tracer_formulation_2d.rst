@@ -28,6 +28,11 @@ The conservative tracer model is specified by setting the
 :ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.add_tracer_2d`
 to ``True``.
 
+To activate the 2D tracer model, add tracers using the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.add_tracer_2d`
+method. An example of its usage is provided in the
+`2D tracer demo <./demos/demo_2d_tracer.py.html>`__.
+
 The tracer model may also be run independently
 by setting the
 :ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.tracer_only`
