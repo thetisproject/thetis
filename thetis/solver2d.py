@@ -392,20 +392,20 @@ class FlowSolver2d(FrozenClass):
         )
         self.equations.sw.bnd_functions = self.bnd_functions['shallow_water']
         uv_2d, elev_2d = self.fields.solution_2d.split()
-        if self.options.tracer != {}:
-            args = (self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
-            if self.options.use_tracer_conservative_form:
-                eq = conservative_tracer_eq_2d.ConservativeTracerEquation2D
+        for label, tracer in self.options.tracer.items():
+            self.add_new_field(Function(self.function_spaces.Q_2d, name=label),
+                               label,
+                               tracer.metadata['name'],
+                               tracer.metadata['filename'],
+                               shortname=tracer.metadata['shortname'],
+                               unit=tracer.metadata['unit'])
+            if tracer.conservative:
+                self.equations[label] = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
+                    self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
             else:
-                eq = tracer_eq_2d.TracerEquation2D
-            for label, tracer in self.options.tracer.items():
-                self.add_new_field(Function(self.function_spaces.Q_2d, name=label),
-                                   label,
-                                   tracer.metadata['name'],
-                                   tracer.metadata['filename'],
-                                   shortname=tracer.metadata['shortname'],
-                                   unit=tracer.metadata['unit'])
-                self.equations[label] = eq(*args)
+                self.equations[label] = tracer_eq_2d.TracerEquation2D(
+                    self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
+        if self.options.tracer != {}:
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
@@ -832,8 +832,8 @@ class FlowSolver2d(FrozenClass):
             self.add_callback(c)
 
         if self.options.check_tracer_conservation:
-            if self.options.use_tracer_conservative_form:
-                for label in self.options.tracer:
+            for label, tracer in self.options.tracer.items():
+                if tracer.conservative:
                     c = callback.ConservativeTracerMassConservation2DCallback(label,
                                                                               self,
                                                                               export_to_hdf5=dump_hdf5,

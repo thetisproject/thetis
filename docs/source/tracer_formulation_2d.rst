@@ -14,18 +14,19 @@ is the passive tracer concentration,
 :math:`T`. The corresponding field in Thetis is called
 ``'tracer_2d'``.
 
-A conservative tracer model is also available, given by
-:eq:`cons_tracer_eq_2d`.
-In this case, the equation is solved for :math:`q=HT`, where
-:math:`H` is the total water depth.
-The conservative tracer model is specified using the
-:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.use_tracer_conservative_form`
-option.
-
 To activate the 2D tracer model, add tracers using the
 :ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.add_tracer_2d`
 method. An example of its usage is provided in the
 `2D tracer demo <./demos/demo_2d_tracer.py.html>`__.
+
+A conservative tracer model is also available, given by
+:eq:`cons_tracer_eq_2d`.
+In this case, the equation is solved for :math:`q=HT`, where
+:math:`H` is the total water depth.
+The conservative tracer model is specified by setting the
+``conservative`` keyword argument of
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.add_tracer_2d`
+to ``True``.
 
 The tracer model may also be run independently
 by setting the

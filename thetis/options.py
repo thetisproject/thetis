@@ -472,6 +472,8 @@ class TracerFieldOptions(FrozenHasTraits):
         None, allow_none=True, help='Source term for the tracer equation')
     diffusivity = FiredrakeScalarExpression(
         None, allow_none=True, help='Diffusion coefficient for the tracer equation')
+    conservative = Bool(
+        False, help='Should the tracer equation be solved in conservative form?')
     metadata = Dict({
         'label': 'tracer_2d',
         'name': 'Depth averaged tracer',
@@ -863,7 +865,7 @@ class ModelOptions2d(CommonModelOptions):
         self.tracer = OrderedDict()
         super().__init__(*args, **kwargs)
 
-    def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', source=None, diffusivity=None):
+    def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', source=None, diffusivity=None, conservative=False):
         """
         Add a 2D tracer field to :attr:`tracer`.
 
@@ -876,6 +878,7 @@ class ModelOptions2d(CommonModelOptions):
         :kwarg unit: units for field, e.g. '-'
         :kwarg source: associated source term
         :kwarg diffusivity: associated diffusivity coefficient
+        :kwarg conservative: should the tracer equation be solved in conservative form?
         """
         assert isinstance(label, str)
         assert isinstance(name, str)
@@ -894,6 +897,7 @@ class ModelOptions2d(CommonModelOptions):
         }
         self.tracer[label].source = source
         self.tracer[label].diffusivity = diffusivity
+        self.tracer[label].conservative = conservative
 
     def set_timestepper_type(self, timestepper_type, **kwargs):
         """
