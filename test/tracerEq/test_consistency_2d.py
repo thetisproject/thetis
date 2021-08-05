@@ -14,7 +14,7 @@ from thetis import *
 import pytest
 
 
-def run_tracer_consistency(constant_c=True, **model_options):
+def run_tracer_consistency(constant_c=True, solve_tracer=True, **model_options):
 
     t_cycle = 2000.0  # standing wave period
     depth = 50.0  # average depth
