@@ -392,13 +392,7 @@ class FlowSolver2d(FrozenClass):
         )
         self.equations.sw.bnd_functions = self.bnd_functions['shallow_water']
         uv_2d, elev_2d = self.fields.solution_2d.split()
-        if self.options.solve_tracer:
-            if self.options.tracer == {}:
-                warning("Usage of solve_tracer is soon to be deprecated. Use add_tracer_2d to"
-                        " provide tracer fields to be solved for.")
-                self.options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d', 'Tracer', '-',
-                                           source=self.options.tracer_source_2d,
-                                           diffusivity=self.options.horizontal_diffusivity)
+        if self.options.tracer != {}:
             args = (self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
             if self.options.use_tracer_conservative_form:
                 eq = conservative_tracer_eq_2d.ConservativeTracerEquation2D
@@ -595,7 +589,7 @@ class FlowSolver2d(FrozenClass):
                 weakref.proxy(self), steppers[self.options.swe_timestepper_type],
                 steppers[self.options.nh_model_options.free_surface_timestepper_type]
             )
-        elif self.options.solve_tracer:
+        elif self.options.tracer != {}:
             self.timestepper = coupled_timeintegrator_2d.GeneralCoupledTimeIntegrator2D(
                 weakref.proxy(self), {
                     'shallow_water': steppers[self.options.swe_timestepper_type],
@@ -679,11 +673,10 @@ class FlowSolver2d(FrozenClass):
             elev_2d.project(elev)
         if uv is not None:
             uv_2d.project(uv)
-        if self.options.solve_tracer:
-            for l, func in tracers.items():
-                label = l if len(l) > 3 and l[-3:] == '_2d' else l + '_2d'
-                assert label in self.options.tracer, f"Unknown tracer label {label}"
-                self.fields[label].project(func)
+        for l, func in tracers.items():
+            label = l if len(l) > 3 and l[-3:] == '_2d' else l + '_2d'
+            assert label in self.options.tracer, f"Unknown tracer label {label}"
+            self.fields[label].project(func)
 
         sediment_options = self.options.sediment_model_options
         if self.sediment_model is not None:
