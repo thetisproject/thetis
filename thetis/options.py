@@ -653,8 +653,6 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Source term for 2D continuity equation").tag(config=True)
     tracer_source_2d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
-    horizontal_diffusivity = FiredrakeCoefficient(
-        None, allow_none=True, help="Horizontal diffusivity for tracers and sediment").tag(config=True)
     sipg_factor = FiredrakeScalarExpression(
         Constant(1.0), help="Penalty parameter scaling factor for horizontal viscosity terms.").tag(config=True)
     sipg_factor_tracer = FiredrakeScalarExpression(
@@ -691,6 +689,8 @@ class SedimentModelOptions(FrozenHasTraits):
     use_sediment_conservative_form = Bool(False, help='Solve 2D sediment transport in the conservative form').tag(config=True)
     use_bedload = Bool(False, help='Use bedload transport in sediment model').tag(config=True)
     use_sediment_slide = Bool(False, help='Use sediment slide mechanism in sediment model').tag(config=True)
+    horizontal_diffusivity = FiredrakeCoefficient(
+        None, allow_none=True, help="Horizontal diffusivity for sediment").tag(config=True)
     use_angle_correction = Bool(True, help='Switch to use slope effect angle correction').tag(config=True)
     use_slope_mag_correction = Bool(True, help='Switch to use slope effect magnitude correction').tag(config=True)
     use_secondary_current = Bool(False, help='Switch to use secondary current for helical flow effect').tag(config=True)
