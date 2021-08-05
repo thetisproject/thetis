@@ -123,7 +123,7 @@ def run(setup, refinement, order, do_export=True, options=None,
     ny = 5*refinement
     mesh2d = RectangleMesh(nx, ny, lx, ly)
     dt = 4.0/refinement
-    if options is not None and options.get('timestepper_type') == 'CrankNicolson':
+    if options is not None and options.get('swe_timestepper_type') == 'CrankNicolson':
         dt *= 100.
 
     x = SpatialCoordinate(mesh2d)
@@ -153,8 +153,8 @@ def run(setup, refinement, order, do_export=True, options=None,
         solver_obj.options.update(sdict['options'])
     if options is not None:
         solver_obj.options.update(options)
-    if hasattr(solver_obj.options.timestepper_options, 'use_automatic_timestep'):
-        solver_obj.options.timestepper_options.use_automatic_timestep = False
+    if hasattr(solver_obj.options.swe_timestepper_options, 'use_automatic_timestep'):
+        solver_obj.options.swe_timestepper_options.use_automatic_timestep = False
 
     solver_obj.create_function_spaces()
 
@@ -341,7 +341,7 @@ def test_steady_state_basin_convergence(setup, element_family, timestepper_type)
           'mat_type': 'aij'}
     options = {
         'element_family': element_family,
-        'timestepper_type': timestepper_type
+        'swe_timestepper_type': timestepper_type
     }
     run_convergence(setup, [1, 2, 4, 6], 1, options=options,
                     solver_parameters=sp, save_plot=False)

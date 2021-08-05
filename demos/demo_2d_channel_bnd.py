@@ -30,7 +30,7 @@ solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
-options.timestepper_type = 'CrankNicolson'
+options.swe_timestepper_type = 'CrankNicolson'
 options.timestep = 50.0
 
 # We will force the model with a constant volume flux at the right boundary

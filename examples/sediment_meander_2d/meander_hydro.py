@@ -55,9 +55,8 @@ options.nikuradse_bed_roughness = ksp
 # setting viscosity
 options.horizontal_viscosity = Constant(5*10**(-2))
 # crank-nicholson used to integrate in time system of ODEs resulting from application of galerkin FEM
-options.timestepper_type = 'CrankNicolson'
-options.timestepper_options.implicitness_theta = 1.0
-if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
+options.set_timestepper_type('CrankNicolson', implicitness_theta=1.0)
+if not hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
     options.timestep = 1
 
 # set boundary conditions

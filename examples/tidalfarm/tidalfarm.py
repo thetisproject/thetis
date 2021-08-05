@@ -54,16 +54,16 @@ options.simulation_end_time = t_end
 options.output_directory = 'outputs'
 options.check_volume_conservation_2d = True
 options.element_family = 'dg-cg'
-options.timestepper_type = 'CrankNicolson'
-options.timestepper_options.implicitness_theta = 0.6
+options.swe_timestepper_type = 'CrankNicolson'
+options.swe_timestepper_options.implicitness_theta = 0.6
 # using direct solver as PressurePicard does not work with dolfin-adjoint (due to .split() not being annotated correctly)
-options.timestepper_options.solver_parameters = {'snes_monitor': None,
-                                                 'snes_rtol': 1e-9,
-                                                 'ksp_type': 'preonly',
-                                                 'pc_type': 'lu',
-                                                 'pc_factor_mat_solver_type': 'mumps',
-                                                 'mat_type': 'aij'
-                                                 }
+options.swe_timestepper_options.solver_parameters = {'snes_monitor': None,
+                                                     'snes_rtol': 1e-9,
+                                                     'ksp_type': 'preonly',
+                                                     'pc_type': 'lu',
+                                                     'pc_factor_mat_solver_type': 'mumps',
+                                                     'mat_type': 'aij'
+                                                     }
 options.horizontal_viscosity = Constant(100.0)
 options.quadratic_drag_coefficient = Constant(0.0025)
 

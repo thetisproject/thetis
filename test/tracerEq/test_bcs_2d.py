@@ -173,14 +173,14 @@ def stepper(request):
                          [(Constant(0.1))])
 def test_horizontal_advection(polynomial_degree, stepper, diffusivity, family):
     run_convergence(polynomial_degree=polynomial_degree,
-                    timestepper_type=stepper,
+                    tracer_timestepper_type=stepper,
                     horizontal_diffusivity=diffusivity,
                     tracer_element_family=family)
 
 
 if __name__ == '__main__':
     run_convergence(polynomial_degree=1,
-                    timestepper_type='CrankNicolson',
+                    tracer_timestepper_type='SSPRK33',
                     horizontal_diffusivity=Constant(0.1),
                     tracer_element_family='cg',
                     no_exports=False)

@@ -52,9 +52,9 @@ options.horizontal_velocity_scale = u_mag
 options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
-options.timestepper_type = 'CrankNicolson'
-if hasattr(options.timestepper_options, 'use_automatic_timestep'):
-    options.timestepper_options.use_automatic_timestep = False
+options.swe_timestepper_type = 'CrankNicolson'
+if hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
+    options.swe_timestepper_options.use_automatic_timestep = False
     options.timestep = dt/40.0  # for explicit schemes
 else:
     options.timestep = 10.0  # override dt for implicit schemes

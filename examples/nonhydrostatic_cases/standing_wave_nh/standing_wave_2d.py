@@ -39,9 +39,7 @@ options = solver_obj.options
 options.element_family = 'dg-cg'
 options.polynomial_degree = 1
 # time stepper
-options.timestepper_type = 'PressureProjectionPicard'
-if hasattr(options.timestepper_options, 'use_automatic_timestep'):
-    options.timestepper_options.use_automatic_timestep = True
+options.swe_timestepper_type = 'PressureProjectionPicard'
 options.timestep = dt
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end

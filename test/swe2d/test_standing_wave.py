@@ -45,24 +45,24 @@ def test_standing_wave_channel(timesteps, max_rel_err, timestepper, tmpdir, do_e
     solver_obj.options.simulation_export_time = dt
     solver_obj.options.simulation_end_time = t_end
     solver_obj.options.no_exports = not do_export
-    solver_obj.options.timestepper_type = timestepper
+    solver_obj.options.swe_timestepper_type = timestepper
     solver_obj.options.output_directory = str(tmpdir)
 
     if timestepper == 'CrankNicolson':
         solver_obj.options.element_family = 'dg-dg'
         # Crank Nicolson stops being 2nd order if we linearise
         # (this is not the case for PressureProjectionPicard, as we do 2 Picard iterations)
-        solver_obj.options.timestepper_options.use_semi_implicit_linearization = False
+        solver_obj.options.swe_timestepper_options.use_semi_implicit_linearization = False
     elif timestepper == 'PressureProjectionPicard':
         # this approach currently only works well with dg-cg, because in dg-dg
         # the pressure gradient term puts an additional stabilisation term in the velocity block
         # (even without that term  this approach is not as fast, as the stencil for the assembled schur system
         # is a lot bigger for dg-dg than dg-cg)
         solver_obj.options.element_family = 'dg-cg'
-        solver_obj.options.timestepper_options.use_semi_implicit_linearization = True
-        solver_obj.options.timestepper_options.picard_iterations = 2
-    if hasattr(solver_obj.options.timestepper_options, 'use_automatic_timestep'):
-        solver_obj.options.timestepper_options.use_automatic_timestep = False
+        solver_obj.options.swe_timestepper_options.use_semi_implicit_linearization = True
+        solver_obj.options.swe_timestepper_options.picard_iterations = 2
+    if hasattr(solver_obj.options.swe_timestepper_options, 'use_automatic_timestep'):
+        solver_obj.options.swe_timestepper_options.use_automatic_timestep = False
 
     # boundary conditions
     solver_obj.bnd_functions['shallow_water'] = {}

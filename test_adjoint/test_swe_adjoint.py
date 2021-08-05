@@ -38,7 +38,7 @@ def basic_setup():
     options.simulation_export_time = t_export
     options.check_volume_conservation_2d = True
     options.fields_to_export = ['uv_2d', 'elev_2d']
-    options.timestepper_type = 'CrankNicolson'
+    options.swe_timestepper_type = 'CrankNicolson'
     options.timestep = timestep
     options.horizontal_viscosity = Constant(2.0)
     options.no_exports = True
@@ -71,9 +71,9 @@ def basic_setup():
 
 def setup_steady():
     solver_obj = basic_setup()
-    solver_obj.options.timestepper_type = 'SteadyState'
+    solver_obj.options.swe_timestepper_type = 'SteadyState'
     solver_obj.options.simulation_end_time = 0.499
-    solver_obj.options.timestepper_options.solver_parameters = {
+    solver_obj.options.swe_timestepper_options.solver_parameters = {
         'mat_type': 'aij',
         'ksp_type': 'preonly',
         'pc_type': 'lu',
@@ -86,10 +86,10 @@ def setup_steady():
 
 def setup_unsteady():
     solver_obj = basic_setup()
-    solver_obj.options.timestepper_type = 'CrankNicolson'
+    solver_obj.options.swe_timestepper_type = 'CrankNicolson'
     solver_obj.options.simulation_end_time = 2.0
-    solver_obj.options.timestepper_options.implicitness_theta = 1.0
-    solver_obj.options.timestepper_options.solver_parameters = {
+    solver_obj.options.swe_timestepper_options.implicitness_theta = 1.0
+    solver_obj.options.swe_timestepper_options.solver_parameters = {
         'mat_type': 'aij',
         'ksp_type': 'preonly',
         'pc_type': 'lu',

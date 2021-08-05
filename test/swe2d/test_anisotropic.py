@@ -41,8 +41,8 @@ def run(**model_options):
     options.timestep = 20.0
     options.simulation_export_time = 20.0
     options.simulation_end_time = 18.0
-    options.timestepper_type = 'SteadyState'
-    options.timestepper_options.solver_parameters = {
+    options.swe_timestepper_type = 'SteadyState'
+    options.swe_timestepper_options.solver_parameters = {
         'mat_type': 'aij',
         'snes_type': 'newtonls',
         'snes_linesearch_type': 'bt',

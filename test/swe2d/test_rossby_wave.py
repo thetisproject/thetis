@@ -139,7 +139,7 @@ def asymptotic_expansion_elev(H_2d, order=1, time=0.0, soliton_amplitude=0.395):
 def run(refinement_level, **model_options):
     order = model_options.pop('expansion_order')
     family = model_options.get('element_family')
-    stepper = model_options.get('timestepper_type')
+    stepper = model_options.get('swe_timestepper_type')
     print_output("--- running refinement level {:d} in {:s} space".format(refinement_level, family))
 
     # Set up domain
@@ -158,7 +158,9 @@ def run(refinement_level, **model_options):
     # Create solver object
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
     options = solver_obj.options
-    options.timestepper_type = stepper
+    options.swe_timestepper_type = stepper
+    if hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
+        options.swe_timestepper_options.use_automatic_timestep = False
     options.timestep = 0.96/refinement_level if stepper == 'SSPRK33' else 9.6/refinement_level
     options.simulation_export_time = 5.0
     options.simulation_end_time = model_options.get('simulation_end_time')
@@ -167,9 +169,7 @@ def run(refinement_level, **model_options):
     options.horizontal_viscosity = None
     solver_obj.create_function_spaces()
     options.coriolis_frequency = interpolate(y, solver_obj.function_spaces.P1_2d)
-    options.timestepper_options.solver_parameters['ksp_rtol'] = 1.0e-04
-    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
-        options.timestepper_options.use_automatic_timestep = False
+    options.swe_timestepper_options.solver_parameters['ksp_rtol'] = 1.0e-04
     options.no_exports = True
     options.update(model_options)
 
@@ -257,7 +257,7 @@ def family(request):
 
 
 def test_convergence(stepper, family):
-    run_convergence([24, 48], timestepper_type=stepper,
+    run_convergence([24, 48], swe_timestepper_type=stepper,
                     simulation_end_time=30.0, polynomial_degree=1, element_family=family,
                     no_exports=True, expansion_order=1)
 
