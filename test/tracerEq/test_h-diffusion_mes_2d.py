@@ -15,7 +15,7 @@ def run(refinement, **model_options):
     ly = 5.0e3 / refinement
     area = lx*ly
     depth = 30.0
-    horizontal_diffusivity = 1.0e3
+    horizontal_diffusivity = Constant(1.0e3)
 
     # mesh
     nx = 8 * refinement + 1
@@ -44,11 +44,11 @@ def run(refinement, **model_options):
     options.output_directory = outputdir
     options.simulation_end_time = t_end
     options.simulation_export_time = t_export
-    options.solve_tracer = True
+    options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d',
+                          diffusivity=horizontal_diffusivity)
     options.use_limiter_for_tracers = True
     options.fields_to_export = ['tracer_2d']
-    options.horizontal_diffusivity = Constant(horizontal_diffusivity)
-    options.horizontal_viscosity_scale = Constant(horizontal_diffusivity)
+    options.horizontal_viscosity_scale = horizontal_diffusivity
     options.update(model_options)
 
     solverobj.create_equations()

@@ -154,15 +154,13 @@ def run(setup, refinement, do_export=True, **options):
         solver_obj.options.swe_timestepper_options.implicitness_theta = 1.0
         solver_obj.options.tracer_timestepper_options.implicitness_theta = 1.0
     solver_obj.options.update(options)
-    solver_obj.options.solve_tracer = True
     solver_obj.create_function_spaces()
 
-    # functions for source terms
+    # functions for source terms and diffusivity
     x, y = SpatialCoordinate(solver_obj.mesh2d)
-    solver_obj.options.tracer_source_2d = setup_obj.residual(x, y, lx, ly)
-
-    # diffusivuty
-    solver_obj.options.horizontal_diffusivity = setup_obj.kappa(x, y, lx, ly)
+    solver_obj.options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d',
+                                     diffusivity=setup_obj.kappa(x, y, lx, ly),
+                                     source=setup_obj.residual(x, y, lx, ly))
 
     # analytical solution
     trac_ana = setup_obj.tracer(x, y, lx, ly)

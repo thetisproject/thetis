@@ -105,7 +105,7 @@ def run(refinement, **model_options):
     bathy_2d.assign(depth)
 
     # Diffusivity and diffusive flux BC to impose
-    nu = Constant(0.1)
+    nu = model_options.pop('horizontal_diffusivity')
     diff_flux = 0.2
 
     # Solver
@@ -115,9 +115,9 @@ def run(refinement, **model_options):
     options.no_exports = True
     options.timestep = dt
     options.simulation_export_time = t_export
-    options.solve_tracer = True
+    options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d',
+                          diffusivity=nu)
     options.tracer_only = True
-    options.horizontal_diffusivity = nu
     options.horizontal_diffusivity_scale = nu
     options.horizontal_velocity_scale = Constant(0.0)
     options.fields_to_export = ['tracer_2d']

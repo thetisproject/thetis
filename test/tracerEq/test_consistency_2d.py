@@ -14,7 +14,7 @@ from thetis import *
 import pytest
 
 
-def run_tracer_consistency(constant_c=True, **model_options):
+def run_tracer_consistency(constant_c=True, solve_tracer=True, **model_options):
 
     t_cycle = 2000.0  # standing wave period
     depth = 50.0  # average depth
@@ -48,7 +48,7 @@ def run_tracer_consistency(constant_c=True, **model_options):
     options = solver_obj.options
     options.use_limiter_for_tracers = not constant_c
     options.use_nonlinear_equations = True
-    options.solve_tracer = True
+    options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d')
     options.simulation_export_time = t_export
     options.simulation_end_time = t_end
     options.horizontal_velocity_scale = Constant(u_mag)
@@ -69,10 +69,10 @@ def run_tracer_consistency(constant_c=True, **model_options):
     elev_init.project(-elev_amp*cos(2*pi*x_2d/lx))
 
     tracer_init2d = None
-    if options.solve_tracer and constant_c:
+    if solve_tracer and constant_c:
         tracer_init2d = Function(solver_obj.function_spaces.Q_2d, name='initial tracer')
         tracer_init2d.assign(tracer_value)
-    if options.solve_tracer and not constant_c:
+    if solve_tracer and not constant_c:
         tracer_init2d = Function(solver_obj.function_spaces.Q_2d, name='initial tracer')
         tracer_l = 0
         tracer_r = 30.0
@@ -84,7 +84,7 @@ def run_tracer_consistency(constant_c=True, **model_options):
     # TODO do these checks every export ...
     vol2d, vol2d_rerr = solver_obj.callbacks['export']['volume2d']()
     assert vol2d_rerr < 1e-10, '2D volume is not conserved'
-    if options.solve_tracer:
+    if solve_tracer:
         tracer_int, tracer_int_rerr = solver_obj.callbacks['export']['tracer_2d mass']()
         assert abs(tracer_int_rerr) < 1.2e-4, 'tracer is not conserved'
         smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['tracer_2d overshoot']()

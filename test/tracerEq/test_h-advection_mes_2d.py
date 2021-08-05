@@ -50,7 +50,7 @@ def run(refinement, **model_options):
     solverobj.create_function_spaces()
     corr_factor = Function(solverobj.function_spaces.H_2d, name='uv tracer factor').interpolate(Constant(1.0))
     options.tracer_advective_velocity_factor = corr_factor
-    options.solve_tracer = True
+    options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d')
     options.use_limiter_for_tracers = True
     options.fields_to_export = ['tracer_2d']
     options.update(model_options)
