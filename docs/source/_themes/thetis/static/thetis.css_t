@@ -132,9 +132,9 @@ div.sidebar {
     border-width: 2px;
     border-color: #888;
     background-color: #eee;
-    width: 250px;
+    width: 240px;
     float: right;
-    padding: 6px 6px 6px 6px;
+    padding: 3px 6px 16px 16px;
     border-radius: 8px;
 }
 
