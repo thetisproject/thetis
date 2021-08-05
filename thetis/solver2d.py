@@ -838,13 +838,12 @@ class FlowSolver2d(FrozenClass):
                                                                               self,
                                                                               export_to_hdf5=dump_hdf5,
                                                                               append_to_log=True)
-            else:
-                for label in self.options.tracer:
+                else:
                     c = callback.TracerMassConservation2DCallback(label,
                                                                   self,
                                                                   export_to_hdf5=dump_hdf5,
                                                                   append_to_log=True)
-            self.add_callback(c, eval_interval='export')
+                self.add_callback(c, eval_interval='export')
         if self.options.sediment_model_options.check_sediment_conservation:
             if self.options.sediment_model_options.use_sediment_conservative_form:
                 c = callback.ConservativeTracerMassConservation2DCallback('sediment_2d',
