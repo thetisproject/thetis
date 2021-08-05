@@ -592,6 +592,16 @@ class FlowSolver2d(FrozenClass):
                 steppers[self.options.nh_model_options.free_surface_timestepper_type]
             )
         elif self.solve_tracer:
+            if self.options.tracer_priorities != {}:
+                reordered = OrderedDict()
+                priorities = list(self.options.tracer_priorities.keys())
+                priorities.sort()
+                for priority in priorities:
+                    label = self.options.tracer_priorities[priority]
+                    reordered[label] = self.options.tracer.pop(label)
+                for label in list(self.options.tracer.keys()):
+                    reordered[label] = self.options.tracer.pop(label)
+                self.options.tracer = reordered
             self.timestepper = coupled_timeintegrator_2d.GeneralCoupledTimeIntegrator2D(
                 weakref.proxy(self), {
                     'shallow_water': steppers[self.options.swe_timestepper_type],
