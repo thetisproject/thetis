@@ -77,7 +77,6 @@ options.output_directory = outputdir
 options.check_volume_conservation_2d = True
 
 options.fields_to_export = ['uv_2d', 'elev_2d']
-options.solve_tracer = False
 options.use_lax_friedrichs_tracer = False
 
 # using nikuradse friction

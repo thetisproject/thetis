@@ -15,27 +15,17 @@ bathymetry2d.assign(1.0)
 
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
 
-# Again, tracer functionality is activated by setting the
-# option ``solve_tracer = True`` and for this problem we
-# also set ``tracer_only = True``. In the previous demo, a
-# single tracer field was used, with the default name
-# `tracer_2d`. To specify separate tracers, we need to
-# provide labels, names and filenames for each, as well
-# as any source terms, diffusion coefficients and boundary
-# conditions. The 'label' identifies the field inside Thetis.
-# It should not contain spaces and typically ends with '_2d'
-# for 2D problems. The 'name' exists for users to identify
-# the field and may contain spaces. It will appear in the
-# colourbar of any vtk outputs. Finally, the 'filename'
-# is used when storing outputs, so cannot contain spaces.
-# The usual Thetis convention is to use CamelCase with a
-# trailing '2d'. ::
+# Again, tracer functionality is activated by adding tracer
+# fields. In the previous demo, a single tracer field was
+# used, with the default name `tracer_2d`. It is also
+# possible to specify separate tracers, provided we provide
+# labels, names and filenames for each, as well as any source
+# terms, diffusion coefficients and boundary conditions. ::
 
 labels = ['bell_2d', 'cone_2d', 'slot_cyl_2d']
 names = ['Gaussian bell', 'Cone', 'Slotted cylinder']
 filenames = ['GaussianBell2d', 'Cone2d', 'SlottedCylinder2d']
 options = solver_obj.options
-options.solve_tracer = True
 options.tracer_only = True
 options.fields_to_export = labels
 bc = {'value': {'on_boundary': Constant(1.0)}}
@@ -51,7 +41,7 @@ options.tracer_timestepper_type = 'SSPRK33'
 options.timestep = pi/300.0
 options.simulation_end_time = 2*pi
 options.simulation_export_time = pi/15.0
-options.timestepper_options.use_automatic_timestep = False
+options.tracer_timestepper_options.use_automatic_timestep = False
 options.use_lax_friedrichs_tracer = False
 options.use_limiter_for_tracers = False
 

@@ -28,15 +28,37 @@ bathymetry2d = Function(P1_2d)
 bathymetry2d.assign(1.0)
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
 
-# To activate the tracer functionality, we set the option 
-# ``solve_tracer = True``. As mentioned above, we are only solving
-# the tracer equation, which can be specified by setting
-# ``tracer_only = True``.
+# To activate the tracer functionality of the 2D model, we need to
+# add tracer fields. This is done using the
+# :ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.add_tracer_2d`
+# method.
+#
+# The 'label' identifies the field inside Thetis.
+# It should not contain spaces and typically ends with '_2d'
+# for 2D problems. The 'name' exists for users to identify
+# the field and may contain spaces. It will appear in the
+# colourbar of any vtk outputs. Finally, the 'filename'
+# is used when storing outputs, so cannot contain spaces.
+# The usual Thetis convention is to use CamelCase with a
+# trailing '2d'.
+#
+# Source terms and diffusivity coefficients should also be provided
+# through this interface. We have a pure advection problem with no
+# diffusivity or source terms. However, such terms can be specified
+# by replacing the ``None`` values below. ::
 
 options = solver_obj.options
-options.solve_tracer = True
+labels = ['tracer_2d']
+names = ['Depth averaged tracer']
+filenames = ['Tracer2d']
+options.fields_to_export = labels
+for label, name, filename in zip(labels, names, filenames):
+    options.add_tracer_2d(label, name, filename, source=None, diffusivity=None)
+
+# As mentioned above, we are only solving the tracer equation, which
+# can be specified by setting ``tracer_only = True``.
+
 options.tracer_only = True
-options.fields_to_export = ['tracer_2d']
 
 # We will run for time :math:`2\pi` -- a full rotation -- using a
 # strong stability preserving third order Runge-Kutta method (SSPRK33).
@@ -48,16 +70,12 @@ options.tracer_timestepper_type = 'SSPRK33'
 options.timestep = pi/300.0
 options.simulation_end_time = 2*pi
 options.simulation_export_time = pi/15.0
-options.timestepper_options.use_automatic_timestep = False
+options.tracer_timestepper_options.use_automatic_timestep = False
 
-# We have a pure advection problem with no diffusivity or source terms. However,
-# such terms can be specified by replacing the ``None`` values below. For
-# consistency with the Firedrake demo, we do not use stabilization or slope
+# For consistency with the Firedrake demo, we do not use stabilization or slope
 # limiters, both of which are used by default in Thetis. Slope limiters are used
 # to obtain non-oscillatory solutions. ::
 
-options.horizontal_diffusivity = None
-options.tracer_source_2d = None
 options.use_lax_friedrichs_tracer = False
 options.use_limiter_for_tracers = False
 
@@ -65,7 +83,7 @@ options.use_limiter_for_tracers = False
 # In general, this would be a ``Function``, but here we just use a ``Constant``
 # value. ::
 
-solver_obj.bnd_functions['tracer'] = {'on_boundary':  {'value': Constant(1.0)}}
+solver_obj.bnd_functions['tracer_2d'] = {'on_boundary':  {'value': Constant(1.0)}}
 
 # The velocity field is set up using a simple analytic expression. ::
 
