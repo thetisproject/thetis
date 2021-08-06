@@ -122,7 +122,7 @@ class GeneralCoupledTimeIntegrator2D(CoupledTimeIntegrator2D):
         """
         if not solver.options.tracer_only:
             self.swe_integrator = integrators['shallow_water']
-        if solver.solver.solve_tracer:
+        if solver.solve_tracer:
             self.tracer_integrator = integrators['tracer']
         if solver.options.sediment_model_options.solve_suspended_sediment:
             self.sediment_integrator = integrators['sediment']

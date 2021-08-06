@@ -865,7 +865,7 @@ class ModelOptions2d(CommonModelOptions):
         self.tracer = OrderedDict()
         super().__init__(*args, **kwargs)
 
-    def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', source=None, diffusivity=None, conservative=False):
+    def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', source=None, diffusivity=None, use_conservative_form=False):
         """
         Add a 2D tracer field to :attr:`tracer`.
 
@@ -878,7 +878,7 @@ class ModelOptions2d(CommonModelOptions):
         :kwarg unit: units for field, e.g. '-'
         :kwarg source: associated source term
         :kwarg diffusivity: associated diffusivity coefficient
-        :kwarg conservative: should the tracer equation be solved in conservative form?
+        :kwarg use_conservative_form: should the tracer equation be solved in conservative form?
         """
         assert isinstance(label, str)
         assert isinstance(name, str)
@@ -897,7 +897,7 @@ class ModelOptions2d(CommonModelOptions):
         }
         self.tracer[label].source = source
         self.tracer[label].diffusivity = diffusivity
-        self.tracer[label].conservative = conservative
+        self.tracer[label].use_conservative_form = use_conservative_form
 
     def set_timestepper_type(self, timestepper_type, **kwargs):
         """
