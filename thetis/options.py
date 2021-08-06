@@ -860,6 +860,8 @@ class ModelOptions2d(CommonModelOptions):
         2D solver supports 'dg' or 'cg'.""").tag(config=True)
     use_supg_tracer = Bool(
         False, help="Use SUPG stabilisation in tracer advection").tag(config=True)
+    tracer_picard_iterations = PositiveInteger(
+        1, help="Number of Picard iterations taken for tracer equations.").tag(config=True)
 
     def __init__(self, *args, **kwargs):
         self.tracer = OrderedDict()

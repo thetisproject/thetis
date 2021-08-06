@@ -94,10 +94,13 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
     def advance(self, t, update_forcings=None):
         if not self.options.tracer_only:
             self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
-        for label in self.options.tracer:
-            self.timesteppers[label].advance(t, update_forcings=update_forcings)
-            if self.options.use_limiter_for_tracers:
-                self.solver.tracer_limiter.apply(self.fields[label])
+        p = self.options.tracer_picard_iterations
+        for i in range(p):
+            kwargs = dict(update_lagged=i == 0, update_fields=i == p-1)
+            for label in self.options.tracer:
+                self.timesteppers[label].advance(t, update_forcings=update_forcings, **kwargs)
+                if self.options.use_limiter_for_tracers:
+                    self.solver.tracer_limiter.apply(self.fields[label])
         if self.solver.sediment_model is not None:
             self.solver.sediment_model.update()
         if self.options.sediment_model_options.solve_suspended_sediment:

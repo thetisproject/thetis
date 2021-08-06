@@ -430,9 +430,9 @@ class RungeKuttaTimeIntegrator(TimeIntegrator):
         """
         pass
 
-    def advance(self, t, update_forcings=None, update_lagged=True):
+    def advance(self, t, update_forcings=None, update_lagged=True, update_fields=True):
         """Advances equations for one time step."""
-        assert update_lagged
+        assert update_lagged and update_fields
         if not self._initialized:
             self.initialize(self.solution)
         for i in range(self.n_stages):
@@ -918,9 +918,9 @@ class ERKGenericShuOsher(TimeIntegrator):
             if i_stage < self.n_stages - 1:
                 self.stage_sol[i_stage + 1].assign(self.solution)
 
-    def advance(self, t, update_forcings=None, update_lagged=True):
+    def advance(self, t, update_forcings=None, update_lagged=True, update_fields=True):
         """Advances equations for one time step."""
-        assert update_lagged
+        assert update_lagged and update_fields
         for i in range(self.n_stages):
             self.solve_stage(i, t, update_forcings)
 
