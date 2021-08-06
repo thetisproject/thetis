@@ -49,14 +49,18 @@ options.tracer_picard_iterations = 2
 options.set_timestepper_type('CrankNicolson', implicitness_theta=1.0)
 
 # Add tracer fields and the associated coefficients
+a_2d = Function(P1_2d)
+b_2d = Function(P1_2d)
 options.add_tracer_2d(
     "a_2d", "Tracer A", "TracerA2d",
+    function=a_2d,
     diffusivity=D1,
     source=gamma,
     reaction_terms=-a_2d*b_2d**2 - gamma*a_2d,
 )
 options.add_tracer_2d(
     "b_2d", "Tracer B", "TracerB2d",
+    function=b_2d,
     diffusivity=D2,
     reaction_terms=a_2d*b_2d**2 - (gamma + kappa)*b_2d,
 )
@@ -75,6 +79,8 @@ tracer_a_init.interpolate(
     1.0 - 2.0*tracer_b_init
 )
 solver_obj.assign_initial_conditions(a=tracer_a_init, b=tracer_b_init)
+
+solver_obj.create_timestepper()
 
 # Turn off exports and reduce time duration if regression testing
 if os.getenv('THETIS_REGRESSION_TEST') is not None:

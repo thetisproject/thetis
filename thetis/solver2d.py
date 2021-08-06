@@ -395,7 +395,7 @@ class FlowSolver2d(FrozenClass):
         self.equations.sw.bnd_functions = self.bnd_functions['shallow_water']
         uv_2d, elev_2d = self.fields.solution_2d.split()
         for label, tracer in self.options.tracer.items():
-            self.add_new_field(Function(self.function_spaces.Q_2d, name=label),
+            self.add_new_field(tracer.function or Function(self.function_spaces.Q_2d, name=label),
                                label,
                                tracer.metadata['name'],
                                tracer.metadata['filename'],
@@ -490,14 +490,20 @@ class FlowSolver2d(FrozenClass):
         Gets tracer timestepper object with appropriate parameters
         """
         uv, elev = self.fields.solution_2d.split()
+        tracer = self.options.tracer[label]
+
+        # Collect fields
         fields = {
             'elev_2d': elev,
             'uv_2d': uv,
-            'diffusivity_h': self.options.tracer[label].diffusivity,
-            'source': self.options.tracer[label].source,
+            'diffusivity_h': tracer.diffusivity,
+            'source': tracer.source,
+            'reaction_terms': tracer.reaction_terms,
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }
+
+        # Process boundary conditions
         bcs = {}
         if label in self.bnd_functions:
             bcs = self.bnd_functions[label]
