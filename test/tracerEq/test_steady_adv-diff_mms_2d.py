@@ -162,7 +162,7 @@ def run(setup, refinement, do_export=True, **options):
     solver_obj.options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d',
                                      diffusivity=setup_obj.kappa(x, y, lx, ly),
                                      source=setup_obj.residual(x, y, lx, ly),
-                                     conservative=conservative)
+                                     use_conservative_form=conservative)
 
     # analytical solution
     trac_ana = setup_obj.tracer(x, y, lx, ly)

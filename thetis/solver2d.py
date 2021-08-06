@@ -399,7 +399,7 @@ class FlowSolver2d(FrozenClass):
                                tracer.metadata['filename'],
                                shortname=tracer.metadata['shortname'],
                                unit=tracer.metadata['unit'])
-            if tracer.conservative:
+            if tracer.use_conservative_form:
                 self.equations[label] = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
                     self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
             else:
@@ -833,7 +833,7 @@ class FlowSolver2d(FrozenClass):
 
         if self.options.check_tracer_conservation:
             for label, tracer in self.options.tracer.items():
-                if tracer.conservative:
+                if tracer.use_conservative_form:
                     c = callback.ConservativeTracerMassConservation2DCallback(label,
                                                                               self,
                                                                               export_to_hdf5=dump_hdf5,

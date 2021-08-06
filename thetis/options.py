@@ -472,7 +472,7 @@ class TracerFieldOptions(FrozenHasTraits):
         None, allow_none=True, help='Source term for the tracer equation')
     diffusivity = FiredrakeScalarExpression(
         None, allow_none=True, help='Diffusion coefficient for the tracer equation')
-    conservative = Bool(
+    use_conservative_form = Bool(
         False, help='Should the tracer equation be solved in conservative form?')
     metadata = Dict({
         'label': 'tracer_2d',

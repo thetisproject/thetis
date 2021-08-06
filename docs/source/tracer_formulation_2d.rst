@@ -24,7 +24,7 @@ A conservative tracer model is also available, given by
 In this case, the equation is solved for :math:`q=HT`, where
 :math:`H` is the total water depth.
 The conservative tracer model is specified by setting the
-``conservative`` keyword argument of
+``use_conservative_form`` keyword argument of
 :ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.add_tracer_2d`
 to ``True``.
 

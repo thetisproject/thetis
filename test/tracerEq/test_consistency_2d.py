@@ -49,7 +49,8 @@ def run_tracer_consistency(constant_c=True, **model_options):
     options.use_limiter_for_tracers = not constant_c
     options.use_nonlinear_equations = True
     conservative = model_options.pop('use_tracer_conservative_form', False)
-    options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d', conservative=conservative)
+    options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d',
+                          use_conservative_form=conservative)
     options.simulation_export_time = t_export
     options.simulation_end_time = t_end
     options.horizontal_velocity_scale = Constant(u_mag)
