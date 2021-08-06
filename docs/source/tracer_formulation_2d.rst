@@ -14,18 +14,21 @@ is the passive tracer concentration,
 :math:`T`. The corresponding field in Thetis is called
 ``'tracer_2d'``.
 
+To activate the 2D tracer model, add tracers using the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.add_tracer_2d`
+method. An example of its usage is provided in the
+`2D tracer demo <./demos/demo_2d_tracer.py.html>`__.
+
 A conservative tracer model is also available, given by
 :eq:`cons_tracer_eq_2d`.
 In this case, the equation is solved for :math:`q=HT`, where
 :math:`H` is the total water depth.
-The conservative tracer model is specified using the
-:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.use_tracer_conservative_form`
-option.
+The conservative tracer model is specified by setting the
+``use_conservative_form`` keyword argument of
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.add_tracer_2d`
+to ``True``.
 
-To activate the 2D tracer model, set the
-:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.solve_tracer`
-option to
-``True``. The tracer model may also be run independently
+The tracer model may also be run independently
 by setting the
 :ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.tracer_only`
 option to
@@ -74,9 +77,10 @@ Temporal discretization
 -----------------------
 
 Thetis supports different time integration methods, set by the
-:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.timestepper_type` option.
-Note that the same time integration method will be used for both the shallow
-water equations and the 2D tracer model.
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.tracer_timestepper_type` option.
+Use the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.set_timestepper_type`
+method to set the same timestepper for all 2D model components.
 
 ==================== ============================ ====================== ============
 Time integrator      Thetis class                 Unconditionally stable Description

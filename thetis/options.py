@@ -472,6 +472,8 @@ class TracerFieldOptions(FrozenHasTraits):
         None, allow_none=True, help='Source term for the tracer equation')
     diffusivity = FiredrakeScalarExpression(
         None, allow_none=True, help='Diffusion coefficient for the tracer equation')
+    use_conservative_form = Bool(
+        False, help='Should the tracer equation be solved in conservative form?')
     metadata = Dict({
         'label': 'tracer_2d',
         'name': 'Depth averaged tracer',
@@ -651,10 +653,6 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Source term for 2D momentum equation").tag(config=True)
     volume_source_2d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for 2D continuity equation").tag(config=True)
-    tracer_source_2d = FiredrakeScalarExpression(
-        None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
-    horizontal_diffusivity = FiredrakeCoefficient(
-        None, allow_none=True, help="Horizontal diffusivity for tracers and sediment").tag(config=True)
     sipg_factor = FiredrakeScalarExpression(
         Constant(1.0), help="Penalty parameter scaling factor for horizontal viscosity terms.").tag(config=True)
     sipg_factor_tracer = FiredrakeScalarExpression(
@@ -691,6 +689,8 @@ class SedimentModelOptions(FrozenHasTraits):
     use_sediment_conservative_form = Bool(False, help='Solve 2D sediment transport in the conservative form').tag(config=True)
     use_bedload = Bool(False, help='Use bedload transport in sediment model').tag(config=True)
     use_sediment_slide = Bool(False, help='Use sediment slide mechanism in sediment model').tag(config=True)
+    horizontal_diffusivity = FiredrakeCoefficient(
+        None, allow_none=True, help="Horizontal diffusivity for sediment").tag(config=True)
     use_angle_correction = Bool(True, help='Switch to use slope effect angle correction').tag(config=True)
     use_slope_mag_correction = Bool(True, help='Switch to use slope effect magnitude correction').tag(config=True)
     use_secondary_current = Bool(False, help='Switch to use secondary current for helical flow effect').tag(config=True)
@@ -793,7 +793,6 @@ class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
     name = 'Depth-averaged 2D model'
     sediment_model_options = Instance(SedimentModelOptions, args=()).tag(config=True)
-    solve_tracer = Bool(False, help='Solve tracer transport').tag(config=True)
     use_tracer_conservative_form = Bool(False, help='Solve 2D tracer transport in the conservative form').tag(config=True)
     use_wetting_and_drying = Bool(
         False, help=r"""bool: Turn on wetting and drying
@@ -866,7 +865,7 @@ class ModelOptions2d(CommonModelOptions):
         self.tracer = OrderedDict()
         super().__init__(*args, **kwargs)
 
-    def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', source=None, diffusivity=None):
+    def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', source=None, diffusivity=None, use_conservative_form=False):
         """
         Add a 2D tracer field to :attr:`tracer`.
 
@@ -879,6 +878,7 @@ class ModelOptions2d(CommonModelOptions):
         :kwarg unit: units for field, e.g. '-'
         :kwarg source: associated source term
         :kwarg diffusivity: associated diffusivity coefficient
+        :kwarg use_conservative_form: should the tracer equation be solved in conservative form?
         """
         assert isinstance(label, str)
         assert isinstance(name, str)
@@ -897,6 +897,7 @@ class ModelOptions2d(CommonModelOptions):
         }
         self.tracer[label].source = source
         self.tracer[label].diffusivity = diffusivity
+        self.tracer[label].use_conservative_form = use_conservative_form
 
     def set_timestepper_type(self, timestepper_type, **kwargs):
         """

@@ -124,6 +124,7 @@ def run(setup, refinement, do_export=True, **options):
     t_end = 200.0
 
     setup_obj = setup()
+    conservative = options.pop('use_tracer_conservative_form', False)
 
     # mesh
     nx = 4*refinement
@@ -154,19 +155,18 @@ def run(setup, refinement, do_export=True, **options):
         solver_obj.options.swe_timestepper_options.implicitness_theta = 1.0
         solver_obj.options.tracer_timestepper_options.implicitness_theta = 1.0
     solver_obj.options.update(options)
-    solver_obj.options.solve_tracer = True
     solver_obj.create_function_spaces()
 
-    # functions for source terms
+    # functions for source terms and diffusivity
     x, y = SpatialCoordinate(solver_obj.mesh2d)
-    solver_obj.options.tracer_source_2d = setup_obj.residual(x, y, lx, ly)
-
-    # diffusivuty
-    solver_obj.options.horizontal_diffusivity = setup_obj.kappa(x, y, lx, ly)
+    solver_obj.options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d',
+                                     diffusivity=setup_obj.kappa(x, y, lx, ly),
+                                     source=setup_obj.residual(x, y, lx, ly),
+                                     use_conservative_form=conservative)
 
     # analytical solution
     trac_ana = setup_obj.tracer(x, y, lx, ly)
-    if solver_obj.options.use_tracer_conservative_form:
+    if conservative:
         # the tracer in the setups is depth-averaged
         # with conservative form we solve for the depth-integrated variable
         H = setup_obj.bath(x, y, lx, ly) + setup_obj.elev(x, y, lx, ly)

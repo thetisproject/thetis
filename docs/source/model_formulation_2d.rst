@@ -57,7 +57,7 @@ Temporal discretization
 -----------------------
 
 Thetis supports different time integration methods, set by the
-:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.timestepper_type` option.
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.swe_timestepper_type` option.
 
 =============================== ====================================== ====================== ============
 Time integrator                 Thetis class                           Unconditionally stable Description

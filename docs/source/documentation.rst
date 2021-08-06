@@ -49,6 +49,7 @@ Manual
     Model outputs and visualization<outputs_and_visu>
     List of 2D model options<model_options_2d>
     List of 3D model options<model_options_3d>
+    List of 2D sediment model options<sediment_model_options>
     List of physical fields<field_documentation>
 
 API documentation

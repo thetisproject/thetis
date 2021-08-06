@@ -14,12 +14,18 @@ is the passive tracer concentration,
 :math:`T`. The corresponding field in Thetis is called
 ``'sediment_2d'``.
 
+The sediment model is defined by specifying parameters in
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.sediment_model_options`.
+See
+:ref:`SedimentModelOptions<sediment_model_options>`
+for a list of all available parameters.
+
 A conservative suspended sediment transport model is also
 available. In this case, the equation is solved for
 :math:`q=HT`, where
 :math:`H` is the total water depth.
 The conservative tracer model is specified using the
-:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.use_sediment_conservative_form`
+:ref:`SedimentModelOptions<sediment_model_options>`.\ :py:attr:`.use_sediment_conservative_form`
 option.
 
 Bedload transport is modelled in two dimensions using the
@@ -31,9 +37,9 @@ in Thetis is called
 ``'bathymetry_2d'``.
 
 To activate the 2D sediment model, set the
-:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.solve_suspended_sediment`
+:ref:`SedimentModelOptions<sediment_model_options>`.\ :py:attr:`.solve_suspended_sediment`
 and
-:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.solve_exner`
+:ref:`SedimentModelOptions<sediment_model_options>`.\ :py:attr:`.solve_exner`
 options to
 ``True``.
 
@@ -56,9 +62,12 @@ Temporal discretization
 -----------------------
 
 Thetis supports different time integration methods, set by the
-:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.timestepper_type` option.
-Note that the same time integration method will be used for both the shallow
-water equations and the 2D sediment model.
+:ref:`SedimentModelOptions<sediment_model_options>`.\ :py:attr:`.sediment_timestepper_type`
+and
+:ref:`SedimentModelOptions<sediment_model_options>`.\ :py:attr:`.exner_timestepper_type`
+options. Use the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.set_timestepper_type`
+method to set the same timestepper for all 2D model components.
 
 =============================== ====================================== ====================== ============
 Time integrator                 Thetis class                           Unconditionally stable Description

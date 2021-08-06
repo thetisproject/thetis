@@ -138,6 +138,7 @@ class FlowSolver2d(FrozenClass):
 
         if 'tracer_2d' in field_metadata:
             field_metadata.pop('tracer_2d')
+        self.solve_tracer = False
         self._field_preproc_funcs = {}
         self._isfrozen = True
 
@@ -392,26 +393,21 @@ class FlowSolver2d(FrozenClass):
         )
         self.equations.sw.bnd_functions = self.bnd_functions['shallow_water']
         uv_2d, elev_2d = self.fields.solution_2d.split()
-        if self.options.solve_tracer:
-            if self.options.tracer == {}:
-                warning("Usage of solve_tracer is soon to be deprecated. Use add_tracer_2d to"
-                        " provide tracer fields to be solved for.")
-                self.options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d', 'Tracer', '-',
-                                           source=self.options.tracer_source_2d,
-                                           diffusivity=self.options.horizontal_diffusivity)
-            args = (self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
-            if self.options.use_tracer_conservative_form:
-                eq = conservative_tracer_eq_2d.ConservativeTracerEquation2D
+        for label, tracer in self.options.tracer.items():
+            self.add_new_field(Function(self.function_spaces.Q_2d, name=label),
+                               label,
+                               tracer.metadata['name'],
+                               tracer.metadata['filename'],
+                               shortname=tracer.metadata['shortname'],
+                               unit=tracer.metadata['unit'])
+            if tracer.use_conservative_form:
+                self.equations[label] = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
+                    self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
             else:
-                eq = tracer_eq_2d.TracerEquation2D
-            for label, tracer in self.options.tracer.items():
-                self.add_new_field(Function(self.function_spaces.Q_2d, name=label),
-                                   label,
-                                   tracer.metadata['name'],
-                                   tracer.metadata['filename'],
-                                   shortname=tracer.metadata['shortname'],
-                                   unit=tracer.metadata['unit'])
-                self.equations[label] = eq(*args)
+                self.equations[label] = tracer_eq_2d.TracerEquation2D(
+                    self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
+        self.solve_tracer = self.options.tracer != {}
+        if self.solve_tracer:
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
@@ -517,7 +513,7 @@ class FlowSolver2d(FrozenClass):
         fields = {
             'elev_2d': elev,
             'uv_2d': uv,
-            'diffusivity_h': self.options.horizontal_diffusivity,
+            'diffusivity_h': self.options.sediment_model_options.horizontal_diffusivity,
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.sediment_model.get_advective_velocity_correction_factor(),
         }
@@ -595,7 +591,7 @@ class FlowSolver2d(FrozenClass):
                 weakref.proxy(self), steppers[self.options.swe_timestepper_type],
                 steppers[self.options.nh_model_options.free_surface_timestepper_type]
             )
-        elif self.options.solve_tracer:
+        elif self.solve_tracer:
             self.timestepper = coupled_timeintegrator_2d.GeneralCoupledTimeIntegrator2D(
                 weakref.proxy(self), {
                     'shallow_water': steppers[self.options.swe_timestepper_type],
@@ -679,11 +675,10 @@ class FlowSolver2d(FrozenClass):
             elev_2d.project(elev)
         if uv is not None:
             uv_2d.project(uv)
-        if self.options.solve_tracer:
-            for l, func in tracers.items():
-                label = l if len(l) > 3 and l[-3:] == '_2d' else l + '_2d'
-                assert label in self.options.tracer, f"Unknown tracer label {label}"
-                self.fields[label].project(func)
+        for l, func in tracers.items():
+            label = l if len(l) > 3 and l[-3:] == '_2d' else l + '_2d'
+            assert label in self.options.tracer, f"Unknown tracer label {label}"
+            self.fields[label].project(func)
 
         sediment_options = self.options.sediment_model_options
         if self.sediment_model is not None:
@@ -839,19 +834,18 @@ class FlowSolver2d(FrozenClass):
             self.add_callback(c)
 
         if self.options.check_tracer_conservation:
-            if self.options.use_tracer_conservative_form:
-                for label in self.options.tracer:
+            for label, tracer in self.options.tracer.items():
+                if tracer.use_conservative_form:
                     c = callback.ConservativeTracerMassConservation2DCallback(label,
                                                                               self,
                                                                               export_to_hdf5=dump_hdf5,
                                                                               append_to_log=True)
-            else:
-                for label in self.options.tracer:
+                else:
                     c = callback.TracerMassConservation2DCallback(label,
                                                                   self,
                                                                   export_to_hdf5=dump_hdf5,
                                                                   append_to_log=True)
-            self.add_callback(c, eval_interval='export')
+                self.add_callback(c, eval_interval='export')
         if self.options.sediment_model_options.check_sediment_conservation:
             if self.options.sediment_model_options.use_sediment_conservative_form:
                 c = callback.ConservativeTracerMassConservation2DCallback('sediment_2d',

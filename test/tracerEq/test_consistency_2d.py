@@ -48,7 +48,9 @@ def run_tracer_consistency(constant_c=True, **model_options):
     options = solver_obj.options
     options.use_limiter_for_tracers = not constant_c
     options.use_nonlinear_equations = True
-    options.solve_tracer = True
+    conservative = model_options.pop('use_tracer_conservative_form', False)
+    options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d',
+                          use_conservative_form=conservative)
     options.simulation_export_time = t_export
     options.simulation_end_time = t_end
     options.horizontal_velocity_scale = Constant(u_mag)
@@ -58,7 +60,6 @@ def run_tracer_consistency(constant_c=True, **model_options):
     options.set_timestepper_type(model_options.pop('timestepper_type', 'CrankNicolson'))
     options.output_directory = outputdir
     options.fields_to_export = ['uv_2d', 'elev_2d', 'tracer_2d']
-    options.use_tracer_conservative_form = False
     options.update(model_options)
 
     if not options.no_exports:
@@ -69,10 +70,10 @@ def run_tracer_consistency(constant_c=True, **model_options):
     elev_init.project(-elev_amp*cos(2*pi*x_2d/lx))
 
     tracer_init2d = None
-    if options.solve_tracer and constant_c:
+    if constant_c:
         tracer_init2d = Function(solver_obj.function_spaces.Q_2d, name='initial tracer')
         tracer_init2d.assign(tracer_value)
-    if options.solve_tracer and not constant_c:
+    else:
         tracer_init2d = Function(solver_obj.function_spaces.Q_2d, name='initial tracer')
         tracer_l = 0
         tracer_r = 30.0
@@ -84,15 +85,14 @@ def run_tracer_consistency(constant_c=True, **model_options):
     # TODO do these checks every export ...
     vol2d, vol2d_rerr = solver_obj.callbacks['export']['volume2d']()
     assert vol2d_rerr < 1e-10, '2D volume is not conserved'
-    if options.solve_tracer:
-        tracer_int, tracer_int_rerr = solver_obj.callbacks['export']['tracer_2d mass']()
-        assert abs(tracer_int_rerr) < 1.2e-4, 'tracer is not conserved'
-        smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['tracer_2d overshoot']()
-        max_abs_overshoot = max(abs(undershoot), abs(overshoot))
-        overshoot_tol = 1e-11
-        if not options.use_tracer_conservative_form:
-            msg = 'Tracer overshoots are too large: {:}'.format(max_abs_overshoot)
-            assert max_abs_overshoot < overshoot_tol, msg
+    tracer_int, tracer_int_rerr = solver_obj.callbacks['export']['tracer_2d mass']()
+    assert abs(tracer_int_rerr) < 1.2e-4, 'tracer is not conserved'
+    smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['tracer_2d overshoot']()
+    max_abs_overshoot = max(abs(undershoot), abs(overshoot))
+    overshoot_tol = 1e-11
+    if not conservative:
+        msg = 'Tracer overshoots are too large: {:}'.format(max_abs_overshoot)
+        assert max_abs_overshoot < overshoot_tol, msg
 
 # ---------------------------
 # standard tests for pytest
@@ -111,7 +111,6 @@ def test_const_tracer(stepper):
     """
     run_tracer_consistency(constant_c=True,
                            use_nonlinear_equations=True,
-                           solve_tracer=True,
                            use_limiter_for_tracers=False,
                            no_exports=True,
                            timestepper_type=stepper)
@@ -124,7 +123,6 @@ def test_nonconst_tracer(stepper):
     """
     run_tracer_consistency(constant_c=False,
                            use_nonlinear_equations=True,
-                           solve_tracer=True,
                            use_limiter_for_tracers=True,
                            no_exports=True,
                            timestepper_type=stepper)
@@ -137,7 +135,6 @@ def test_nonconst_tracer_conservative(stepper):
     """
     run_tracer_consistency(constant_c=False,
                            use_nonlinear_equations=True,
-                           solve_tracer=True,
                            use_limiter_for_tracers=False,
                            no_exports=True,
                            use_tracer_conservative_form=True,
@@ -152,6 +149,6 @@ def test_nonconst_tracer_conservative(stepper):
 if __name__ == '__main__':
     run_tracer_consistency(constant_c=False,
                            use_nonlinear_equations=True,
-                           solve_tracer=True,
                            use_limiter_for_tracers=False,
+                           use_tracer_conservative_form=True,
                            no_exports=False)

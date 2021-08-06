@@ -194,14 +194,14 @@ def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg'):
 
     # Hydrodynamics
     options.element_family = 'dg-dg'
-    options.horizontal_diffusivity = params.diffusivity
     options.horizontal_viscosity = params.viscosity
     options.quadratic_drag_coefficient = params.drag
     options.use_lax_friedrichs_velocity = True
     options.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
 
     # Passive tracer
-    options.solve_tracer = True
+    options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d',
+                          diffusivity=params.diffusivity, source=source)
     options.horizontal_velocity_scale = Constant(1.0)
     options.horizontal_diffusivity_scale = Constant(0.0)
     options.tracer_only = not hydrodynamics
@@ -209,7 +209,6 @@ def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg'):
     options.use_lax_friedrichs_tracer = tracer_family == 'dg'
     options.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
     options.use_limiter_for_tracers = tracer_family == 'dg'
-    options.tracer_source_2d = source
 
     # Initial and boundary conditions
     solver_obj.bnd_functions = params.boundary_conditions

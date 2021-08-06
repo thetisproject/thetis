@@ -78,7 +78,7 @@ def run_migrating_trench(conservative):
     options.nikuradse_bed_roughness = Constant(3*options.sediment_model_options.average_sediment_size)
 
     # set horizontal diffusivity parameter
-    options.horizontal_diffusivity = Constant(diffusivity)
+    options.sediment_model_options.horizontal_diffusivity = Constant(diffusivity)
     options.horizontal_viscosity = Constant(viscosity_hydro)
 
     # crank-nicolson used to integrate in time system of ODEs resulting from application of galerkin FEM

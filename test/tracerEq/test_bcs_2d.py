@@ -104,9 +104,11 @@ def run(refinement, **model_options):
     bathy_2d = Function(P1_2d, name='Bathymetry')
     bathy_2d.assign(depth)
 
-    # Diffusivity and diffusive flux BC to impose
-    nu = Constant(0.1)
+    # Diffusive flux BC to impose
     diff_flux = 0.2
+
+    # Get truncated Fourier series solution
+    fsol = fourier_series_solution(mesh2d, lx, diff_flux, **model_options)
 
     # Solver
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathy_2d)
@@ -115,9 +117,10 @@ def run(refinement, **model_options):
     options.no_exports = True
     options.timestep = dt
     options.simulation_export_time = t_export
-    options.solve_tracer = True
+    nu = model_options.pop('horizontal_diffusivity')
+    options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d',
+                          diffusivity=nu)
     options.tracer_only = True
-    options.horizontal_diffusivity = nu
     options.horizontal_diffusivity_scale = nu
     options.horizontal_velocity_scale = Constant(0.0)
     options.fields_to_export = ['tracer_2d']
@@ -134,12 +137,9 @@ def run(refinement, **model_options):
     solver_obj.assign_initial_conditions()
     solver_obj.iterate()
     sol = solver_obj.fields.tracer_2d
-
-    # Get truncated Fourier series solution
-    fsol = fourier_series_solution(mesh2d, lx, diff_flux, **model_options)
     if not options.no_exports:
+        File('outputs/finite_element_solution.pvd').write(sol)
         File('outputs/fourier_series_solution.pvd').write(fsol)
-
     return errornorm(sol, fsol)
 
 
