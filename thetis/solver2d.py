@@ -138,6 +138,7 @@ class FlowSolver2d(FrozenClass):
 
         if 'tracer_2d' in field_metadata:
             field_metadata.pop('tracer_2d')
+        self.solve_tracer = False
         self._field_preproc_funcs = {}
         self._isfrozen = True
 
@@ -405,7 +406,8 @@ class FlowSolver2d(FrozenClass):
             else:
                 self.equations[label] = tracer_eq_2d.TracerEquation2D(
                     self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
-        if self.options.tracer != {}:
+        self.solve_tracer = self.options.tracer != {}
+        if self.solve_tracer:
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
@@ -589,7 +591,7 @@ class FlowSolver2d(FrozenClass):
                 weakref.proxy(self), steppers[self.options.swe_timestepper_type],
                 steppers[self.options.nh_model_options.free_surface_timestepper_type]
             )
-        elif self.options.tracer != {}:
+        elif self.solve_tracer:
             self.timestepper = coupled_timeintegrator_2d.GeneralCoupledTimeIntegrator2D(
                 weakref.proxy(self), {
                     'shallow_water': steppers[self.options.swe_timestepper_type],
