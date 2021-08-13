@@ -68,7 +68,7 @@ field_metadata['uv_p1_2d'] = {
     'name': 'P1 projection of horizontal velocity',
     'shortname': 'P1 Velocity',
     'unit': 'm s-1',
-    'filename': 'VeloCG3d',
+    'filename': 'VeloCG2d',
 }
 field_metadata['elev_2d'] = {
     'name': 'Water elevation',

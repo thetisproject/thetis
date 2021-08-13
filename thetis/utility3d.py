@@ -940,6 +940,7 @@ class SmagorinskyViscosity(object):
             # rate of strain tensor
             d_t = self.grad[0] - self.grad[3]
             d_s = self.grad[1] + self.grad[2]
+            d_c = self.grad[(0, 0)] + self.grad[(1, 1)]
         else:
             # rate of strain tensor
             d_t = Dx(uv[0], 0) - Dx(uv[1], 1)
@@ -950,6 +951,7 @@ class SmagorinskyViscosity(object):
         tri = TrialFunction(fs)
         test = TestFunction(fs)
 
+        # TODO: check addition of d_c based on calculation of (2 * S_{i,j} * S_{i,j})**(1/2)
         nu = c_s**2*h_elem_size**2 * sqrt(d_t**2 + d_s**2 + d_c**2)
         if c_f is not None:
             # Elder term

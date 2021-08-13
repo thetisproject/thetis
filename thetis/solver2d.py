@@ -911,7 +911,6 @@ class FlowSolver2d(FrozenClass):
 
             self.timestepper.advance(self.simulation_time, update_forcings)
 
-
             # Move to next time step
             self.iteration += 1
             internal_iteration += 1
