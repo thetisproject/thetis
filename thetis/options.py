@@ -650,7 +650,6 @@ class CommonModelOptions(FrozenConfigurable):
         help="""Smagorinsky viscosity coefficient :math:`C_S`
 
         See :class:`.SmagorinskyViscosity`.""").tag(config=True)
-    coriolis_frequency = FiredrakeCoefficient(
     coriolis_frequency = FiredrakeScalarExpression(
         None, allow_none=True, help="2D Coriolis parameter").tag(config=True)
     wind_stress = FiredrakeVectorExpression(
