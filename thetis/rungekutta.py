@@ -557,7 +557,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         self.solve_tendency(i_stage, t, update_forcings)
         self.update_solution(i_stage)
 
-    def advance(self, t, update_forcings=None, update_lagged=True):
+    def advance(self, t, update_forcings=None, update_lagged=True, update_fields=True):
         """Advances equations for one time step."""
         if not update_lagged:
             raise NotImplementedError  # TODO: Support Picard iteration for DIRK timesteppers

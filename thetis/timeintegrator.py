@@ -258,7 +258,7 @@ class SteadyState(TimeIntegrator):
         # nothing to do here as the initial condition is passed in via solution
         return
 
-    def advance(self, t, update_forcings=None, update_lagged=True):
+    def advance(self, t, update_forcings=None, update_lagged=True, update_fields=True):
         """Advances equations for one time step."""
         if update_forcings is not None:
             update_forcings(t + self.dt)
