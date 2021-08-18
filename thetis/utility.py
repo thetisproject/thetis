@@ -683,7 +683,8 @@ void reordered_eigendecomposition(double EVecs_[4], double EVals_[2], const doub
     op2.par_loop(kernel, P0_ten.node_set, evectors.dat(op2.RW), evalues.dat(op2.RW), B.dat(op2.READ))
 
     # Return minimum eigenvalue
-    return interpolate(evalues[-1], FunctionSpace(mesh, "DG", 0))
+    dim = mesh.topological_dimension()
+    return interpolate(evalues[dim-1], FunctionSpace(mesh, "DG", 0))
 
 
 def beta_plane_coriolis_params(latitude):
