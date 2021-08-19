@@ -55,14 +55,13 @@ options.add_tracer_2d(
     "a_2d", "Tracer A", "TracerA2d",
     function=a_2d,
     diffusivity=D1,
-    source=gamma,
-    reaction_terms=-a_2d*b_2d**2 - gamma*a_2d,
+    source=gamma - a_2d*b_2d**2 - gamma*a_2d,
 )
 options.add_tracer_2d(
     "b_2d", "Tracer B", "TracerB2d",
     function=b_2d,
     diffusivity=D2,
-    reaction_terms=a_2d*b_2d**2 - (gamma + kappa)*b_2d,
+    source=a_2d*b_2d**2 - (gamma + kappa)*b_2d,
 )
 options.fields_to_export = ["a_2d", "b_2d"]
 

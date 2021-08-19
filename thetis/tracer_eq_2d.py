@@ -268,25 +268,6 @@ class SourceTerm(TracerTerm):
         return -f
 
 
-class ReactionTerm(TracerTerm):
-    r"""
-    Generic reaction term
-
-    The weak form reads
-
-    .. math::
-        F_r = \int_\Omega R \phi dx
-
-    where :math:`R` is a user defined reaction term.
-    """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
-        f = 0
-        R = fields_old.get('reaction_terms')
-        if R != 0 and R is not None:
-            f += -inner(R, self.test)*self.dx
-        return -f
-
-
 class TracerEquation2D(Equation):
     """
     2D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
@@ -321,4 +302,3 @@ class TracerEquation2D(Equation):
         self.add_term(HorizontalAdvectionTerm(*args, **kwargs), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args, **kwargs), 'explicit')
         self.add_term(SourceTerm(*args, **kwargs), 'source')
-        self.add_term(ReactionTerm(*args, **kwargs), 'implicit')

@@ -96,7 +96,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
             self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
         p = self.options.tracer_picard_iterations
         for i in range(p):
-            kwargs = dict(update_lagged=i == 0, update_fields=i == p-1)
+            kwargs = {'update_lagged': i == 0, 'update_fields': i == p-1}
             for label in self.options.tracer:
                 self.timesteppers[label].advance(t, update_forcings=update_forcings, **kwargs)
                 if self.options.use_limiter_for_tracers:

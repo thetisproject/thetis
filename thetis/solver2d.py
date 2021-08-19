@@ -490,15 +490,13 @@ class FlowSolver2d(FrozenClass):
         Gets tracer timestepper object with appropriate parameters
         """
         uv, elev = self.fields.solution_2d.split()
-        tracer = self.options.tracer[label]
 
         # Collect fields
         fields = {
             'elev_2d': elev,
             'uv_2d': uv,
-            'diffusivity_h': tracer.diffusivity,
-            'source': tracer.source,
-            'reaction_terms': tracer.reaction_terms,
+            'diffusivity_h': self.options.tracer[label].diffusivity,
+            'source': self.options.tracer[label].source,
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }
@@ -599,16 +597,6 @@ class FlowSolver2d(FrozenClass):
                 steppers[self.options.nh_model_options.free_surface_timestepper_type]
             )
         elif self.solve_tracer:
-            if self.options.tracer_priorities != {}:
-                reordered = OrderedDict()
-                priorities = list(self.options.tracer_priorities.keys())
-                priorities.sort()
-                for priority in priorities:
-                    label = self.options.tracer_priorities[priority]
-                    reordered[label] = self.options.tracer.pop(label)
-                for label in list(self.options.tracer.keys()):
-                    reordered[label] = self.options.tracer.pop(label)
-                self.options.tracer = reordered
             self.timestepper = coupled_timeintegrator_2d.GeneralCoupledTimeIntegrator2D(
                 weakref.proxy(self), {
                     'shallow_water': steppers[self.options.swe_timestepper_type],

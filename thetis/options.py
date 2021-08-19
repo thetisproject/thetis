@@ -869,7 +869,6 @@ class ModelOptions2d(CommonModelOptions):
 
     def __init__(self, *args, **kwargs):
         self.tracer = OrderedDict()
-        self.tracer_priorities = {}
         super().__init__(*args, **kwargs)
 
     def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', **kwargs):
@@ -888,9 +887,7 @@ class ModelOptions2d(CommonModelOptions):
         :kwarg diffusivity: associated diffusivity coefficient
         :kwarg reaction_terms: UFL expression for reaction terms
         :kwarg use_conservative_form: should the tracer equation be solved in conservative form?
-        :kwarg priority: integer priority in which equation should be solved
         """
-        priority = kwargs.get('priority')
         assert isinstance(label, str)
         assert isinstance(name, str)
         assert isinstance(filename, str)
@@ -899,11 +896,6 @@ class ModelOptions2d(CommonModelOptions):
         assert label not in self.tracer, f"Field '{label}' already exists."
         assert ' ' not in label, "Labels cannot contain spaces"
         assert ' ' not in filename, "Filenames cannot contain spaces"
-        if priority is not None:
-            assert isinstance(priority, int)
-            if priority in self.tracer_priorities:
-                raise NotImplementedError("Cannot currently solve coupled tracer equations as monolithic systems.")
-            self.tracer_priorities[priority] = label
         self.tracer[label] = TracerFieldOptions()
         self.tracer[label].metadata = {
             'name': name,
