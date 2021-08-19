@@ -624,31 +624,7 @@ def anisotropic_cell_size(mesh):
     J = Function(P0_ten, name="Cell Jacobian")
     J.interpolate(Jacobian(mesh))
 
-    # Get SPD part of polar decomposition
-    B = Function(P0_ten, name="SPD part")
-    kernel_str = """
-#include <Eigen/Dense>
-
-using namespace Eigen;
-
-void poldec_spd(double A_[4], const double * B_) {
-
-  // Map inputs and outputs onto Eigen objects
-  Map<Matrix<double, 2, 2, RowMajor> > A((double *)A_);
-  Map<Matrix<double, 2, 2, RowMajor> > B((double *)B_);
-
-  // Compute singular value decomposition
-  JacobiSVD<Matrix<double, 2, 2, RowMajor> > svd(B, ComputeFullV);
-
-  // Get SPD part of polar decomposition
-  A += svd.matrixV() * svd.singularValues().asDiagonal() * svd.matrixV().transpose();
-}"""
-    kernel = op2.Kernel(kernel_str, 'poldec_spd', cpp=True, include_dirs=include_dir)
-    op2.par_loop(kernel, P0_ten.node_set, B.dat(op2.RW), J.dat(op2.READ))
-
-    # TODO: May as well combine loops
-
-    # Get minimum eigenvalue
+    # Compute minimum eigenvalue
     P0 = FunctionSpace(mesh, "DG", 0)
     min_evalue = Function(P0, name="Minimum eigenvalue")
     kernel_str = """
@@ -656,25 +632,29 @@ void poldec_spd(double A_[4], const double * B_) {
 
 using namespace Eigen;
 
-void reordered_eigendecomposition(double minEval[1], const double * M_) {
-  Matrix<double, 2, 2, RowMajor> EVecs;
-  Vector2d EVals;
+void eigmin(double minEval[1], const double * J_) {
+  Matrix<double, 2, 2, RowMajor> A;
 
   // Map input onto an Eigen object
-  Map<Matrix<double, 2, 2, RowMajor> > M((double *)M_);
+  Map<Matrix<double, 2, 2, RowMajor> > J((double *)J_);
+
+  // Compute singular value decomposition
+  JacobiSVD<Matrix<double, 2, 2, RowMajor> > svd(J, ComputeFullV);
+
+  // Get SPD part of polar decomposition
+  A = svd.matrixV() * svd.singularValues().asDiagonal() * svd.matrixV().transpose();
 
   // Solve eigenvalue problem
-  SelfAdjointEigenSolver<Matrix<double, 2, 2, RowMajor>> eigensolver(M);
-  Matrix<double, 2, 2, RowMajor> Q = eigensolver.eigenvectors();
+  SelfAdjointEigenSolver<Matrix<double, 2, 2, RowMajor>> eigensolver(A);
   Vector2d D = eigensolver.eigenvalues();
 
-  // Reorder eigenpairs by magnitude of eigenvalue
+  // Select minimum eigenvalue in modulus
   if (fabs(D(0)) < fabs(D(1))) minEval[0] = D(0);
   else minEval[0] = D(1);
 }
 """
-    kernel = op2.Kernel(kernel_str, 'reordered_eigendecomposition', cpp=True, include_dirs=include_dir)
-    op2.par_loop(kernel, P0_ten.node_set, min_evalue.dat(op2.RW), B.dat(op2.READ))
+    kernel = op2.Kernel(kernel_str, 'eigmin', cpp=True, include_dirs=include_dir)
+    op2.par_loop(kernel, P0_ten.node_set, min_evalue.dat(op2.RW), J.dat(op2.READ))
     return min_evalue
 
 
