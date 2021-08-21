@@ -19,7 +19,7 @@ class TimeIntegratorBase(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def advance(self, t, update_forcings=None, update_lagged=True, update_fields=True):
+    def advance(self, t, update_forcings=None):
         """
         Advances equations for one time step
 
@@ -72,6 +72,19 @@ class TimeIntegrator(TimeIntegratorBase):
         self.dt = dt
         self.dt_const.assign(dt)
 
+    def advance_picard(self, t, update_forcings=None, update_lagged=True, update_fields=True):
+        """
+        Advances equations for one time step within a Picard iteration
+
+        :arg t: simulation time
+        :type t: float
+        :arg update_forcings: user-defined function that takes the simulation
+            time and updates any time-dependent boundary conditions
+        :kwarg update_lagged: should the old solution be updated?
+        :kwarg update_fields: should the fields be updated?
+        """
+        raise NotImplementedError(f"Picard iterations are not supported for {self} time integrators.")
+
 
 class ForwardEuler(TimeIntegrator):
     """Standard forward Euler time integration scheme."""
@@ -122,9 +135,8 @@ class ForwardEuler(TimeIntegrator):
         for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
-    def advance(self, t, update_forcings=None, update_lagged=True, update_fields=True):
+    def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
-        assert update_lagged and update_fields
         if update_forcings is not None:
             update_forcings(t + self.dt)
         self.solution_old.assign(self.solution)
@@ -207,14 +219,24 @@ class CrankNicolson(TimeIntegrator):
         for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
-    def advance(self, t, update_forcings=None, update_lagged=True, update_fields=True):
+    def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
+        if update_forcings is not None:
+            update_forcings(t + self.dt)
+        self.solution_old.assign(self.solution)
+        self.solver.solve()
+        # shift time
+        for k in sorted(self.fields_old):
+            self.fields_old[k].assign(self.fields[k])
+
+    def advance_picard(self, t, update_forcings=None, update_lagged=True, update_fields=True):
+        """Advances equations for one time step in a Picard iteration."""
         if update_forcings is not None:
             update_forcings(t + self.dt)
         if update_lagged:
             self.solution_old.assign(self.solution)
         self.solver.solve()
-        if update_lagged:
+        if update_fields:
             # shift time
             for k in sorted(self.fields_old):
                 self.fields_old[k].assign(self.fields[k])
@@ -258,7 +280,7 @@ class SteadyState(TimeIntegrator):
         # nothing to do here as the initial condition is passed in via solution
         return
 
-    def advance(self, t, update_forcings=None, update_lagged=True, update_fields=True):
+    def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
         if update_forcings is not None:
             update_forcings(t + self.dt)
@@ -413,9 +435,8 @@ class PressureProjectionPicard(TimeIntegrator):
         for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
-    def advance(self, t, update_forcings=None, update_lagged=True, update_fields=True):
+    def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
-        assert update_lagged and update_fields
         if update_forcings is not None:
             update_forcings(t + self.dt)
         self.solution_old.assign(self.solution)
@@ -559,9 +580,8 @@ class LeapFrogAM3(TimeIntegrator):
             with timed_region('lf_cor_solve'):
                 self._solve_system()
 
-    def advance(self, t, update_forcings=None, update_lagged=True, update_fields=True):
+    def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
-        assert update_lagged and update_fields
         if self._nontrivial:
             if update_forcings is not None:
                 update_forcings(t + self.dt)
@@ -715,9 +735,8 @@ class SSPRK22ALE(TimeIntegrator):
         else:
             self.stage_two_prep()
 
-    def advance(self, t, update_forcings=None, update_lagged=True, update_fields=True):
+    def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
-        assert update_lagged and update_fields
         if not self._initialized:
             self.initialize(self.solution)
         for i_stage in range(self.n_stages):

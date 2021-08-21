@@ -430,9 +430,8 @@ class RungeKuttaTimeIntegrator(TimeIntegrator):
         """
         pass
 
-    def advance(self, t, update_forcings=None, update_lagged=True, update_fields=True):
+    def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
-        assert update_lagged and update_fields
         if not self._initialized:
             self.initialize(self.solution)
         for i in range(self.n_stages):
@@ -557,10 +556,8 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         self.solve_tendency(i_stage, t, update_forcings)
         self.update_solution(i_stage)
 
-    def advance(self, t, update_forcings=None, update_lagged=True, update_fields=True):
+    def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
-        if not update_lagged:
-            raise NotImplementedError  # TODO: Support Picard iteration for DIRK timesteppers
         if not self._initialized:
             self.initialize(self.solution)
         for i in range(self.n_stages):
@@ -918,9 +915,8 @@ class ERKGenericShuOsher(TimeIntegrator):
             if i_stage < self.n_stages - 1:
                 self.stage_sol[i_stage + 1].assign(self.solution)
 
-    def advance(self, t, update_forcings=None, update_lagged=True, update_fields=True):
+    def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
-        assert update_lagged and update_fields
         for i in range(self.n_stages):
             self.solve_stage(i, t, update_forcings)
 
