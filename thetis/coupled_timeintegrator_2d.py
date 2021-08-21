@@ -117,7 +117,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         for i in range(p):
             kwargs = {'update_lagged': i == 0, 'update_fields': i == p-1}
             for label in self.options.tracer:
-                self.timesteppers[label].advance(t, update_forcings=update_forcings, **kwargs)
+                self.timesteppers[label].advance_picard(t, update_forcings=update_forcings, **kwargs)
                 if self.options.use_limiter_for_tracers:
                     self.solver.tracer_limiter.apply(self.fields[label])
         if self.solver.sediment_model is not None:
