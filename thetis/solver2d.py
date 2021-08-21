@@ -350,8 +350,7 @@ class FlowSolver2d(FrozenClass):
         assert shortname is None or isinstance(shortname, str)
         assert isinstance(unit, str)
         assert preproc_func is None or callable(preproc_func)
-        if label in self.fields:
-            print_output(f"Field '{label}' already exists. It will be overwritten.")
+        assert label not in field_metadata, f"Field '{label}' already exists."
         assert ' ' not in label, "Labels cannot contain spaces"
         assert ' ' not in filename, "Filenames cannot contain spaces"
         field_metadata[label] = {
@@ -490,8 +489,6 @@ class FlowSolver2d(FrozenClass):
         Gets tracer timestepper object with appropriate parameters
         """
         uv, elev = self.fields.solution_2d.split()
-
-        # Collect fields
         fields = {
             'elev_2d': elev,
             'uv_2d': uv,
@@ -500,8 +497,6 @@ class FlowSolver2d(FrozenClass):
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }
-
-        # Process boundary conditions
         bcs = {}
         if label in self.bnd_functions:
             bcs = self.bnd_functions[label]
