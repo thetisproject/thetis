@@ -556,14 +556,6 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         self.solve_tendency(i_stage, t, update_forcings)
         self.update_solution(i_stage)
 
-    def advance(self, t, update_forcings=None):
-        """Advances equations for one time step."""
-        if not self._initialized:
-            self.initialize(self.solution)
-        for i in range(self.n_stages):
-            self.solve_stage(i, t, update_forcings)
-        self.get_final_solution()
-
 
 class DIRKGenericUForm(RungeKuttaTimeIntegrator):
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
