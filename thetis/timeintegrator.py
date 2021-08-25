@@ -72,6 +72,19 @@ class TimeIntegrator(TimeIntegratorBase):
         self.dt = dt
         self.dt_const.assign(dt)
 
+    def advance_picard(self, t, update_forcings=None, update_lagged=True, update_fields=True):
+        """
+        Advances equations for one time step within a Picard iteration
+
+        :arg t: simulation time
+        :type t: float
+        :arg update_forcings: user-defined function that takes the simulation
+            time and updates any time-dependent boundary conditions
+        :kwarg update_lagged: should the old solution be updated?
+        :kwarg update_fields: should the fields be updated?
+        """
+        raise NotImplementedError(f"Picard iterations are not supported for {self} time integrators.")
+
 
 class ForwardEuler(TimeIntegrator):
     """Standard forward Euler time integration scheme."""
@@ -215,6 +228,18 @@ class CrankNicolson(TimeIntegrator):
         # shift time
         for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
+
+    def advance_picard(self, t, update_forcings=None, update_lagged=True, update_fields=True):
+        """Advances equations for one time step in a Picard iteration."""
+        if update_forcings is not None:
+            update_forcings(t + self.dt)
+        if update_lagged:
+            self.solution_old.assign(self.solution)
+        self.solver.solve()
+        if update_fields:
+            # shift time
+            for k in sorted(self.fields_old):
+                self.fields_old[k].assign(self.fields[k])
 
 
 class SteadyState(TimeIntegrator):

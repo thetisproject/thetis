@@ -468,6 +468,8 @@ class TidalTurbineFarmOptions(FrozenHasTraits, TraitType):
 class TracerFieldOptions(FrozenHasTraits):
     """Tracer field options"""
     name = 'Tracer options'
+    function = FiredrakeScalarExpression(
+        None, allow_none=True, help='Firedrake Function representing the tracer')
     source = FiredrakeScalarExpression(
         None, allow_none=True, help='Source term for the tracer equation')
     diffusivity = FiredrakeScalarExpression(
@@ -860,12 +862,14 @@ class ModelOptions2d(CommonModelOptions):
         2D solver supports 'dg' or 'cg'.""").tag(config=True)
     use_supg_tracer = Bool(
         False, help="Use SUPG stabilisation in tracer advection").tag(config=True)
+    tracer_picard_iterations = PositiveInteger(
+        1, help="Number of Picard iterations taken for tracer equations.").tag(config=True)
 
     def __init__(self, *args, **kwargs):
         self.tracer = OrderedDict()
         super().__init__(*args, **kwargs)
 
-    def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', source=None, diffusivity=None, use_conservative_form=False):
+    def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', **kwargs):
         """
         Add a 2D tracer field to :attr:`tracer`.
 
@@ -876,6 +880,7 @@ class ModelOptions2d(CommonModelOptions):
         :arg filename: file name for outputs, e.g. 'Tracer2d'
         :kwarg shortname: short version of name, e.g. 'Tracer'
         :kwarg unit: units for field, e.g. '-'
+        :kwarg function: :class:`Function` to use for the tracer
         :kwarg source: associated source term
         :kwarg diffusivity: associated diffusivity coefficient
         :kwarg use_conservative_form: should the tracer equation be solved in conservative form?
@@ -895,9 +900,10 @@ class ModelOptions2d(CommonModelOptions):
             'unit': unit,
             'filename': filename,
         }
-        self.tracer[label].source = source
-        self.tracer[label].diffusivity = diffusivity
-        self.tracer[label].use_conservative_form = use_conservative_form
+        self.tracer[label].function = kwargs.get('function')
+        self.tracer[label].source = kwargs.get('source')
+        self.tracer[label].diffusivity = kwargs.get('diffusivity')
+        self.tracer[label].use_conservative_form = kwargs.get('use_conservative_form', False)
 
     def set_timestepper_type(self, timestepper_type, **kwargs):
         """
