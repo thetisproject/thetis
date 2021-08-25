@@ -44,7 +44,7 @@ class TimeIntegrator(TimeIntegratorBase):
     """
     Base class for all time integrator objects that march a single equation
     """
-    def __init__(self, equation, solution, fields, dt, options):
+    def __init__(self, equation, solution, fields, dt, options, ad_block_tag=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -53,6 +53,7 @@ class TimeIntegrator(TimeIntegratorBase):
         :type fields: dict of :class:`Function` or :class:`Constant` objects
         :arg float dt: time step in seconds
         :arg options: :class:`TimeStepperOptions` instance containing parameter values
+        :kwarg ad_block_tag: optional tag for associated Pyadjoint solve blocks
         """
         super(TimeIntegrator, self).__init__()
 
@@ -61,6 +62,7 @@ class TimeIntegrator(TimeIntegratorBase):
         self.fields = fields
         self.dt = dt  # FIXME this might not be correctly updated ...
         self.dt_const = Constant(dt)
+        self.ad_block_tag = ad_block_tag
 
         # unique identifier for solver
         self.name = '-'.join([self.__class__.__name__,
@@ -90,7 +92,7 @@ class ForwardEuler(TimeIntegrator):
     """Standard forward Euler time integration scheme."""
     cfl_coeff = 1.0
 
-    def __init__(self, equation, solution, fields, dt, options, bnd_conditions):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, ad_block_tag=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -100,8 +102,9 @@ class ForwardEuler(TimeIntegrator):
         :arg float dt: time step in seconds
         :arg options: :class:`TimeStepperOptions` instance containing parameter values.
         :arg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg ad_block_tag: optional tag for associated Pyadjoint solve blocks
         """
-        super(ForwardEuler, self).__init__(equation, solution, fields, dt, options)
+        super(ForwardEuler, self).__init__(equation, solution, fields, dt, options, ad_block_tag=ad_block_tag)
         self.solution_old = Function(self.equation.function_space)
 
         # create functions to hold the values of previous time step
@@ -126,7 +129,8 @@ class ForwardEuler(TimeIntegrator):
     def update_solver(self):
         prob = LinearVariationalProblem(self.A, self.L, self.solution)
         self.solver = LinearVariationalSolver(prob, options_prefix=self.name,
-                                              solver_parameters=self.solver_parameters)
+                                              solver_parameters=self.solver_parameters,
+                                              ad_block_tag=self.ad_block_tag)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -150,7 +154,7 @@ class CrankNicolson(TimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
-    def __init__(self, equation, solution, fields, dt, options, bnd_conditions):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, ad_block_tag=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -160,8 +164,9 @@ class CrankNicolson(TimeIntegrator):
         :arg float dt: time step in seconds
         :arg options: :class:`TimeStepperOptions` instance containing parameter values.
         :arg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg ad_block_tag: optional tag for associated Pyadjoint solve blocks
         """
-        super(CrankNicolson, self).__init__(equation, solution, fields, dt, options)
+        super(CrankNicolson, self).__init__(equation, solution, fields, dt, options, ad_block_tag=ad_block_tag)
         theta = options.implicitness_theta
         semi_implicit = options.use_semi_implicit_linearization
         if semi_implicit:
@@ -210,7 +215,8 @@ class CrankNicolson(TimeIntegrator):
         prob = NonlinearVariationalProblem(self.F, self.solution)
         self.solver = NonlinearVariationalSolver(prob,
                                                  solver_parameters=self.solver_parameters,
-                                                 options_prefix=self.name)
+                                                 options_prefix=self.name,
+                                                 ad_block_tag=self.ad_block_tag)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -249,7 +255,7 @@ class SteadyState(TimeIntegrator):
     """
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
-    def __init__(self, equation, solution, fields, dt, options, bnd_conditions):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, ad_block_tag=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -259,8 +265,9 @@ class SteadyState(TimeIntegrator):
         :arg float dt: time step in seconds
         :arg options: :class:`TimeStepperOptions` instance containing parameter values.
         :arg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg ad_block_tag: optional tag for associated Pyadjoint solve blocks
         """
-        super(SteadyState, self).__init__(equation, solution, fields, dt, options)
+        super(SteadyState, self).__init__(equation, solution, fields, dt, options, ad_block_tag=ad_block_tag)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
         self.F = self.equation.residual('all', solution, solution, fields, fields, bnd_conditions)
         self.update_solver()
@@ -273,7 +280,8 @@ class SteadyState(TimeIntegrator):
         prob = NonlinearVariationalProblem(self.F, self.solution)
         self.solver = NonlinearVariationalSolver(prob,
                                                  solver_parameters=self.solver_parameters,
-                                                 options_prefix=self.name)
+                                                 options_prefix=self.name,
+                                                 ad_block_tag=self.ad_block_tag)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -296,7 +304,7 @@ class PressureProjectionPicard(TimeIntegrator):
     cfl_coeff = 1.0  # FIXME what is the right value?
 
     # TODO add more documentation
-    def __init__(self, equation, equation_mom, solution, fields, dt, options, bnd_conditions):
+    def __init__(self, equation, equation_mom, solution, fields, dt, options, bnd_conditions, ad_block_tag=None):
         """
         :arg equation: free surface equation
         :type equation: :class:`Equation` object
@@ -308,8 +316,9 @@ class PressureProjectionPicard(TimeIntegrator):
         :arg float dt: time step in seconds
         :arg options: :class:`TimeStepperOptions` instance containing parameter values.
         :arg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg ad_block_tag: optional tag for associated Pyadjoint solve blocks
         """
-        super(PressureProjectionPicard, self).__init__(equation, solution, fields, dt, options)
+        super(PressureProjectionPicard, self).__init__(equation, solution, fields, dt, options, ad_block_tag=ad_block_tag)
         theta = options.implicitness_theta
         semi_implicit = options.use_semi_implicit_linearization
         solver_parameters = options.solver_parameters_pressure
@@ -417,7 +426,8 @@ class PressureProjectionPicard(TimeIntegrator):
         prob = NonlinearVariationalProblem(self.F_mom, self.uv_star)
         self.solver_mom = NonlinearVariationalSolver(prob,
                                                      solver_parameters=self.solver_parameters_mom,
-                                                     options_prefix=self.name+'_mom')
+                                                     options_prefix=self.name+'_mom',
+                                                     ad_block_tag=self.ad_block_tag+'_mom')
         # Ensure LU assembles monolithic matrices
         if self.solver_parameters.get('pc_type') == 'lu':
             self.solver_parameters['mat_type'] = 'aij'
@@ -425,7 +435,8 @@ class PressureProjectionPicard(TimeIntegrator):
         self.solver = NonlinearVariationalSolver(prob,
                                                  appctx={'a': derivative(self.F, self.solution)},
                                                  solver_parameters=self.solver_parameters,
-                                                 options_prefix=self.name)
+                                                 options_prefix=self.name,
+                                                 ad_block_tag=self.ad_block_tag)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -471,7 +482,7 @@ class LeapFrogAM3(TimeIntegrator):
     """
     cfl_coeff = 1.5874
 
-    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all'):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all', ad_block_tag=None):
         """
         :arg equation: equation to solve
         :type equation: :class:`Equation` object
@@ -484,8 +495,9 @@ class LeapFrogAM3(TimeIntegrator):
         :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
+        :kwarg ad_block_tag: optional tag for associated Pyadjoint solve blocks
         """
-        super(LeapFrogAM3, self).__init__(equation, solution, fields, dt, options)
+        super(LeapFrogAM3, self).__init__(equation, solution, fields, dt, options, ad_block_tag=ad_block_tag)
 
         self.gamma = 1./12.
         self.gamma_const = Constant(self.gamma)
@@ -518,7 +530,7 @@ class LeapFrogAM3(TimeIntegrator):
         self.solution.assign(solution)
         self.solution_old.assign(solution)
         assemble(self.mass_new, self.msolution_old)
-        self.lin_solver = LinearSolver(self.mass_matrix)
+        self.lin_solver = LinearSolver(self.mass_matrix, ad_block_tag=self.ad_block_tag)
 
     def _solve_system(self):
         """
@@ -605,7 +617,7 @@ class SSPRK22ALE(TimeIntegrator):
     """
     cfl_coeff = 1.0
 
-    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all'):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all', ad_block_tag=None):
         """
         :arg equation: equation to solve
         :type equation: :class:`Equation` object
@@ -618,8 +630,9 @@ class SSPRK22ALE(TimeIntegrator):
         :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
+        :kwarg ad_block_tag: optional tag for associated Pyadjoint solve blocks
         """
-        super(SSPRK22ALE, self).__init__(equation, solution, fields, dt, options)
+        super(SSPRK22ALE, self).__init__(equation, solution, fields, dt, options, ad_block_tag=ad_block_tag)
 
         fs = self.equation.function_space
         self.mu = Function(fs, name='dual solution')
@@ -647,7 +660,8 @@ class SSPRK22ALE(TimeIntegrator):
 
         mass_matrix = assemble(self.a)
         self.lin_solver = LinearSolver(mass_matrix,
-                                       solver_parameters=self.solver_parameters)
+                                       solver_parameters=self.solver_parameters,
+                                       ad_block_tag=self.ad_block_tag)
         self._initialized = True
 
     def stage_one_prep(self):

@@ -30,7 +30,7 @@ class IMEXGeneric(TimeIntegrator):
         """Explicit Runge-Kutta class"""
         pass
 
-    def __init__(self, equation, solution, fields, dt, options, bnd_conditions):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, ad_block_tag=None):
         """
         :arg equation: equation to solve
         :type equation: :class:`Equation` object
@@ -40,18 +40,21 @@ class IMEXGeneric(TimeIntegrator):
         :arg float dt: time step in seconds
         :arg options: :class:`TimeStepperOptions` instance containing parameter values.
         :arg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg ad_block_tag: optional tag for associated Pyadjoint solve blocks
         """
-        super(IMEXGeneric, self).__init__(equation, solution, fields, dt, options)
+        super(IMEXGeneric, self).__init__(equation, solution, fields, dt, options, ad_block_tag=ad_block_tag)
         # NOTE: The same solver parameters are currently used for both implicit and explicit schemes
 
         # implicit scheme
         self.dirk = self.dirk_class(equation, solution, fields, dt, options,
                                     bnd_conditions=bnd_conditions,
-                                    terms_to_add=('implicit'))
+                                    terms_to_add=('implicit'),
+                                    ad_block_tag=ad_block_tag+'_impl')
         # explicit scheme
         self.erk = self.erk_class(equation, solution, fields, dt, options,
                                   bnd_conditions=bnd_conditions,
-                                  terms_to_add=('explicit', 'source'))
+                                  terms_to_add=('explicit', 'source'),
+                                  ad_block_tag=ad_block_tag+'_expl')
         assert self.erk.n_stages == self.dirk.n_stages
         self.n_stages = self.erk.n_stages
         # FIXME this assumes that we are limited by whatever ERK solves ...
