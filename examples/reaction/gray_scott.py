@@ -94,8 +94,6 @@ for i in range(4):
     end_time += 10*dt if i == 0 else 9*dt
     options.timestep = dt
     solver_obj.export_initial_state = i == 0
-    solver_obj.timestepper.timesteppers["a_2d"].set_dt(dt)
-    solver_obj.timestepper.timesteppers["b_2d"].set_dt(dt)
     options.simulation_export_time = 10*dt
     options.simulation_end_time = end_time
     solver_obj.create_timestepper()
