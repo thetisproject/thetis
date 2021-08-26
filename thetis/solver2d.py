@@ -13,6 +13,7 @@ from . import exner_eq
 import weakref
 import time as time_mod
 from mpi4py import MPI
+import os
 from . import exporter
 from .field_defs import field_metadata
 from .options import ModelOptions2d
@@ -381,6 +382,31 @@ class FlowSolver2d(FrozenClass):
         self.fields[label] = function
         if preproc_func is not None:
             self._field_preproc_funcs[label] = preproc_func
+
+    def load_tracers_2d(self, filename, input_directory=None, use_conservative_form=False):
+        """
+        Add 2D tracer fields to :attr:`tracer` based on
+        a .yml file encapsulating a tracer model.
+
+        :arg filename: the .yml file
+        :kwarg input_directory: file path to the .yml file
+        :kwarg use_conservative_form: should the tracer equation be solved in conservative form?
+        """
+        if len(filename) < 5 or filename[:-4] != '.yml':
+            filename += '.yml'
+        if input_directory is not None:
+            filename = os.path.join(di, filename)
+        if not os.path.exists(filename):
+            raise IOError(f"Tracer model .yml file {filename} does not exist.")
+        adr_model = read_tracer_from_yml(filename, self.Q_2d)
+        for label in adr_model.species:
+            name = label.capitalize().replace('_', ' ')
+            fname = label.capitalize().replace('_', '')
+            self.options.add_tracer_2d(label, name, fname,
+                                       function=adr_model[label]['function'],
+                                       source=adr_model[label]['reaction_terms'],
+                                       diffusivity=adr_model[label]['diffusivity'],
+                                       use_conservative_form=use_conservative_form)
 
     @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_equations")
