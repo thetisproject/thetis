@@ -1050,3 +1050,21 @@ class DepthIntegratedPoissonSolver(object):
         # update vertical velocity w_2d
         if solve_w:
             self.solver_w.solve()
+
+
+def read_tracer_from_yml(filename, function_space):
+    # TODO: docstring
+
+    # TODO: Load dictionary
+
+    species = []  # TODO: Get tracer labels from dict
+
+    adr_model = OrderedDict({s: {} for s in species})
+    # NOTE: the order they are added are the order we assume for now
+
+    for s in species:
+        adr_model[s]['function'] = Function(function_space, name=s)
+        # adr_model[s]['diffusivity'] = ...  # TODO
+        # adr_model[label]['reaction_terms'] = ... # TODO
+
+    return adr_model
