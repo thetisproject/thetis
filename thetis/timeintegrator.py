@@ -424,10 +424,11 @@ class PressureProjectionPicard(TimeIntegrator):
     def update_solver(self):
         """Create solver objects"""
         prob = NonlinearVariationalProblem(self.F_mom, self.uv_star)
+        tag = None if self.ad_block_tag is None else self.ad_block_tag + '_mom'
         self.solver_mom = NonlinearVariationalSolver(prob,
                                                      solver_parameters=self.solver_parameters_mom,
                                                      options_prefix=self.name+'_mom',
-                                                     ad_block_tag=self.ad_block_tag+'_mom')
+                                                     ad_block_tag=tag)
         # Ensure LU assembles monolithic matrices
         if self.solver_parameters.get('pc_type') == 'lu':
             self.solver_parameters['mat_type'] = 'aij'
@@ -530,7 +531,8 @@ class LeapFrogAM3(TimeIntegrator):
         self.solution.assign(solution)
         self.solution_old.assign(solution)
         assemble(self.mass_new, self.msolution_old)
-        self.lin_solver = LinearSolver(self.mass_matrix, ad_block_tag=self.ad_block_tag)
+        self.lin_solver = LinearSolver(self.mass_matrix)
+        # TODO: Linear solver is not annotated and does not accept ad_block_tag
 
     def _solve_system(self):
         """
@@ -660,8 +662,8 @@ class SSPRK22ALE(TimeIntegrator):
 
         mass_matrix = assemble(self.a)
         self.lin_solver = LinearSolver(mass_matrix,
-                                       solver_parameters=self.solver_parameters,
-                                       ad_block_tag=self.ad_block_tag)
+                                       solver_parameters=self.solver_parameters)
+        # TODO: Linear solver is not annotated and does not accept ad_block_tag
         self._initialized = True
 
     def stage_one_prep(self):
