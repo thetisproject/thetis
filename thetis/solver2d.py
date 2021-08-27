@@ -482,8 +482,7 @@ class FlowSolver2d(FrozenClass):
                               fields, self.dt, self.options.swe_timestepper_options, bnd_conditions)
         else:
             return integrator(self.equations.sw, self.fields.solution_2d, fields, self.dt,
-                              self.options.swe_timestepper_options, bnd_conditions,
-                              ad_block_tag='solution_2d solve')
+                              self.options.swe_timestepper_options, bnd_conditions)
 
     def get_tracer_timestepper(self, integrator, label):
         """
@@ -503,9 +502,9 @@ class FlowSolver2d(FrozenClass):
             bcs = self.bnd_functions[label]
         elif label[:-3] in self.bnd_functions:
             bcs = self.bnd_functions[label[:-3]]
+        # TODO: Different timestepper options for different tracers
         return integrator(self.equations[label], self.fields[label], fields, self.dt,
-                          self.options.tracer_timestepper_options, bcs,
-                          ad_block_tag=label + ' solve')
+                          self.options.tracer_timestepper_options, bcs)
 
     def get_sediment_timestepper(self, integrator):
         """
@@ -521,8 +520,7 @@ class FlowSolver2d(FrozenClass):
         }
         return integrator(self.equations.sediment, self.fields.sediment_2d, fields, self.dt,
                           self.options.sediment_model_options.sediment_timestepper_options,
-                          self.bnd_functions['sediment'],
-                          ad_block_tag='sediment_2d solve')
+                          self.bnd_functions['sediment'])
 
     def get_exner_timestepper(self, integrator):
         """
@@ -540,8 +538,7 @@ class FlowSolver2d(FrozenClass):
         # only pass SWE bcs, used to determine closed boundaries in bedload term
         return integrator(self.equations.exner, self.fields.bathymetry_2d, fields, self.dt,
                           self.options.sediment_model_options.exner_timestepper_options,
-                          self.bnd_functions['shallow_water'],
-                          ad_block_tag='bathymetry_2d solve')
+                          self.bnd_functions['shallow_water'])
 
     def get_fs_timestepper(self, integrator):
         """
@@ -553,7 +550,7 @@ class FlowSolver2d(FrozenClass):
         }
         return integrator(self.equations.fs, self.fields.elev_2d, fields_fs, self.dt,
                           self.options.nh_model_options.free_surface_timestepper_options,
-                          self.bnd_functions['shallow_water'], ad_block_tag='elev_2d solve')
+                          self.bnd_functions['shallow_water'])
 
     def create_timestepper(self):
         """

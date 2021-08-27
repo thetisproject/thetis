@@ -14,6 +14,7 @@ class TimeStepperOptions(FrozenHasTraits):
     """Base class for all time stepper options"""
     name = 'Time stepper'
     solver_parameters = PETScSolverParameters({}).tag(config=True)
+    ad_block_tag = None
 
 
 class ExplicitTimeStepperOptions(TimeStepperOptions):
@@ -172,6 +173,7 @@ class IMEXSWETimeStepperOptions2d(SemiImplicitTimeStepperOptions2d):
 
 class TimeStepperOptions3d(FrozenHasTraits):
     """Options for 3d explicit time integrator"""
+    ad_block_tag = None
 
 
 class SWETimeStepperOptions3d(TimeStepperOptions3d):

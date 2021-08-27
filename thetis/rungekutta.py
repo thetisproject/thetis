@@ -446,7 +446,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
     All derived classes must define the Butcher tableau coefficients :attr:`a`,
     :attr:`b`, :attr:`c`.
     """
-    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all', ad_block_tag=None):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all'):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -459,9 +459,8 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
-        :kwarg ad_block_tag: optional tag for associated Pyadjoint solve blocks
         """
-        super(DIRKGeneric, self).__init__(equation, solution, fields, dt, options, ad_block_tag=ad_block_tag)
+        super(DIRKGeneric, self).__init__(equation, solution, fields, dt, options)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
         self._initialized = False
 
@@ -517,12 +516,11 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         for i in range(self.n_stages):
             p = NonlinearVariationalProblem(self.F[i], self.k[i])
             sname = f'{self.name}_stage{i}_'
-            tag = None if self.ad_block_tag is None else self.ad_block_tag + f'_stage{i}'
             self.solver.append(
                 NonlinearVariationalSolver(p,
                                            solver_parameters=self.solver_parameters,
                                            options_prefix=sname,
-                                           ad_block_tag=tag))
+                                           ad_block_tag=self.ad_block_tag + f'_stage{i}'))
 
     def initialize(self, init_cond):
         """Assigns initial conditions to all required fields."""
@@ -563,7 +561,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
 class DIRKGenericUForm(RungeKuttaTimeIntegrator):
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
-    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all', ad_block_tag=None):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all'):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -576,9 +574,8 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
         :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
-        :kwarg ad_block_tag: optional tag for associated Pyadjoint solve blocks
         """
-        super().__init__(equation, solution, fields, dt, options, ad_block_tag=ad_block_tag)
+        super().__init__(equation, solution, fields, dt, options)
         semi_implicit = options.use_semi_implicit_linearization
         if semi_implicit:
             self.solver_parameters.setdefault('snes_type', 'ksponly')
@@ -642,11 +639,10 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
         for i in range(self.n_stages):
             p = NonlinearVariationalProblem(self.F[i], self.solution)
             sname = f'{self.name}_stage{i}_'
-            tag = None if self.ad_block_tag is None else self.ad_block_tag + f'_stage{i}'
             s = NonlinearVariationalSolver(
                 p, solver_parameters=self.solver_parameters,
                 options_prefix=sname,
-                ad_block_tag=tag)
+                ad_block_tag=self.ad_block_tag + f'_stage{i}')
             self.solver.append(s)
         self.k_solver = []
         k_solver_parameters = {
@@ -657,11 +653,10 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
         for i in range(self.n_stages - 1):
             p = NonlinearVariationalProblem(self.k_form[i], self.k[i])
             sname = f'{self.name}_k_stage{i}_'
-            tag = None if self.ad_block_tag is None else self.ad_block_tag + f'_k_stage{i}'
             s = NonlinearVariationalSolver(
                 p, solver_parameters=k_solver_parameters,
                 options_prefix=sname,
-                ad_block_tag=tag)
+                ad_block_tag=self.ad_block_tag + f'_k_stage{i}')
             self.k_solver.append(s)
 
     def initialize(self, init_cond):
@@ -747,7 +742,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
 
     Implements the Butcher form. All terms in the equation are treated explicitly.
     """
-    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all', ad_block_tag=None):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all'):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -760,9 +755,8 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
         :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
-        :kwarg ad_block_tag: optional tag for associated Pyadjoint solve blocks
         """
-        super(ERKGeneric, self).__init__(equation, solution, fields, dt, options, ad_block_tag=ad_block_tag)
+        super(ERKGeneric, self).__init__(equation, solution, fields, dt, options)
         self._initialized = False
         self.solution_old = Function(self.equation.function_space, name='old solution')
 
@@ -792,10 +786,9 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
             self.solver = []
             for i in range(self.n_stages):
                 prob = LinearVariationalProblem(self.a_rk, self.l_rk, self.tendency[i])
-                tag = None if self.ad_block_tag is None else self.ad_block_tag + f'_k{i}'
                 solver = LinearVariationalSolver(prob, options_prefix=self.name + f'_k{i}',
                                                  solver_parameters=self.solver_parameters,
-                                                 ad_block_tag=tag)
+                                                 ad_block_tag=self.ad_block_tag + f'_k{i}')
                 self.solver.append(solver)
 
     def initialize(self, solution):
@@ -850,7 +843,7 @@ class ERKGenericShuOsher(TimeIntegrator):
 
     Implements the Shu-Osher form.
     """
-    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all', ad_block_tag=None):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all'):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -863,9 +856,8 @@ class ERKGenericShuOsher(TimeIntegrator):
         :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
-        :kwarg ad_block_tag: optional tag for associated Pyadjoint solve blocks
         """
-        super(ERKGenericShuOsher, self).__init__(equation, solution, fields, dt, options, ad_block_tag=ad_block_tag)
+        super(ERKGenericShuOsher, self).__init__(equation, solution, fields, dt, options)
 
         self.tendency = Function(self.equation.function_space, name='tendency')
         self.stage_sol = []
@@ -895,10 +887,9 @@ class ERKGenericShuOsher(TimeIntegrator):
     def update_solver(self):
         if self._nontrivial:
             prob = LinearVariationalProblem(self.a_rk, self.l_rk, self.tendency)
-            tag = None if self.ad_block_tag is None else self.ad_block_tag + '_k'
             self.solver = LinearVariationalSolver(prob, options_prefix=self.name + '_k',
                                                   solver_parameters=self.solver_parameters,
-                                                  ad_block_tag=tag)
+                                                  ad_block_tag=self.ad_block_tag + '_k')
 
     def initialize(self, solution):
         pass
