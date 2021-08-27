@@ -47,13 +47,13 @@ class IMEXGeneric(TimeIntegrator):
         # implicit scheme
         self.dirk = self.dirk_class(equation, solution, fields, dt, options,
                                     bnd_conditions=bnd_conditions,
-                                    terms_to_add=('implicit'),
-                                    ad_block_tag=self.ad_block_tag + '_impl')
+                                    terms_to_add=('implicit'))
+        self.dirk.ad_block_tag += '_impl'
         # explicit scheme
         self.erk = self.erk_class(equation, solution, fields, dt, options,
                                   bnd_conditions=bnd_conditions,
-                                  terms_to_add=('explicit', 'source'),
-                                  ad_block_tag=self.ad_block_tag + '_expl')
+                                  terms_to_add=('explicit', 'source'))
+        self.erk.ad_block_tag += '_expl'
         assert self.erk.n_stages == self.dirk.n_stages
         self.n_stages = self.erk.n_stages
         # FIXME this assumes that we are limited by whatever ERK solves ...

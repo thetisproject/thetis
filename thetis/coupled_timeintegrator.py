@@ -228,15 +228,13 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             fields.update(friction_fields)
         self.timesteppers.mom_expl = self.integrator_3d(
             solver.equations.momentum, solver.fields.uv_3d, fields, solver.dt,
-            self.options.timestepper_options.explicit_momentum_options,
-            solver.bnd_functions['momentum'])
+            self.options.timestepper_options.explicit_momentum_options, solver.bnd_functions['momentum'])
         if self.solver.options.use_implicit_vertical_diffusion:
             fields = {'viscosity_v': impl_v_visc}
             fields.update(friction_fields)
             self.timesteppers.mom_impl = self.integrator_vert_3d(
                 solver.equations.vertmomentum, solver.fields.uv_3d, fields, solver.dt,
-                self.options.timestepper_options.implicit_momentum_options,
-                solver.bnd_functions['momentum'])
+                self.options.timestepper_options.implicit_momentum_options, solver.bnd_functions['momentum'])
 
     def _create_salt_integrator(self):
         """
@@ -258,16 +256,14 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       }
             self.timesteppers.salt_expl = self.integrator_3d(
                 solver.equations.salt, solver.fields.salt_3d, fields, solver.dt,
-                self.options.timestepper_options.explicit_tracer_options,
-                solver.bnd_functions['salt'])
+                self.options.timestepper_options.explicit_tracer_options, solver.bnd_functions['salt'])
             if self.solver.options.use_implicit_vertical_diffusion:
                 fields = {'elev_3d': self.fields.elev_domain_2d.view_3d,
                           'diffusivity_v': impl_v_diff,
                           }
                 self.timesteppers.salt_impl = self.integrator_vert_3d(
                     solver.equations.salt_vdff, solver.fields.salt_3d, fields, solver.dt,
-                    self.options.timestepper_options.implicit_tracer_options,
-                    solver.bnd_functions['salt'])
+                    self.options.timestepper_options.implicit_tracer_options, solver.bnd_functions['salt'])
 
     def _create_temp_integrator(self):
         """
@@ -289,16 +285,14 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       }
             self.timesteppers.temp_expl = self.integrator_3d(
                 solver.equations.temp, solver.fields.temp_3d, fields, solver.dt,
-                self.options.timestepper_options.explicit_tracer_options,
-                solver.bnd_functions['temp'])
+                self.options.timestepper_options.explicit_tracer_options, solver.bnd_functions['temp'])
             if self.solver.options.use_implicit_vertical_diffusion:
                 fields = {'elev_3d': self.fields.elev_domain_2d.view_3d,
                           'diffusivity_v': impl_v_diff,
                           }
                 self.timesteppers.temp_impl = self.integrator_vert_3d(
                     solver.equations.temp_vdff, solver.fields.temp_3d, fields, solver.dt,
-                    self.options.timestepper_options.implicit_tracer_options,
-                    solver.bnd_functions['temp'])
+                    self.options.timestepper_options.implicit_tracer_options, solver.bnd_functions['temp'])
 
     def _create_turb_integrator(self):
         """
