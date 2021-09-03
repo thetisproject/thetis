@@ -4,6 +4,10 @@ import subprocess
 import glob
 
 
+# set environment flag
+# can be used in examples to reduce cpu cost
+os.environ['THETIS_REGRESSION_TEST'] = "1"
+
 cwd = os.path.abspath(os.path.dirname(__file__))
 nb_dir = os.path.join(cwd, "..", "..", "demos")
 
