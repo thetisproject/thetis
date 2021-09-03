@@ -2,18 +2,21 @@
 Utility functions and classes for 2D and 3D ocean models
 """
 from __future__ import absolute_import
-from firedrake import *
+
 import os
 import sys
-from .physical_constants import physical_constants
-from pyop2.profiling import timed_region, timed_function, timed_stage  # NOQA
-from mpi4py import MPI  # NOQA
-import ufl  # NOQA
-import coffee.base as ast  # NOQA
-from collections import OrderedDict, namedtuple  # NOQA
-from .field_defs import field_metadata
 from abc import ABCMeta, abstractmethod  # NOQA
+from collections import OrderedDict, namedtuple  # NOQA
+
+import coffee.base as ast  # NOQA
+import ufl  # NOQA
+from firedrake import *
+from mpi4py import MPI  # NOQA
+from pyop2.profiling import timed_function, timed_region, timed_stage  # NOQA
+
+from .field_defs import field_metadata
 from .log import *
+from .physical_constants import physical_constants
 
 ds_surf = ds_t
 ds_bottom = ds_b
@@ -79,7 +82,8 @@ class FieldDict(AttrDict):
     """
     def _check_inputs(self, key, value):
         if key != '__dict__':
-            from firedrake.functionspaceimpl import MixedFunctionSpace, WithGeometry
+            from firedrake.functionspaceimpl import (MixedFunctionSpace,
+                                                     WithGeometry)
             if not isinstance(value, (Function, Constant)):
                 raise TypeError('Value must be a Function or Constant object')
             fs = value.function_space()
@@ -232,6 +236,7 @@ def get_facet_mask(function_space, facet='bottom'):
         z axis).
     """
     from tsfc.finatinterface import create_element as create_finat_element
+
     # get base element
     elem = get_extruded_base_element(function_space.ufl_element())
     assert isinstance(elem, TensorProductElement), \
@@ -441,8 +446,7 @@ class SubdomainProjector(object):
     """
     def __init__(self, v, v_out, subdomain_id, solver_parameters=None, constant_jacobian=True):
 
-        if isinstance(v, Expression) or \
-           not isinstance(v, (ufl.core.expr.Expr, Function)):
+        if not isinstance(v, (ufl.core.expr.Expr, Function)):
             raise ValueError("Can only project UFL expression or Functions not '%s'" % type(v))
 
         self.v = v
