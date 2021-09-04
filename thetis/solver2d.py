@@ -557,7 +557,7 @@ class FlowSolver2d(FrozenClass):
             bcs = self.bnd_functions[label[:-3]]
         # TODO: Different timestepper options for different tracers
         return integrator(self.equations[label], solution or self.fields[label], fields, self.dt,
-                          self.options.tracer_timestepper_options, bcs, create_solver=create_solver)
+                          self.options.tracer_timestepper_options, bcs, create_solver=create_solver)  # FIXME: Not everyone has create_solver
 
     def get_sediment_timestepper(self, integrator):
         """
