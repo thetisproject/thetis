@@ -147,26 +147,27 @@ class MixedTimeIntegrator(SpecialTimeIntegrator):
         self.integrators = integrators
         self.root = integrators[0]
         self.dt = self.root.dt
-        for i, integrator in enumerate(integrators):
+        self.solution = solution
+        self.solution_old = Function(solution.function_space())
+        F = 0
+        for sol_old, integrator in zip(split(self.solution_old), integrators):
             if not issubclass(type(integrator), SpecialTimeIntegrator):
                 raise ValueError(f"MixedTimeIntegrator needs to be passed SpecialTimeIntegrator instances, not {type(integrator)}s.")
-            if i > 0:
-                if type(self.root) != type(integrator):
-                    raise ValueError("The SpecialTimeIntegrators need to have the same type.")
-                if not np.isclose(self.dt, integrator.dt):
-                    raise ValueError(f"Timesteps {self.dt} and {integrator.dt} are incompatible.")
-                self.root.add_form(integrator)
-        self.solution = solution
+            if type(self.root) != type(integrator):
+                raise ValueError("The SpecialTimeIntegrators need to have the same type.")
+            if not np.isclose(self.dt, integrator.dt):
+                raise ValueError(f"Timesteps {self.dt} and {integrator.dt} are incompatible.")
+            F += replace(integrator.F, {integrator.solution_old: sol_old})
+            integrator.solution_old = sol_old
+        self.root.F = F
         self.root.solution = solution
         self.root.update_solver()
-        self.solution_old = Function(solution.function_space())
-        for sol_old, integrator in zip(split(self.solution_old), integrators):
-            integrator.solution_old = sol_old
 
     def update_lagged(self):
         """Update the solutions at the previous timestep."""
         self.solution_old.assign(self.solution)
         # TODO: Case of PressureProjectionPicard, or drop it
+        # TODO: Drop ForwardEuler, too - just CN and steady
 
     def step(self):
         """Take a timestep."""

@@ -400,7 +400,7 @@ class FlowSolver2d(FrozenClass):
         labels = self.options.tracer.keys()
         self.solve_tracer = len(labels) > 0
         tracer_function_spaces = [self.function_spaces.Q_2d for label in labels]
-        if self.options.solve_tracer_mixed_form:
+        if self.options.solve_tracer_mixed_form:  # TODO: use options._mixed_tracers instead
             self.function_spaces.W_2d = MixedFunctionSpace(tracer_function_spaces)
             self._mixed_tracer_2d = Function(self.function_spaces.W_2d, name="Mixed tracer concentration")
             tracer_function_spaces = [self.function_spaces.W_2d.sub(i) for i, label in enumerate(labels)]
@@ -409,7 +409,6 @@ class FlowSolver2d(FrozenClass):
             for label, solution in zip(self.options.tracer, self._mixed_tracer_2d.split()):
                 tracer = self.options.tracer[label]
                 solution.rename(label)
-                assert tracer.function is None  # TODO: We do not want this
                 self.add_new_field(solution,
                                    label,
                                    tracer.metadata['name'],
@@ -417,8 +416,6 @@ class FlowSolver2d(FrozenClass):
                                    shortname=tracer.metadata['shortname'],
                                    unit=tracer.metadata['unit'])
         else:
-            tracer_trial_functions = [TrialFunction(Q) for Q in tracer_function_spaces]
-            tracer_test_functions = [TestFunction(Q) for Q in tracer_function_spaces]
             for label, tracer in self.options.tracer.items():
                 self.add_new_field(tracer.function or Function(self.function_spaces.Q_2d, name=label),
                                    label,
@@ -426,6 +423,8 @@ class FlowSolver2d(FrozenClass):
                                    tracer.metadata['filename'],
                                    shortname=tracer.metadata['shortname'],
                                    unit=tracer.metadata['unit'])
+            tracer_trial_functions = [TrialFunction(Q) for Q in tracer_function_spaces]  # TODO: Get from tracer.function
+            tracer_test_functions = [TestFunction(Q) for Q in tracer_function_spaces]  # TODO: Get from tracer.function
         for label, space, trial, test in zip(labels, tracer_function_spaces, tracer_trial_functions, tracer_test_functions):
             if tracer.use_conservative_form:
                 self.equations[label] = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
