@@ -879,7 +879,7 @@ class ModelOptions2d(CommonModelOptions):
 
     def __init__(self, *args, **kwargs):
         self.tracer = OrderedDict()
-        self._mixed_tracers = []
+        self.tracer_systems = []
         super().__init__(*args, **kwargs)
 
     def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', **kwargs):
@@ -905,6 +905,7 @@ class ModelOptions2d(CommonModelOptions):
         assert isinstance(unit, str)
         assert label not in self.tracer, f"Field '{label}' already exists."
         assert ' ' not in label, "Labels cannot contain spaces"
+        assert ',' not in label, "Labels cannot contain commas"
         assert ' ' not in filename, "Filenames cannot contain spaces"
         self.tracer[label] = TracerFieldOptions()
         self.tracer[label].metadata = {
@@ -917,6 +918,8 @@ class ModelOptions2d(CommonModelOptions):
         self.tracer[label].source = kwargs.get('source')
         self.tracer[label].diffusivity = kwargs.get('diffusivity')
         self.tracer[label].use_conservative_form = kwargs.get('use_conservative_form', False)
+        if not kwargs.get('mixed', False):
+            self.tracer_systems.append(label)
 
     def add_tracers_2d(self, labels, names, filenames, shortnames=None, units=None, **kwargs):
         """
@@ -940,10 +943,12 @@ class ModelOptions2d(CommonModelOptions):
         if kwargs == {}:
             kwargs = {label: {} for label in labels}
         assert set(kwargs.keys()).issubset(set(labels))
+        for label in labels:
+            kwargs[label]['mixed'] = True
         for label, name, filename, shortname, unit in zip(labels, names, filenames, shortnames, units):
             self.add_tracer_2d(label, name, filename, shortname=shortname, unit=unit, **kwargs[label])
             self.tracer[label].parent = parent
-        self._mixed_tracers.append(','.join(labels))
+        self.tracer_systems.append(','.join(labels))
 
     def set_timestepper_type(self, timestepper_type, **kwargs):
         """

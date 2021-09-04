@@ -407,16 +407,16 @@ class FlowSolver2d(FrozenClass):
             for label in labels
         ]
         tracer_parents = OrderedSet(self.options.tracer[label].parent for label in labels)
-        if len(self.options._mixed_tracers) > 0:
-            if len(self.options._mixed_tracers) > 1:
+        if len(self.options.tracer_systems) > 0:
+            if len(self.options.tracer_systems) > 1:
                 raise NotImplementedError("Multiple mixed blocks are not yet supported")  # TODO
-            elif not set(self.options.tracer.keys()).issubset(set(self.options._mixed_tracers[0].split(','))):
+            elif not set(self.options.tracer.keys()).issubset(set(self.options.tracer_systems[0].split(','))):
                 raise NotImplementedError("Tracers need to all either be solved all simultaneously or all sequentially")  # TODO
             parent = tracer_parents[0]
             name = ' x '.join(self.options.tracer[label].metadata['name'] for label in labels)
             shortname = ' x '.join(self.options.tracer[label].metadata['shortname'] for label in labels)
             unit = ' x '.join(self.options.tracer[label].metadata['unit'] for label in labels)
-            self.add_new_field(parent, self.options._mixed_tracers[0], name, 'unused', shortname=shortname, unit=unit)
+            self.add_new_field(parent, self.options.tracer_systems[0], name, 'unused', shortname=shortname, unit=unit)
             if parent is None:
                 self.function_spaces.W_2d = MixedFunctionSpace(tracer_function_spaces)
                 parent = Function(self.function_spaces.W_2d)
@@ -535,7 +535,7 @@ class FlowSolver2d(FrozenClass):
         if not isinstance(label, str):
             assert isinstance(label, Iterable)
             assert set(label).issubset(set(self.fields.keys()))
-            labels = self.options._mixed_tracers[0]  # TODO: Extend
+            labels = self.options.tracer_systems[0]  # TODO: Extend
             integrators = [
                 self.get_tracer_timestepper(integrator, _label, create_solver=False, solution=_solution)
                 for (_label, _solution) in zip(label, split(self.fields[labels]))

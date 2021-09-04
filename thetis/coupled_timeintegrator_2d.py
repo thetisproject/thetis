@@ -53,12 +53,9 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         """
         if not self.options.tracer_only:
             self.timesteppers.swe2d = self.solver.get_swe_timestepper(self.swe_integrator)
-        for i, label in enumerate(self.options.tracer):
-            if len(self.options._mixed_tracers) > 0:  # TODO: Allow some to be mixed and some not
-                if i == 0:
-                    self.timesteppers[label] = self.solver.get_tracer_timestepper(self.tracer_integrator, self.options.tracer.keys())
-                else:
-                    self.timesteppers[label] = timeintegrator.DummyTimeIntegrator()
+        for i, label in enumerate(self.options.tracer_systems):
+            if ',' in label:
+                self.timesteppers[label] = self.solver.get_tracer_timestepper(self.tracer_integrator, label.split(','))
             else:
                 self.timesteppers[label] = self.solver.get_tracer_timestepper(self.tracer_integrator, label)
         if self.solver.options.sediment_model_options.solve_suspended_sediment:
@@ -88,7 +85,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
 
         if not self.options.tracer_only:
             self.timesteppers.swe2d.initialize(self.fields.solution_2d)
-        for label in self.options.tracer:
+        for label in self.options.tracer_systems:
             self.timesteppers[label].initialize(self.fields[label])
         if self.options.sediment_model_options.solve_suspended_sediment:
             self.timesteppers.sediment.initialize(self.fields.sediment_2d)
@@ -103,7 +100,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         else:
             if not self.options.tracer_only:
                 self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
-            for label in self.options.tracer:
+            for label in self.options.tracer_systems:
                 self.timesteppers[label].advance(t, update_forcings=update_forcings)
                 if self.options.use_limiter_for_tracers:
                     self.solver.tracer_limiter.apply(self.fields[label])
@@ -122,7 +119,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         p = self.options.tracer_picard_iterations
         for i in range(p):
             kwargs = {'update_lagged': i == 0, 'update_fields': i == p-1}
-            for label in self.options.tracer:
+            for label in self.options.tracer_systems:
                 self.timesteppers[label].advance_picard(t, update_forcings=update_forcings, **kwargs)
                 if self.options.use_limiter_for_tracers:
                     self.solver.tracer_limiter.apply(self.fields[label])
