@@ -874,13 +874,11 @@ class ModelOptions2d(CommonModelOptions):
         False, help="Use SUPG stabilisation in tracer advection").tag(config=True)
     tracer_picard_iterations = PositiveInteger(
         1, help="Number of Picard iterations taken for tracer equations.").tag(config=True)
-    solve_tracer_mixed_form = Bool(
-        False, help="Solve all tracer equations as a mixed system.").tag(config=True)
-    # TODO: Enable the case where only a subset are solved as a mixed system
 
     def __init__(self, *args, **kwargs):
         self.tracer = OrderedDict()
         self._mixed_tracers = []
+        self._mixed_tracer_function = None
         super().__init__(*args, **kwargs)
 
     def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', **kwargs):
@@ -930,12 +928,14 @@ class ModelOptions2d(CommonModelOptions):
         :arg filenames: a list of file names for outputs
         :kwarg shortnames: a list of short version names
         :kwarg units: a list of units for fields
+        :kwarg function: :class:`Function` to use for the mixed tracer
         :kwargs: labels which provide the other kwargs of :attr:`add_tracer_2d`
         """
         N = len(labels)
         shortnames = shortnames or names
         units = units or ['-']*N
         assert len(names) == len(filenames) == len(shortnames) == len(units) == N
+        self._mixed_tracer_function = kwargs.pop('function', None)
         if kwargs == {}:
             kwargs = {label: {} for label in labels}
         assert set(kwargs.keys()).issubset(set(labels))

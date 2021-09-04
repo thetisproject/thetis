@@ -399,33 +399,38 @@ class FlowSolver2d(FrozenClass):
         # Passive tracer equations
         labels = self.options.tracer.keys()
         self.solve_tracer = len(labels) > 0
-        tracer_function_spaces = [self.function_spaces.Q_2d for label in labels]
-        if self.options.solve_tracer_mixed_form:  # TODO: use options._mixed_tracers instead
-            self.function_spaces.W_2d = MixedFunctionSpace(tracer_function_spaces)
-            self._mixed_tracer_2d = Function(self.function_spaces.W_2d, name="Mixed tracer concentration")
+        tracer_function_spaces = [
+            self.function_spaces.Q_2d
+            if self.options.tracer[label].function is None
+            else self.options.tracer[label].function.function_space()
+            for label in labels
+        ]
+        if len(self.options._mixed_tracers) > 0:  # TODO: Allow some to be mixed and some not
+            if self.options._mixed_tracer_function is None:
+                self.function_spaces.W_2d = MixedFunctionSpace(tracer_function_spaces)
+                self.options._mixed_tracer_function = Function(self.function_spaces.W_2d)
+            else:
+                self.function_spaces.W_2d = self.options._mixed_tracer_function.function_space()
             tracer_function_spaces = [self.function_spaces.W_2d.sub(i) for i, label in enumerate(labels)]
             tracer_trial_functions = TrialFunctions(self.function_spaces.W_2d)
             tracer_test_functions = TestFunctions(self.function_spaces.W_2d)
-            for label, solution in zip(self.options.tracer, self._mixed_tracer_2d.split()):
-                tracer = self.options.tracer[label]
-                solution.rename(label)
-                self.add_new_field(solution,
-                                   label,
-                                   tracer.metadata['name'],
-                                   tracer.metadata['filename'],
-                                   shortname=tracer.metadata['shortname'],
-                                   unit=tracer.metadata['unit'])
+            solutions = self.options._mixed_tracer_function.split()
         else:
-            for label, tracer in self.options.tracer.items():
-                self.add_new_field(tracer.function or Function(self.function_spaces.Q_2d, name=label),
-                                   label,
-                                   tracer.metadata['name'],
-                                   tracer.metadata['filename'],
-                                   shortname=tracer.metadata['shortname'],
-                                   unit=tracer.metadata['unit'])
-            tracer_trial_functions = [TrialFunction(Q) for Q in tracer_function_spaces]  # TODO: Get from tracer.function
-            tracer_test_functions = [TestFunction(Q) for Q in tracer_function_spaces]  # TODO: Get from tracer.function
-        for label, space, trial, test in zip(labels, tracer_function_spaces, tracer_trial_functions, tracer_test_functions):
+            tracer_trial_functions = [TrialFunction(Q) for Q in tracer_function_spaces]
+            tracer_test_functions = [TestFunction(Q) for Q in tracer_function_spaces]
+            solutions = [
+                self.options.tracer[label].function or Function(fs, name=label)
+                for label, fs in zip(labels, tracer_function_spaces)
+            ]
+        for label, space, trial, test, solution in zip(labels, tracer_function_spaces, tracer_trial_functions, tracer_test_functions, solutions):
+            tracer = self.options.tracer[label]
+            solution.rename(label)
+            self.add_new_field(solution,
+                               label,
+                               tracer.metadata['name'],
+                               tracer.metadata['filename'],
+                               shortname=tracer.metadata['shortname'],
+                               unit=tracer.metadata['unit'])
             if tracer.use_conservative_form:
                 self.equations[label] = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
                     space, self.depth, self.options, uv_2d, trial_function=trial, test_function=test)
@@ -521,9 +526,9 @@ class FlowSolver2d(FrozenClass):
             assert set(label).issubset(set(self.fields.keys()))
             integrators = [
                 self.get_tracer_timestepper(integrator, _label, create_solver=False, solution=_solution)
-                for (_label, _solution) in zip(label, split(self._mixed_tracer_2d))
+                for (_label, _solution) in zip(label, split(self.options._mixed_tracer_function))
             ]
-            return timeintegrator.MixedTimeIntegrator(self._mixed_tracer_2d, *integrators)
+            return timeintegrator.MixedTimeIntegrator(self.options._mixed_tracer_function, *integrators)
         uv, elev = self.fields.solution_2d.split()
         fields = {
             'elev_2d': elev,

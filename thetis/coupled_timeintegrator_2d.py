@@ -54,7 +54,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         if not self.options.tracer_only:
             self.timesteppers.swe2d = self.solver.get_swe_timestepper(self.swe_integrator)
         for i, label in enumerate(self.options.tracer):
-            if self.options.solve_tracer_mixed_form:
+            if len(self.options._mixed_tracers) > 0:  # TODO: Allow some to be mixed and some not
                 if i == 0:
                     self.timesteppers[label] = self.solver.get_tracer_timestepper(self.tracer_integrator, self.options.tracer.keys())
                 else:
