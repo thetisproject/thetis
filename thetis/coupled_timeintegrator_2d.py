@@ -53,8 +53,14 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         """
         if not self.options.tracer_only:
             self.timesteppers.swe2d = self.solver.get_swe_timestepper(self.swe_integrator)
-        for label in self.options.tracer:
-            self.timesteppers[label] = self.solver.get_tracer_timestepper(self.tracer_integrator, label)
+        for i, label in enumerate(self.options.tracer):
+            if self.options.solve_tracer_mixed_form:
+                if i == 0:
+                    self.timesteppers[label] = self.solver.get_tracer_timestepper(self.tracer_integrator, self.options.tracer.keys())
+                else:
+                    self.timesteppers[label] = timeintegrator.DummyTimeIntegrator()
+            else:
+                self.timesteppers[label] = self.solver.get_tracer_timestepper(self.tracer_integrator, label)
         if self.solver.options.sediment_model_options.solve_suspended_sediment:
             self.timesteppers.sediment = self.solver.get_sediment_timestepper(self.sediment_integrator)
         if self.solver.options.sediment_model_options.solve_exner:

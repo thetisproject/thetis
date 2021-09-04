@@ -20,7 +20,7 @@ from .field_defs import field_metadata
 from .options import ModelOptions2d
 from . import callback
 from .log import *
-from collections import OrderedDict
+from collections import OrderedDict, Iterable
 import thetis.limiter as limiter
 
 
@@ -386,6 +386,8 @@ class FlowSolver2d(FrozenClass):
 
         # ----- Equations
         self.equations = AttrDict()
+
+        # Shallow water equations
         self.equations.sw = shallowwater_eq.ShallowWaterEquations(
             self.fields.solution_2d.function_space(),
             self.depth,
@@ -393,26 +395,51 @@ class FlowSolver2d(FrozenClass):
         )
         self.equations.sw.bnd_functions = self.bnd_functions['shallow_water']
         uv_2d, elev_2d = self.fields.solution_2d.split()
-        for label, tracer in self.options.tracer.items():
-            self.add_new_field(tracer.function or Function(self.function_spaces.Q_2d, name=label),
-                               label,
-                               tracer.metadata['name'],
-                               tracer.metadata['filename'],
-                               shortname=tracer.metadata['shortname'],
-                               unit=tracer.metadata['unit'])
+
+        # Passive tracer equations
+        labels = self.options.tracer.keys()
+        self.solve_tracer = len(labels) > 0
+        tracer_function_spaces = [self.function_spaces.Q_2d for label in labels]
+        if self.options.solve_tracer_mixed_form:
+            self.function_spaces.W_2d = MixedFunctionSpace(tracer_function_spaces)
+            self._mixed_tracer_2d = Function(self.function_spaces.W_2d, name="Mixed tracer concentration")
+            tracer_function_spaces = [self.function_spaces.W_2d.sub(i) for i, label in enumerate(labels)]
+            tracer_trial_functions = TrialFunctions(self.function_spaces.W_2d)
+            tracer_test_functions = TestFunctions(self.function_spaces.W_2d)
+            for label, solution in zip(self.options.tracer, self._mixed_tracer_2d.split()):
+                tracer = self.options.tracer[label]
+                solution.rename(label)
+                assert tracer.function is None  # TODO: We do not want this
+                self.add_new_field(solution,
+                                   label,
+                                   tracer.metadata['name'],
+                                   tracer.metadata['filename'],
+                                   shortname=tracer.metadata['shortname'],
+                                   unit=tracer.metadata['unit'])
+        else:
+            tracer_trial_functions = [TrialFunction(Q) for Q in tracer_function_spaces]
+            tracer_test_functions = [TestFunction(Q) for Q in tracer_function_spaces]
+            for label, tracer in self.options.tracer.items():
+                self.add_new_field(tracer.function or Function(self.function_spaces.Q_2d, name=label),
+                                   label,
+                                   tracer.metadata['name'],
+                                   tracer.metadata['filename'],
+                                   shortname=tracer.metadata['shortname'],
+                                   unit=tracer.metadata['unit'])
+        for label, space, trial, test in zip(labels, tracer_function_spaces, tracer_trial_functions, tracer_test_functions):
             if tracer.use_conservative_form:
                 self.equations[label] = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
-                    self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
+                    space, self.depth, self.options, uv_2d, trial_function=trial, test_function=test)
             else:
                 self.equations[label] = tracer_eq_2d.TracerEquation2D(
-                    self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
-        self.solve_tracer = self.options.tracer != {}
+                    space, self.depth, self.options, uv_2d, trial_function=trial, test_function=test)
         if self.solve_tracer:
             if self.options.use_limiter_for_tracers and self.options.tracer_polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
                 self.tracer_limiter = None
 
+        # Equation for suspended sediment transport
         sediment_options = self.options.sediment_model_options
         if sediment_options.solve_suspended_sediment or sediment_options.solve_exner:
             sediment_model_class = self.options.sediment_model_options.sediment_model_class
@@ -428,6 +455,7 @@ class FlowSolver2d(FrozenClass):
             else:
                 self.tracer_limiter = None
 
+        # Exner equation for bedload transport
         if sediment_options.solve_exner:
             if element_continuity(self.fields.bathymetry_2d.function_space().ufl_element()).horizontal in ['cg']:
                 self.equations.exner = exner_eq.ExnerEquation(
@@ -436,6 +464,7 @@ class FlowSolver2d(FrozenClass):
             else:
                 raise NotImplementedError("Exner equation can currently only be implemented if the bathymetry is defined on a continuous space")
 
+        # Equation for non-hydrostatic pressure
         if self.options.nh_model_options.solve_nonhydrostatic_pressure:
             print_output('Using non-hydrostatic pressure')
             q_degree = self.options.polynomial_degree
@@ -484,10 +513,18 @@ class FlowSolver2d(FrozenClass):
             return integrator(self.equations.sw, self.fields.solution_2d, fields, self.dt,
                               self.options.swe_timestepper_options, bnd_conditions)
 
-    def get_tracer_timestepper(self, integrator, label):
+    def get_tracer_timestepper(self, integrator, label, create_solver=True, solution=None):
         """
         Gets tracer timestepper object with appropriate parameters
         """
+        if not isinstance(label, str):
+            assert isinstance(label, Iterable)
+            assert set(label).issubset(set(self.fields.keys()))
+            integrators = [
+                self.get_tracer_timestepper(integrator, _label, create_solver=False, solution=_solution)
+                for (_label, _solution) in zip(label, split(self._mixed_tracer_2d))
+            ]
+            return timeintegrator.MixedTimeIntegrator(self._mixed_tracer_2d, *integrators)
         uv, elev = self.fields.solution_2d.split()
         fields = {
             'elev_2d': elev,
@@ -503,8 +540,8 @@ class FlowSolver2d(FrozenClass):
         elif label[:-3] in self.bnd_functions:
             bcs = self.bnd_functions[label[:-3]]
         # TODO: Different timestepper options for different tracers
-        return integrator(self.equations[label], self.fields[label], fields, self.dt,
-                          self.options.tracer_timestepper_options, bcs)
+        return integrator(self.equations[label], solution or self.fields[label], fields, self.dt,
+                          self.options.tracer_timestepper_options, bcs, create_solver=create_solver)
 
     def get_sediment_timestepper(self, integrator):
         """

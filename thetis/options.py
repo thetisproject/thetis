@@ -874,6 +874,9 @@ class ModelOptions2d(CommonModelOptions):
         False, help="Use SUPG stabilisation in tracer advection").tag(config=True)
     tracer_picard_iterations = PositiveInteger(
         1, help="Number of Picard iterations taken for tracer equations.").tag(config=True)
+    solve_tracer_mixed_form = Bool(
+        False, help="Solve all tracer equations as a mixed system.").tag(config=True)
+    # TODO: Enable the case where only a subset are solved as a mixed system
 
     def __init__(self, *args, **kwargs):
         self.tracer = OrderedDict()

@@ -31,14 +31,17 @@ class TracerTerm(Term):
     Generic tracer term that provides commonly used members and mapping for
     boundary functions.
     """
-    def __init__(self, function_space, depth, options, test_function=None):
+    def __init__(self, function_space, depth, options,
+                 trial_function=None, test_function=None):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class:`DepthExpression` containing depth info
         :arg options: :class`ModelOptions2d` containing parameters
+        :kwarg trial_function: custom :class:`TrialFunction`.
         :kwarg test_function: custom :class:`TestFunction`.
         """
         super(TracerTerm, self).__init__(function_space,
+                                         trial_function=trial_function,
                                          test_function=test_function)
         self.depth = depth
         self.options = options
@@ -272,17 +275,21 @@ class TracerEquation2D(Equation):
     """
     2D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
-    def __init__(self, function_space, depth, options, velocity):
+    def __init__(self, function_space, depth, options, velocity,
+                 trial_function=None, test_function=None):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
         :arg options: :class`ModelOptions2d` containing parameters
         :arg velocity: velocity field associated with the shallow water model
+        :kwarg trial_function: custom :class:`TrialFunction`.
+        :kwarg test_function: custom :class:`TestFunction`.
         """
-        super(TracerEquation2D, self).__init__(function_space)
+        super(TracerEquation2D, self).__init__(function_space,
+                                               trial_function=trial_function,
+                                               test_function=test_function)
 
         # Apply SUPG stabilisation
-        kwargs = {}
         if options.use_supg_tracer:
             unorm = options.horizontal_velocity_scale
             if unorm.values()[0] > 0:
@@ -293,10 +300,9 @@ class TracerEquation2D(Equation):
                     Pe = 0.5*unorm*cellsize/D
                     tau = min_value(tau, Pe/3)
                 self.test = self.test + tau*dot(velocity, grad(self.test))
-                kwargs['test_function'] = self.test
 
-        args = (function_space, depth, options)
-        self.add_terms(*args, **kwargs)
+        self.add_terms(function_space, depth, options,
+                       trial_function=self.trial, test_function=self.test)
 
     def add_terms(self, *args, **kwargs):
         self.add_term(HorizontalAdvectionTerm(*args, **kwargs), 'explicit')

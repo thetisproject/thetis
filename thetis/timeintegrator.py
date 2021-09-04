@@ -124,7 +124,7 @@ class SpecialTimeIntegrator(TimeIntegrator):
         if update_forcings is not None:
             update_forcings(t + self.dt)
         self.update_lagged()
-        self.solver.solve()
+        self.step()
         self.update_fields()
 
     def add_form(self, integrator):
@@ -138,7 +138,7 @@ class MixedTimeIntegrator(SpecialTimeIntegrator):
     of multiple :class:`SpecialTimeIntegrator`s as a mixed
     system.
     """
-    def __init__(self, *integrators):
+    def __init__(self, solution, *integrators):
         """
         :arg integrators: an iterable of :class:`SpecialTimeIntegrator` instances
         """
@@ -156,33 +156,35 @@ class MixedTimeIntegrator(SpecialTimeIntegrator):
                 if not np.isclose(self.dt, integrator.dt):
                     raise ValueError(f"Timesteps {self.dt} and {integrator.dt} are incompatible.")
                 self.root.add_form(integrator)
+        self.solution = solution
+        self.root.solution = solution
         self.root.update_solver()
+        self.solution_old = Function(solution.function_space())
+        for sol_old, integrator in zip(split(self.solution_old), integrators):
+            integrator.solution_old = sol_old
 
     def update_lagged(self):
         """Update the solutions at the previous timestep."""
-        for integrator in self.integrators:
-            integrator.update_lagged()
+        self.solution_old.assign(self.solution)
+        # TODO: Case of PressureProjectionPicard, or drop it
 
     def step(self):
         """Take a timestep."""
-        self.root.step(t)
+        self.root.step()
 
     def update_fields(self):
         """Update all fields."""
         for integrator in self.integrators:
             integrator.update_fields()
 
-    def initialize(self, solutions):
-        """Assigns initial conditions to all required fields."""
-        for integrator, solution in zip(self.integrators, solutions.split()):
-            integrator.initialize(solution)
+    # TODO: Case of PressureProjectionPicard for initialize, or drop it
 
 
 class ForwardEuler(SpecialTimeIntegrator):
     """Standard forward Euler time integration scheme."""
     cfl_coeff = 1.0
 
-    def __init__(self, equation, solution, fields, dt, options, bnd_conditions):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, create_solver=True):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -213,7 +215,8 @@ class ForwardEuler(SpecialTimeIntegrator):
                   + self.dt_const*self.equation.residual('all', u_old, u_old, self.fields_old, self.fields_old, bnd_conditions)
                   )
 
-        self.update_solver()
+        if create_solver:
+            self.update_solver()
 
     def update_solver(self):
         prob = LinearVariationalProblem(self.A, self.L, self.solution)
@@ -235,7 +238,7 @@ class CrankNicolson(SpecialTimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
-    def __init__(self, equation, solution, fields, dt, options, bnd_conditions):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, create_solver=True):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -285,7 +288,8 @@ class CrankNicolson(SpecialTimeIntegrator):
                                    + (1-theta_const)*self.equation.residual('all', u_old, u_old, f_old, f_old, bnd))
                   )
 
-        self.update_solver()
+        if create_solver:
+            self.update_solver()
 
     def update_solver(self):
         """Create solver objects"""
@@ -308,7 +312,7 @@ class CrankNicolson(SpecialTimeIntegrator):
             update_forcings(t + self.dt)
         if update_lagged:
             self.update_lagged()
-        self.solve()
+        self.step()
         if update_fields:
             self.update_fields()
 
@@ -324,7 +328,7 @@ class SteadyState(SpecialTimeIntegrator):
     """
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
-    def __init__(self, equation, solution, fields, dt, options, bnd_conditions):
+    def __init__(self, equation, solution, fields, dt, options, bnd_conditions, create_solver=True):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -338,7 +342,8 @@ class SteadyState(SpecialTimeIntegrator):
         super(SteadyState, self).__init__(equation, solution, fields, dt, options)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
         self.F = self.equation.residual('all', solution, solution, fields, fields, bnd_conditions)
-        self.update_solver()
+        if create_solver:
+            self.update_solver()
 
     def update_solver(self):
         """Create solver objects"""
@@ -384,7 +389,7 @@ class PressureProjectionPicard(SpecialTimeIntegrator):
     cfl_coeff = 1.0  # FIXME what is the right value?
 
     # TODO add more documentation
-    def __init__(self, equation, equation_mom, solution, fields, dt, options, bnd_conditions):
+    def __init__(self, equation, equation_mom, solution, fields, dt, options, bnd_conditions, create_solver=True):
         """
         :arg equation: free surface equation
         :type equation: :class:`Equation` object
@@ -498,7 +503,8 @@ class PressureProjectionPicard(SpecialTimeIntegrator):
                     - (1-theta_const)*term.residual(uv_old, eta_old, uv_old, eta_old, self.fields_old, self.fields_old, bnd_conditions)
                 )
 
-        self.update_solver()
+        if create_solver:
+            self.update_solver()
 
     def update_solver(self):
         """Create solver objects"""
