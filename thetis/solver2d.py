@@ -323,9 +323,9 @@ class FlowSolver2d(FrozenClass):
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d])
 
         if self.options.tracer_element_family == 'dg':
-            self.function_spaces.Q_2d = get_functionspace(self.mesh2d, 'DG', 1, name='Q_2d')
+            self.function_spaces.Q_2d = get_functionspace(self.mesh2d, 'DG', self.options.tracer_polynomial_degree, name='Q_2d')
         elif self.options.tracer_element_family == 'cg':
-            self.function_spaces.Q_2d = get_functionspace(self.mesh2d, 'CG', 1, name='Q_2d')
+            self.function_spaces.Q_2d = get_functionspace(self.mesh2d, 'CG', self.options.tracer_polynomial_degree, name='Q_2d')
         else:
             raise Exception('Unsupported finite element family {:}'.format(self.options.tracer_element_family))
 
@@ -408,7 +408,7 @@ class FlowSolver2d(FrozenClass):
                     self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
         self.solve_tracer = self.options.tracer != {}
         if self.solve_tracer:
-            if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
+            if self.options.use_limiter_for_tracers and self.options.tracer_polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
                 self.tracer_limiter = None
@@ -423,7 +423,7 @@ class FlowSolver2d(FrozenClass):
             self.equations.sediment = sediment_eq_2d.SedimentEquation2D(
                 self.function_spaces.Q_2d, self.depth, self.options, self.sediment_model,
                 conservative=sediment_options.use_sediment_conservative_form)
-            if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
+            if self.options.use_limiter_for_tracers and self.options.tracer_polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
                 self.tracer_limiter = None
@@ -821,7 +821,7 @@ class FlowSolver2d(FrozenClass):
         if not self._initialized:
             self.initialize()
 
-        self.options.use_limiter_for_tracers &= self.options.polynomial_degree > 0
+        self.options.use_limiter_for_tracers &= self.options.tracer_polynomial_degree > 0
 
         t_epsilon = 1.0e-5
         cputimestamp = time_mod.perf_counter()
