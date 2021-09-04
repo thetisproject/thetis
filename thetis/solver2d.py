@@ -21,6 +21,7 @@ from .options import ModelOptions2d
 from . import callback
 from .log import *
 from collections import OrderedDict, Iterable
+from ordered_set import OrderedSet
 import thetis.limiter as limiter
 
 
@@ -405,16 +406,26 @@ class FlowSolver2d(FrozenClass):
             else self.options.tracer[label].function.function_space()
             for label in labels
         ]
-        if len(self.options._mixed_tracers) > 0:  # TODO: Allow some to be mixed and some not
-            if self.options._mixed_tracer_function is None:
+        tracer_parents = OrderedSet(self.options.tracer[label].parent for label in labels)
+        if len(self.options._mixed_tracers) > 0:
+            if len(self.options._mixed_tracers) > 1:
+                raise NotImplementedError("Multiple mixed blocks are not yet supported")  # TODO
+            elif not set(self.options.tracer.keys()).issubset(set(self.options._mixed_tracers[0].split(','))):
+                raise NotImplementedError("Tracers need to all either be solved all simultaneously or all sequentially")  # TODO
+            parent = tracer_parents[0]
+            name = ' x '.join(self.options.tracer[label].metadata['name'] for label in labels)
+            shortname = ' x '.join(self.options.tracer[label].metadata['shortname'] for label in labels)
+            unit = ' x '.join(self.options.tracer[label].metadata['unit'] for label in labels)
+            self.add_new_field(parent, self.options._mixed_tracers[0], name, 'unused', shortname=shortname, unit=unit)
+            if parent is None:
                 self.function_spaces.W_2d = MixedFunctionSpace(tracer_function_spaces)
-                self.options._mixed_tracer_function = Function(self.function_spaces.W_2d)
+                parent = Function(self.function_spaces.W_2d)
             else:
-                self.function_spaces.W_2d = self.options._mixed_tracer_function.function_space()
+                self.function_spaces.W_2d = parent.function_space()
             tracer_function_spaces = [self.function_spaces.W_2d.sub(i) for i, label in enumerate(labels)]
             tracer_trial_functions = TrialFunctions(self.function_spaces.W_2d)
             tracer_test_functions = TestFunctions(self.function_spaces.W_2d)
-            solutions = self.options._mixed_tracer_function.split()
+            solutions = parent.split()
         else:
             tracer_trial_functions = [TrialFunction(Q) for Q in tracer_function_spaces]
             tracer_test_functions = [TestFunction(Q) for Q in tracer_function_spaces]
@@ -524,11 +535,12 @@ class FlowSolver2d(FrozenClass):
         if not isinstance(label, str):
             assert isinstance(label, Iterable)
             assert set(label).issubset(set(self.fields.keys()))
+            labels = self.options._mixed_tracers[0]  # TODO: Extend
             integrators = [
                 self.get_tracer_timestepper(integrator, _label, create_solver=False, solution=_solution)
-                for (_label, _solution) in zip(label, split(self.options._mixed_tracer_function))
+                for (_label, _solution) in zip(label, split(self.fields[labels]))
             ]
-            return timeintegrator.MixedTimeIntegrator(self.options._mixed_tracer_function, *integrators)
+            return timeintegrator.MixedTimeIntegrator(self.fields[labels], *integrators)
         uv, elev = self.fields.solution_2d.split()
         fields = {
             'elev_2d': elev,

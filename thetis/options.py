@@ -478,6 +478,8 @@ class TracerFieldOptions(FrozenHasTraits):
     name = 'Tracer options'
     function = FiredrakeScalarExpression(
         None, allow_none=True, help='Firedrake Function representing the tracer')
+    parent = FiredrakeVectorExpression(
+        None, allow_none=True, help='Firedrake Function representing the parent mixed Function')
     source = FiredrakeScalarExpression(
         None, allow_none=True, help='Source term for the tracer equation')
     diffusivity = FiredrakeScalarExpression(
@@ -878,7 +880,6 @@ class ModelOptions2d(CommonModelOptions):
     def __init__(self, *args, **kwargs):
         self.tracer = OrderedDict()
         self._mixed_tracers = []
-        self._mixed_tracer_function = None
         super().__init__(*args, **kwargs)
 
     def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', **kwargs):
@@ -935,12 +936,13 @@ class ModelOptions2d(CommonModelOptions):
         shortnames = shortnames or names
         units = units or ['-']*N
         assert len(names) == len(filenames) == len(shortnames) == len(units) == N
-        self._mixed_tracer_function = kwargs.pop('function', None)
+        parent = kwargs.pop('function', None)
         if kwargs == {}:
             kwargs = {label: {} for label in labels}
         assert set(kwargs.keys()).issubset(set(labels))
         for label, name, filename, shortname, unit in zip(labels, names, filenames, shortnames, units):
             self.add_tracer_2d(label, name, filename, shortname=shortname, unit=unit, **kwargs[label])
+            self.tracer[label].parent = parent
         self._mixed_tracers.append(','.join(labels))
 
     def set_timestepper_type(self, timestepper_type, **kwargs):
