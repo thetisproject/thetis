@@ -154,7 +154,8 @@ class PointDischargeParameters(object):
         return assemble(kernel*sol*dx(degree=12))
 
 
-def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg'):
+def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg',
+                 no_exports=False):
     """
     Solve the `Point Discharge with Diffusion' steady-state tracer transport
     test case from [1]. This problem has a source term, which involves a
@@ -169,6 +170,8 @@ def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg'):
     :arg n: mesh resolution level.
     :arg offset: toggle between aligned and offset source/receiver.
     :kwarg hydrodynamics: solve shallow water equations?
+    :kwarg tracer_family: element family for tracers, either 'dg' or 'cg'
+    :kwarg no_exports: do not store model outputs to disk
     """
     mesh2d = RectangleMesh(100*2**n, 20*2**n, 50, 10)
     P1_2d = FunctionSpace(mesh2d, "CG", 1)
@@ -191,6 +194,7 @@ def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg'):
     options.tracer_timestepper_options.solver_parameters['pc_factor_mat_solver_type'] = 'mumps'
     options.tracer_timestepper_options.solver_parameters['snes_monitor'] = None
     options.fields_to_export = ['tracer_2d', 'uv_2d', 'elev_2d']
+    options.no_exports = no_exports
 
     # Hydrodynamics
     options.element_family = 'dg-dg'
@@ -282,7 +286,8 @@ def offset(request):
 
 
 def test_convergence(hydrodynamics, offset, family):
-    run_convergence(offset, hydrodynamics=hydrodynamics, tracer_family=family)
+    run_convergence(offset, hydrodynamics=hydrodynamics, tracer_family=family,
+                    no_exports=True)
 
 
 # ---------------------------
