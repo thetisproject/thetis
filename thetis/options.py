@@ -868,6 +868,8 @@ class ModelOptions2d(CommonModelOptions):
         help="""Finite element family for tracer transport
 
         2D solver supports 'dg' or 'cg'.""").tag(config=True)
+    tracer_polynomial_degree = NonNegativeInteger(
+        1, help="Polynomial degree of elements used for tracer equations.")
     use_supg_tracer = Bool(
         False, help="Use SUPG stabilisation in tracer advection").tag(config=True)
     tracer_picard_iterations = PositiveInteger(
