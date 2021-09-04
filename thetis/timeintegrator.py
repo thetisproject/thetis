@@ -87,7 +87,98 @@ class TimeIntegrator(TimeIntegratorBase):
         raise NotImplementedError(f"Picard iterations are not supported for {self} time integrators.")
 
 
-class ForwardEuler(TimeIntegrator):
+class DummyTimeIntegrator(TimeIntegrator):
+    """
+    A do-nothing :class:`TimeIntegrator`.
+    """
+    def __init__(self):
+        pass
+
+
+# TODO: Think of a better name
+class SpecialTimeIntegrator(TimeIntegrator):
+    """
+    Base class for integrators that support mixed
+    formulations across their component equations.
+    """
+    def update_lagged(self):
+        """Updates the solution from the previous timestep."""
+        self.solution_old.assign(self.solution)
+
+    def step(self):
+        """Take a timestep."""
+        raise NotImplementedError("Should be implemented in derived class.")
+
+    def update_fields(self):
+        """Updates all fields."""
+        for k in sorted(self.fields_old):
+            self.fields_old[k].assign(self.fields[k])
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.update_lagged()
+        self.update_fields()
+
+    def advance(self, t, update_forcings=None):
+        """Advances equations for one time step."""
+        if update_forcings is not None:
+            update_forcings(t + self.dt)
+        self.update_lagged()
+        self.solver.solve()
+        self.update_fields()
+
+    def add_form(self, integrator):
+        """Adds a form from another integrator"""
+        raise NotImplementedError(f"Form addition is not supported for {self} time integrators.")
+
+
+class MixedTimeIntegrator(SpecialTimeIntegrator):
+    """
+    A class which allows for the simultaneous progression
+    of multiple :class:`SpecialTimeIntegrator`s as a mixed
+    system.
+    """
+    def __init__(self, *integrators):
+        """
+        :arg integrators: an iterable of :class:`SpecialTimeIntegrator` instances
+        """
+        if len(integrators) <= 0:
+            raise ValueError("MixedTimeIntegrator needs to be passed SpecialTimeIntegrator instances.")
+        self.integrators = integrators
+        self.root = integrators[0]
+        self.dt = self.root.dt
+        for i, integrator in enumerate(integrators):
+            if not issubclass(type(integrator), SpecialTimeIntegrator):
+                raise ValueError(f"MixedTimeIntegrator needs to be passed SpecialTimeIntegrator instances, not {type(integrator)}s.")
+            if i > 0:
+                if type(self.root) != type(integrator):
+                    raise ValueError("The SpecialTimeIntegrators need to have the same type.")
+                if not np.isclose(self.dt, integrator.dt):
+                    raise ValueError(f"Timesteps {self.dt} and {integrator.dt} are incompatible.")
+                self.root.add_form(integrator)
+        self.root.update_solver()
+
+    def update_lagged(self):
+        """Update the solutions at the previous timestep."""
+        for integrator in self.integrators:
+            integrator.update_lagged()
+
+    def step(self):
+        """Take a timestep."""
+        self.root.step(t)
+
+    def update_fields(self):
+        """Update all fields."""
+        for integrator in self.integrators:
+            integrator.update_fields()
+
+    def initialize(self, solutions):
+        """Assigns initial conditions to all required fields."""
+        for integrator, solution in zip(self.integrators, solutions.split()):
+            integrator.initialize(solution)
+
+
+class ForwardEuler(SpecialTimeIntegrator):
     """Standard forward Euler time integration scheme."""
     cfl_coeff = 1.0
 
@@ -130,25 +221,17 @@ class ForwardEuler(TimeIntegrator):
                                               solver_parameters=self.solver_parameters,
                                               ad_block_tag=self.ad_block_tag)
 
-    def initialize(self, solution):
-        """Assigns initial conditions to all required fields."""
-        self.solution_old.assign(solution)
-        # assign values to old functions
-        for k in sorted(self.fields_old):
-            self.fields_old[k].assign(self.fields[k])
-
-    def advance(self, t, update_forcings=None):
-        """Advances equations for one time step."""
-        if update_forcings is not None:
-            update_forcings(t + self.dt)
-        self.solution_old.assign(self.solution)
+    def step(self):
+        """Take a timestep."""
         self.solver.solve()
-        # shift time
-        for k in sorted(self.fields_old):
-            self.fields_old[k].assign(self.fields[k])
+
+    def add_form(self, integrator):
+        """Adds a form from another integrator"""
+        self.A += integrator.A
+        self.L += integrator.L
 
 
-class CrankNicolson(TimeIntegrator):
+class CrankNicolson(SpecialTimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
@@ -215,37 +298,26 @@ class CrankNicolson(TimeIntegrator):
                                                  options_prefix=self.name,
                                                  ad_block_tag=self.ad_block_tag)
 
-    def initialize(self, solution):
-        """Assigns initial conditions to all required fields."""
-        self.solution_old.assign(solution)
-        # assign values to old functions
-        for k in sorted(self.fields_old):
-            self.fields_old[k].assign(self.fields[k])
-
-    def advance(self, t, update_forcings=None):
-        """Advances equations for one time step."""
-        if update_forcings is not None:
-            update_forcings(t + self.dt)
-        self.solution_old.assign(self.solution)
+    def step(self):
+        """Take a timestep."""
         self.solver.solve()
-        # shift time
-        for k in sorted(self.fields_old):
-            self.fields_old[k].assign(self.fields[k])
 
     def advance_picard(self, t, update_forcings=None, update_lagged=True, update_fields=True):
         """Advances equations for one time step in a Picard iteration."""
         if update_forcings is not None:
             update_forcings(t + self.dt)
         if update_lagged:
-            self.solution_old.assign(self.solution)
-        self.solver.solve()
+            self.update_lagged()
+        self.solve()
         if update_fields:
-            # shift time
-            for k in sorted(self.fields_old):
-                self.fields_old[k].assign(self.fields[k])
+            self.update_fields()
+
+    def add_form(self, integrator):
+        """Adds a form from another integrator"""
+        self.F += integrator.F
 
 
-class SteadyState(TimeIntegrator):
+class SteadyState(SpecialTimeIntegrator):
     """
     Time integrator that solves the steady state equations, leaving out the
     mass terms
@@ -279,19 +351,31 @@ class SteadyState(TimeIntegrator):
                                                  options_prefix=self.name,
                                                  ad_block_tag=self.ad_block_tag)
 
+    def update_lagged(self):
+        """Update the solution from the previous timestep."""
+        # nothing to do here as there is no concept of time
+        return
+
+    def step(self):
+        """Solve the equation."""
+        self.solver.solve()
+
+    def update_fields(self):
+        """Update all fields."""
+        # nothing to do here as the fields are fixed
+        return
+
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
         # nothing to do here as the initial condition is passed in via solution
         return
 
-    def advance(self, t, update_forcings=None):
-        """Advances equations for one time step."""
-        if update_forcings is not None:
-            update_forcings(t + self.dt)
-        self.solver.solve()
+    def add_form(self, integrator):
+        """Adds a form from another integrator"""
+        self.F += integrator.F
 
 
-class PressureProjectionPicard(TimeIntegrator):
+class PressureProjectionPicard(SpecialTimeIntegrator):
     """
     Pressure projection scheme with Picard iteration for shallow water
     equations
@@ -433,20 +517,8 @@ class PressureProjectionPicard(TimeIntegrator):
                                                  options_prefix=self.name,
                                                  ad_block_tag=self.ad_block_tag)
 
-    def initialize(self, solution):
-        """Assigns initial conditions to all required fields."""
-        self.solution_old.assign(solution)
-        self.solution_lagged.assign(solution)
-        # assign values to old functions
-        for k in sorted(self.fields_old):
-            self.fields_old[k].assign(self.fields[k])
-
-    def advance(self, t, update_forcings=None):
-        """Advances equations for one time step."""
-        if update_forcings is not None:
-            update_forcings(t + self.dt)
-        self.solution_old.assign(self.solution)
-
+    def step(self):
+        """Take a timestep."""
         for it in range(self.iterations):
             if self.iterations > 1:
                 self.solution_lagged.assign(self.solution)
@@ -455,9 +527,16 @@ class PressureProjectionPicard(TimeIntegrator):
             with timed_stage("Pressure solve"):
                 self.solver.solve()
 
-        # shift time
-        for k in sorted(self.fields_old):
-            self.fields_old[k].assign(self.fields[k])
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(solution)
+        self.solution_lagged.assign(solution)
+        self.update_fields()
+
+    def add_form(self, integrator):
+        """Adds a form from another integrator"""
+        self.F += integrator.F
+        self.F_mom += integrator.F_mom
 
 
 class LeapFrogAM3(TimeIntegrator):
