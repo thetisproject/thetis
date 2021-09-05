@@ -920,6 +920,7 @@ class ModelOptions2d(CommonModelOptions):
         self.tracer[label].use_conservative_form = kwargs.get('use_conservative_form', False)
         if not kwargs.get('mixed', False):
             self.tracer_systems.append(label)
+            self.tracer[label].parent = self.tracer[label].function
 
     def add_tracers_2d(self, labels, names, filenames, shortnames=None, units=None, **kwargs):
         """

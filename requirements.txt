@@ -3,4 +3,3 @@ netCDF4
 pyproj
 uptide
 pytz
-ordered_set

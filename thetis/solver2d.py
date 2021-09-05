@@ -21,7 +21,6 @@ from .options import ModelOptions2d
 from . import callback
 from .log import *
 from collections import OrderedDict, Iterable
-from ordered_set import OrderedSet
 import thetis.limiter as limiter
 
 
@@ -398,45 +397,32 @@ class FlowSolver2d(FrozenClass):
         uv_2d, elev_2d = self.fields.solution_2d.split()
 
         # Passive tracer equations
-        labels = self.options.tracer.keys()
-        self.solve_tracer = len(labels) > 0
-        tracer_function_spaces = [
-            self.function_spaces.Q_2d
-            if self.options.tracer[label].function is None
-            else self.options.tracer[label].function.function_space()
-            for label in labels
-        ]
-        tracer_parents = OrderedSet(self.options.tracer[label].parent for label in labels)
-        if len(self.options.tracer_systems) > 0:
-            if len(self.options.tracer_systems) > 1:
-                raise NotImplementedError("Multiple mixed blocks are not yet supported")  # TODO
-            elif not set(self.options.tracer.keys()).issubset(set(self.options.tracer_systems[0].split(','))):
-                raise NotImplementedError("Tracers need to all either be solved all simultaneously or all sequentially")  # TODO
-            parent = tracer_parents[0]
-            name = ' x '.join(self.options.tracer[label].metadata['name'] for label in labels)
-            shortname = ' x '.join(self.options.tracer[label].metadata['shortname'] for label in labels)
-            unit = ' x '.join(self.options.tracer[label].metadata['unit'] for label in labels)
-            self.add_new_field(parent, self.options.tracer_systems[0], name, 'unused', shortname=shortname, unit=unit)
+        self.solve_tracer = len(self.options.tracer_systems) > 0
+        function_spaces, trial_functions, test_functions, functions, labels = [], [], [], [], []
+        tracer_parents = [self.options.tracer[system.split(',')[0]].parent for system in self.options.tracer_systems]
+        for system, parent in zip(self.options.tracer_systems, tracer_parents):
+            components = system.split(',')
+            labels += components
+            num_components = len(components)
             if parent is None:
-                self.function_spaces.W_2d = MixedFunctionSpace(tracer_function_spaces)
-                parent = Function(self.function_spaces.W_2d)
+                spaces = [self.function_spaces.Q_2d for label in components]
+                W_2d = spaces[0] if num_components == 1 else MixedFunctionSpace(spaces)
+                parent = Function(W_2d)
             else:
-                self.function_spaces.W_2d = parent.function_space()
-            tracer_function_spaces = [self.function_spaces.W_2d.sub(i) for i, label in enumerate(labels)]
-            tracer_trial_functions = TrialFunctions(self.function_spaces.W_2d)
-            tracer_test_functions = TestFunctions(self.function_spaces.W_2d)
-            solutions = parent.split()
-        else:
-            tracer_trial_functions = [TrialFunction(Q) for Q in tracer_function_spaces]
-            tracer_test_functions = [TestFunction(Q) for Q in tracer_function_spaces]
-            solutions = [
-                self.options.tracer[label].function or Function(fs, name=label)
-                for label, fs in zip(labels, tracer_function_spaces)
-            ]
-        for label, space, trial, test, solution in zip(labels, tracer_function_spaces, tracer_trial_functions, tracer_test_functions, solutions):
+                W_2d = parent.function_space()
+            if num_components > 1:
+                name = ', '.join(self.options.tracer[label].metadata['name'] for label in components)
+                shortname = ', '.join(self.options.tracer[label].metadata['shortname'] for label in components)
+                unit = ', '.join(self.options.tracer[label].metadata['unit'] for label in components)
+                self.add_new_field(parent, system, name, 'unused', shortname=shortname, unit=unit)
+            function_spaces += [W_2d.sub(i) for i in range(num_components)]
+            trial_functions += TrialFunctions(W_2d)
+            test_functions += TestFunctions(W_2d)
+            functions += list(parent.split())
+        for label, space, trial, test, function in zip(labels, function_spaces, trial_functions, test_functions, functions):
             tracer = self.options.tracer[label]
-            solution.rename(label)
-            self.add_new_field(solution,
+            function.rename(label)
+            self.add_new_field(function,
                                label,
                                tracer.metadata['name'],
                                tracer.metadata['filename'],
@@ -535,12 +521,13 @@ class FlowSolver2d(FrozenClass):
         if not isinstance(label, str):
             assert isinstance(label, Iterable)
             assert set(label).issubset(set(self.fields.keys()))
-            labels = self.options.tracer_systems[0]  # TODO: Extend
+            cslabel = ','.join(label)
+            assert cslabel in self.options.tracer_systems
             integrators = [
-                self.get_tracer_timestepper(integrator, _label, create_solver=False, solution=_solution)
-                for (_label, _solution) in zip(label, split(self.fields[labels]))
+                self.get_tracer_timestepper(integrator, split_label, create_solver=False, solution=sol)
+                for (split_label, sol) in zip(cslabel.split(','), split(self.fields[cslabel]))
             ]
-            return timeintegrator.MixedTimeIntegrator(self.fields[labels], *integrators)
+            return timeintegrator.MixedTimeIntegrator(self.fields[cslabel], *integrators)
         uv, elev = self.fields.solution_2d.split()
         fields = {
             'elev_2d': elev,
@@ -556,8 +543,12 @@ class FlowSolver2d(FrozenClass):
         elif label[:-3] in self.bnd_functions:
             bcs = self.bnd_functions[label[:-3]]
         # TODO: Different timestepper options for different tracers
-        return integrator(self.equations[label], solution or self.fields[label], fields, self.dt,
-                          self.options.tracer_timestepper_options, bcs, create_solver=create_solver)  # FIXME: Not everyone has create_solver
+        if issubclass(integrator, timeintegrator.SpecialTimeIntegrator):
+            return integrator(self.equations[label], solution or self.fields[label], fields, self.dt,
+                              self.options.tracer_timestepper_options, bcs, create_solver=create_solver)
+        else:
+            return integrator(self.equations[label], solution or self.fields[label], fields, self.dt,
+                              self.options.tracer_timestepper_options, bcs)
 
     def get_sediment_timestepper(self, integrator):
         """
