@@ -87,14 +87,6 @@ class TimeIntegrator(TimeIntegratorBase):
         raise NotImplementedError(f"Picard iterations are not supported for {self} time integrators.")
 
 
-class DummyTimeIntegrator(TimeIntegrator):
-    """
-    A do-nothing :class:`TimeIntegrator`.
-    """
-    def __init__(self):
-        pass
-
-
 # TODO: Think of a better name
 class SpecialTimeIntegrator(TimeIntegrator):
     """
