@@ -502,6 +502,7 @@ class FlowSolver2d(FrozenClass):
             bcs = self.bnd_functions[label]
         elif label[:-3] in self.bnd_functions:
             bcs = self.bnd_functions[label[:-3]]
+        # TODO: Different timestepper options for different tracers
         return integrator(self.equations[label], self.fields[label], fields, self.dt,
                           self.options.tracer_timestepper_options, bcs)
 

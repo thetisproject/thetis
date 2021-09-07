@@ -473,7 +473,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         # Allocate tendency fields
         self.k = []
         for i in range(self.n_stages):
-            fname = '{:}_k{:}'.format(self.name, i)
+            fname = f'{self.name}_k{i}'
             self.k.append(Function(fs, name=fname))
 
         # construct variational problems
@@ -515,11 +515,12 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         self.solver = []
         for i in range(self.n_stages):
             p = NonlinearVariationalProblem(self.F[i], self.k[i])
-            sname = '{:}_stage{:}_'.format(self.name, i)
+            sname = f'{self.name}_stage{i}_'
             self.solver.append(
                 NonlinearVariationalSolver(p,
                                            solver_parameters=self.solver_parameters,
-                                           options_prefix=sname))
+                                           options_prefix=sname,
+                                           ad_block_tag=self.ad_block_tag + f'_stage{i}'))
 
     def initialize(self, init_cond):
         """Assigns initial conditions to all required fields."""
@@ -595,7 +596,7 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
         # Allocate tendency fields
         self.k = []
         for i in range(self.n_stages - 1):
-            fname = '{:}_k{:}'.format(self.name, i)
+            fname = f'{self.name}_k{i}'
             self.k.append(Function(fs, name=fname))
 
         u = self.solution
@@ -637,10 +638,11 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
         self.solver = []
         for i in range(self.n_stages):
             p = NonlinearVariationalProblem(self.F[i], self.solution)
-            sname = '{:}_stage{:}_'.format(self.name, i)
+            sname = f'{self.name}_stage{i}_'
             s = NonlinearVariationalSolver(
                 p, solver_parameters=self.solver_parameters,
-                options_prefix=sname)
+                options_prefix=sname,
+                ad_block_tag=self.ad_block_tag + f'_stage{i}')
             self.solver.append(s)
         self.k_solver = []
         k_solver_parameters = {
@@ -650,10 +652,11 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
         }
         for i in range(self.n_stages - 1):
             p = NonlinearVariationalProblem(self.k_form[i], self.k[i])
-            sname = '{:}_k_stage{:}_'.format(self.name, i)
+            sname = f'{self.name}_k_stage{i}_'
             s = NonlinearVariationalSolver(
                 p, solver_parameters=k_solver_parameters,
-                options_prefix=sname)
+                options_prefix=sname,
+                ad_block_tag=self.ad_block_tag + f'_k_stage{i}')
             self.k_solver.append(s)
 
     def initialize(self, init_cond):
@@ -783,8 +786,9 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
             self.solver = []
             for i in range(self.n_stages):
                 prob = LinearVariationalProblem(self.a_rk, self.l_rk, self.tendency[i])
-                solver = LinearVariationalSolver(prob, options_prefix=self.name + '_k{:}'.format(i),
-                                                 solver_parameters=self.solver_parameters)
+                solver = LinearVariationalSolver(prob, options_prefix=self.name + f'_k{i}',
+                                                 solver_parameters=self.solver_parameters,
+                                                 ad_block_tag=self.ad_block_tag + f'_k{i}')
                 self.solver.append(solver)
 
     def initialize(self, solution):
@@ -858,7 +862,7 @@ class ERKGenericShuOsher(TimeIntegrator):
         self.tendency = Function(self.equation.function_space, name='tendency')
         self.stage_sol = []
         for i in range(self.n_stages):
-            s = Function(self.equation.function_space, name='sol{:}'.format(i))
+            s = Function(self.equation.function_space, name=f'sol{i}')
             self.stage_sol.append(s)
 
         # fully explicit evaluation
@@ -884,7 +888,8 @@ class ERKGenericShuOsher(TimeIntegrator):
         if self._nontrivial:
             prob = LinearVariationalProblem(self.a_rk, self.l_rk, self.tendency)
             self.solver = LinearVariationalSolver(prob, options_prefix=self.name + '_k',
-                                                  solver_parameters=self.solver_parameters)
+                                                  solver_parameters=self.solver_parameters,
+                                                  ad_block_tag=self.ad_block_tag + '_k')
 
     def initialize(self, solution):
         pass

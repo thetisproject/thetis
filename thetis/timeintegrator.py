@@ -65,6 +65,7 @@ class TimeIntegrator(TimeIntegratorBase):
         # unique identifier for solver
         self.name = '-'.join([self.__class__.__name__,
                               self.equation.__class__.__name__])
+        self.ad_block_tag = options.ad_block_tag or self.name
         self.solver_parameters = options.solver_parameters
 
     def set_dt(self, dt):
@@ -126,7 +127,8 @@ class ForwardEuler(TimeIntegrator):
     def update_solver(self):
         prob = LinearVariationalProblem(self.A, self.L, self.solution)
         self.solver = LinearVariationalSolver(prob, options_prefix=self.name,
-                                              solver_parameters=self.solver_parameters)
+                                              solver_parameters=self.solver_parameters,
+                                              ad_block_tag=self.ad_block_tag)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -210,7 +212,8 @@ class CrankNicolson(TimeIntegrator):
         prob = NonlinearVariationalProblem(self.F, self.solution)
         self.solver = NonlinearVariationalSolver(prob,
                                                  solver_parameters=self.solver_parameters,
-                                                 options_prefix=self.name)
+                                                 options_prefix=self.name,
+                                                 ad_block_tag=self.ad_block_tag)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -273,7 +276,8 @@ class SteadyState(TimeIntegrator):
         prob = NonlinearVariationalProblem(self.F, self.solution)
         self.solver = NonlinearVariationalSolver(prob,
                                                  solver_parameters=self.solver_parameters,
-                                                 options_prefix=self.name)
+                                                 options_prefix=self.name,
+                                                 ad_block_tag=self.ad_block_tag)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -417,7 +421,8 @@ class PressureProjectionPicard(TimeIntegrator):
         prob = NonlinearVariationalProblem(self.F_mom, self.uv_star)
         self.solver_mom = NonlinearVariationalSolver(prob,
                                                      solver_parameters=self.solver_parameters_mom,
-                                                     options_prefix=self.name+'_mom')
+                                                     options_prefix=self.name+'_mom',
+                                                     ad_block_tag=self.ad_block_tag + '_mom')
         # Ensure LU assembles monolithic matrices
         if self.solver_parameters.get('pc_type') == 'lu':
             self.solver_parameters['mat_type'] = 'aij'
@@ -425,7 +430,8 @@ class PressureProjectionPicard(TimeIntegrator):
         self.solver = NonlinearVariationalSolver(prob,
                                                  appctx={'a': derivative(self.F, self.solution)},
                                                  solver_parameters=self.solver_parameters,
-                                                 options_prefix=self.name)
+                                                 options_prefix=self.name,
+                                                 ad_block_tag=self.ad_block_tag)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -519,6 +525,7 @@ class LeapFrogAM3(TimeIntegrator):
         self.solution_old.assign(solution)
         assemble(self.mass_new, self.msolution_old)
         self.lin_solver = LinearSolver(self.mass_matrix)
+        # TODO: Linear solver is not annotated and does not accept ad_block_tag
 
     def _solve_system(self):
         """
@@ -648,6 +655,7 @@ class SSPRK22ALE(TimeIntegrator):
         mass_matrix = assemble(self.a)
         self.lin_solver = LinearSolver(mass_matrix,
                                        solver_parameters=self.solver_parameters)
+        # TODO: Linear solver is not annotated and does not accept ad_block_tag
         self._initialized = True
 
     def stage_one_prep(self):
