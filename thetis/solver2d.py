@@ -394,13 +394,15 @@ class FlowSolver2d(FrozenClass):
         if len(filename) < 5 or filename[:-4] != '.yml':
             filename += '.yml'
         if input_directory is not None:
-            filename = os.path.join(di, filename)
+            filename = os.path.join(input_directory, filename)
         if not os.path.exists(filename):
             raise IOError(f"Tracer model .yml file {filename} does not exist.")
-        adr_model = read_tracer_from_yml(filename, self.Q_2d)
-        for label in adr_model.species:
-            name = label.capitalize().replace('_', ' ')
-            fname = label.capitalize().replace('_', '')
+        adr_model = read_tracer_from_yml(filename, self.function_spaces.Q_2d)
+        for label in adr_model.keys():
+            name = adr_model[label]['function'].name()
+            if not name:
+                name = label.capitalize().replace('_', ' ')
+            fname = name.replace(' ', '')
             self.options.add_tracer_2d(label, name, fname,
                                        function=adr_model[label]['function'],
                                        source=adr_model[label]['reaction_terms'],
