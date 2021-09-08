@@ -48,25 +48,11 @@ sim_end_time = 2000.0
 options.tracer_picard_iterations = 2
 options.set_timestepper_type('CrankNicolson', implicitness_theta=1.0)
 
-# TODO: Instead of the following code block, just use solver_obj.load_tracers_2d
-# NOTE: Might need to change labels to get it to work
-# XXX-----------------------------------------
-# Add tracer fields and the associated coefficients
-a_2d = Function(P1_2d)
-b_2d = Function(P1_2d)
-options.add_tracer_2d(
-    "a_2d", "Tracer A", "TracerA2d",
-    function=a_2d,
-    diffusivity=D1,
-    source=gamma - a_2d*b_2d**2 - gamma*a_2d,
-)
-options.add_tracer_2d(
-    "b_2d", "Tracer B", "TracerB2d",
-    function=b_2d,
-    diffusivity=D2,
-    source=a_2d*b_2d**2 - (gamma + kappa)*b_2d,
-)
-# XXX-----------------------------------------
+# Load tracers
+solver_obj.create_function_spaces()
+solver_obj.load_tracers_2d(
+    "gray-scott_2d", input_directory="reaction_models",
+    use_conservative_form=False)
 options.fields_to_export = ["a_2d", "b_2d"]
 
 # Define initial conditions

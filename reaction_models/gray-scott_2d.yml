@@ -1,0 +1,15 @@
+constants:
+  D1: 8.0e-5
+  D2: 4.0e-5
+  gamma: 0.024
+  kappa: 0.06
+
+species:
+  a_2d:
+    name: Tracer A
+    diffusion: D1
+    reaction: -a_2d*b_2d**2 + gamma*(1-a_2d)
+  b_2d:
+    name: Tracer B
+    diffusion: D2
+    reaction: a_2d*b_2d^2 - (gamma+kappa)*b_2d
