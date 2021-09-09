@@ -657,7 +657,7 @@ class FlowSolver2d(FrozenClass):
         self._initialized = True
 
     def assign_initial_conditions(self, elev=None, uv=None, sediment=None, **tracers):
-        """
+        r"""
         Assigns initial conditions
 
         :kwarg elev: Initial condition for water elevation
