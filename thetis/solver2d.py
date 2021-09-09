@@ -400,10 +400,9 @@ class FlowSolver2d(FrozenClass):
             raise IOError(f"Tracer model .yml file {filename} does not exist.")
         adr_model = read_tracer_from_yml(filename, self.function_spaces.Q_2d)
         for label in adr_model.keys():
-            name = adr_model[label]['function'].name()
-            if not name:
-                name = label.capitalize().replace('_', ' ')
-            fname = name.replace(' ', '')
+            name = adr_model[label]['function'].name() \
+                or label.capitalize().replace('_', ' ')
+            fname = label.capitalize().replace('_', '')
             self.options.add_tracer_2d(label, name, fname,
                                        function=adr_model[label]['function'],
                                        source=adr_model[label]['reaction_terms'],
