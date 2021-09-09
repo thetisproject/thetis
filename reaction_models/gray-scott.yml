@@ -1,0 +1,15 @@
+constants:
+  D1: 8.0e-5
+  D2: 4.0e-5
+  k1: 0.024
+  k2: 0.06
+
+species:
+  a:
+    name: Tracer A
+    diffusion: D1
+    reaction: -a*b**2 + k1*(1-a)
+  b:
+    name: Tracer B
+    diffusion: D2
+    reaction: a*b^2 - (k1+k2)*b

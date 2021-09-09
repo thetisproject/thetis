@@ -29,12 +29,6 @@ x, y = SpatialCoordinate(mesh2d)
 P1_2d = get_functionspace(mesh2d, "CG", 1)
 bathymetry2d = Function(P1_2d).assign(1.0)
 
-# Diffusion and reactivity constants
-D1 = Constant(8.0e-05)
-D2 = Constant(4.0e-05)
-gamma = Constant(0.024)
-kappa = Constant(0.06)
-
 # Setup solver object
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
 options = solver_obj.options
@@ -51,8 +45,8 @@ options.set_timestepper_type('CrankNicolson', implicitness_theta=1.0)
 # Load tracers
 solver_obj.create_function_spaces()
 solver_obj.load_tracers_2d(
-    "gray-scott_2d", input_directory="reaction_models",
-    use_conservative_form=False)
+    "gray-scott", input_directory="reaction_models",
+    use_conservative_form=False, append_dimension=True)
 options.fields_to_export = ["a_2d", "b_2d"]
 
 # Define initial conditions

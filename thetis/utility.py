@@ -1100,7 +1100,8 @@ def get_species_key_order(filename):
     return species_keys
 
 
-def read_tracer_from_yml(filename, function_space, lambdify_modules=None, preserve_order=True):
+def read_tracer_from_yml(filename, function_space, lambdify_modules=None,
+                         preserve_order=True, append_dimension=False):
     r"""
     Constructs and returns an ordered dictionary that specifies an ADR model.
 
@@ -1129,12 +1130,12 @@ def read_tracer_from_yml(filename, function_space, lambdify_modules=None, preser
         assert set(key_order) == expected_keys
 
     return parse_tracers_from_dict(
-        model_dict, function_space,
-        lambdify_modules=lambdify_modules, key_order=key_order)
+        model_dict, function_space, lambdify_modules=lambdify_modules,
+        key_order=key_order, append_dimension=append_dimension)
 
 
-def parse_tracers_from_dict(model_dict, function_space,
-                            lambdify_modules=None, key_order=None):
+def parse_tracers_from_dict(model_dict, function_space, lambdify_modules=None,
+                            key_order=None, append_dimension=False):
     r"""
     Constructs and returns an ordered dictionary that specifies an ADR model.
 
@@ -1169,6 +1170,8 @@ def parse_tracers_from_dict(model_dict, function_space,
         determines the order in which species are added to the OrderedDict
         before it is returned.
     """
+    key_suffix = '_%id' % function_space.mesh().topological_dimension() \
+                 if append_dimension else ''
     mdl = ADR_Model(model_dict, lambdify_modules=lambdify_modules)
 
     species = key_order
@@ -1176,16 +1179,17 @@ def parse_tracers_from_dict(model_dict, function_space,
         # Get tracer labels
         species = mdl.list_species_keys()
 
-    adr_model = OrderedDict({s: {} for s in species})
+    adr_model = OrderedDict({s + key_suffix: {} for s in species})
     # NOTE: the order they are added are the order we assume for now
 
     for s in species:
-        adr_model[s]['function'] = Function(function_space, name=mdl.species_name(s))
-        adr_model[s]['diffusivity'] = Constant(mdl.diffusion(s))
+        adr_model[s + key_suffix]['function'] = Function(
+            function_space, name=mdl.species_name(s))
+        adr_model[s + key_suffix]['diffusivity'] = Constant(mdl.diffusion(s))
     # Reaction terms must be added in a separate loop, after all
     # functions have been created.
     for s in species:
-        adr_model[s]['reaction_terms'] = mdl.reaction_function(s)(*[
-            adr_model[str(s2)]['function'] for s2 in mdl.reaction_args(s)])
+        adr_model[s + key_suffix]['reaction_terms'] = mdl.reaction_function(s)(*[
+            adr_model[s2 + key_suffix]['function'] for s2 in mdl.reaction_args(s)])
 
     return adr_model
