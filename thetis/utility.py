@@ -1100,7 +1100,7 @@ def get_species_key_order(filename):
     return species_keys
 
 
-def read_tracer_from_yml(filename, function_space, lambdify_modules=None, preserve_order=False):
+def read_tracer_from_yml(filename, function_space, lambdify_modules=None, preserve_order=True):
     r"""
     Constructs and returns an ordered dictionary that specifies an ADR model.
 
@@ -1110,9 +1110,8 @@ def read_tracer_from_yml(filename, function_space, lambdify_modules=None, preser
         :class:`Function` for each tracer should reside.
     :arg lambdify_modules: A string or dictionary to be passed as the
         `modules` parameter of `sympy.lambdify` (optional).
-    :arg key_order: List of species keys (optional). If not None, this
-        determines the order in which species are added to the OrderedDict
-        before it is returned.
+    :arg preserve_order: If True, tracers will appear in the OrderedDict
+        in the same order as they appear in the YAML file (optional).
     """
     # Load dictionary
     model_dict = None
