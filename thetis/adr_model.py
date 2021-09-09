@@ -9,26 +9,23 @@ from sympy.utilities.lambdify import lambdify
 
 
 class ADR_Model:
-    """Data structure to store an ADR model specification.
+    """
+    Data structure to store an ADR model specification.
 
     Performs validation checks on a user-provided dictionary of strings
     and parses strings representing mathematical expressions into
     SymPy expressions.
 
-    Class attributes
-    ----------------
-    transformations : tuple[function]
-        Transformations applied to strings parsed as sympy expressions.
-
-    Instance attributes
-    -------------------
-    constants : dict[str, float]
-        Dictionary mapping strings used to uniquely identify constants
-        to the values of those constants.
-    species : dict[str, dict]
-        Dictionary mapping strings used to uniquely identify biological
-        or chemical species to dictionaries that contain data pertaining
-        to those species.
+    :cvar transformations: Transformations applied to strings parsed as
+        SymPy expressions.
+    :type transformations: tuple
+    :ivar constants:  Dictionary mapping strings used to uniquely identify
+        constants to the values of those constants.
+    :type constants: dict
+    :ivar species: Dictionary mapping strings used to uniquely identify
+        biological or chemical species to dictionaries that contain data
+        pertaining to those species.
+    :type species: dict
     """
 
     # convert_xor causes "x^2" to be parsed as "x**2"
@@ -48,34 +45,45 @@ class ADR_Model:
         in the ADR system, the values of all constants, and the
         diffusivities and reaction terms of all species.
 
-        Parameters
-        ----------
-        model_dict : dict[str, dict]
-            A dict defining all species in the ADR system, including
-            the symbols by which they are represented in equations,
-            their full names, diffusivity constants and reaction
+        :arg model_dict: Dictionary defining species in an ADR system.
+            This must include the keys used to identify each species,
+            their full names, their diffusivities and their reaction
             terms.
             Any hard-coded numeric values should be defined under
             model_dict['constants'], and the details of each species
             should be defined under model_dict['species'].
-            Example:
-            { 'constants': {
-                'D1': 8e-05,
-                'D2': 4e-05,
-                'k1': 0.024,
-                'k2': 0.06 },
-              'species': {
-                'a': {
-                  'diffusion': 'D1',
-                  'name': 'Tracer A',
-                  'reaction': '-a*b**2 + k1*(1-a)'},
-                'b': {
-                  'diffusion': 'D2',
-                  'name': 'Tracer B',
-                  'reaction': 'a*b^2 - (k1+k2)*b'}}}
-        lambdify_modules : str|dict, optional
-            Optional argument to pass as the 'modules' parameter of
-            sympy.lambdify.
+            A dictionary obtained from a correctly-formatted YAML file using
+            `yaml.safe_load` should be sufficient.
+
+            **Example**
+
+            .. code-block:: python
+
+                {
+                    'constants': {
+                        'D1': 8e-05,
+                        'D2': 4e-05,
+                        'k1': 0.024,
+                        'k2': 0.06
+                    },
+                    'species': {
+                        'a': {
+                            'diffusion': 'D1',
+                            'name': 'Tracer A',
+                            'reaction': '-a*b**2 + k1*(1-a)'
+                        },
+                        'b': {
+                            'diffusion': 'D2',
+                            'name': 'Tracer B',
+                            'reaction': 'a*b^2 - (k1+k2)*b'
+                        }
+                    }
+                }
+
+        :type model_dict: dict
+        :kwarg lambdify_modules: Optional argument to pass as the `modules`
+            parameter of `sympy.lambdify`.
+        :type lambdify_modules: str or dict, optional
         """
         self.constants = {
             "pi": fd.pi,
@@ -151,18 +159,15 @@ class ADR_Model:
             raise RuntimeError
 
     def _substitute_constants(self, expression):
-        """Substitutes numeric values of self.constants into a sympy expression.
+        """
+        Substitutes numeric values of `self.constants` into a SymPy expression.
 
-        Parameters
-        ----------
-        expression : SymPy expression
-            The expression into which the constant values are to be
-            substituted.
-
-        Returns
-        -------
-        SymPy expression
-            The updated expression with constants replaced by numeric values.
+        :arg expression: The expression into which the constant values are
+            to be substituted.
+        :type expression: SymPy expression
+        :return: The updated expression with constants replaced by numeric
+            values.
+        :rtype: SymPy expression
         """
         for s in expression.free_symbols:
             constant_name = str(s)
@@ -194,12 +199,16 @@ class ADR_Model:
             key=lambda k: self.species[k]['index'])
 
     def dependency_graph(self):
-        """Creates a graph representing dependencies between species.
+        """
+        Creates a graph representing dependencies between species.
 
         Adds a node for each species.
         Adds a directed edge from species s1 to s2 for all (s1, s2) pairs
         in which s2 appears in the reaction term of s1, such that s1 is
         dependent on s2.
+
+        :return: A directed graph representing dependencies between species.
+        :rtype: networkx.DiGraph
         """
         dependencies = nx.DiGraph()
         dependencies.add_nodes_from(self.list_species_keys())
