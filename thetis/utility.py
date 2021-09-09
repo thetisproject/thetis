@@ -1109,10 +1109,14 @@ def read_tracer_from_yml(filename, function_space, lambdify_modules=None,
         diffusivities and reaction terms.
     :arg function_space: The Firedrake :class:`FunctionSpace` in which the
         :class:`Function` for each tracer should reside.
-    :arg lambdify_modules: A string or dictionary to be passed as the
-        `modules` parameter of `sympy.lambdify` (optional).
-    :arg preserve_order: If True, tracers will appear in the OrderedDict
-        in the same order as they appear in the YAML file (optional).
+    :kwarg lambdify_modules: A string or dictionary to be passed as the
+        `modules` parameter of `sympy.lambdify`.
+    :kwarg preserve_order: If True, tracers will appear in the OrderedDict
+        in the same order as they appear in the YAML file.
+    :kwarg append_dimension: If `True`, a suffix will be appended to the
+        label of each species from the input file. The form of the suffix is
+        `_Nd`, where `N` is the dimensionality of the spatial domain in
+        which `function_space` resides.
     """
     # Load dictionary
     model_dict = None
@@ -1147,28 +1151,43 @@ def parse_tracers_from_dict(model_dict, function_space, lambdify_modules=None,
         defined under model_dict['species'].
         A dictionary obtained from a correctly-formatted YAML file using
         `yaml.safe_load` should be sufficient.
-        Example:
-        { 'constants': {
-            'D1': 8e-05,
-            'D2': 4e-05,
-            'k1': 0.024,
-            'k2': 0.06 },
-          'species': {
-            'a': {
-                'diffusion': 'D1',
-                'name': 'Tracer A',
-                'reaction': '-a*b**2 + k1*(1-a)'},
-            'b': {
-                'diffusion': 'D2',
-                'name': 'Tracer B',
-                'reaction': 'a*b^2 - (k1+k2)*b'}}}
+
+        **Example**
+
+        .. code-block:: python
+
+            {
+                'constants': {
+                    'D1': 8e-05,
+                    'D2': 4e-05,
+                    'k1': 0.024,
+                    'k2': 0.06
+                },
+                'species': {
+                    'a': {
+                        'diffusion': 'D1',
+                        'name': 'Tracer A',
+                        'reaction': '-a*b**2 + k1*(1-a)'
+                    },
+                    'b': {
+                        'diffusion': 'D2',
+                        'name': 'Tracer B',
+                        'reaction': 'a*b^2 - (k1+k2)*b'
+                    }
+                }
+            }
+
     :arg function_space: The Firedrake :class:`FunctionSpace` in which the
         :class:`Function` for each tracer will reside.
-    :arg lambdify_modules: A string or dictionary to be passed as the
-        `modules` parameter of `sympy.lambdify` (optional).
-    :arg key_order: List of species keys (optional). If not None, this
-        determines the order in which species are added to the OrderedDict
-        before it is returned.
+    :kwarg lambdify_modules: A string or dictionary to be passed as the
+        `modules` parameter of `sympy.lambdify`.
+    :kwarg key_order: List of species keys. If not `None`, this
+        determines the order in which species are added to the
+        :class:`OrderedDict` before it is returned.
+    :kwarg append_dimension: If `True`, a suffix will be appended to the
+        label of each species from `model_dict`. The form of the suffix is
+        `_Nd`, where `N` is the dimensionality of the spatial domain in
+        which `function_space` resides.
     """
     key_suffix = '_%id' % function_space.mesh().topological_dimension() \
                  if append_dimension else ''

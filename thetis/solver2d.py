@@ -392,6 +392,8 @@ class FlowSolver2d(FrozenClass):
         :arg filename: the .yml file
         :kwarg input_directory: file path to the .yml file
         :kwarg use_conservative_form: should the tracer equation be solved in conservative form?
+        :kwarg append_dimension: If `True`, the suffix `_2d` will be appended to the
+            label of each species from the input file.
         """
         if len(filename) < 5 or filename[:-4] != '.yml':
             filename += '.yml'
