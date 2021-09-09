@@ -115,7 +115,7 @@ class ADR_Model:
                 "reaction":
                 {
                     "expression": reaction_term,
-                    "args": reaction_args,
+                    "args": list(map(str, reaction_args)),
                     "function": lambdify(
                         reaction_args, reaction_term,
                         modules=lambdify_modules)

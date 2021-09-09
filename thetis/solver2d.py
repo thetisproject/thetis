@@ -382,7 +382,8 @@ class FlowSolver2d(FrozenClass):
         if preproc_func is not None:
             self._field_preproc_funcs[label] = preproc_func
 
-    def load_tracers_2d(self, filename, input_directory=None, use_conservative_form=False):
+    def load_tracers_2d(self, filename, input_directory=None,
+                        use_conservative_form=False, append_dimension=False):
         """
         Add 2D tracer fields to :attr:`tracer` based on
         a .yml file encapsulating a tracer model.
@@ -397,7 +398,8 @@ class FlowSolver2d(FrozenClass):
             filename = os.path.join(input_directory, filename)
         if not os.path.exists(filename):
             raise IOError(f"Tracer model .yml file {filename} does not exist.")
-        adr_model = read_tracer_from_yml(filename, self.function_spaces.Q_2d)
+        adr_model = read_tracer_from_yml(
+            filename, self.function_spaces.Q_2d, append_dimension=append_dimension)
         for label in adr_model.keys():
             name = adr_model[label]['function'].name() \
                 or label.capitalize().replace('_', ' ')
