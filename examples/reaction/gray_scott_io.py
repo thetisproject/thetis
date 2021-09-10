@@ -18,6 +18,7 @@ solve them alternately using a Picard iteration.
     (2003). "Numerical Solution of Time-Dependent
     Advection-Diffusion-Reaction Equations", Springer.
 """
+import os
 from thetis import *
 
 
@@ -45,7 +46,8 @@ options.set_timestepper_type('CrankNicolson', implicitness_theta=1.0)
 # Load tracers
 solver_obj.create_function_spaces()
 solver_obj.load_tracers_2d(
-    "gray-scott", input_directory="reaction_models",
+    "gray-scott", input_directory=os.path.join(
+        os.path.dirname(__file__), "reaction_models"),
     use_conservative_form=False, append_dimension=True)
 options.fields_to_export = ["a_2d", "b_2d"]
 
