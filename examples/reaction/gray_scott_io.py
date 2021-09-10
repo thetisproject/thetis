@@ -1,18 +1,11 @@
 """
 Gray-Scott diffusion-reaction demo, taken from
-[Hundsdorf & Verwer 2003]. It also appears as a
-PETSc TS tutorial and can be found in your Firedrake
-installation at
+[Hundsdorf & Verwer 2003].
 
-  $VIRTUAL_ENV/src/petsc/src/ts/tutorials/advection-diffusion-reaction/ex5.c
-
-The test case consists of two tracer species, which
-experience different diffusivities and react with one
-another. The problem is interesting from a numerical
-modelling perspective because of the nonlinear coupling
-between the two equations in the system. Instead of
-solving the equations as a monolithic system, we opt to
-solve them alternately using a Picard iteration.
+This test case uses the same model as gray_scott.py.
+The only difference here is that the model is loaded
+from examples/reaction/reaction_models/gray-scott.yml
+rather than being specified within the Python script.
 
 [Hundsdorf & Vermer 2003] W. Hundsdorf & J.G. Verwer
     (2003). "Numerical Solution of Time-Dependent
