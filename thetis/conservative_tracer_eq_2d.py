@@ -31,13 +31,17 @@ class ConservativeTracerTerm(TracerTerm):
     Generic depth-integrated tracer term that provides commonly used members and mapping for
     boundary functions.
     """
-    def __init__(self, function_space, depth, options, test_function=None):
+    def __init__(self, function_space, depth, options,
+                 trial_function=None, test_function=None):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
         :arg options: :class`ModelOptions2d` containing parameters
+        :kwarg trial_function: custom :class:`TrialFunction`.
+        :kwarg test_function: custom :class:`TestFunction`.
         """
         super(ConservativeTracerTerm, self).__init__(function_space, depth, options,
+                                                     trial_function=trial_function,
                                                      test_function=test_function)
 
     # TODO: at the moment this is the same as TracerTerm, but we probably want to overload its
