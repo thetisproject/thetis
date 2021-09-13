@@ -478,8 +478,10 @@ class TracerFieldOptions(FrozenHasTraits):
     name = 'Tracer options'
     function = FiredrakeScalarExpression(
         None, allow_none=True, help='Firedrake Function representing the tracer')
-    parent = FiredrakeVectorExpression(
-        None, allow_none=True, help='Firedrake Function representing the parent mixed Function')
+    parent = Union([
+        FiredrakeVectorExpression(None, allow_none=True), FiredrakeScalarExpression()],
+        help='Firedrake Function representing the parent mixed Function')
+    _parent_metadata = None  # NOTE: Otherwise would be added by traitlets.Union
     source = FiredrakeScalarExpression(
         None, allow_none=True, help='Source term for the tracer equation')
     diffusivity = FiredrakeScalarExpression(
