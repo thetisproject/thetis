@@ -465,6 +465,8 @@ class FlowSolver2d(FrozenClass):
         self.equations.sw.bnd_functions = self.bnd_functions['shallow_water']
         uv_2d, elev_2d = self.fields.solution_2d.split()
         for label, tracer in self.options.tracer.items():
+            if tracer.function is not None:
+                assert tracer.function.function_space() == self.function_spaces.Q_2d
             self.add_new_field(tracer.function or Function(self.function_spaces.Q_2d, name=label),
                                label,
                                tracer.metadata['name'],

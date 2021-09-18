@@ -49,8 +49,10 @@ options.tracer_picard_iterations = 2
 options.set_timestepper_type('CrankNicolson', implicitness_theta=1.0)
 
 # Add tracer fields and the associated coefficients
-a_2d = Function(P1_2d)
-b_2d = Function(P1_2d)
+solver_obj.create_function_spaces()
+Q_2d = solver_obj.function_spaces.Q_2d
+a_2d = Function(Q_2d)
+b_2d = Function(Q_2d)
 options.add_tracer_2d(
     "a_2d", "Tracer A", "TracerA2d",
     function=a_2d,
@@ -66,8 +68,8 @@ options.add_tracer_2d(
 options.fields_to_export = ["a_2d", "b_2d"]
 
 # Define initial conditions
-tracer_a_init = Function(P1_2d)
-tracer_b_init = Function(P1_2d)
+tracer_a_init = Function(Q_2d)
+tracer_b_init = Function(Q_2d)
 tracer_b_init.interpolate(
     conditional(
         And(And(1.0 <= x, x <= 1.5), And(1.0 <= y, y <= 1.5)),
