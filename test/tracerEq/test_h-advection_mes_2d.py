@@ -46,13 +46,13 @@ def run(refinement, **model_options):
     options.output_directory = outputdir
     options.simulation_end_time = t_end
     options.simulation_export_time = t_export
-    solverobj.create_function_spaces()
-    corr_factor = Function(solverobj.function_spaces.H_2d, name='uv tracer factor').interpolate(Constant(1.0))
-    options.tracer_advective_velocity_factor = corr_factor
-    options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d')
     options.use_limiter_for_tracers = True
     options.fields_to_export = ['tracer_2d']
     options.update(model_options)
+    solverobj.create_function_spaces()
+    options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d')
+    corr_factor = Function(solverobj.function_spaces.H_2d, name='uv tracer factor').interpolate(Constant(1.0))
+    options.tracer_advective_velocity_factor = corr_factor
     uv_expr = as_vector((u, 0))
     bnd_salt_2d = {'value': Constant(0.0), 'uv': uv_expr}
     bnd_uv_2d = {'uv': uv_expr}
@@ -122,7 +122,7 @@ def run(refinement, **model_options):
 def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
 
-    polynomial_degree = options.get('polynomial_degree', 1)
+    polynomial_degree = options.get('tracer_polynomial_degree', 1)
     l2_err = []
     for r in ref_list:
         l2_err.append(run(r, **options))
@@ -175,7 +175,7 @@ def run_convergence(ref_list, saveplot=False, **options):
 # ---------------------------
 
 
-@pytest.fixture(params=[1])
+@pytest.fixture(params=[1, 2])
 def polynomial_degree(request):
     return request.param
 
@@ -186,7 +186,7 @@ def stepper(request):
 
 
 def test_horizontal_advection(polynomial_degree, stepper):
-    run_convergence([1, 2, 3], polynomial_degree=polynomial_degree,
+    run_convergence([1, 2, 3], tracer_polynomial_degree=polynomial_degree,
                     swe_timestepper_type=stepper, tracer_timestepper_type=stepper)
 
 # ---------------------------
@@ -195,6 +195,6 @@ def test_horizontal_advection(polynomial_degree, stepper):
 
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3, 4], polynomial_degree=1,
+    run_convergence([1, 2, 3, 4], tracer_polynomial_degree=2,
                     tracer_timestepper_type='CrankNicolson',
                     no_exports=False, saveplot=True)

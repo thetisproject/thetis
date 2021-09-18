@@ -144,14 +144,15 @@ def run(refinement, **model_options):
 
 
 def run_convergence(**model_options):
+    p = model_options.get('tracer_polynomial_degree')
+    expected = p + 1
     errors = []
     for refinement in (1, 2, 4):
         errors.append(run(refinement, **model_options))
-    msg = "Wrong convergence rate {:.4f}, expected 2.0000."
     slope = errors[0]/errors[1]
-    assert slope > 2, msg.format(slope)
+    assert slope > expected, f"Wrong convergence rate {slope}, expected {expected}."
     slope = errors[1]/errors[2]
-    assert slope > 2, msg.format(slope)
+    assert slope > expected, f"Wrong convergence rate {slope}, expected {expected}."
 
 
 @pytest.fixture(params=['dg', 'cg'])
@@ -159,7 +160,7 @@ def family(request):
     return request.param
 
 
-@pytest.fixture(params=[1])
+@pytest.fixture(params=[1, 2])
 def polynomial_degree(request):
     return request.param
 
@@ -172,15 +173,15 @@ def stepper(request):
 @pytest.mark.parametrize(('diffusivity'),
                          [(Constant(0.1))])
 def test_horizontal_advection(polynomial_degree, stepper, diffusivity, family):
-    run_convergence(polynomial_degree=polynomial_degree,
+    run_convergence(tracer_polynomial_degree=polynomial_degree,
                     tracer_timestepper_type=stepper,
                     horizontal_diffusivity=diffusivity,
                     tracer_element_family=family)
 
 
 if __name__ == '__main__':
-    run_convergence(polynomial_degree=1,
-                    tracer_timestepper_type='SSPRK33',
+    run_convergence(tracer_polynomial_degree=2,
+                    tracer_timestepper_type='CrankNicolson',
                     horizontal_diffusivity=Constant(0.1),
-                    tracer_element_family='cg',
+                    tracer_element_family='dg',
                     no_exports=False)
