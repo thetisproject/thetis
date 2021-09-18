@@ -193,7 +193,7 @@ class FlowSolver2d(FrozenClass):
         if not self.options.tracer_only:
             print_output(f'Element family: {self.options.element_family}, degree: {self.options.polynomial_degree}')
         if self.solve_tracer:
-            print_output(f'Tracer element family: {self.options.tracer_element_family}, degree: 1')
+            print_output(f'Tracer element family: {self.options.tracer_element_family}, degree: {self.options.tracer_polynomial_degree}')
         print_output(f'2D cell type: {self.mesh2d.ufl_cell()}')
         print_output(f'2D mesh: {nnodes} vertices, {nelem2d} elements')
         print_output(f'Horizontal element size: {min_h_size:.2f} ... {max_h_size:.2f} m')
