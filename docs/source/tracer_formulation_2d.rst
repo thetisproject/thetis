@@ -45,15 +45,16 @@ and associated stabilization methods, summarised in the table below.
 =============== ========= ======= ===============
 Element Family  Name      Space   Stabilization
 =============== ========= ======= ===============
-DG              ``'dg'``  P1DG    Lax-Friedrichs
-CG              ``'cg'``  P1      SUPG
+DG              ``'dg'``  P(n)DG  Lax-Friedrichs
+CG              ``'cg'``  P(n)    SUPG
 =============== ========= ======= ===============
 
-Table 1. *Finite element families and stabilization methods.*
+Table 1. *Finite element families and stabilization methods for polynomial degree n.*
 
-The element family is set by the
-:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.tracer_element_family`
-option. Polynomial degrees other than one are not currently supported.
+The element family and polynomial degree are set by the
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.tracer_element_family` and
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.tracer_polynomial_degree`
+options.
 
 Lax-Friedrichs stabilization is used by default and may be
 controlled using the
