@@ -71,9 +71,9 @@ class TracerTerm(Term):
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
         self.quad_degree = 2*p + 1
-        self.dx = dx(degree=self.quad_degree)
-        self.dS = dS(degree=self.quad_degree)
-        self.ds = ds(degree=self.quad_degree)
+        self.dx = dx(degree=self.quad_degree, domain=self.mesh)
+        self.dS = dS(degree=self.quad_degree, domain=self.mesh)
+        self.ds = ds(degree=self.quad_degree, domain=self.mesh)
 
     def get_bnd_functions(self, c_in, uv_in, elev_in, bnd_id, bnd_conditions):
         """
@@ -176,7 +176,7 @@ class HorizontalAdvectionTerm(TracerTerm):
 
         for bnd_marker in self.boundary_markers:
             funcs = bnd_conditions.get(bnd_marker)
-            ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+            ds_bnd = ds(int(bnd_marker), degree=self.quad_degree, domain=self.mesh)
             c_in = c
             if funcs is not None:
                 c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
@@ -240,7 +240,7 @@ class HorizontalDiffusionTerm(TracerTerm):
         if self.horizontal_dg:
             cell = self.mesh.ufl_cell()
             p = self.function_space.ufl_element().degree()
-            cp = (p + 1) * (p + 2) / 2 if cell == triangle else (p + 1)**2
+            cp = Constant((p + 1) * (p + 2) / 2 if cell == triangle else (p + 1)**2)
             l_normal = CellVolume(self.mesh) / FacetArea(self.mesh)
             # by default the factor is multiplied by 2 to ensure convergence
             sigma = sipg_factor * cp / l_normal
@@ -258,7 +258,7 @@ class HorizontalDiffusionTerm(TracerTerm):
 
         for bnd_marker in self.boundary_markers:
             funcs = bnd_conditions.get(bnd_marker)
-            ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+            ds_bnd = ds(int(bnd_marker), degree=self.quad_degree, domain=self.mesh)
             c_in = c
             elev = fields_old['elev_2d']
             self.corr_factor = fields_old.get('tracer_advective_velocity_factor')

@@ -67,12 +67,12 @@ class TracerTerm(Term):
         # define measures with a reasonable quadrature degree
         p, q = self.function_space.ufl_element().degree()
         self.quad_degree = (2*p + 1, 2*q + 1)
-        self.dx = dx(degree=self.quad_degree)
-        self.dS_h = dS_h(degree=self.quad_degree)
-        self.dS_v = dS_v(degree=self.quad_degree)
-        self.ds = ds(degree=self.quad_degree)
-        self.ds_surf = ds_surf(degree=self.quad_degree)
-        self.ds_bottom = ds_bottom(degree=self.quad_degree)
+        self.dx = dx(degree=self.quad_degree, domain=self.mesh)
+        self.dS_h = dS_h(degree=self.quad_degree, domain=self.mesh)
+        self.dS_v = dS_v(degree=self.quad_degree, domain=self.mesh)
+        self.ds = ds(degree=self.quad_degree, domain=self.mesh)
+        self.ds_surf = ds_surf(degree=self.quad_degree, domain=self.mesh)
+        self.ds_bottom = ds_bottom(degree=self.quad_degree, domain=self.mesh)
 
     def get_bnd_functions(self, c_in, uv_in, elev_in, bnd_id, bnd_conditions):
         """
@@ -278,7 +278,7 @@ class HorizontalDiffusionTerm(TracerTerm):
         if self.horizontal_dg:
             h_cell = self.mesh.ufl_cell().sub_cells()[0]
             p, q = self.function_space.ufl_element().degree()
-            cp = (p + 1) * (p + 2) / 2 if h_cell == triangle else (p + 1)**2
+            cp = Constant((p + 1) * (p + 2) / 2 if h_cell == triangle else (p + 1)**2)
             # by default the factor is multiplied by 2 to ensure convergence
             sigma = cp * FacetArea(self.mesh) / CellVolume(self.mesh)
             sp = sigma('+')
