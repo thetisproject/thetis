@@ -22,6 +22,7 @@ from . import callback
 from .log import *
 from collections import OrderedDict
 import thetis.limiter as limiter
+import numpy
 
 
 class FlowSolver2d(FrozenClass):
@@ -758,7 +759,7 @@ class FlowSolver2d(FrozenClass):
         self.i_export = i_export
         self.next_export_t = self.i_export*self.options.simulation_export_time
         if iteration is None:
-            iteration = int(np.ceil(self.next_export_t/self.dt))
+            iteration = int(numpy.ceil(self.next_export_t/self.dt))
         if t is None:
             t = iteration*self.dt
         self.iteration = iteration

@@ -3,6 +3,7 @@ Utility solvers and calculators for 3D hydrostatic ocean model
 """
 from __future__ import absolute_import
 from .utility import *
+import numpy
 
 
 __all__ = [
@@ -359,7 +360,7 @@ class VelocityMagnitudeSolver(object):
     def solve(self):
         """Compute the magnitude"""
         self.solver.solve()
-        np.maximum(self.solution.dat.data, self.min_val, self.solution.dat.data)
+        numpy.maximum(self.solution.dat.data, self.min_val, self.solution.dat.data)
 
 
 class Mesh3DConsistencyCalculator(object):
@@ -409,7 +410,7 @@ class Mesh3DConsistencyCalculator(object):
         assert self.output.function_space() == self.fs_3d
 
         nodes = get_facet_mask(self.fs_3d, 'bottom')
-        self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
+        self.idx = op2.Global(len(nodes), nodes, dtype=numpy.int32, name='node_idx')
         self.kernel = op2.Kernel("""
             void my_kernel(double *output, double *z_field, int *idx) {
                 // compute max delta z on top and bottom facets
@@ -502,7 +503,7 @@ class ExpandFunctionTo3d(object):
         n_vert_nodes = self.fs_3d.finat_element.space_dimension() / self.fs_2d.finat_element.space_dimension()
 
         nodes = get_facet_mask(self.fs_3d, 'bottom')
-        self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
+        self.idx = op2.Global(len(nodes), nodes, dtype=numpy.int32, name='node_idx')
         self.kernel = op2.Kernel("""
             void my_kernel(double *func, double *func2d, int *idx) {
                 for ( int d = 0; d < %(nodes)d; d++ ) {
@@ -619,7 +620,7 @@ class SubFunctionExtractor(object):
 
         assert elem_facet in ['top', 'bottom', 'average'], 'Unsupported elem_facet: {:}'.format(elem_facet)
         if elem_facet == 'average':
-            nodes = np.hstack((get_facet_mask(self.fs_3d, 'bottom'),
+            nodes = numpy.hstack((get_facet_mask(self.fs_3d, 'bottom'),
                                get_facet_mask(self.fs_3d, 'top')))
         else:
             nodes = get_facet_mask(self.fs_3d, elem_facet)
@@ -635,7 +636,7 @@ class SubFunctionExtractor(object):
         else:
             assert (len(nodes) == out_nodes)
 
-        self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
+        self.idx = op2.Global(len(nodes), nodes, dtype=numpy.int32, name='node_idx')
         if elem_facet == 'average':
             # compute average of top and bottom elem nodes
             self.kernel = op2.Kernel("""
@@ -738,7 +739,7 @@ class ALEMeshUpdater(object):
         n_vert_nodes = self.fs_3d.finat_element.space_dimension() / self.fs_2d.finat_element.space_dimension()
 
         nodes = get_facet_mask(self.fs_3d, 'bottom')
-        self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
+        self.idx = op2.Global(len(nodes), nodes, dtype=numpy.int32, name='node_idx')
         self.kernel_z_coord = op2.Kernel("""
             void my_kernel(double *z_coord_3d, double *z_ref_3d, double *elev_2d, double *bath_2d, int *idx) {
                 for ( int d = 0; d < %(nodes)d; d++ ) {
@@ -1021,11 +1022,11 @@ class JackettEquationOfState(EquationOfState):
     Journal of Atmospheric and Oceanic Technology, 23(12):1709-1728.
     http://dx.doi.org/10.1175/JTECH1946.1
     """
-    a = np.array([9.9984085444849347e2, 7.3471625860981584e0, -5.3211231792841769e-2,
+    a = numpy.array([9.9984085444849347e2, 7.3471625860981584e0, -5.3211231792841769e-2,
                   3.6492439109814549e-4, 2.5880571023991390e0, -6.7168282786692355e-3,
                   1.9203202055760151e-3, 1.1798263740430364e-2, 9.8920219266399117e-8,
                   4.6996642771754730e-6, -2.5862187075154352e-8, -3.2921414007960662e-12])
-    b = np.array([1.0, 7.2815210113327091e-3, -4.4787265461983921e-5, 3.3851002965802430e-7,
+    b = numpy.array([1.0, 7.2815210113327091e-3, -4.4787265461983921e-5, 3.3851002965802430e-7,
                   1.3651202389758572e-10, 1.7632126669040377e-3, -8.8066583251206474e-6,
                   -1.8832689434804897e-10, 5.7463776745432097e-6, 1.4716275472242334e-9,
                   6.7103246285651894e-6, -2.4461698007024582e-17, -9.1534417604289062e-18])
@@ -1049,7 +1050,7 @@ class JackettEquationOfState(EquationOfState):
         All pressures are gauge pressures: they are the absolute pressures minus standard atmosperic
         pressure 10.1325 dbar.
         """
-        s_pos = np.maximum(s, 0.0)  # ensure salinity is positive
+        s_pos = numpy.maximum(s, 0.0)  # ensure salinity is positive
         return self.eval(s_pos, th, p, rho0)
 
     def eval(self, s, th, p, rho0=0.0):

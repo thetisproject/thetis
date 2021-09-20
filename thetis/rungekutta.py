@@ -8,6 +8,7 @@ from __future__ import absolute_import
 from .timeintegrator import *
 from abc import ABCMeta, abstractproperty, abstractmethod
 import operator
+import numpy
 
 
 def butcher_to_shuosher_form(a, b):
@@ -30,59 +31,59 @@ def butcher_to_shuosher_form(a, b):
     """
     import numpy.linalg as linalg
 
-    butcher = np.vstack((a, b))
+    butcher = numpy.vstack((a, b))
 
-    implicit = np.diag(a).any()
+    implicit = numpy.diag(a).any()
 
     if implicit:
         # a is not singular
         # take diag entries of a to beta
-        be_0 = np.diag(np.diag(a, k=0), k=0)
-        be_1 = np.zeros_like(b)
+        be_0 = numpy.diag(numpy.diag(a, k=0), k=0)
+        be_1 = numpy.zeros_like(b)
         be_1[-1] = b[-1]
-        be = np.vstack((be_0, be_1))
+        be = numpy.vstack((be_0, be_1))
 
         n = a.shape[0]
-        iden = np.eye(n)
-        al_0 = iden - np.dot(be_0, linalg.inv(a))
-        al_1 = np.dot((b - be_1), np.dot(linalg.inv(be_0), (iden - al_0)))
-        al = np.vstack((al_0, al_1))
+        iden = numpy.eye(n)
+        al_0 = iden - numpy.dot(be_0, linalg.inv(a))
+        al_1 = numpy.dot((b - be_1), numpy.dot(linalg.inv(be_0), (iden - al_0)))
+        al = numpy.vstack((al_0, al_1))
 
         # construct full shu-osher form
-        alpha = np.zeros((n+1, n+1))
+        alpha = numpy.zeros((n+1, n+1))
         alpha[:, 1:] = al
         # consistency
-        alpha[:, 0] = 1.0 - np.sum(alpha, axis=1)
-        beta = np.zeros((n+1, n+1))
+        alpha[:, 0] = 1.0 - numpy.sum(alpha, axis=1)
+        beta = numpy.zeros((n+1, n+1))
         beta[:, 1:] = be
     else:
         # a is singular: solve for lower part of butcher tableau
         aa = butcher[1:, :]
         # take diag entries of aa to beta
-        be_0 = np.diag(np.diag(aa, k=0), k=0)
+        be_0 = numpy.diag(numpy.diag(aa, k=0), k=0)
         n = aa.shape[0]
-        iden = np.eye(n)
-        al_0 = iden - np.dot(be_0, linalg.inv(aa))
+        iden = numpy.eye(n)
+        al_0 = iden - numpy.dot(be_0, linalg.inv(aa))
 
         # construct full shu-osher form
-        alpha = np.zeros((n+1, n+1))
+        alpha = numpy.zeros((n+1, n+1))
         alpha[1:, 1:] = al_0
         # consistency
-        alpha[:, 0] = 1.0 - np.sum(alpha, axis=1)
-        beta = np.zeros((n+1, n+1))
+        alpha[:, 0] = 1.0 - numpy.sum(alpha, axis=1)
+        beta = numpy.zeros((n+1, n+1))
         beta[1:, :-1] = be_0
 
     # round off small entries
-    alpha[np.abs(alpha) < 1e-13] = 0.0
-    beta[np.abs(beta) < 1e-13] = 0.0
+    alpha[numpy.abs(alpha) < 1e-13] = 0.0
+    beta[numpy.abs(beta) < 1e-13] = 0.0
 
     # check sanity
-    assert np.allclose(np.sum(alpha, axis=1), 1.0)
+    assert numpy.allclose(numpy.sum(alpha, axis=1), 1.0)
     if implicit:
-        err = beta[:, 1:] - (butcher - np.dot(alpha[:, 1:], a))
+        err = beta[:, 1:] - (butcher - numpy.dot(alpha[:, 1:], a))
     else:
-        err = beta[:, :-1] - (butcher - np.dot(alpha[:, :-1], a))
-    assert np.allclose(err, 0.0)
+        err = beta[:, :-1] - (butcher - numpy.dot(alpha[:, :-1], a))
+    assert numpy.allclose(err, 0.0)
 
     return alpha, beta
 
@@ -124,18 +125,18 @@ class AbstractRKScheme(object):
 
     def __init__(self):
         super(AbstractRKScheme, self).__init__()
-        self.a = np.array(self.a)
-        self.b = np.array(self.b)
-        self.c = np.array(self.c)
+        self.a = numpy.array(self.a)
+        self.b = numpy.array(self.b)
+        self.c = numpy.array(self.c)
 
-        assert not np.triu(self.a, 1).any(), 'Butcher tableau must be lower diagonal'
-        assert np.allclose(np.sum(self.a, axis=1), self.c), 'Inconsistent Butcher tableau: Row sum of a is not c'
+        assert not numpy.triu(self.a, 1).any(), 'Butcher tableau must be lower diagonal'
+        assert numpy.allclose(numpy.sum(self.a, axis=1), self.c), 'Inconsistent Butcher tableau: Row sum of a is not c'
 
         self.n_stages = len(self.b)
-        self.butcher = np.vstack((self.a, self.b))
+        self.butcher = numpy.vstack((self.a, self.b))
 
-        self.is_implicit = np.diag(self.a).any()
-        self.is_dirk = np.diag(self.a).all()
+        self.is_implicit = numpy.diag(self.a).any()
+        self.is_dirk = numpy.diag(self.a).all()
 
         if self.is_dirk or not self.is_implicit:
             self.alpha, self.beta = butcher_to_shuosher_form(self.a, self.b)
@@ -212,7 +213,7 @@ class DIRK22Abstract(AbstractRKScheme):
     time-dependent partial differential equations. Applied Numerical
     Mathematics, 25:151-167. http://dx.doi.org/10.1137/0732037
     """
-    gamma = (2.0 - np.sqrt(2.0))/2.0
+    gamma = (2.0 - numpy.sqrt(2.0))/2.0
     a = [[gamma, 0],
          [1-gamma, gamma]]
     b = [1-gamma, gamma]
@@ -241,7 +242,7 @@ class DIRK23Abstract(AbstractRKScheme):
     time-dependent partial differential equations. Applied Numerical
     Mathematics, 25:151-167. http://dx.doi.org/10.1137/0732037
     """
-    gamma = (3 + np.sqrt(3))/6
+    gamma = (3 + numpy.sqrt(3))/6
     a = [[gamma, 0],
          [1-2*gamma, gamma]]
     b = [0.5, 0.5]
@@ -588,7 +589,7 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
         self.n_stages = len(self.b)
 
         # assume final stage is trivial
-        assert np.array_equal(self.a[-1, :], self.b)
+        assert numpy.array_equal(self.a[-1, :], self.b)
 
         fs = self.equation.function_space
         test = self.equation.test

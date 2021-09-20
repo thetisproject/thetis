@@ -9,6 +9,7 @@ import h5py
 from collections import defaultdict
 from .log import *
 from firedrake import *
+import numpy
 
 
 class CallbackManager(defaultdict):
@@ -488,7 +489,7 @@ class DetectorsCallback(DiagnosticCallback):
                            for field_name in field_names]
         attrs = {
             # use null-padded ascii strings, dtype='U' not supported in hdf5, see http://docs.h5py.org/en/latest/strings.html
-            'field_names': np.array(field_names, dtype='S'),
+            'field_names': numpy.array(field_names, dtype='S'),
             'field_dims': self.field_dims,
         }
         super().__init__(solver_obj, array_dim=sum(self.field_dims), attrs=attrs, **kwargs)
@@ -542,9 +543,9 @@ class DetectorsCallback(DiagnosticCallback):
         ndetectors = len(self.detector_locations)
         field_vals = []
         for field_name in self.field_names:
-            field_vals.append(np.reshape(self._evaluate_field(field_name), (ndetectors, -1)))
+            field_vals.append(numpy.reshape(self._evaluate_field(field_name), (ndetectors, -1)))
 
-        return np.hstack(field_vals)
+        return numpy.hstack(field_vals)
 
 
 class AccumulatorCallback(DiagnosticCallback):
@@ -649,7 +650,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
             raise e
 
         # construct mesh points
-        self.xyz = np.array([[self.x, self.y]])
+        self.xyz = numpy.array([[self.x, self.y]])
         self._initialized = True
 
     def __call__(self):
@@ -659,7 +660,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         for fieldname in self.fieldnames:
             try:
                 field = self.solver_obj.fields[fieldname]
-                arr = np.array(field.at(self.xyz))
+                arr = numpy.array(field.at(self.xyz))
                 outvals.append(arr)
             except PointNotInDomainError as e:
                 error('{:}: Cannot evaluate data at station {:}'.format(self.__class__.__name__, self.location_name))
@@ -741,7 +742,7 @@ class TimeSeriesCallback3D(DiagnosticCallback):
             self.z = new_z
 
         # construct mesh points
-        self.xyz = np.array([[self.x, self.y, self.z]])
+        self.xyz = numpy.array([[self.x, self.y, self.z]])
         self._initialized = True
 
     def __call__(self):
@@ -751,7 +752,7 @@ class TimeSeriesCallback3D(DiagnosticCallback):
         for fieldname in self.fieldnames:
             try:
                 field = self.solver_obj.fields[fieldname]
-                arr = np.array(field.at(self.xyz))
+                arr = numpy.array(field.at(self.xyz))
                 outvals.append(arr)
             except PointNotInDomainError as e:
                 error('{:}: Cannot evaluate data at station {:}'.format(self.__class__.__name__, self.location_name))
@@ -818,12 +819,12 @@ class VerticalProfileCallback(DiagnosticCallback):
         self.x = x
         self.y = y
         self.npoints = npoints
-        self.xy = np.array([self.x, self.y])
-        self.xyz = np.zeros((self.npoints, 3))
+        self.xy = numpy.array([self.x, self.y])
+        self.xyz = numpy.zeros((self.npoints, 3))
         self.xyz[:, 0] = self.x
         self.xyz[:, 1] = self.y
         self.epsilon = 1e-2  # nudge points to avoid libspatialindex errors
-        self.alpha = np.linspace(0, 1, self.npoints)
+        self.alpha = numpy.linspace(0, 1, self.npoints)
         self._initialized = False
 
     def _initialize(self):
@@ -854,7 +855,7 @@ class VerticalProfileCallback(DiagnosticCallback):
         for fieldname in self.fieldnames:
             try:
                 field = self.solver_obj.fields[fieldname]
-                arr = np.array(field.at(self.xyz))
+                arr = numpy.array(field.at(self.xyz))
                 outvals.append(arr)
             except PointNotInDomainError as e:
                 error('{:}: Cannot evaluate data at station {:}'.format(self.__class__.__name__, self.location_name))
@@ -914,12 +915,12 @@ class TransectCallback(DiagnosticCallback):
         self.name += '_' + self.location_name
         self.name += '_' + field_str
 
-        self.x = np.array([x]).ravel()
-        self.y = np.array([y]).ravel()
+        self.x = numpy.array([x]).ravel()
+        self.y = numpy.array([y]).ravel()
         if len(self.x) == 1:
-            self.x = np.ones_like(self.y) * self.x
+            self.x = numpy.ones_like(self.y) * self.x
         if len(self.y) == 1:
-            self.y = np.ones_like(self.x) * self.y
+            self.y = numpy.ones_like(self.x) * self.y
 
         attrs = {'x': self.x, 'y': self.y}
         attrs['location_name'] = self.location_name
@@ -961,13 +962,13 @@ class TransectCallback(DiagnosticCallback):
 
         # construct mesh points for evaluation
         self.xy = list(zip(self.x, self.y))
-        self.trans_x = np.tile(self.x[np.newaxis, :], (self.n_points_z, 1))
-        self.trans_y = np.tile(self.y[np.newaxis, :], (self.n_points_z, 1))
+        self.trans_x = numpy.tile(self.x[numpy.newaxis, :], (self.n_points_z, 1))
+        self.trans_y = numpy.tile(self.y[numpy.newaxis, :], (self.n_points_z, 1))
 
     def _update_coords(self):
         try:
-            depth = np.array(self.solver_obj.fields.bathymetry_2d.at(self.xy))
-            elev = np.array(self.solver_obj.fields.elev_cg_2d.at(self.xy))
+            depth = numpy.array(self.solver_obj.fields.bathymetry_2d.at(self.xy))
+            elev = numpy.array(self.solver_obj.fields.elev_cg_2d.at(self.xy))
         except PointNotInDomainError as e:
             error('{:}: Transect "{:}" point out of horizontal domain'.format(self.__class__.__name__, self.location_name))
             raise e
@@ -975,12 +976,12 @@ class TransectCallback(DiagnosticCallback):
         z_min = -(depth - epsilon)
         z_max = elev - epsilon
         if self.force_z_min is not None:
-            z_min = np.maximum(z_min, self.force_z_min)
+            z_min = numpy.maximum(z_min, self.force_z_min)
         if self.force_z_max is not None:
-            z_max = np.minimum(z_max, self.force_z_max)
-        self.trans_z = np.linspace(z_max, z_min, self.n_points_z)
+            z_max = numpy.minimum(z_max, self.force_z_max)
+        self.trans_z = numpy.linspace(z_max, z_min, self.n_points_z)
         self.trans_z = self.trans_z.reshape(self.value_shape)
-        self.xyz = np.vstack((self.trans_x.ravel(),
+        self.xyz = numpy.vstack((self.trans_x.ravel(),
                               self.trans_y.ravel(),
                               self.trans_z.ravel())).T
 
@@ -995,13 +996,13 @@ class TransectCallback(DiagnosticCallback):
             field_dim = self.field_dims[fieldname]
             try:
                 vals = field.at(tuple(self.xyz))
-                arr = np.array(vals)
+                arr = numpy.array(vals)
             except PointNotInDomainError as e:
                 error('{:}: Cannot evaluate data on transect {:}'.format(self.__class__.__name__, self.location_name))
                 raise e
             # arr has shape (nxy, nz, ncomponents)
             shape = list(self.value_shape) + [field_dim]
-            arr = np.array(vals).reshape(shape)
+            arr = numpy.array(vals).reshape(shape)
             # convert to list of components [(nxy, nz) , ...]
             components = [arr[..., i] for i in range(arr.shape[-1])]
             outvals.extend(components)

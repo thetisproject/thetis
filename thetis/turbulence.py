@@ -145,6 +145,7 @@ from .tracer_eq import *
 from .stability_functions import *
 from .log import *
 from .options import GLSModelOptions, PacanowskiPhilanderModelOptions
+import numpy
 
 
 def set_func_min_val(f, minval):
@@ -519,21 +520,21 @@ class GenericLengthScaleModel(TurbulenceModel):
             if o.limit_psi:
                 # impose Galperin limit on psi
                 # psi^(1/n) <= sqrt(0.56)* (cmu0)^(p/n) *k^(m/n+0.5)* n2^(-0.5)
-                val = (np.sqrt(2)*galp_clim * (cmu0)**(p / n) * k_arr**(m / n + 0.5) * (n2_pos + n2_pos_eps)**(-0.5))**n
+                val = (numpy.sqrt(2)*galp_clim * (cmu0)**(p / n) * k_arr**(m / n + 0.5) * (n2_pos + n2_pos_eps)**(-0.5))**n
                 if n > 0:
                     # impose max value
-                    np.minimum(self.psi.dat.data, val, self.psi.dat.data)
+                    numpy.minimum(self.psi.dat.data, val, self.psi.dat.data)
                 else:
                     # impose min value
-                    np.maximum(self.psi.dat.data, val, self.psi.dat.data)
+                    numpy.maximum(self.psi.dat.data, val, self.psi.dat.data)
             set_func_min_val(self.psi, o.psi_min)
 
             # udpate epsilon
             self.epsilon.assign(cmu0**(3.0 + p/n)*self.k**(3.0/2.0 + m/n)*self.psi**(-1.0/n))
             if o.limit_eps:
                 # impose Galperin limit on eps
-                eps_min = cmu0**3.0/(np.sqrt(2)*galp_clim)*np.sqrt(n2_pos)*k_arr
-                np.maximum(self.epsilon.dat.data, eps_min, self.epsilon.dat.data)
+                eps_min = cmu0**3.0/(numpy.sqrt(2)*galp_clim)*numpy.sqrt(n2_pos)*k_arr
+                numpy.maximum(self.epsilon.dat.data, eps_min, self.epsilon.dat.data)
             # impose minimum value
             set_func_min_val(self.epsilon, o.eps_min)
 
@@ -543,8 +544,8 @@ class GenericLengthScaleModel(TurbulenceModel):
                 set_func_min_val(self.l, o.len_min)
             if o.limit_len:
                 # Galperin length scale limitation
-                len_max = galp_clim*np.sqrt(2*k_arr/(n2_pos + n2_pos_eps))
-                np.minimum(self.l.dat.data, len_max, self.l.dat.data)
+                len_max = galp_clim*numpy.sqrt(2*k_arr/(n2_pos + n2_pos_eps))
+                numpy.minimum(self.l.dat.data, len_max, self.l.dat.data)
             if self.l.dat.data.max() > 10.0:
                 warning(' * large L: {:f}'.format(self.l.dat.data.max()))
 
@@ -554,7 +555,7 @@ class GenericLengthScaleModel(TurbulenceModel):
                                                     self.k.dat.data,
                                                     self.epsilon.dat.data)
             # update diffusivity/viscosity
-            b = np.sqrt(self.k.dat.data[:])*self.l.dat.data[:]
+            b = numpy.sqrt(self.k.dat.data[:])*self.l.dat.data[:]
             lam = self.relaxation
             new_visc = b*s_m/cmu0**3
             new_diff = b*s_h/cmu0**3

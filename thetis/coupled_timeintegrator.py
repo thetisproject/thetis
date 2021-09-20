@@ -7,6 +7,7 @@ from . import timeintegrator
 from .log import *
 from . import rungekutta
 from abc import ABCMeta, abstractproperty
+import numpy
 
 
 class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
@@ -359,7 +360,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             :attr:`dt_2d` must be an integer fraction of :attr:`dt`.
             If 2D solver is implicit set :attr:`dt_2d` equal to :attr:`dt`.
         """
-        assert np.isclose(dt/dt_2d, np.round(dt/dt_2d)), \
+        assert numpy.isclose(dt/dt_2d, numpy.round(dt/dt_2d)), \
             'dt_2d is not integer fraction of dt'
 
         if dt != dt_2d:

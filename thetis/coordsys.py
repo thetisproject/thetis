@@ -4,7 +4,7 @@ Uses pyproj library.
 """
 
 import pyproj
-import numpy as np
+import numpy
 
 
 UTM_ZONE10 = pyproj.Proj(
@@ -29,11 +29,11 @@ def convert_coords(source_sys, target_sys, x, y):
     :type x: float or numpy.array_like
     :type y: float or numpy.array_like
     """
-    if isinstance(x, np.ndarray):
+    if isinstance(x, numpy.ndarray):
         # proj may give wrong results if nans in the arrays
-        lon = np.full_like(x, np.nan)
-        lat = np.full_like(y, np.nan)
-        goodIx = np.logical_and(np.isfinite(x), np.isfinite(y))
+        lon = numpy.full_like(x, numpy.nan)
+        lat = numpy.full_like(y, numpy.nan)
+        goodIx = numpy.logical_and(numpy.isfinite(x), numpy.isfinite(y))
         lon[goodIx], lat[goodIx] = pyproj.transform(
             source_sys, target_sys, x[goodIx], y[goodIx])
     else:
@@ -66,11 +66,11 @@ def get_vector_rotation_matrix(source_sys, target_sys, x, y, delta=None):
     x2, y2 = pyproj.transform(source_sys, target_sys, x, y + delta)
     dxdl = (x2 - x1) / delta
     dydl = (y2 - y1) / delta
-    theta = np.arctan2(-dxdl, dydl)
+    theta = numpy.arctan2(-dxdl, dydl)
 
-    c = np.cos(theta)
-    s = np.sin(theta)
-    R = np.array([[c, -s], [s, c]])
+    c = numpy.cos(theta)
+    s = numpy.sin(theta)
+    R = numpy.array([[c, -s], [s, c]])
 
     return R, theta
 
@@ -89,8 +89,8 @@ class VectorCoordSysRotation(object):
         :arg y: y coordinate
         """
         R, theta = get_vector_rotation_matrix(source_sys, target_sys, x, y)
-        self.rotation_sin = np.sin(theta)
-        self.rotation_cos = np.cos(theta)
+        self.rotation_sin = numpy.sin(theta)
+        self.rotation_cos = numpy.cos(theta)
 
     def __call__(self, v_x, v_y, i_node=None):
         """
