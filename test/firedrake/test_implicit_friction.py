@@ -7,6 +7,7 @@ Intended to be executed with pytest.
 from firedrake import *
 from thetis.utility import get_functionspace
 import time as time_mod
+import numpy
 
 op2.init(log_level=WARNING)
 

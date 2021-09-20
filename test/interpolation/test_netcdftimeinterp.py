@@ -4,6 +4,7 @@ Test netcd time interpolation
 from thetis.interpolation import *
 from scipy.interpolate import interp1d
 import netCDF4
+import numpy
 import pytest
 import os
 

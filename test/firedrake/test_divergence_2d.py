@@ -4,6 +4,7 @@ Tests convergence of div(uv) in 2D
 from firedrake import *
 from thetis.utility import get_functionspace
 from scipy import stats
+import numpy
 import os
 
 op2.init(log_level=WARNING)

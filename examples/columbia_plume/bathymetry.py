@@ -1,4 +1,5 @@
 import os
+import numpy
 import scipy.interpolate
 from netCDF4 import Dataset
 from firedrake import *
