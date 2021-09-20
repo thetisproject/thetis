@@ -145,43 +145,62 @@ def run(refinement, **model_options):
 
 def run_convergence(**model_options):
     p = model_options.get('tracer_polynomial_degree')
-    expected = p + 1
+    tol = 0.1
+    expected = (p + 1)*(1 - tol)
     errors = []
     for refinement in (1, 2, 4):
         errors.append(run(refinement, **model_options))
     slope = errors[0]/errors[1]
+    print_output(f"Convergence rate {slope} (expected {expected})")
     assert slope > expected, f"Wrong convergence rate {slope}, expected {expected}."
     slope = errors[1]/errors[2]
+    print_output(f"Convergence rate {slope} (expected {expected})")
     assert slope > expected, f"Wrong convergence rate {slope}, expected {expected}."
 
 
-@pytest.fixture(params=['dg', 'cg'])
-def family(request):
-    return request.param
-
-
-@pytest.fixture(params=[1, 2])
-def polynomial_degree(request):
-    return request.param
-
-
-@pytest.fixture(params=['CrankNicolson', 'SSPRK33', 'ForwardEuler', 'BackwardEuler', 'DIRK22', 'DIRK33'])
-def stepper(request):
-    return request.param
-
-
+@pytest.mark.parametrize(
+    ('stepper', 'element_family', 'polynomial_degree'),
+    [
+        ('CrankNicolson', 'dg', 0),
+        ('SSPRK33', 'dg', 0),
+        ('ForwardEuler', 'dg', 0),
+        ('BackwardEuler', 'dg', 0),
+        ('DIRK22', 'dg', 0),
+        ('DIRK33', 'dg', 0),
+        ('CrankNicolson', 'dg', 1),
+        ('SSPRK33', 'dg', 1),
+        ('ForwardEuler', 'dg', 1),
+        ('BackwardEuler', 'dg', 1),
+        ('DIRK22', 'dg', 1),
+        ('DIRK33', 'dg', 1),
+        ('CrankNicolson', 'cg', 1),
+        ('SSPRK33', 'cg', 1),
+        ('ForwardEuler', 'cg', 1),
+        ('BackwardEuler', 'cg', 1),
+        ('DIRK22', 'cg', 1),
+        ('DIRK33', 'cg', 1),
+        ('CrankNicolson', 'dg', 2),
+        ('BackwardEuler', 'dg', 2),
+        ('DIRK22', 'dg', 2),
+        ('DIRK33', 'dg', 2),
+        ('CrankNicolson', 'cg', 2),
+        ('BackwardEuler', 'cg', 2),
+        ('DIRK22', 'cg', 2),
+        ('DIRK33', 'cg', 2),
+    ]
+)
 @pytest.mark.parametrize(('diffusivity'),
                          [(Constant(0.1))])
-def test_horizontal_advection(polynomial_degree, stepper, diffusivity, family):
+def test_horizontal_advection(stepper, element_family, polynomial_degree, diffusivity):
     run_convergence(tracer_polynomial_degree=polynomial_degree,
                     tracer_timestepper_type=stepper,
                     horizontal_diffusivity=diffusivity,
-                    tracer_element_family=family)
+                    tracer_element_family=element_family)
 
 
 if __name__ == '__main__':
-    run_convergence(tracer_polynomial_degree=2,
-                    tracer_timestepper_type='CrankNicolson',
+    run_convergence(tracer_polynomial_degree=0,
+                    tracer_timestepper_type='BackwardEuler',
                     horizontal_diffusivity=Constant(0.1),
                     tracer_element_family='dg',
                     no_exports=False)

@@ -43,10 +43,12 @@ def run(refinement, **model_options):
     options.output_directory = outputdir
     options.simulation_end_time = t_end
     options.simulation_export_time = t_export
-    options.use_limiter_for_tracers = True
     options.fields_to_export = ['tracer_2d']
     options.horizontal_viscosity_scale = horizontal_diffusivity
     options.update(model_options)
+    options.use_supg_tracer = options.tracer_element_family == 'cg'
+    options.use_lax_friedrichs_tracer = options.tracer_element_family == 'dg'
+    options.use_limiter_for_tracers = options.tracer_element_family == 'dg'
     options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d',
                           diffusivity=horizontal_diffusivity)
 
@@ -103,7 +105,7 @@ def run(refinement, **model_options):
     return l2_err
 
 
-def run_convergence(ref_list, expected_rate=None, saveplot=False, **options):
+def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
     polynomial_degree = options.get('tracer_polynomial_degree', 1)
     l2_err = []
@@ -150,8 +152,7 @@ def run_convergence(ref_list, expected_rate=None, saveplot=False, **options):
             print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
-    if expected_rate is None:
-        expected_rate = polynomial_degree+1
+    expected_rate = polynomial_degree+1 - 0.2
     check_convergence(x_log, y_log, expected_rate, 'tracer', saveplot)
 
 # ---------------------------
@@ -160,27 +161,33 @@ def run_convergence(ref_list, expected_rate=None, saveplot=False, **options):
 
 
 @pytest.mark.parametrize(
-    ('stepper', 'polynomial_degree', 'expected_rate'),
+    ('stepper', 'element_family', 'polynomial_degree'),
     [
-        ('CrankNicolson', 0, 0.8),
-        ('SSPRK33', 0, 0.8),
-        ('ForwardEuler', 0, 0.8),
-        ('BackwardEuler', 0, 0.8),
-        ('DIRK22', 0, 0.8),
-        ('DIRK33', 0, 0.8),
-        ('CrankNicolson', 1, 1.8),
-        ('SSPRK33', 1, 1.8),
-        ('ForwardEuler', 1, 1.8),
-        ('BackwardEuler', 1, 1.8),
-        ('DIRK22', 1, 1.8),
-        ('DIRK33', 1, 1.8),
+        ('CrankNicolson', 'dg', 0),
+        ('SSPRK33', 'dg', 0),
+        ('ForwardEuler', 'dg', 0),
+        ('BackwardEuler', 'dg', 0),
+        ('DIRK22', 'dg', 0),
+        ('DIRK33', 'dg', 0),
+        ('CrankNicolson', 'dg', 1),
+        ('SSPRK33', 'dg', 1),
+        ('ForwardEuler', 'dg', 1),
+        ('BackwardEuler', 'dg', 1),
+        ('DIRK22', 'dg', 1),
+        ('DIRK33', 'dg', 1),
+        ('CrankNicolson', 'cg', 1),
+        ('SSPRK33', 'cg', 1),
+        ('ForwardEuler', 'cg', 1),
+        ('BackwardEuler', 'cg', 1),
+        ('DIRK22', 'cg', 1),
+        ('DIRK33', 'cg', 1),
     ]
 )
-def test_horizontal_diffusion(polynomial_degree, stepper, expected_rate):
-    run_convergence([1, 2, 3], tracer_polynomial_degree=polynomial_degree,
-                    swe_timestepper_type=stepper, tracer_timestepper_type=stepper,
-                    expected_rate=expected_rate,
-                    )
+def test_horizontal_diffusion(stepper, element_family, polynomial_degree):
+    run_convergence([1, 2, 3], swe_timestepper_type=stepper,
+                    tracer_timestepper_type=stepper,
+                    tracer_element_family=element_family,
+                    tracer_polynomial_degree=polynomial_degree)
 
 # ---------------------------
 # run individual setup for debugging
@@ -188,7 +195,6 @@ def test_horizontal_diffusion(polynomial_degree, stepper, expected_rate):
 
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 4, 6, 8], tracer_polynomial_degree=0,
-                    tracer_timestepper_type='SSPRK33',
-                    expected_rate=0.8,
+    run_convergence([1, 2, 4, 6, 8], tracer_polynomial_degree=1,
+                    tracer_timestepper_type='CrankNicolson',
                     no_exports=False, saveplot=True)

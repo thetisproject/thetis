@@ -41,14 +41,15 @@ def run(refinement, **model_options):
     options.use_lax_friedrichs_velocity = True
     options.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
     options.use_lax_friedrichs_tracer = False
+    options.use_supg_tracer = False
     options.horizontal_velocity_scale = Constant(abs(u))
     options.no_exports = True
     options.output_directory = outputdir
     options.simulation_end_time = t_end
     options.simulation_export_time = t_export
-    options.use_limiter_for_tracers = True
     options.fields_to_export = ['tracer_2d']
     options.update(model_options)
+    options.use_limiter_for_tracers = options.tracer_element_family == 'dg'
     solverobj.create_function_spaces()
     options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d')
     corr_factor = Function(solverobj.function_spaces.H_2d, name='uv tracer factor').interpolate(Constant(1.0))
@@ -175,18 +176,29 @@ def run_convergence(ref_list, saveplot=False, **options):
 # ---------------------------
 
 
-@pytest.fixture(params=[1, 2])
-def polynomial_degree(request):
-    return request.param
-
-
-@pytest.fixture(params=['CrankNicolson', 'ForwardEuler', 'SSPRK33', 'DIRK22', 'DIRK33'])
-def stepper(request):
-    return request.param
-
-
-def test_horizontal_advection(polynomial_degree, stepper):
-    run_convergence([1, 2, 3], tracer_polynomial_degree=polynomial_degree,
+@pytest.mark.parametrize(
+    ('stepper', 'element_family', 'polynomial_degree'),
+    [
+        ('ForwardEuler', 'dg', 1),
+        ('CrankNicolson', 'dg', 1),
+        ('SSPRK33', 'dg', 1),
+        ('DIRK22', 'dg', 1),
+        ('DIRK33', 'dg', 1),
+        ('ForwardEuler', 'cg', 1),
+        ('BackwardEuler', 'cg', 1),
+        ('CrankNicolson', 'cg', 1),
+        ('SSPRK33', 'cg', 1),
+        ('DIRK22', 'cg', 1),
+        ('DIRK33', 'cg', 1),
+        ('CrankNicolson', 'dg', 2),
+        ('SSPRK33', 'dg', 2),
+        ('DIRK22', 'dg', 2),
+        ('DIRK33', 'dg', 2),
+    ]
+)
+def test_horizontal_advection(stepper, element_family, polynomial_degree):
+    run_convergence([1, 2, 3], tracer_element_family=element_family,
+                    tracer_polynomial_degree=polynomial_degree,
                     swe_timestepper_type=stepper, tracer_timestepper_type=stepper)
 
 # ---------------------------
@@ -195,6 +207,7 @@ def test_horizontal_advection(polynomial_degree, stepper):
 
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3, 4], tracer_polynomial_degree=2,
-                    tracer_timestepper_type='CrankNicolson',
+    run_convergence([1, 2, 3, 4], tracer_polynomial_degree=1,
+                    tracer_element_family='dg',
+                    tracer_timestepper_type='BackwardEuler',
                     no_exports=False, saveplot=True)
