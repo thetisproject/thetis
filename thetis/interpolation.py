@@ -56,6 +56,7 @@ from abc import ABCMeta, abstractmethod
 from firedrake import *
 import re
 import string
+import numpy as np
 
 TIMESEARCH_TOL = 1e-6
 

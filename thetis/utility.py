@@ -13,6 +13,7 @@ import ufl  # NOQA
 from firedrake import *
 from mpi4py import MPI  # NOQA
 from pyop2.profiling import timed_function, timed_region, timed_stage  # NOQA
+import numpy as np
 
 from .field_defs import field_metadata
 from .log import *
