@@ -62,7 +62,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     if '-' in reso_str:
         words = reso_str.split('-')
         delta_x, delta_z = [float(f) for f in words]
-        layers = int(np.ceil(depth/delta_z))
+        layers = int(numpy.ceil(depth/delta_z))
     else:
         delta_x = 2000.0/refinement[reso_str]
         layers = int(round(10*refinement[reso_str]))
@@ -142,7 +142,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
     if viscosity == 'smag':
         options.use_smagorinsky_viscosity = True
-        options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
+        options.smagorinsky_coefficient = Constant(1.0/numpy.sqrt(reynolds_number))
     elif viscosity == 'const':
         options.horizontal_viscosity = Constant(nu_scale)
     else:
@@ -181,7 +181,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
         solver_obj.add_callback(RPECalculator(solver_obj))
         solver_obj.add_callback(FrontLocationCalculator(solver_obj))
         solver_obj.add_callback(PlotCallback(solver_obj, append_to_log=False))
-        trans_x = np.linspace(-30e3, 30e3, 300)
+        trans_x = numpy.linspace(-30e3, 30e3, 300)
         trans_y = 10.0
         tcp = TransectCallback(solver_obj, ['temp_3d', 'uv_3d'],
                                trans_x, trans_y, 'along', append_to_log=True)

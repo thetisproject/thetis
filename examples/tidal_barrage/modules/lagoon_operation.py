@@ -1,5 +1,5 @@
 import math
-import numpy as np
+import numpy
 
 # modules.parameterisation contains functions for the turbine and sluice gate flow calculation
 from modules.parameterisations import turbine_parametrisation, gate_sluicing, turbine_sluicing
@@ -148,7 +148,7 @@ def lagoon_operation(h_i, h_o, t, status, control, turbine_specs, sluice_specs, 
             status["f_r"] * control["N_t"] * turbine_parametrisation(control["h_p"], turbine_specs)[1],
             0)  # Re-formulate the discharge coefficient for turbines! Introduce cd_t
         status["P"] = -(abs(status["Q_t"]) * turbine_specs["dens"] * turbine_specs["g"]
-                        * abs(status["DZ"]) / (10 ** 6)) / min(max(0.4, 0.28409853 * np.log(abs(status["DZ"])) + 0.60270881), 0.9)
+                        * abs(status["DZ"]) / (10 ** 6)) / min(max(0.4, 0.28409853 * numpy.log(abs(status["DZ"])) + 0.60270881), 0.9)
         status["Q_s"] = 0.0
 
     if status["m"] == 7:  # Generating             LW -> HW
@@ -176,7 +176,7 @@ def lagoon_operation(h_i, h_o, t, status, control, turbine_specs, sluice_specs, 
                             0.0)  # Re-formulate the discharge coefficient for turbines! Introduce cd_t
         status["P"] = -(
             abs(status["Q_t"]) * turbine_specs["dens"] * turbine_specs["g"] * abs(status["DZ"]) / (10 ** 6)) / min(
-            max(0.4, 0.28409853 * np.log(abs(status["DZ"])) + 0.60270881), 0.9)
+            max(0.4, 0.28409853 * numpy.log(abs(status["DZ"])) + 0.60270881), 0.9)
         status["Q_s"] = 0.0
 
     status["eta_d0"] = h_o  # Equate new downstream WL to old downstream WL for next iteration
@@ -209,5 +209,5 @@ def lagoon(t, Dt, h_i, h_o, status, control, params, boundaries):
         boundaries["sl_o"].assign(status["Q_s"])
         boundaries["sl_i"].assign(-status["Q_s"])
 
-    return np.hstack(([t, h_o, h_i], [status["DZ"], status["P"], status["E"], status["m"], status["Q_t"], status["Q_s"],
-                                      status["m_dt"], status["m_t"], status["f_r"]],))
+    return numpy.hstack(([t, h_o, h_i], [status["DZ"], status["P"], status["E"], status["m"], status["Q_t"], status["Q_s"],
+                                         status["m_dt"], status["m_t"], status["f_r"]],))

@@ -24,7 +24,6 @@ momentum equation.
 """
 from thetis import *
 import pytest
-import numpy
 
 
 def run_bottom_friction(do_assert=True, do_export=False, **model_options):

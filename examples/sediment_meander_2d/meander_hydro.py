@@ -12,7 +12,6 @@ For more details of the test case set-up see
 """
 
 from thetis import *
-import numpy as np
 # import bathymetry and mesh for meander
 from meander_setup import *
 
@@ -35,7 +34,7 @@ if os.getenv('THETIS_REGRESSION_TEST') is not None:
     # but we simply want a run-through-without-error test
     t_end = 25
 # export interval in seconds
-t_export = np.round(t_end/40, 0)
+t_export = numpy.round(t_end/40, 0)
 # define parameters
 average_size = 10**(-3)
 ksp = Constant(3*average_size)

@@ -107,7 +107,7 @@ def run(timeintegrator_class, timeintegrator_options, refinement=1):
     p1 = get_functionspace(mesh, 'CG', 1)
     fs = MixedFunctionSpace([p1, p1])
 
-    alpha = 2*np.pi
+    alpha = 2*numpy.pi
 
     mode = 'explicit'
     cfl_coeff = timeintegrator_class.cfl_coeff if hasattr(timeintegrator_class, 'cfl_coeff') else None
@@ -125,11 +125,11 @@ def run(timeintegrator_class, timeintegrator_options, refinement=1):
 
     end_time = 1.0
     base_dt = 0.01
-    ntimesteps = int(np.round(end_time/base_dt*refinement))
+    ntimesteps = int(numpy.round(end_time/base_dt*refinement))
     dt = end_time/ntimesteps
     print('Running refinement {:2d}, dt = {:.6f}'.format(refinement, dt))
-    times = np.zeros((ntimesteps+1, ))
-    values = np.zeros((ntimesteps+1, 2))
+    times = numpy.zeros((ntimesteps+1, ))
+    values = numpy.zeros((ntimesteps+1, 2))
 
     ti = timeintegrator_class(equation, solution, fields, dt, timeintegrator_options(), {})
     ti.initialize(solution)
@@ -144,8 +144,8 @@ def run(timeintegrator_class, timeintegrator_options, refinement=1):
 
     assert abs(times[-1] - end_time) < 1e-16
 
-    exact_sol = np.vstack((np.sin(alpha*times), np.cos(alpha*times))).T
-    l2_err = np.sqrt(np.mean((values - exact_sol)**2))
+    exact_sol = numpy.vstack((numpy.sin(alpha*times), numpy.cos(alpha*times))).T
+    l2_err = numpy.sqrt(numpy.mean((values - exact_sol)**2))
     return l2_err
 
 
@@ -156,8 +156,8 @@ def run_convergence(timeintegrator_class, timeintegrator_options,
     for r in ref_list:
         l2_err = run(timeintegrator_class, timeintegrator_options, r)
         err_list.append(l2_err)
-    x_log = np.log10(np.array(ref_list, dtype=float)**-1)
-    y_log = np.log10(np.array(err_list))
+    x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
+    y_log = numpy.log10(numpy.array(err_list))
 
     slope, intercept, r_value, p_value, std_err = stats.linregress(x_log, y_log)
     print('Convergence rate {:.4f}'.format(slope))

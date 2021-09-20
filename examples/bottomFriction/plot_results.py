@@ -4,7 +4,6 @@ Plot result velocity etc profiles at steady state
 from thetis import *
 from steadyChannel import bottom_friction_test as run_test
 from steadyChannel import depth, surf_slope
-import numpy
 import matplotlib
 import matplotlib.pyplot as plt
 from collections import OrderedDict

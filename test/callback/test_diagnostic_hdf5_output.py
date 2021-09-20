@@ -35,7 +35,7 @@ def test_callbacks(tmp_outputdir):
     bathymetry_2d.assign(depth)
 
     # set time step, export interval and run duration
-    c_wave = float(np.sqrt(9.81*depth))
+    c_wave = float(numpy.sqrt(9.81*depth))
     t_cycle = lx/c_wave
     n_steps = 20
     dt = round(float(t_cycle/n_steps))
@@ -116,7 +116,7 @@ def test_callbacks(tmp_outputdir):
 
         def __call__(self):
             time = self.solver_obj.simulation_time
-            value = np.linspace(time, 2*time + 1, self.array_dim)
+            value = numpy.linspace(time, 2*time + 1, self.array_dim)
             return (value, )
 
         def message_str(self, *args):
@@ -133,8 +133,8 @@ def test_callbacks(tmp_outputdir):
                        export_to_hdf5=True,
                        outputdir=solver_obj.options.output_directory)
     val, integral = cb()
-    assert np.allclose(val, const_value)
-    assert np.allclose(integral, const_value*lx*ly*depth)
+    assert numpy.allclose(val, const_value)
+    assert numpy.allclose(integral, const_value*lx*ly*depth)
     msg = cb.message_str(val, integral)
     assert msg == 'Constant:  4.5000e+00 Integral:  3.0375e+10'
     solver_obj.add_callback(cb)
@@ -147,7 +147,7 @@ def test_callbacks(tmp_outputdir):
                               export_to_hdf5=True,
                               outputdir=solver_obj.options.output_directory)
     arr = cb()[0]
-    assert np.allclose(arr, np.linspace(0., 1., 4))
+    assert numpy.allclose(arr, numpy.linspace(0., 1., 4))
     msg = cb.message_str(arr)
     assert msg == 'Array value range:  0.0000e+00 -  1.0000e+00'
     solver_obj.add_callback(cb)
@@ -158,7 +158,7 @@ def test_callbacks(tmp_outputdir):
     solver_obj.iterate()
 
     # verify hdf file contents
-    correct_time = np.arange(11, dtype=float)[:, np.newaxis]
+    correct_time = numpy.arange(11, dtype=float)[:, numpy.newaxis]
     correct_time *= solver_obj.options.simulation_export_time
 
     def diag_file(f):
@@ -168,23 +168,23 @@ def test_callbacks(tmp_outputdir):
         time = h5file['time'][:]
         value = h5file['constant'][:]
         integral = h5file['integral'][:]
-        correct_time = np.arange(11, dtype=float)[:, np.newaxis]
+        correct_time = numpy.arange(11, dtype=float)[:, numpy.newaxis]
         correct_time *= solver_obj.options.simulation_export_time
-        correct_value = np.ones_like(correct_time)*const_value
-        correct_integral = np.ones_like(correct_time)*const_value*lx*ly*depth
-        assert np.allclose(time, correct_time)
-        assert np.allclose(value, correct_value)
-        assert np.allclose(integral, correct_integral)
+        correct_value = numpy.ones_like(correct_time)*const_value
+        correct_integral = numpy.ones_like(correct_time)*const_value*lx*ly*depth
+        assert numpy.allclose(time, correct_time)
+        assert numpy.allclose(value, correct_value)
+        assert numpy.allclose(integral, correct_integral)
 
     with h5py.File(diag_file('diagnostic_dummyvector.hdf5'), 'r') as h5file:
         time = h5file['time'][:]
         value = h5file['value'][:]
-        correct_value = np.zeros((11, 4))
+        correct_value = numpy.zeros((11, 4))
         for row in range(11):
             t = correct_time[row, 0]
-            correct_value[row, :] = np.linspace(t, 2*t + 1, 4)
-        assert np.allclose(time, correct_time)
-        assert np.allclose(value, correct_value)
+            correct_value[row, :] = numpy.linspace(t, 2*t + 1, 4)
+        assert numpy.allclose(time, correct_time)
+        assert numpy.allclose(value, correct_value)
         for a in attrs:
             assert a in h5file.attrs.keys()
             assert h5file.attrs[a] == attrs[a]
@@ -193,25 +193,25 @@ def test_callbacks(tmp_outputdir):
         time = h5file['time'][:]
         reldiff = h5file['relative_difference'][:]
         integral = h5file['integral'][:]
-        correct_time = np.arange(11, dtype=float)[:, np.newaxis]
+        correct_time = numpy.arange(11, dtype=float)[:, numpy.newaxis]
         correct_time *= solver_obj.options.simulation_export_time
-        correct_integral = np.ones_like(correct_time)*lx*ly*depth
-        correct_reldiff = np.zeros_like(correct_time)
-        assert np.allclose(time, correct_time)
-        assert np.allclose(reldiff, correct_reldiff)
-        assert np.allclose(integral, correct_integral)
+        correct_integral = numpy.ones_like(correct_time)*lx*ly*depth
+        correct_reldiff = numpy.zeros_like(correct_time)
+        assert numpy.allclose(time, correct_time)
+        assert numpy.allclose(reldiff, correct_reldiff)
+        assert numpy.allclose(integral, correct_integral)
 
     with h5py.File(diag_file('diagnostic_salt_3d_mass.hdf5'), 'r') as h5file:
         time = h5file['time'][:]
         reldiff = h5file['relative_difference'][:]
         integral = h5file['integral'][:]
-        correct_time = np.arange(11, dtype=float)[:, np.newaxis]
+        correct_time = numpy.arange(11, dtype=float)[:, numpy.newaxis]
         correct_time *= solver_obj.options.simulation_export_time
-        correct_integral = np.ones_like(correct_time)*lx*ly*depth*3.45
-        correct_reldiff = np.zeros_like(correct_time)
-        assert np.allclose(time, correct_time)
-        assert np.allclose(reldiff, correct_reldiff)
-        assert np.allclose(integral, correct_integral)
+        correct_integral = numpy.ones_like(correct_time)*lx*ly*depth*3.45
+        correct_reldiff = numpy.zeros_like(correct_time)
+        assert numpy.allclose(time, correct_time)
+        assert numpy.allclose(reldiff, correct_reldiff)
+        assert numpy.allclose(integral, correct_integral)
 
 
 if __name__ == '__main__':

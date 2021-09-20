@@ -15,7 +15,6 @@ For more details, see
 
 from thetis import *
 
-import numpy as np
 import matplotlib.pyplot as plt
 
 conservative = False
@@ -148,7 +147,7 @@ solver_obj.iterate()
 xaxisthetis1 = []
 baththetis1 = []
 
-for i in np.linspace(0, 15.8, 80):
+for i in numpy.linspace(0, 15.8, 80):
     xaxisthetis1.append(i)
     if conservative:
         baththetis1.append(-solver_obj.fields.bathymetry_2d.at([i, 0.55]))
@@ -158,7 +157,7 @@ for i in np.linspace(0, 15.8, 80):
 if os.getenv('THETIS_REGRESSION_TEST') is None:
     # Compare model and experimental results
     # (this part is skipped when run as a test)
-    data = np.genfromtxt('experimental_data.csv', delimiter=',')
+    data = numpy.genfromtxt('experimental_data.csv', delimiter=',')
 
     plt.scatter([i[0] for i in data], [i[1] for i in data], label='Experimental Data')
 

@@ -46,7 +46,7 @@ if sloped:
     bathymetry_2d.interpolate(depth + 15.0*2*(xy[0]/lx - 0.5))
 
 # set time step, export interval and run duration
-c_wave = float(np.sqrt(9.81*depth))
+c_wave = float(numpy.sqrt(9.81*depth))
 T_cycle = lx/c_wave
 n_steps = 20
 dt = round(float(T_cycle/n_steps))
@@ -66,8 +66,8 @@ if warped:
     z = coords.dat.data[:, 2].copy()
     x = coords.dat.data[:, 0]
     p = 1.5*x/lx + 0.01  # ~0.0 => ~unform mesh
-    # p = np.ones_like(x)*0.001
-    sigma = -depth * (0.5*np.tanh(p*(-2.0*z/depth - 1.0))/np.tanh(p) + 0.5)
+    # p = numpy.ones_like(x)*0.001
+    sigma = -depth * (0.5*numpy.tanh(p*(-2.0*z/depth - 1.0))/numpy.tanh(p) + 0.5)
     coords.dat.data[:, 2] = sigma
 
 options = solver_obj.options

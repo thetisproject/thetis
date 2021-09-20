@@ -129,7 +129,7 @@ class PointDischargeParameters(object):
     def quantity_of_interest_kernel(self, mesh):
         area = assemble(self.ball(mesh)*dx)
         area_analytical = pi*self.receiver_r**2
-        scaling = 1.0 if np.allclose(area, 0.0) else area_analytical/area
+        scaling = 1.0 if numpy.allclose(area, 0.0) else area_analytical/area
         return self.ball(mesh, scaling=scaling)
 
     def quantity_of_interest(self, sol):
@@ -244,7 +244,7 @@ def run_convergence(offset, num_levels=3, plot=False, **kwargs):
         J.append(params.quantity_of_interest(sol))
         dof_count.append(sol.function_space().dof_count)
     J_analytical = params.analytical_quantity_of_interest(sol.function_space().mesh())
-    relative_error = np.abs((np.array(J) - J_analytical)/J_analytical)
+    relative_error = numpy.abs((numpy.array(J) - J_analytical)/J_analytical)
 
     # Plot convergence curves
     if plot:
@@ -260,8 +260,8 @@ def run_convergence(offset, num_levels=3, plot=False, **kwargs):
         plt.savefig(os.path.join(plot_dir, fname))
 
     # Check for linear convergence
-    delta_y = np.log10(relative_error[-1]) - np.log10(relative_error[0])
-    delta_x = np.log10(dof_count[-1]) - np.log10(dof_count[0])
+    delta_y = numpy.log10(relative_error[-1]) - numpy.log10(relative_error[0])
+    delta_x = numpy.log10(dof_count[-1]) - numpy.log10(dof_count[0])
     rate = abs(delta_y/delta_x)
     assert rate > 0.9, "Sublinear convergence rate {:.4f}".format(rate)
 

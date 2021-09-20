@@ -42,13 +42,13 @@ class VerticalProfileCallback(DiagnosticCallback):
         epsilon = 1e-5  # nudge points to avoid libspatialindex errors
         z_min = -(depth - epsilon)
         z_max = -5  # do not include the top x m to avoid surface waves
-        self.z = np.linspace(z_max, z_min, self.npoints)
-        x = np.array([self.x])
-        xx, zz = np.meshgrid(x, self.z)
-        yy = np.zeros_like(xx)
+        self.z = numpy.linspace(z_max, z_min, self.npoints)
+        x = numpy.array([self.x])
+        xx, zz = numpy.meshgrid(x, self.z)
+        yy = numpy.zeros_like(xx)
         yy[:] = self.y
         self.mesh_shape = xx.shape
-        self.xyz = np.vstack((xx.ravel(), yy.ravel(), zz.ravel())).T
+        self.xyz = numpy.vstack((xx.ravel(), yy.ravel(), zz.ravel())).T
 
     def __call__(self):
         if not self._initialized:
@@ -56,7 +56,7 @@ class VerticalProfileCallback(DiagnosticCallback):
 
         # evaluate function on regular grid
         func = self.field
-        arr = np.array(func.at(tuple(self.xyz)))
+        arr = numpy.array(func.at(tuple(self.xyz)))
 
         return (self.z, arr)
 
@@ -125,8 +125,8 @@ class TracerHistogramCallback(DiagnosticCallback):
 
         # we want to bin array field*nodal_volume based on x_coords and rho
         ndecimals = 4  # round to avoid jitter in binning from parallelization
-        x_arr = np.around(self.x_coords.dat.data[:], ndecimals)
-        rho_arr = np.around(self.density.dat.data[:], ndecimals)
+        x_arr = numpy.around(self.x_coords.dat.data[:], ndecimals)
+        rho_arr = numpy.around(self.density.dat.data[:], ndecimals)
         c_arr = self.field.dat.data[:]*self.nodal_volume.dat.data[:]
 
         statistic = 'sum'

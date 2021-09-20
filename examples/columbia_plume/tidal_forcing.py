@@ -30,7 +30,7 @@ def test():
     print('Saving to {:} {:}'.format(elev_outfn, uv_outfn))
     elev_out = File(elev_outfn)
     uv_out = File(uv_outfn)
-    for t in np.linspace(0, 12*3600., 49):
+    for t in numpy.linspace(0, 12*3600., 49):
         tbnd.set_tidal_field(t)
         if elev_field.function_space().mesh().comm.rank == 0:
             print('t={:7.1f} elev: {:7.1f} uv: {:7.1f}'.format(t, norm(elev_field), norm(uv_field)))

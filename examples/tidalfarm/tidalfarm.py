@@ -22,7 +22,6 @@ the forward model and automatically derives the adjoint.
 from thetis import *
 # this import automatically starts the annotation:
 from firedrake_adjoint import *
-import numpy
 op2.init(log_level=INFO)
 
 # setup the Thetis solver obj as usual:

@@ -107,14 +107,14 @@ def test_nh_standing_wave(timesteps, max_rel_err, timestepper, tmpdir,
 
     with h5py.File(str(tmpdir) + '/diagnostic_gauges.hdf5', 'r') as df:
         assert all(df.attrs['field_dims'][:] == [1, ])
-        trange = np.arange(timesteps+1)*dt
-        np.testing.assert_almost_equal(df['time'][:, 0], trange)
+        trange = numpy.arange(timesteps+1)*dt
+        numpy.testing.assert_almost_equal(df['time'][:, 0], trange)
         for i in range(len(xy)):
             # location of detectors
             x_loc = xy[i][0]
             # analytical time series of elevation at specific locations
-            anal_ts = elev_amp*np.cos(2*pi*x_loc/lx)*np.cos(math.sqrt(2*pi*g_grav/lx*tanh(2*pi*depth/lx))*trange)
-            np.testing.assert_allclose(df['detector'+str(i)][:][:, 0], anal_ts, atol=4e-2, rtol=4e-1)
+            anal_ts = elev_amp*numpy.cos(2*pi*x_loc/lx)*numpy.cos(math.sqrt(2*pi*g_grav/lx*tanh(2*pi*depth/lx))*trange)
+            numpy.testing.assert_allclose(df['detector'+str(i)][:][:, 0], anal_ts, atol=4e-2, rtol=4e-1)
 
 
 if __name__ == '__main__':

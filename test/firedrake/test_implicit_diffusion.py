@@ -6,7 +6,6 @@ Intended to be executed with pytest.
 """
 from firedrake import *
 from thetis.utility import get_functionspace
-import numpy as np
 
 op2.init(log_level=WARNING)
 
@@ -60,7 +59,7 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     t_const = Constant(t)
     t_end = 100.0
     dt = dz*dz/nu_v / 10
-    n_iter = np.ceil(t_end/dt)
+    n_iter = numpy.ceil(t_end/dt)
     dt = t_end/n_iter
     print('dt {:}'.format(dt))
     dt_const = Constant(dt)
@@ -154,7 +153,7 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     #
     solution_1 = Function(fs, name='tracer K1')
     solution_2 = Function(fs, name='tracer K2')
-    gamma = Constant((2.0 + np.sqrt(2.0))/2.0)
+    gamma = Constant((2.0 + numpy.sqrt(2.0))/2.0)
 
     f1 = (inner(solution_1, test)*dx - inner(solution, test)*dx
           - gamma*dt_const*rhs(solution_1))

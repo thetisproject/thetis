@@ -7,7 +7,6 @@ Plot Kato-Phillips test case results:
 from thetis import *
 from katophillips import katophillips_test as run_test
 from katophillips import depth
-import numpy
 import matplotlib
 import matplotlib.pyplot as plt
 from collections import OrderedDict
@@ -183,7 +182,7 @@ def plot_profiles(data, label_attr=None):
 def plot_mixed_layer_depth(data, label_attr=None):
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
 
-    timestamps = np.arange(360 + 1)
+    timestamps = numpy.arange(360 + 1)
     ntime = len(timestamps)
 
     for entry in data:
@@ -191,7 +190,7 @@ def plot_mixed_layer_depth(data, label_attr=None):
         layers = entry['nz']
         z, xyz = construct_plot_coordinates_centers(layers)
 
-        ml_depth = np.zeros_like(timestamps, dtype=float)
+        ml_depth = numpy.zeros_like(timestamps, dtype=float)
         time = timestamps*solver_obj.options.simulation_export_time
 
         hdf5_dir = os.path.join(solver_obj.options.output_directory, 'hdf5')
@@ -212,7 +211,7 @@ def plot_mixed_layer_depth(data, label_attr=None):
 
     u_s = 0.01
     N0 = 0.01
-    target = 1.05*u_s*np.sqrt(time/N0)
+    target = 1.05*u_s*numpy.sqrt(time/N0)
 
     # plot mixed layer depth
     ax.plot(time/3600.0, target, 'k:')

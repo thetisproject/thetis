@@ -42,7 +42,7 @@ def asymptotic_expansion_uv(U_2d, order=1, time=0.0, soliton_amplitude=0.395):
         return interpolate(as_vector([u_terms, v_terms]), U_2d)
 
     # Unnormalised Hermite series coefficients for u
-    u = np.zeros(28)
+    u = numpy.zeros(28)
     u[0] = 1.7892760e+00
     u[2] = 0.1164146e+00
     u[4] = -0.3266961e-03
@@ -59,7 +59,7 @@ def asymptotic_expansion_uv(U_2d, order=1, time=0.0, soliton_amplitude=0.395):
     u[26] = -0.1178252e-21
 
     # Unnormalised Hermite series coefficients for v
-    v = np.zeros(28)
+    v = numpy.zeros(28)
     v[3] = -0.6697824e-01
     v[5] = -0.2266569e-02
     v[7] = 0.9228703e-04
@@ -108,7 +108,7 @@ def asymptotic_expansion_elev(H_2d, order=1, time=0.0, soliton_amplitude=0.395):
         return interpolate(eta_terms, H_2d)
 
     # Unnormalised Hermite series coefficients for eta
-    eta = np.zeros(28)
+    eta = numpy.zeros(28)
     eta[0] = -3.0714300e+00
     eta[2] = -0.3508384e-01
     eta[4] = -0.1861060e-01

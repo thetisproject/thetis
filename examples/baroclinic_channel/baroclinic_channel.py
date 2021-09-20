@@ -48,7 +48,7 @@ delta_y = ly/ny
 mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x')
 depth = 1600.
 nlayers = 10  # FIXME
-reso_str = str(int(np.round(delta_x/1000.))) + 'km'
+reso_str = str(int(numpy.round(delta_x/1000.))) + 'km'
 outputdir = 'outputs_{:}'.format(reso_str)
 
 t_end = 3*365*24*3600.
@@ -148,7 +148,7 @@ mask_temp_relax_3d = Function(solver_obj.function_spaces.H, name='mask_temp_rela
 ly_relax = 160e3  # approx 1.5 deg
 mask_numpy_y0 = (ly_relax - y_arr)/ly_relax
 mask_numpy_y1 = (1 + (y_arr - ly)/ly_relax)
-mask_temp_relax_3d.dat.data[:] = np.maximum(mask_numpy_y0, mask_numpy_y1)
+mask_temp_relax_3d.dat.data[:] = numpy.maximum(mask_numpy_y0, mask_numpy_y1)
 ix = mask_temp_relax_3d.dat.data < 0
 mask_temp_relax_3d.dat.data[ix] = 0.0
 # File('mask.pvd').write(mask_temp_relax_3d)

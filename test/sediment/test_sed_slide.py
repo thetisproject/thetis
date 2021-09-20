@@ -85,4 +85,4 @@ def update_forcing(t_new):
 
 solver_obj.iterate(update_forcings=update_forcing)
 
-assert np.round(max_beta_list[-1], 1) == 24.6, 'Sediment slide mechanism has changed'
+assert numpy.round(max_beta_list[-1], 1) == 24.6, 'Sediment slide mechanism has changed'

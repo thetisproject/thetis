@@ -91,13 +91,13 @@ cb = DetectorsCallback(solver_obj, xy, ['elev_2d'], name='gauges', append_to_log
 solver_obj.add_callback(cb)
 
 # input wave
-pi = 4*np.arctan(1.)
+pi = 4*numpy.arctan(1.)
 eta_amp = 0.01
 period = 2.02
 
 
 def get_inputelevation(t):
-    return eta_amp*np.sin(2*pi/period*t)
+    return eta_amp*numpy.sin(2*pi/period*t)
 
 
 # boundary condition

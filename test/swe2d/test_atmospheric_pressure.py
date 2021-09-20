@@ -12,7 +12,6 @@
 #
 from thetis import *
 import pytest
-import numpy as np
 
 
 @pytest.mark.parametrize("element_family", [
@@ -87,9 +86,9 @@ def test_pressure_forcing(element_family, timestepper):
 
         uv, eta = solverObj.fields.solution_2d.split()
         eta_ana = project(eta_expr, solverObj.function_spaces.H_2d)
-        eta_errs.append(errornorm(eta_ana, eta)/np.sqrt(area))
+        eta_errs.append(errornorm(eta_ana, eta)/numpy.sqrt(area))
 
-    eta_errs = np.array(eta_errs)
+    eta_errs = numpy.array(eta_errs)
     expected_order = order + 1
     assert(all(eta_errs[:-1]/eta_errs[1:] > 2.**expected_order*0.75))
     assert(eta_errs[0]/eta_errs[-1] > (2.**expected_order)**(len(eta_errs)-1)*0.75)

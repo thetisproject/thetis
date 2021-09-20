@@ -19,7 +19,7 @@ def run_tracer_consistency(**model_options):
 
     t_cycle = 2000.0  # standing wave period
     depth = 50.0
-    lx = np.sqrt(9.81*depth)*t_cycle  # wave length
+    lx = numpy.sqrt(9.81*depth)*t_cycle  # wave length
     ly = 3000.0
     nx = 18
     ny = 2
@@ -66,7 +66,7 @@ def run_tracer_consistency(**model_options):
         z = coords.dat.data[:, 2].copy()
         x = coords.dat.data[:, 0]
         p = 2.5*x/lx + 0.5
-        sigma = -depth * (0.5*np.tanh(p*(-2.0*z/depth - 1.0))/np.tanh(p) + 0.5)
+        sigma = -depth * (0.5*numpy.tanh(p*(-2.0*z/depth - 1.0))/numpy.tanh(p) + 0.5)
         coords.dat.data[:, 2] = sigma
 
     options = solver_obj.options

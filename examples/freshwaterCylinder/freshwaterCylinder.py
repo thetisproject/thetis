@@ -64,7 +64,7 @@ class VorticityCalculator(DiagnosticCallback):
         # zeta = du/dy + dv/dy + f
         self.vort_expression = -Dx(uv[0], 1) + Dx(uv[1], 0)
         cylinder_r = 15e3
-        cylinder_vol = np.pi*cylinder_r**2*depth
+        cylinder_vol = numpy.pi*cylinder_r**2*depth
         self.constant_val = f0*cylinder_vol
 
     def __call__(self):
@@ -224,7 +224,7 @@ options.vertical_diffusivity = Constant(1.4e-7)  # background value
 options.use_limiter_for_tracers = True
 if viscosity == 'smag':
     options.use_smagorinsky_viscosity = True
-    options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
+    options.smagorinsky_coefficient = Constant(1.0/numpy.sqrt(reynolds_number))
 elif viscosity == 'const':
     options.horizontal_viscosity = Constant(nu_scale)
 else:

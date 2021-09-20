@@ -108,11 +108,11 @@ def run_katophillips(**model_options):
     # check mixed layer depth
     npoints = layers*4
     tol = 1e-4
-    z = np.linspace(-tol, -depth + tol, npoints)
-    x = np.zeros_like(z)
-    y = np.zeros_like(z)
-    xyz = np.vstack((x, y, z)).T
-    tke_arr = np.array(solver_obj.fields.tke_3d.at(tuple(xyz)))
+    z = numpy.linspace(-tol, -depth + tol, npoints)
+    x = numpy.zeros_like(z)
+    y = numpy.zeros_like(z)
+    xyz = numpy.vstack((x, y, z)).T
+    tke_arr = numpy.array(solver_obj.fields.tke_3d.at(tuple(xyz)))
     # mixed layer depth: lowest point where tke > tol
     tke_tol = 1e-5
     ix = tke_arr > tke_tol
@@ -123,7 +123,7 @@ def run_katophillips(**model_options):
     # correct depth
     u_s = 0.01
     buoyfreq0 = 0.01
-    target = 1.05*u_s*np.sqrt(solver_obj.simulation_time/buoyfreq0)
+    target = 1.05*u_s*numpy.sqrt(solver_obj.simulation_time/buoyfreq0)
     rtol = 0.05
     rel_err = (ml_depth - target)/target
     assert rel_err > -rtol, 'mixed layer is too shallow: {:} < {:}'.format(ml_depth, target)

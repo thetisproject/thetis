@@ -6,7 +6,6 @@ Intended to be executed with pytest.
 """
 from firedrake import *
 from thetis.utility import get_functionspace
-import numpy as np
 import time as time_mod
 
 op2.init(log_level=WARNING)
@@ -59,7 +58,7 @@ def test_implicit_friction(do_export=False, do_assert=True):
 
     z0 = 1.5e-3
     kappa = 0.4
-    drag = (kappa / np.log((depth/layers)/z0))**2
+    drag = (kappa / numpy.log((depth/layers)/z0))**2
     bottom_drag = Constant(drag)
     u_bf = 0.035  # NOTE tuned to produce ~correct viscosity profile
 
@@ -136,8 +135,8 @@ def test_implicit_friction(do_export=False, do_assert=True):
         target_zero = 1e-6
         solution_p1_dg.project(solution)
         uvw = solution_p1_dg.dat.data
-        w_max = np.max(np.abs(uvw[:, 2]))
-        v_max = np.max(np.abs(uvw[:, 1]))
+        w_max = numpy.max(numpy.abs(uvw[:, 2]))
+        v_max = numpy.max(numpy.abs(uvw[:, 1]))
         print('w {:}'.format(w_max))
         print('v {:}'.format(v_max))
         assert w_max < target_zero, 'z velocity component too large'
@@ -145,8 +144,8 @@ def test_implicit_friction(do_export=False, do_assert=True):
         u_min = uvw[:, 0].min()
         u_max = uvw[:, 0].max()
         print('u {:} {:}'.format(u_min, u_max))
-        assert np.abs(u_min - target_u_min) < target_u_tol, 'minimum u velocity is wrong'
-        assert np.abs(u_max - target_u_max) < target_u_tol, 'maximum u velocity is wrong'
+        assert numpy.abs(u_min - target_u_min) < target_u_tol, 'minimum u velocity is wrong'
+        assert numpy.abs(u_max - target_u_max) < target_u_tol, 'maximum u velocity is wrong'
         print('*** PASSED ***')
 
 

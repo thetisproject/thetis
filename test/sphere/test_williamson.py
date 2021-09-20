@@ -12,7 +12,6 @@ Läuter et al (2005).
 """
 from thetis import *
 from scipy import stats
-import numpy
 import pytest
 
 r_earth = 6371220.  # radius of Earth

@@ -2,7 +2,6 @@
 Test netcd time interpolation
 """
 from thetis.interpolation import *
-import numpy as np
 from scipy.interpolate import interp1d
 import netCDF4
 import pytest
@@ -12,16 +11,16 @@ import os
 @pytest.fixture()
 def dataset(request):
     # create random time series on regular intervals
-    np.random.seed(2)
+    numpy.random.seed(2)
 
     x_scale = 100.
     ndata = 35
-    xx = np.linspace(0, x_scale, ndata)
-    yy = np.random.rand(*xx.shape)
+    xx = numpy.linspace(0, x_scale, ndata)
+    yy = numpy.random.rand(*xx.shape)
 
     # construct interpolation points
     ninterp = 100
-    x_interp = np.random.rand(ninterp)*x_scale
+    x_interp = numpy.random.rand(ninterp)*x_scale
 
     # get correct solution with scipy
     y_interp = interp1d(xx, yy)(x_interp)
@@ -53,7 +52,7 @@ def netcdf_files(request, dataset, tmp_outputdir):
     all_files = []
     for i in range(nfiles):
         n = int(ndata/nfiles)
-        ix = np.arange(n*i, n*(i+1))
+        ix = numpy.arange(n*i, n*(i+1))
         fn = ncfile_pattern.format(i)
         d = netCDF4.Dataset(fn, 'w')
         d.createDimension('time', None)
@@ -105,20 +104,20 @@ def test_netcdftimesearch(dataset, netcdf_files):
     assert nts.simulation_time_to_datetime(xx[10]) == init_date + datetime.timedelta(seconds=xx[10])
 
     x_max = xx.max()
-    for t in np.linspace(1., x_max-1., 20):
+    for t in numpy.linspace(1., x_max-1., 20):
         # search for time index and assert time stamp from nc file
         fn, itime, ftime = nts.find(t, previous=True)
         time_var = netCDF4.Dataset(fn)['time']
-        correct = xx[np.searchsorted(xx, t) - 1]
-        assert np.allclose(time_var[itime], ftime)
-        assert np.allclose(time_var[itime], correct)
+        correct = xx[numpy.searchsorted(xx, t) - 1]
+        assert numpy.allclose(time_var[itime], ftime)
+        assert numpy.allclose(time_var[itime], correct)
         assert time_var[itime] < t
 
         fn, itime, ftime = nts.find(t, previous=False)
         time_var = netCDF4.Dataset(fn)['time']
-        correct = xx[np.searchsorted(xx, t)]
-        assert np.allclose(time_var[itime], ftime)
-        assert np.allclose(time_var[itime], correct)
+        correct = xx[numpy.searchsorted(xx, t)]
+        assert numpy.allclose(time_var[itime], ftime)
+        assert numpy.allclose(time_var[itime], correct)
         assert time_var[itime] > t
 
 
@@ -130,7 +129,7 @@ def test_lineartimeinterpolator(dataset, netcdf_files, plot=False):
     reader = NetCDFTimeSeriesReader(['data'])
 
     lintimeinterp = LinearTimeInterpolator(timesearch_obj, reader)
-    y_interp2 = np.zeros_like(y_interp)
+    y_interp2 = numpy.zeros_like(y_interp)
     for i in range(len(y_interp2)):
         y_interp2[i] = lintimeinterp(x_interp[i])[0]
 
@@ -141,4 +140,4 @@ def test_lineartimeinterpolator(dataset, netcdf_files, plot=False):
         plt.plot(x_interp, y_interp2, 'rx')
         plt.show()
 
-    assert np.allclose(y_interp, y_interp2)
+    assert numpy.allclose(y_interp, y_interp2)

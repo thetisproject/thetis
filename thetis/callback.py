@@ -982,8 +982,8 @@ class TransectCallback(DiagnosticCallback):
         self.trans_z = numpy.linspace(z_max, z_min, self.n_points_z)
         self.trans_z = self.trans_z.reshape(self.value_shape)
         self.xyz = numpy.vstack((self.trans_x.ravel(),
-                              self.trans_y.ravel(),
-                              self.trans_z.ravel())).T
+                                 self.trans_y.ravel(),
+                                 self.trans_z.ravel())).T
 
     def __call__(self):
         if not self._initialized:

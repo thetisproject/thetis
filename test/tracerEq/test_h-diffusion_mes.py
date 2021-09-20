@@ -2,7 +2,6 @@
 Testing 3D horizontal diffusion of tracers against analytical solution.
 """
 from thetis import *
-import numpy
 from scipy import stats
 import pytest
 
@@ -34,7 +33,7 @@ def run(refinement, **model_options):
     # # initial time
     # t_init = 1000.0  # NOTE start from t > 0 for smoother init cond
     # # eliminate reminder
-    # ndt = np.ceil((t_end-t_init)/dt)
+    # ndt = numpy.ceil((t_end-t_init)/dt)
     # dt = (t_end-t_init)/ndt
     # dt_2d = dt/2
     # t_export = (t_end-t_init)/20.0

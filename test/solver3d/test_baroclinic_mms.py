@@ -326,12 +326,12 @@ def run(setup, refinement, polynomial_degree, do_export=True, **options):
     var_list = ['elev_2d', 'uv_2d', 'uv_3d', 'temp_3d', 'w_3d']
     l2_err = {}
     for v in var_list:
-        l2_err[v] = errornorm(sdict[v], solver_obj.fields[v])/np.sqrt(area)
+        l2_err[v] = errornorm(sdict[v], solver_obj.fields[v])/numpy.sqrt(area)
     solver_obj.fields.uv_dav_2d.assign(solver_obj.fields.uv_2d)
     solver_obj.copy_uv_dav_to_uv_dav_3d.solve()
     f = solver_obj.function_spaces.U.get_work_function()
     f.assign(solver_obj.fields.uv_3d + solver_obj.fields.uv_dav_3d)
-    l2_err['uv_full'] = errornorm(sdict['uv_full_3d'], f)/np.sqrt(area)
+    l2_err['uv_full'] = errornorm(sdict['uv_full_3d'], f)/numpy.sqrt(area)
     solver_obj.function_spaces.U.restore_work_function(f)
     for k in sorted(l2_err):
         print_output('L2 error {:} {:.12f}'.format(k, l2_err[k]))
@@ -346,11 +346,11 @@ def run_convergence(setup, ref_list, saveplot=False, **options):
     l2_err = []
     for r in ref_list:
         l2_err.append(run(setup, r, **options))
-    x_log = np.log10(np.array(ref_list, dtype=float)**-1)
+    x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
     var_list = sorted(l2_err[0].keys())
     y_log = {}
     for k in var_list:
-        y_log[k] = np.log10(np.array([e[k] for e in l2_err]))
+        y_log[k] = numpy.log10(numpy.array([e[k] for e in l2_err]))
     setup_name = setup.__name__
 
     def check_convergence(x_log, y_log, expected_slope, field_str, plot=False, ax=None):
@@ -363,7 +363,7 @@ def run_convergence(setup, ref_list, saveplot=False, **options):
             x_max = x_log.max()
             offset = 0.05*(x_max - x_min)
             npoints = 50
-            xx = np.linspace(x_min - offset, x_max + offset, npoints)
+            xx = numpy.linspace(x_min - offset, x_max + offset, npoints)
             yy = intercept + slope*xx
             # plot line
             ax.plot(xx, yy, linestyle='--', linewidth=0.5, color='k')

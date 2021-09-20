@@ -2,7 +2,6 @@
 Testing 2D tracer advection-diffusion equation with method of manufactured solution (MMS).
 """
 from thetis import *
-import numpy
 from scipy import stats
 import pytest
 

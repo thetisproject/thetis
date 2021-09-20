@@ -76,7 +76,7 @@ def test_standing_wave_channel(timesteps, max_rel_err, timestepper, tmpdir, do_e
     xy = select_and_move_detectors(mesh2d, xy, maximum_distance=lx)
     # thus we should end up with only the first one removed
     assert len(xy) == 3
-    np.testing.assert_almost_equal(xy[0][0], lx/nx/3.)
+    numpy.testing.assert_almost_equal(xy[0][0], lx/nx/3.)
     # first set of detectors
     cb1 = DetectorsCallback(solver_obj, xy, ['elev_2d', 'uv_2d'], name='set1',
                             append_to_log=True)
@@ -99,18 +99,18 @@ def test_standing_wave_channel(timesteps, max_rel_err, timestepper, tmpdir, do_e
 
     with h5py.File(str(tmpdir) + '/diagnostic_set1.hdf5', 'r') as df:
         assert all(df.attrs['field_dims'][:] == [1, 2])
-        trange = np.arange(n+1)*dt
-        np.testing.assert_almost_equal(df['time'][:, 0], trange)
+        trange = numpy.arange(n+1)*dt
+        numpy.testing.assert_almost_equal(df['time'][:, 0], trange)
         x = lx/4.  # location of detector1
-        np.testing.assert_allclose(df['detector1'][:][:, 0],
-                                   np.cos(pi*x/lx)*np.cos(2*pi*trange/period),
-                                   atol=5e-2, rtol=0.5)
+        numpy.testing.assert_allclose(df['detector1'][:][:, 0],
+                                      numpy.cos(pi*x/lx)*numpy.cos(2*pi*trange/period),
+                                      atol=5e-2, rtol=0.5)
     with h5py.File(str(tmpdir) + '/diagnostic_set2.hdf5', 'r') as df:
         assert all(df.attrs['field_dims'][:] == [1, ])
         x = lx/4.  # location of detector1
-        np.testing.assert_allclose(df['one'][:][:, 0],
-                                   np.cos(pi*x/lx)*np.cos(2*pi*trange/period),
-                                   atol=5e-2, rtol=0.5)
+        numpy.testing.assert_allclose(df['one'][:][:, 0],
+                                      numpy.cos(pi*x/lx)*numpy.cos(2*pi*trange/period),
+                                      atol=5e-2, rtol=0.5)
 
 
 if __name__ == '__main__':

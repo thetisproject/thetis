@@ -3,22 +3,22 @@ Test LinearTimeInterpolator object
 """
 
 from thetis.interpolation import *
-import numpy as np
+import numpy
 from scipy.interpolate import interp1d
 
 
 def do_interpolation(plot=False):
-    np.random.seed(2)
+    numpy.random.seed(2)
 
     # construct data set
     x_scale = 100.
     ndata = 35
-    xx = np.linspace(0, x_scale, ndata)
-    yy = np.random.rand(*xx.shape)
+    xx = numpy.linspace(0, x_scale, ndata)
+    yy = numpy.random.rand(*xx.shape)
 
     # construct interpolation points
     ninterp = 100
-    x_interp = np.random.rand(ninterp)*x_scale
+    x_interp = numpy.random.rand(ninterp)*x_scale
 
     # get correct solution with scipy
     y_interp = interp1d(xx, yy)(x_interp)
@@ -35,7 +35,7 @@ def do_interpolation(plot=False):
             self.t = t
 
         def find(self, time, previous=False):
-            ix = np.searchsorted(self.t, time)
+            ix = numpy.searchsorted(self.t, time)
             if previous:
                 ix -= 1
             if ix < 0:
@@ -46,7 +46,7 @@ def do_interpolation(plot=False):
     timesearch_obj = SimpleTimeSearch(xx)
     reader = TimeSeriesReader(yy)
     lintimeinterp = LinearTimeInterpolator(timesearch_obj, reader)
-    y_interp2 = np.zeros_like(y_interp)
+    y_interp2 = numpy.zeros_like(y_interp)
     for i in range(len(y_interp2)):
         y_interp2[i] = lintimeinterp(x_interp[i])[0]
 
@@ -57,7 +57,7 @@ def do_interpolation(plot=False):
         plt.plot(x_interp, y_interp2, 'rx')
         plt.show()
 
-    assert np.allclose(y_interp, y_interp2)
+    assert numpy.allclose(y_interp, y_interp2)
 
 
 def test_linearinterpolator():

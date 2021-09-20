@@ -3,7 +3,6 @@ Wind stress from WRF/NAM atmospheric model
 
 """
 from firedrake import *
-import numpy as np
 import scipy.interpolate
 import thetis.timezone as timezone
 import thetis.coordsys as coordsys
@@ -24,7 +23,7 @@ def to_latlon(x, y, positive_lon=False):
     lon, lat = coordsys.convert_coords(COORDSYS,
                                        coordsys.LL_WGS84, x, y)
     if positive_lon:
-        if isinstance(lon, np.ndarray):
+        if isinstance(lon, numpy.ndarray):
             ix = lon < 0.0
             lon[ix] += 360.
         else:  # assume float
@@ -78,13 +77,13 @@ def test():
     for node in range(len(fsx)):
         lat, lon = to_latlon(fsx[node], fsy[node])
         mesh_lonlat.append((lon, lat))
-    mesh_lonlat = np.array(mesh_lonlat)
+    mesh_lonlat = numpy.array(mesh_lonlat)
 
     ncfile = netCDF4.Dataset(test_atm_file)
     itime = 6
     grid_lat = ncfile['lat'][:].ravel()
     grid_lon = ncfile['lon'][:].ravel()
-    grid_lonlat = np.array((grid_lon, grid_lat)).T
+    grid_lonlat = numpy.array((grid_lon, grid_lat)).T
     grid_pres = ncfile['prmsl'][itime, :, :].ravel()
     pres = scipy.interpolate.griddata(grid_lonlat, grid_pres, mesh_lonlat, method='linear')
     grid_uwind = ncfile['uwind'][itime, :, :].ravel()
@@ -97,8 +96,8 @@ def test():
 
     # compare
     atm_interp.set_fields(itime*atm_time_step - 8*3600.)  # NOTE timezone offset
-    assert np.allclose(pres, atmpressure_2d.dat.data_with_halos)
-    assert np.allclose(u_stress, windstress_2d.dat.data_with_halos[:, 0])
+    assert numpy.allclose(pres, atmpressure_2d.dat.data_with_halos)
+    assert numpy.allclose(u_stress, windstress_2d.dat.data_with_halos[:, 0])
 
     # write fields to disk for visualization
     pres_fn = 'tmp/AtmPressure2d.pvd'
@@ -108,7 +107,7 @@ def test():
     out_wind = File(wind_fn)
     hours = 24*1.5
     granule = 4
-    simtime = np.arange(granule*hours)*3600./granule
+    simtime = numpy.arange(granule*hours)*3600./granule
     i = 0
     for t in simtime:
         atm_interp.set_fields(t)
