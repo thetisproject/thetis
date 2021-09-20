@@ -3,6 +3,7 @@ Wind stress from WRF/NAM atmospheric model
 
 """
 from firedrake import *
+import numpy
 import scipy.interpolate
 import thetis.timezone as timezone
 import thetis.coordsys as coordsys
