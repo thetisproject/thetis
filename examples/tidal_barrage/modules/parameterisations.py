@@ -1,5 +1,5 @@
 import math
-import numpy as np
+import numpy
 
 
 def hill_chart_parametrisation(h, turbine_specs):
@@ -71,11 +71,11 @@ def gate_sluicing(h, ramp_f, N_s, q_s0, sluice_specs, flux_limiter=0.2):
     """
     temp = ramp_f ** 2 * N_s * sluice_specs["c_d"] * sluice_specs["a_s"] * math.sqrt(2 * sluice_specs["g"] * abs(h))
     if ramp_f >= 0.5 and abs(temp) >= abs(q_s0) > 0.:
-        q_s = -np.sign(h) * min(abs((1 + flux_limiter) * q_s0), abs(temp))
+        q_s = -numpy.sign(h) * min(abs((1 + flux_limiter) * q_s0), abs(temp))
     elif ramp_f >= 0.5 and abs(q_s0) >= abs(temp):
-        q_s = -np.sign(h) * max(abs((1 - flux_limiter) * q_s0), abs(temp))
+        q_s = -numpy.sign(h) * max(abs((1 - flux_limiter) * q_s0), abs(temp))
     else:
-        q_s = -np.sign(h) * temp
+        q_s = -numpy.sign(h) * temp
     return q_s
 
 
@@ -86,12 +86,12 @@ def turbine_sluicing(h, ramp_f, N_t, q_t0, sluice_specs, turbine_specs, flux_lim
     temp = ramp_f ** 2 * N_t * sluice_specs["c_t"] * (math.pi * (turbine_specs["t_d"] / 2) ** 2) *\
         math.sqrt(2 * sluice_specs["g"] * abs(h))
     if ramp_f >= 0.5 and abs(temp) >= abs(q_t0):
-        q_t = -np.sign(h) * min(abs((1 + flux_limiter) * q_t0), abs(temp))
+        q_t = -numpy.sign(h) * min(abs((1 + flux_limiter) * q_t0), abs(temp))
     elif ramp_f >= 0.5 and abs(q_t0) >= abs(temp):
-        q_t = -np.sign(h) * max(abs((1 - flux_limiter) * q_t0), abs(temp))
+        q_t = -numpy.sign(h) * max(abs((1 - flux_limiter) * q_t0), abs(temp))
     else:
-        q_t = -np.sign(h) * temp
+        q_t = -numpy.sign(h) * temp
 
     if abs(h) != 0.0 and ramp_f >= 0.95 and q_t == 0.:
-        q_t = -np.sign(h) * temp
+        q_t = -numpy.sign(h) * temp
     return q_t

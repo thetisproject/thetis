@@ -116,7 +116,7 @@ def run_migrating_trench(conservative):
     sedimentthetis1 = []
     baththetis1 = []
 
-    for i in np.linspace(0, 15.8, 80):
+    for i in numpy.linspace(0, 15.8, 80):
         if conservative:
             d = solver_obj.fields.bathymetry_2d.at([i, 0.55]) + solver_obj.fields.elev_2d.at([i, 0.55])
             sedimentthetis1.append(solver_obj.fields.sediment_2d.at([i, 0.55])/d)
@@ -139,8 +139,8 @@ def run_migrating_trench(conservative):
     bed_csv_file = os.path.join(test_root, 'bed.csv')
 
     # check sediment and bathymetry values using previous runs
-    sediment_solution = np.loadtxt(sediment_csv_file, delimiter=",", skiprows=1)
-    bed_solution = np.loadtxt(bed_csv_file, delimiter=",", skiprows=1)
+    sediment_solution = numpy.loadtxt(sediment_csv_file, delimiter=",", skiprows=1)
+    bed_solution = numpy.loadtxt(bed_csv_file, delimiter=",", skiprows=1)
 
     assert max([abs((sediment_solution[i][1] - sedimentthetis1[i])/sediment_solution[i][1]) for i in range(len(sedimentthetis1))]) < 0.15, "error in sediment"
     assert max([abs((bed_solution[i][1] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.003, "error in bed level"

@@ -8,7 +8,6 @@ MMS test for 2d shallow water equations.
 - run_convergence runs a scaling test, computes and asserts convergence rate.
 """
 from thetis import *
-import numpy
 from scipy import stats
 import pytest
 

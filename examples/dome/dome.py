@@ -57,7 +57,7 @@ bathymetry_2d.dat.data[bathymetry_2d.dat.data > setup.depth_lim[0]] = setup.dept
 bathymetry_2d.dat.data[bathymetry_2d.dat.data < setup.depth_lim[1]] = setup.depth_lim[1]
 
 # estimate velocity / diffusivity scales
-u_max_int = np.sqrt(setup.g/setup.rho_0*setup.delta_rho/setup.depth_lim[0])*setup.depth_lim[0]/np.pi
+u_max_int = numpy.sqrt(setup.g/setup.rho_0*setup.delta_rho/setup.depth_lim[0])*setup.depth_lim[0]/numpy.pi
 u_max = 3.5
 w_max = 3e-2
 
@@ -147,7 +147,7 @@ mask_temp_relax_3d = Function(solver_obj.function_spaces.H, name='mask_temp_rela
 lx_relax = 160e3
 mask_numpy_x0 = (1 - (x_arr + setup.basin_extend)/lx_relax)
 mask_numpy_x1 = (x_arr-setup.basin_lx)/lx_relax + 1
-mask_temp_relax_3d.dat.data[:] = np.maximum(mask_numpy_x0, mask_numpy_x1)
+mask_temp_relax_3d.dat.data[:] = numpy.maximum(mask_numpy_x0, mask_numpy_x1)
 ix = mask_temp_relax_3d.dat.data < 0
 mask_temp_relax_3d.dat.data[ix] = 0.0
 # File('mask.pvd').write(mask_temp_relax_3d)
@@ -233,7 +233,7 @@ solver_obj.add_callback(
         solver_obj, 'salt_3d', x=700e3, y=560e3, npoints=48))
 solver_obj.add_callback(
     diagnostics.TracerHistogramCallback(
-        solver_obj, 'salt_3d', x_bins=np.linspace(0, 850e3, 61), rho_bins=np.linspace(0.0, 2.0, 41)))
+        solver_obj, 'salt_3d', x_bins=numpy.linspace(0, 850e3, 61), rho_bins=numpy.linspace(0.0, 2.0, 41)))
 
 compute_depth_av_inflow(uv_inflow_3d, uv_inflow_2d)
 tot_inflow_2d = abs(assemble(dot(setup.depth_lim[1]*flow_corr_fact*uv_inflow_2d, FacetNormal(solver_obj.mesh2d))*ds(int(4))))

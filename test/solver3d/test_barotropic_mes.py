@@ -15,7 +15,7 @@ def run(refinement=1, ncycles=2, **kwargs):
 
     g_grav = float(physical_constants['g_grav'])
     depth = 100.0
-    c_wave = np.sqrt(g_grav*depth)
+    c_wave = numpy.sqrt(g_grav*depth)
 
     n_base = 20
     nx = n_base*refinement
@@ -89,8 +89,8 @@ def run(refinement=1, ncycles=2, **kwargs):
     solver_obj.iterate()
 
     area = lx*ly
-    elev_err = errornorm(elev_init, solver_obj.fields.elev_2d)/np.sqrt(area)
-    uv_err = errornorm(as_vector((0., 0.)), solver_obj.fields.uv_2d)/np.sqrt(area)
+    elev_err = errornorm(elev_init, solver_obj.fields.elev_2d)/numpy.sqrt(area)
+    uv_err = errornorm(as_vector((0., 0.)), solver_obj.fields.uv_2d)/numpy.sqrt(area)
     print_output('L2 error elev={:}, uv={:}'.format(elev_err, uv_err))
 
     return elev_err, uv_err
@@ -103,9 +103,9 @@ def run_convergence(ref_list, saveplot=False, **options):
     l2_err = []
     for r in ref_list:
         l2_err.append(run(r, **options))
-    x_log = np.log10(np.array(ref_list, dtype=float)**-1)
-    y_log_elev = np.log10(np.array([v[0] for v in l2_err]))
-    y_log_uv = np.log10(np.array([v[1] for v in l2_err]))
+    x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
+    y_log_elev = numpy.log10(numpy.array([v[0] for v in l2_err]))
+    y_log_uv = numpy.log10(numpy.array([v[1] for v in l2_err]))
     setup_name = 'standingwave'
 
     def check_convergence(x_log, y_log, expected_slope, field_str, saveplot, ax):
@@ -118,7 +118,7 @@ def run_convergence(ref_list, saveplot=False, **options):
             x_max = x_log.max()
             offset = 0.05*(x_max - x_min)
             npoints = 50
-            xx = np.linspace(x_min - offset, x_max + offset, npoints)
+            xx = numpy.linspace(x_min - offset, x_max + offset, npoints)
             yy = intercept + slope*xx
             # plot line
             ax.plot(xx, yy, linestyle='--', linewidth=0.5, color='k')

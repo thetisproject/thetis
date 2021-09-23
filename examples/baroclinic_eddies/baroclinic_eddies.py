@@ -86,10 +86,10 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
         t_end = t_export
         nlayers = 4
 
-    reso_str = 'dx' + str(np.round(delta_x/1000., decimals=1))
+    reso_str = 'dx' + str(numpy.round(delta_x/1000., decimals=1))
     reso_str += '_nz' + str(nlayers)
     if dt is not None:
-        reso_str += '_dt{:}'.format(np.round(dt, 1))
+        reso_str += '_dt{:}'.format(numpy.round(dt, 1))
 
     options_str = '_'.join([reso_str,
                             element_family,
@@ -137,7 +137,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.use_limiter_for_velocity = True
     if viscosity == 'smag':
         options.use_smagorinsky_viscosity = True
-        options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
+        options.smagorinsky_coefficient = Constant(1.0/numpy.sqrt(reynolds_number))
         options.horizontal_viscosity_scale = Constant(nu_scale)
     elif viscosity == 'const':
         options.horizontal_viscosity = Constant(nu_scale)

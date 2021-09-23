@@ -114,7 +114,7 @@ def compute_l2_error(refinement=1, quadratic=False, no_exports=True):
         baroc_head_expr_dy,))
 
     volume = comp_volume_3d(mesh)
-    l2_err = errornorm(ana_sol_expr, int_pg_3d, degree_rise=2)/np.sqrt(volume)
+    l2_err = errornorm(ana_sol_expr, int_pg_3d, degree_rise=2)/numpy.sqrt(volume)
     print_output('L2 error {:}'.format(l2_err))
 
     if not no_exports:
@@ -130,8 +130,8 @@ def run_convergence(ref_list, save_plot=False, **options):
     l2_err = []
     for r in ref_list:
         l2_err.append(compute_l2_error(r, **options))
-    x_log = np.log10(np.array(ref_list, dtype=float)**-1)
-    y_log = np.log10(np.array(l2_err))
+    x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
+    y_log = numpy.log10(numpy.array(l2_err))
 
     setup_name = 'intpg'
     quadratic = options.get('quadratic', False)
@@ -149,7 +149,7 @@ def run_convergence(ref_list, save_plot=False, **options):
             x_max = x_log.max()
             offset = 0.05*(x_max - x_min)
             n = 50
-            xx = np.linspace(x_min - offset, x_max + offset, n)
+            xx = numpy.linspace(x_min - offset, x_max + offset, n)
             yy = intercept + slope*xx
             # plot line
             ax.plot(xx, yy, linestyle='--', linewidth=0.5, color='k')

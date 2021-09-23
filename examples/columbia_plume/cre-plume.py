@@ -46,7 +46,7 @@ def to_latlon(x, y, positive_lon=False):
     lon, lat = coordsys.convert_coords(COORDSYS,
                                        coordsys.LL_WGS84, x, y)
     if positive_lon:
-        if isinstance(lon, np.ndarray):
+        if isinstance(lon, numpy.ndarray):
             ix = lon < 0.0
             lon[ix] += 360.
         else:  # assume float
@@ -153,7 +153,7 @@ options.use_quadratic_pressure = True
 options.use_limiter_for_tracers = True
 options.use_limiter_for_velocity = True
 options.use_smagorinsky_viscosity = True
-options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
+options.smagorinsky_coefficient = Constant(1.0/numpy.sqrt(reynolds_number))
 options.coriolis_frequency = Constant(coriolis_f)
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end

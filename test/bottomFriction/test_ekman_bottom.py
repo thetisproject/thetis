@@ -7,7 +7,6 @@ Vertical viscosity is assumed to be constant to allow simple analytical
 solution.
 """
 from thetis import *
-import numpy
 import pytest
 
 

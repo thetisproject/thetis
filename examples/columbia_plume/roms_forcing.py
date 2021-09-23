@@ -27,7 +27,7 @@ def test_time_search():
     nc_start = datetime.datetime(2015, 5, 16, 8, tzinfo=pytz.utc)
     assert tp.start_time == nc_start
     assert tp.end_time == nc_start
-    assert np.allclose(tp.time_array, np.array([datetime_to_epoch(nc_start)]))
+    assert numpy.allclose(tp.time_array, numpy.array([datetime_to_epoch(nc_start)]))
 
     # test time search
     sim_tz = timezone.FixedTimeZone(-8, 'PST')

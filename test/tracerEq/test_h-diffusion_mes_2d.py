@@ -2,7 +2,6 @@
 Testing 2D horizontal diffusion of tracers against analytical solution.
 """
 from thetis import *
-import numpy
 from scipy import stats
 import pytest
 

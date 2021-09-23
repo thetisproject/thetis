@@ -56,6 +56,7 @@ from abc import ABCMeta, abstractmethod
 from firedrake import *
 import re
 import string
+import numpy
 
 TIMESEARCH_TOL = 1e-6
 
@@ -75,20 +76,20 @@ class GridInterpolator(object):
 
     .. code-block:: python
 
-        x0 = np.linspace(0, 10, 10)
-        y0 = np.linspace(5, 10, 10)
-        X, Y = np.meshgrid(x, y)
+        x0 = numpy.linspace(0, 10, 10)
+        y0 = numpy.linspace(5, 10, 10)
+        X, Y = numpy.meshgrid(x, y)
         x = X.ravel(); y = Y.ravel()
         data = x + 25.*y
-        x_target = np.linspace(1, 10, 20)
-        y_target = np.linspace(5, 10, 20)
-        interpolator = GridInterpolator(np.vstack((x, y)).T, np.vstack((target_x, target_y)).T)
+        x_target = numpy.linspace(1, 10, 20)
+        y_target = numpy.linspace(5, 10, 20)
+        interpolator = GridInterpolator(numpy.vstack((x, y)).T, numpy.vstack((target_x, target_y)).T)
         vals = interpolator(data)
 
     Based on
     http://stackoverflow.com/questions/20915502/speedup-scipy-griddata-for-multiple-interpolations-between-two-irregular-grids
     """
-    def __init__(self, grid_xyz, target_xyz, fill_mode=None, fill_value=np.nan,
+    def __init__(self, grid_xyz, target_xyz, fill_mode=None, fill_value=numpy.nan,
                  normalize=False, dont_raise=False):
         """
         :arg grid_xyz: Array of source grid coordinates, shape (npoints, 2) or
@@ -127,8 +128,8 @@ class GridInterpolator(object):
             ax, bx = get_norm_params(target_xyz[:, 0])
             ay, by = get_norm_params(target_xyz[:, 1])
             az, bz = get_norm_params(target_xyz[:, 2])
-            self.norm_a = np.array([ax, ay, az])
-            self.norm_b = np.array([bx, by, bz])
+            self.norm_a = numpy.array([ax, ay, az])
+            self.norm_b = numpy.array([bx, by, bz])
 
             ngrid_xyz = self.norm_a*grid_xyz + self.norm_b
             ntarget_xyz = self.norm_a*target_xyz + self.norm_b
@@ -142,15 +143,15 @@ class GridInterpolator(object):
             tri = qhull.Delaunay(ngrid_xyz)
             # NOTE this becomes expensive in 3D for npoints > 10k
             simplex = tri.find_simplex(ntarget_xyz)
-            vertices = np.take(tri.simplices, simplex, axis=0)
-            temp = np.take(tri.transform, simplex, axis=0)
+            vertices = numpy.take(tri.simplices, simplex, axis=0)
+            temp = numpy.take(tri.transform, simplex, axis=0)
             delta = ntarget_xyz - temp[:, d]
-            bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
+            bary = numpy.einsum('njk,nk->nj', temp[:, :d, :], delta)
             self.vtx = vertices
-            self.wts = np.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
-            self.outside = np.any(~np.isfinite(self.wts), axis=1)
-            self.outside += np.any(self.wts < 0, axis=1)
-            self.outside = np.nonzero(self.outside)[0]
+            self.wts = numpy.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
+            self.outside = numpy.any(~numpy.isfinite(self.wts), axis=1)
+            self.outside += numpy.any(self.wts < 0, axis=1)
+            self.outside = numpy.nonzero(self.outside)[0]
             self.fill_nearest *= len(self.outside) > 0
             if self.fill_nearest:
                 # find nearest neighbor in the data set
@@ -178,9 +179,9 @@ class GridInterpolator(object):
             if self.fill_nearest:
                 ret = values[self.outside_to_nearest]
             else:
-                ret = np.ones(self.shape)*self.fill_value
+                ret = numpy.ones(self.shape)*self.fill_value
         else:
-            ret = np.einsum('nj,nj->n', np.take(values, self.vtx), self.wts)
+            ret = numpy.einsum('nj,nj->n', numpy.take(values, self.vtx), self.wts)
             if self.fill_nearest:
                 ret[self.outside] = values[self.outside_to_nearest]
             else:
@@ -258,13 +259,13 @@ def _get_subset_nodes(grid_x, grid_y, target_x, target_y):
     Retuns grid nodes that are necessary for intepolating onto target_x,y
     """
     orig_shape = grid_x.shape
-    grid_xy = np.array((grid_x.ravel(), grid_y.ravel())).T
-    target_xy = np.array((target_x.ravel(), target_y.ravel())).T
+    grid_xy = numpy.array((grid_x.ravel(), grid_y.ravel())).T
+    target_xy = numpy.array((target_x.ravel(), target_y.ravel())).T
     tri = qhull.Delaunay(grid_xy)
     simplex = tri.find_simplex(target_xy)
-    vertices = np.take(tri.simplices, simplex, axis=0)
-    nodes = np.unique(vertices.ravel())
-    nodes_x, nodes_y = np.unravel_index(nodes, orig_shape)
+    vertices = numpy.take(tri.simplices, simplex, axis=0)
+    nodes = numpy.unique(vertices.ravel())
+    nodes_x, nodes_y = numpy.unravel_index(nodes, orig_shape)
 
     # x and y bounds for reading a subset of the netcdf data
     ind_x = slice(nodes_x.min(), nodes_x.max() + 1)
@@ -319,7 +320,7 @@ class SpatialInterpolator2d(SpatialInterpolator):
         for node in range(len(fsx)):
             lat, lon = to_latlon(fsx[node], fsy[node])
             mesh_lonlat.append((lon, lat))
-        self.mesh_lonlat = np.array(mesh_lonlat)
+        self.mesh_lonlat = numpy.array(mesh_lonlat)
 
         self._initialized = False
 
@@ -336,7 +337,7 @@ class SpatialInterpolator2d(SpatialInterpolator):
 
         subset_lat = lat_array[self.ind_lon, self.ind_lat].ravel()
         subset_lon = lon_array[self.ind_lon, self.ind_lat].ravel()
-        subset_lonlat = np.array((subset_lon, subset_lat)).T
+        subset_lonlat = numpy.array((subset_lon, subset_lat)).T
         self.grid_interpolator = GridInterpolator(subset_lonlat, self.mesh_lonlat)
         self._initialized = True
 
@@ -498,10 +499,10 @@ class NetCDFTimeParser(TimeParser):
                     self.basetime = datetime.datetime.strptime(base_date_srt, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone)
                 except ValueError:
                     raise ValueError(msg)
-            self.time_array = datetime_to_epoch(self.basetime) + np.array(time_var[:]*self.time_scalar, dtype=float)
+            self.time_array = datetime_to_epoch(self.basetime) + numpy.array(time_var[:]*self.time_scalar, dtype=float)
             self.start_time = epoch_to_datetime(float(self.time_array[0]))
             self.end_time = epoch_to_datetime(float(self.time_array[-1]))
-            self.time_step = np.mean(np.diff(self.time_array))
+            self.time_step = numpy.mean(numpy.diff(self.time_array))
             self.nb_steps = len(self.time_array)
             if verbose:
                 print_output('Parsed file {:}'.format(filename))
@@ -519,7 +520,7 @@ class NetCDFTimeParser(TimeParser):
     def find_time_stamp(self, t, previous=False):
         t_epoch = datetime_to_epoch(t) if isinstance(t, datetime.datetime) else t
 
-        itime = np.searchsorted(self.time_array, t_epoch + TIMESEARCH_TOL)  # next
+        itime = numpy.searchsorted(self.time_array, t_epoch + TIMESEARCH_TOL)  # next
         if previous:
             itime -= 1
         if itime < 0:
@@ -564,12 +565,12 @@ class NetCDFTimeSearch(TimeSearch):
             nc = self.netcdf_class(fn, *args, **kwargs)
             ncfiles.append(nc)
             dates.append(nc.get_start_time())
-        sort_ix = np.argsort(dates)
-        self.files = np.array(all_files)[sort_ix]
-        self.ncfiles = np.array(ncfiles)[sort_ix]
-        self.start_datetime = np.array(dates)[sort_ix]
+        sort_ix = numpy.argsort(dates)
+        self.files = numpy.array(all_files)[sort_ix]
+        self.ncfiles = numpy.array(ncfiles)[sort_ix]
+        self.start_datetime = numpy.array(dates)[sort_ix]
         self.start_times = [(s - self.init_date).total_seconds() for s in self.start_datetime]
-        self.start_times = np.array(self.start_times)
+        self.start_times = numpy.array(self.start_times)
         if self.verbose:
             print_output('{:}: Found time index:'.format(self.__class__.__name__))
             for i in range(len(self.files)):
@@ -594,7 +595,7 @@ class NetCDFTimeSearch(TimeSearch):
         :return: (filename, time index, simulation time) of found data
         """
         err_msg = 'No file found for time {:}'.format(self.simulation_time_to_datetime(simulation_time))
-        ix = np.searchsorted(self.start_times, simulation_time + TIMESEARCH_TOL)
+        ix = numpy.searchsorted(self.start_times, simulation_time + TIMESEARCH_TOL)
         if ix > 0:
             candidates = [ix-1, ix]
         else:
@@ -646,11 +647,11 @@ class DailyFileTimeSearch(TimeSearch):
             timestamp = datetime.datetime(d['year'], d['month'], d['day'],
                                           center_hour, tzinfo=center_timezone)
             dates.append(timestamp)
-        sort_ix = np.argsort(dates)
-        self.files = np.array(all_files)[sort_ix]
-        self.start_datetime = np.array(dates)[sort_ix]
+        sort_ix = numpy.argsort(dates)
+        self.files = numpy.array(all_files)[sort_ix]
+        self.start_datetime = numpy.array(dates)[sort_ix]
         self.start_times = [(s - self.init_date).total_seconds() for s in self.start_datetime]
-        self.start_times = np.array(self.start_times)
+        self.start_times = numpy.array(self.start_times)
         if self.verbose:
             print_output('{:}: Found time index:'.format(self.__class__.__name__))
             for i in range(len(self.files)):
@@ -695,7 +696,7 @@ class DailyFileTimeSearch(TimeSearch):
         :return: (filename, time index, simulation time) of found data
         """
         err_msg = 'No file found for time {:}'.format(self.simulation_time_to_datetime(simulation_time))
-        ix = np.searchsorted(self.start_times, simulation_time + TIMESEARCH_TOL)
+        ix = numpy.searchsorted(self.start_times, simulation_time + TIMESEARCH_TOL)
         i = ix - 1 if previous else ix
         assert i >= 0, err_msg
         assert i < len(self.start_times), err_msg

@@ -19,6 +19,7 @@ from .options import ModelOptions3d
 from . import callback
 from .log import *
 from collections import OrderedDict
+import numpy
 
 
 class FlowSolver(FrozenClass):
@@ -361,7 +362,7 @@ class FlowSolver(FrozenClass):
                 self.dt = max_dt_3d
                 self.dt_2d = max_dt_2d
             # compute mode split ratio and force it to be integer
-            self.M_modesplit = int(np.ceil(self.dt/self.dt_2d))
+            self.M_modesplit = int(numpy.ceil(self.dt/self.dt_2d))
             self.dt_2d = self.dt/self.M_modesplit
         elif self.dt_mode == '2d':
             if automatic_timestep:
@@ -377,10 +378,10 @@ class FlowSolver(FrozenClass):
         print_output('  - chosen dt: 2D: {:} 3D: {:}'.format(self.dt_2d, self.dt))
 
         # fit dt to export time
-        m_exp = int(np.ceil(self.options.simulation_export_time/self.dt))
+        m_exp = int(numpy.ceil(self.options.simulation_export_time/self.dt))
         self.dt = float(self.options.simulation_export_time)/m_exp
         if self.dt_mode == 'split':
-            self.M_modesplit = int(np.ceil(self.dt/self.dt_2d))
+            self.M_modesplit = int(numpy.ceil(self.dt/self.dt_2d))
             self.dt_2d = self.dt/self.M_modesplit
         else:
             self.dt_2d = self.dt
@@ -1053,7 +1054,7 @@ class FlowSolver(FrozenClass):
         self.i_export = i_export
         self.next_export_t = self.i_export*self.options.simulation_export_time
         if iteration is None:
-            iteration = int(np.ceil(self.next_export_t/self.dt))
+            iteration = int(numpy.ceil(self.next_export_t/self.dt))
         if t is None:
             t = iteration*self.dt
         self.iteration = iteration

@@ -4,8 +4,9 @@ Generic time integration schemes to advance equations in time.
 from __future__ import absolute_import
 from .utility import *
 from abc import ABCMeta, abstractmethod
+import numpy
 
-CFL_UNCONDITIONALLY_STABLE = np.inf
+CFL_UNCONDITIONALLY_STABLE = numpy.inf
 # CFL coefficient for unconditionally stable methods
 
 

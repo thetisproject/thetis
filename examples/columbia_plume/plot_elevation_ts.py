@@ -5,7 +5,7 @@ import h5py
 from netCDF4 import Dataset
 from thetis.timezone import *
 
-import numpy as np
+import numpy
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 
@@ -16,7 +16,7 @@ epoch = datetime.datetime(1970, 1, 1, tzinfo=pytz.utc)
 
 
 def simtime_to_datetime(simtime, init_date):
-    return np.array([init_date + datetime.timedelta(seconds=float(t)) for t in simtime])
+    return numpy.array([init_date + datetime.timedelta(seconds=float(t)) for t in simtime])
 
 
 def simtime_to_epoch(simtime, init_date):
@@ -25,8 +25,8 @@ def simtime_to_epoch(simtime, init_date):
 
 
 def epoch_to_datetime(time):
-    if isinstance(time, np.ndarray):
-        return np.array([epoch + datetime.timedelta(seconds=float(t)) for t in time])
+    if isinstance(time, numpy.ndarray):
+        return numpy.array([epoch + datetime.timedelta(seconds=float(t)) for t in time])
     return epoch + datetime.timedelta(seconds=float(time))
 
 
@@ -62,8 +62,8 @@ def make_plot(data):
     fig = plt.figure(figsize=(12, 5))
     ax = fig.add_subplot(111)
 
-    t_min = np.finfo('d').max
-    t_max = np.finfo('d').min
+    t_min = numpy.finfo('d').max
+    t_max = numpy.finfo('d').min
     for tag in data:
         d = data[tag]
         time = d['time']

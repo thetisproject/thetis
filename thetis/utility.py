@@ -13,6 +13,7 @@ import ufl  # NOQA
 from firedrake import *
 from mpi4py import MPI  # NOQA
 from pyop2.profiling import timed_function, timed_region, timed_stage  # NOQA
+import numpy
 
 from .field_defs import field_metadata
 from .log import *
@@ -249,7 +250,7 @@ def get_facet_mask(function_space, facet='bottom'):
     # extruded dimension is the inner loop in index
     # on interval elements, the end points are the first two dofs
     offset = 0 if facet == 'bottom' else 1
-    indices = np.arange(nb_nodes_h)*nb_nodes_v + offset
+    indices = numpy.arange(nb_nodes_h)*nb_nodes_v + offset
     return indices
 
 
@@ -282,13 +283,13 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, z_stretch_fact=1.0,
     # number of nodes in vertical direction
     n_vert_nodes = fs_3d.finat_element.space_dimension() / fs_2d.finat_element.space_dimension()
 
-    min_depth_arr = np.ones((n_layers+1, ))*1e22
+    min_depth_arr = numpy.ones((n_layers+1, ))*1e22
     if min_depth is not None:
         for i, v in enumerate(min_depth):
             min_depth_arr[i] = v
 
     nodes = get_facet_mask(fs_3d, 'bottom')
-    idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
+    idx = op2.Global(len(nodes), nodes, dtype=numpy.int32, name='node_idx')
     min_depth_op2 = op2.Global(len(min_depth_arr), min_depth_arr, name='min_depth')
     kernel = op2.Kernel("""
         void my_kernel(double *new_coords, double *old_coords, double *bath2d, double *z_stretch, int *idx, double *min_depth) {
@@ -597,7 +598,7 @@ def get_cell_widths_2d(mesh2d):
         assert mesh2d.ufl_cell() == ufl.triangle
     except AssertionError:
         raise NotImplementedError("Cell widths only currently implemented for triangles.")
-    cell_widths = Function(VectorFunctionSpace(mesh2d, "DG", 0)).assign(np.finfo(0.0).min)
+    cell_widths = Function(VectorFunctionSpace(mesh2d, "DG", 0)).assign(numpy.finfo(0.0).min)
     par_loop("""for (int i=0; i<coords.dofs; i++) {
                   widths[0] = fmax(widths[0], fabs(coords[2*i] - coords[(2*i+2)%6]));
                   widths[1] = fmax(widths[1], fabs(coords[2*i+1] - coords[(2*i+3)%6]));
@@ -678,9 +679,9 @@ def beta_plane_coriolis_params(latitude):
     # Beta = df/dy|_{alpha=alpha_0}
     #      = (df/dalpha*dalpha/dy)_{alpha=alpha_0}
     #      = 2 Omega cos(alpha_0) /R
-    alpha_0 = 2*np.pi*latitude/360.0
-    f_0 = 2*omega*np.sin(alpha_0)
-    beta = 2*omega*np.cos(alpha_0)/r
+    alpha_0 = 2*numpy.pi*latitude/360.0
+    f_0 = 2*omega*numpy.sin(alpha_0)
+    beta = 2*omega*numpy.cos(alpha_0)/r
     return f_0, beta
 
 
@@ -770,7 +771,7 @@ def select_and_move_detectors(mesh, detector_locations, detector_names=None,
         ind = dist.dat.data_ro.argmin()
         # smallest distance to a cell centre location on this process:
         local_loc = list(p0xy.dat.data_ro[ind])
-        local_dist = np.sqrt(dist.dat.data_ro[ind])
+        local_dist = numpy.sqrt(dist.dat.data_ro[ind])
         # select the smallest distance on all processes. If some distances are equal, pick a unique loc. based on lexsort
         global_dist_loc = mesh.comm.allreduce([local_dist]+local_loc, op=min_lexsort_op)
         return global_dist_loc[0], global_dist_loc[1:]

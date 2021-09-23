@@ -21,7 +21,6 @@ momentum equation.
     http://dx.doi.org/10.1016/j.ocemod.2012.01.001
 """
 from thetis import *
-import numpy
 
 depth = 15.0
 surf_slope = -1.0e-5  # d elev/dx

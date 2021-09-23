@@ -7,7 +7,6 @@ Vertical viscosity is assumed to be constant to allow simple analytical
 solution.
 """
 from thetis import *
-import numpy
 
 depth = 20.0
 surf_slope = -5.0e-6  # d elev/dx

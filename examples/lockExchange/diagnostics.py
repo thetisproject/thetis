@@ -62,7 +62,7 @@ class FrontLocationCalculator(DiagnosticCallback):
         self.rho_ho.dat.data[ix] = 1
         mass = assemble(self.rho_ho*dx)
         if mass < 1e-20:
-            return np.nan
+            return numpy.nan
         center_x = assemble(self.rho_ho*self.xyz[0]*dx)/mass
         return center_x
 
@@ -119,16 +119,16 @@ class RPECalculator(DiagnosticCallback):
             self._initialize()
         self.nodal_volume = assemble(self.test*dx)
         rho_array = self.rho.dat.data[:]
-        sorted_ix = np.argsort(rho_array)[::-1]
+        sorted_ix = numpy.argsort(rho_array)[::-1]
         rho0 = float(physical_constants['rho0'])
         rho_array = rho_array[sorted_ix] + rho0
         volume_array = self.nodal_volume.dat.data[:][sorted_ix]
-        z = (np.cumsum(volume_array) - 0.5*volume_array)/self.area_2d
+        z = (numpy.cumsum(volume_array) - 0.5*volume_array)/self.area_2d
         g = float(physical_constants['g_grav'])
-        rpe = g*np.sum(rho_array*volume_array*z)
+        rpe = g*numpy.sum(rho_array*volume_array*z)
         if self.initial_rpe is None:
             self.initial_rpe = rpe
-        rel_rpe = (rpe - self.initial_rpe)/np.abs(self.initial_rpe)
+        rel_rpe = (rpe - self.initial_rpe)/numpy.abs(self.initial_rpe)
         return rpe, rel_rpe
 
     def message_str(self, *args):

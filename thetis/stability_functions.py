@@ -35,7 +35,7 @@ http://dx.doi.org/10.1357/002224003322005087
 
 """
 from __future__ import absolute_import
-import numpy as np
+import numpy
 from abc import ABC, abstractmethod
 from scipy.optimize import minimize
 from .log import print_output
@@ -173,7 +173,7 @@ class StabilityFunctionBase(ABC):
             a = -self.d5 + self.n2 - (self.d3 - self.n1 + self.nb2)*ri_st - (self.d4 + self.nb1)*ri_st**2
             b = -self.d2 + self.n0 - (self.d1 + self.nb0)*ri_st
             c = -self.d0
-            a_shear = (-b + np.sqrt(b**2 - 4*a*c))/2/a
+            a_shear = (-b + numpy.sqrt(b**2 - 4*a*c))/2/a
 
         return a_shear
 
@@ -202,7 +202,7 @@ class StabilityFunctionBase(ABC):
 
         # check error in ri_st
         err = s_m/s_h*(c2 - c1)/(c2 - c3_minus) - ri_st
-        assert np.abs(err) < 1e-5, 'steady state gradient Richardson number does not match'
+        assert numpy.abs(err) < 1e-5, 'steady state gradient Richardson number does not match'
 
         return c3_minus
 
@@ -221,7 +221,7 @@ class StabilityFunctionBase(ABC):
             a = self.d5 - self.n2
             b = self.d2 - self.n0
             c = self.d0
-            a_shear = (-b - np.sqrt(b**2 - 4*a*c))/2/a
+            a_shear = (-b - numpy.sqrt(b**2 - 4*a*c))/2/a
             s_m, s_h = self.eval_funcs(a_buoy, a_shear)
             cm0 = s_m**0.25
         else:
@@ -246,7 +246,7 @@ class StabilityFunctionBase(ABC):
         :arg sigma_psi: Psi Schmidt number
         :arg cmu0, n, c1, c2: GLS model parameters
         """
-        return cmu0 / np.abs(n) * np.sqrt(sigma_psi * (c2 - c1))
+        return cmu0 / numpy.abs(n) * numpy.sqrt(sigma_psi * (c2 - c1))
 
     def compute_sigma_psi(self, kappa, cmu0, n, c1, c2):
         r"""
@@ -271,7 +271,7 @@ class StabilityFunctionBase(ABC):
         # compute aN from Ri_st and aM, Ri_st = aN/aM
         a_buoy = ri_st*a_shear
 
-        clim = cmu0**3.0 * np.sqrt(a_buoy/2)
+        clim = cmu0**3.0 * numpy.sqrt(a_buoy/2)
         return clim
 
     def get_alpha_buoy_min(self):
@@ -281,7 +281,7 @@ class StabilityFunctionBase(ABC):
         See: Umlauf and Buchard (2005), Table 3
         """
         # G = epsilon case, this is used in GOTM
-        an_min = 0.5*(np.sqrt((self.d1 + self.nb0)**2. - 4.*self.d0*(self.d4 + self.nb1)) - (self.d1 + self.nb0))/(self.d4 + self.nb1)
+        an_min = 0.5*(numpy.sqrt((self.d1 + self.nb0)**2. - 4.*self.d0*(self.d4 + self.nb1)) - (self.d1 + self.nb0))/(self.d4 + self.nb1)
         # eq. (47)
         # an_min = self.alpha_buoy_min
         return an_min
@@ -345,7 +345,7 @@ class StabilityFunctionBase(ABC):
             # limit min (negative) alpha_buoy (Umlauf and Burchard, 2005)
             if not self.smooth_alpha_buoy_lim:
                 # crop at minimum value
-                np.maximum(alpha_buoy, self.get_alpha_buoy_min(), alpha_buoy)
+                numpy.maximum(alpha_buoy, self.get_alpha_buoy_min(), alpha_buoy)
             else:
                 # do smooth limiting instead (Buchard and Petersen, 1999, eq 19)
                 ab_smooth_min = self.get_alpha_buoy_smooth_min(alpha_buoy)
@@ -356,7 +356,7 @@ class StabilityFunctionBase(ABC):
         if self.lim_alpha_shear:
             # limit max alpha_shear (Umlauf and Burchard, 2005, eq 44)
             as_max = self.get_alpha_shear_max(alpha_buoy, alpha_shear)
-            np.minimum(alpha_shear, as_max, alpha_shear)
+            numpy.minimum(alpha_shear, as_max, alpha_shear)
 
         return self.eval_funcs(alpha_buoy, alpha_shear)
 

@@ -2,7 +2,6 @@
 Test vertical velocity against analytical solutions.
 """
 from thetis import *
-import numpy
 from scipy import stats
 
 

@@ -13,6 +13,7 @@ import uptide
 import uptide.tidal_netcdf
 from abc import ABCMeta, abstractmethod, abstractproperty
 import os
+import numpy
 
 
 def compute_wind_stress(wind_u, wind_v, method='LargePond1981'):
@@ -50,10 +51,10 @@ def compute_wind_stress(wind_u, wind_v, method='LargePond1981'):
     :returns: (tau_x, tau_y) wind stress x and y components as numpy arrays
     """
     rho_air = float(physical_constants['rho_air'])
-    wind_mag = np.hypot(wind_u, wind_v)
+    wind_mag = numpy.hypot(wind_u, wind_v)
     if method == 'LargePond1981':
         CD_LOW = 1.2e-3
-        C_D = np.ones_like(wind_u)*CD_LOW
+        C_D = numpy.ones_like(wind_u)*CD_LOW
         high_wind = wind_mag > 11.0
         C_D[high_wind] = 1.0e-3*(0.49 + 0.065*wind_mag[high_wind])
     elif method == 'SmithBanke1975':
@@ -80,7 +81,7 @@ class ATMNetCDFTime(interpolation.NetCDFTimeParser):
         # NOTE these are daily forecast files, limit time steps to one day
         self.start_time = timezone.epoch_to_datetime(float(self.time_array[0]))
         self.end_time_raw = timezone.epoch_to_datetime(float(self.time_array[-1]))
-        self.time_step = np.mean(np.diff(self.time_array))
+        self.time_step = numpy.mean(numpy.diff(self.time_array))
         self.max_steps = int(max_duration / self.time_step)
         self.time_array = self.time_array[:self.max_steps]
         self.end_time = timezone.epoch_to_datetime(float(self.time_array[-1]))
@@ -186,12 +187,12 @@ class SpatialInterpolatorNCOMBase(interpolation.SpatialInterpolator):
         assert varkey is not None, 'Could not find variable in file'
         vals = ncfile[varkey][:]  # shape (nz, lat, lon) or (lat, lon)
         is3d = len(vals.shape) == 3
-        land_mask = np.all(vals.mask, axis=0) if is3d else vals.mask
+        land_mask = numpy.all(vals.mask, axis=0) if is3d else vals.mask
 
         # build 2d mask
         mask_good_values = ~land_mask
         # neighborhood mask with bounding box
-        mask_cover = np.zeros_like(mask_good_values)
+        mask_cover = numpy.zeros_like(mask_good_values)
         buffer = 0.2
         lat_min = self.latlonz_array[:, 0].min() - buffer
         lat_max = self.latlonz_array[:, 0].max() + buffer
@@ -207,18 +208,18 @@ class SpatialInterpolatorNCOMBase(interpolation.SpatialInterpolator):
         from scipy.spatial import cKDTree
         good_lat = lat[mask_good_values]
         good_lon = lon[mask_good_values]
-        ll = np.vstack([good_lat.ravel(), good_lon.ravel()]).T
+        ll = numpy.vstack([good_lat.ravel(), good_lon.ravel()]).T
         dist, ix = cKDTree(ll).query(self.latlonz_array[:, :2])
-        ix = np.unique(ix)
-        ix = np.nonzero(mask_good_values.ravel())[0][ix]
-        a, b = np.unravel_index(ix, lat.shape)
-        mask_nn = np.zeros_like(mask_good_values)
+        ix = numpy.unique(ix)
+        ix = numpy.nonzero(mask_good_values.ravel())[0][ix]
+        a, b = numpy.unravel_index(ix, lat.shape)
+        mask_nn = numpy.zeros_like(mask_good_values)
         mask_nn[a, b] = True
         # final mask
         mask = mask_cover + mask_nn
 
-        self.nodes = np.nonzero(mask.ravel())[0]
-        self.ind_lat, self.ind_lon = np.unravel_index(self.nodes, lat.shape)
+        self.nodes = numpy.nonzero(mask.ravel())[0]
+        self.ind_lat, self.ind_lon = numpy.unravel_index(self.nodes, lat.shape)
 
         lat_subset = lat[self.ind_lat, self.ind_lon]
         lon_subset = lon[self.ind_lat, self.ind_lon]
@@ -256,13 +257,13 @@ class SpatialInterpolatorNCOM3d(SpatialInterpolatorNCOMBase):
         # construct local coordinates
         xyz = SpatialCoordinate(self.function_space.mesh())
         tmp_func = self.function_space.get_work_function()
-        xyz_array = np.zeros((tmp_func.dat.data_with_halos.shape[0], 3))
+        xyz_array = numpy.zeros((tmp_func.dat.data_with_halos.shape[0], 3))
         for i in range(3):
             tmp_func.interpolate(xyz[i])
             xyz_array[:, i] = tmp_func.dat.data_with_halos[:]
         self.function_space.restore_work_function(tmp_func)
 
-        self.latlonz_array = np.zeros_like(xyz_array)
+        self.latlonz_array = numpy.zeros_like(xyz_array)
         lat, lon = to_latlon(xyz_array[:, 0], xyz_array[:, 1], positive_lon=True)
         self.latlonz_array[:, 0] = lat
         self.latlonz_array[:, 1] = lon
@@ -288,16 +289,16 @@ class SpatialInterpolatorNCOM3d(SpatialInterpolatorNCOMBase):
         nz = grid_z.shape[0]
 
         # data shape is [nz, neta*nxi]
-        grid_lat = np.tile(lat_subset, (nz, 1))[self.good_mask_3d]
-        grid_lon = np.tile(lon_subset, (nz, 1))[self.good_mask_3d]
+        grid_lat = numpy.tile(lat_subset, (nz, 1))[self.good_mask_3d]
+        grid_lon = numpy.tile(lon_subset, (nz, 1))[self.good_mask_3d]
         grid_z = grid_z[self.good_mask_3d]
-        if np.ma.isMaskedArray(grid_lat):
+        if numpy.ma.isMaskedArray(grid_lat):
             grid_lat = grid_lat.filled(0.0)
-        if np.ma.isMaskedArray(grid_lon):
+        if numpy.ma.isMaskedArray(grid_lon):
             grid_lon = grid_lon.filled(0.0)
-        if np.ma.isMaskedArray(grid_z):
+        if numpy.ma.isMaskedArray(grid_z):
             grid_z = grid_z.filled(0.0)
-        grid_latlonz = np.vstack((grid_lat, grid_lon, grid_z)).T
+        grid_latlonz = numpy.vstack((grid_lat, grid_lon, grid_z)).T
 
         # building 3D interpolator, this can take a long time (minutes)
         print_output('Constructing 3D GridInterpolator...')
@@ -341,13 +342,13 @@ class SpatialInterpolatorNCOM2d(SpatialInterpolatorNCOMBase):
         # construct local coordinates
         xyz = SpatialCoordinate(self.function_space.mesh())
         tmp_func = self.function_space.get_work_function()
-        xy_array = np.zeros((tmp_func.dat.data_with_halos.shape[0], 2))
+        xy_array = numpy.zeros((tmp_func.dat.data_with_halos.shape[0], 2))
         for i in range(2):
             tmp_func.interpolate(xyz[i])
             xy_array[:, i] = tmp_func.dat.data_with_halos[:]
         self.function_space.restore_work_function(tmp_func)
 
-        self.latlonz_array = np.zeros_like(xy_array)
+        self.latlonz_array = numpy.zeros_like(xy_array)
         lat, lon = to_latlon(xy_array[:, 0], xy_array[:, 1], positive_lon=True)
         self.latlonz_array[:, 0] = lat
         self.latlonz_array[:, 1] = lon
@@ -360,11 +361,11 @@ class SpatialInterpolatorNCOM2d(SpatialInterpolatorNCOMBase):
 
         grid_lat = lat_subset
         grid_lon = lon_subset
-        if np.ma.isMaskedArray(grid_lat):
+        if numpy.ma.isMaskedArray(grid_lat):
             grid_lat = grid_lat.filled(0.0)
-        if np.ma.isMaskedArray(grid_lon):
+        if numpy.ma.isMaskedArray(grid_lon):
             grid_lon = grid_lon.filled(0.0)
-        grid_latlon = np.vstack((grid_lat, grid_lon)).T
+        grid_latlon = numpy.vstack((grid_lat, grid_lon)).T
 
         # building 3D interpolator, this can take a long time (minutes)
         self.interpolator = interpolation.GridInterpolator(
@@ -507,13 +508,13 @@ class SpatialInterpolatorROMS3d(interpolation.SpatialInterpolator):
         # construct local coordinates
         xyz = SpatialCoordinate(self.function_space.mesh())
         tmp_func = self.function_space.get_work_function()
-        xyz_array = np.zeros((tmp_func.dat.data_with_halos.shape[0], 3))
+        xyz_array = numpy.zeros((tmp_func.dat.data_with_halos.shape[0], 3))
         for i in range(3):
             tmp_func.interpolate(xyz[i])
             xyz_array[:, i] = tmp_func.dat.data_with_halos[:]
         self.function_space.restore_work_function(tmp_func)
 
-        self.latlonz_array = np.zeros_like(xyz_array)
+        self.latlonz_array = numpy.zeros_like(xyz_array)
         lat, lon = to_latlon(xyz_array[:, 0], xyz_array[:, 1])
         self.latlonz_array[:, 0] = lat
         self.latlonz_array[:, 1] = lon
@@ -526,13 +527,13 @@ class SpatialInterpolatorROMS3d(interpolation.SpatialInterpolator):
         Retuns grid nodes that are necessary for intepolating onto target_x,y
         """
         orig_shape = grid_x.shape
-        grid_xy = np.array((grid_x.ravel(), grid_y.ravel())).T
-        target_xy = np.array((target_x.ravel(), target_y.ravel())).T
+        grid_xy = numpy.array((grid_x.ravel(), grid_y.ravel())).T
+        target_xy = numpy.array((target_x.ravel(), target_y.ravel())).T
         tri = qhull.Delaunay(grid_xy)
         simplex = tri.find_simplex(target_xy)
-        vertices = np.take(tri.simplices, simplex, axis=0)
-        nodes = np.unique(vertices.ravel())
-        nodes_x, nodes_y = np.unravel_index(nodes, orig_shape)
+        vertices = numpy.take(tri.simplices, simplex, axis=0)
+        nodes = numpy.unique(vertices.ravel())
+        nodes_x, nodes_y = numpy.unravel_index(nodes, orig_shape)
 
         return nodes, nodes_x, nodes_y
 
@@ -549,9 +550,9 @@ class SpatialInterpolatorROMS3d(interpolation.SpatialInterpolator):
         zeta = zeta[self.ind_lat, self.ind_lon][self.mask].filled(0.0)
         bath = bath[self.ind_lat, self.ind_lon][self.mask]
         if constant_zeta:
-            zeta = np.ones_like(bath)*constant_zeta
-        ss = (hc*s[:, np.newaxis] + bath[np.newaxis, :]*cs[:, np.newaxis])/(hc + bath[np.newaxis, :])
-        grid_z_w = zeta[np.newaxis, :]*(1 + ss) + bath[np.newaxis, :]*ss
+            zeta = numpy.ones_like(bath)*constant_zeta
+        ss = (hc*s[:, numpy.newaxis] + bath[numpy.newaxis, :]*cs[:, numpy.newaxis])/(hc + bath[numpy.newaxis, :])
+        grid_z_w = zeta[numpy.newaxis, :]*(1 + ss) + bath[numpy.newaxis, :]*ss
         grid_z = 0.5*(grid_z_w[1:, :] + grid_z_w[:-1, :])
         grid_z[0, :] = grid_z_w[0, :]
         grid_z[-1, :] = grid_z_w[-1, :]
@@ -579,16 +580,16 @@ class SpatialInterpolatorROMS3d(interpolation.SpatialInterpolator):
         nz = grid_z.shape[0]
 
         # data shape is [nz, neta, nxi]
-        grid_lat = np.tile(lat_subset, (nz, 1, 1)).ravel()
-        grid_lon = np.tile(lon_subset, (nz, 1, 1)).ravel()
+        grid_lat = numpy.tile(lat_subset, (nz, 1, 1)).ravel()
+        grid_lon = numpy.tile(lon_subset, (nz, 1, 1)).ravel()
         grid_z = grid_z.ravel()
-        if np.ma.isMaskedArray(grid_lat):
+        if numpy.ma.isMaskedArray(grid_lat):
             grid_lat = grid_lat.filled(0.0)
-        if np.ma.isMaskedArray(grid_lon):
+        if numpy.ma.isMaskedArray(grid_lon):
             grid_lon = grid_lon.filled(0.0)
-        if np.ma.isMaskedArray(grid_z):
+        if numpy.ma.isMaskedArray(grid_z):
             grid_z = grid_z.filled(0.0)
-        grid_latlonz = np.vstack((grid_lat, grid_lon, grid_z)).T
+        grid_latlonz = numpy.vstack((grid_lat, grid_lon, grid_z)).T
 
         # building 3D interpolator, this can take a long time (minutes)
         print_output('Constructing 3D GridInterpolator...')
@@ -610,7 +611,7 @@ class SpatialInterpolatorROMS3d(interpolation.SpatialInterpolator):
             output = []
             for var in variable_list:
                 assert var in ncfile.variables
-                grid_data = ncfile[var][itime, :, :, :][:, self.ind_lat, self.ind_lon][:, self.mask].filled(np.nan).ravel()
+                grid_data = ncfile[var][itime, :, :, :][:, self.ind_lat, self.ind_lon][:, self.mask].filled(numpy.nan).ravel()
                 data = self.interpolator(grid_data)
                 output.append(data)
         return output
@@ -710,7 +711,7 @@ class TidalBoundaryForcing(object):
         fs = elev_field.function_space()
         if boundary_ids is None:
             # interpolate in the whole domain
-            self.nodes = np.arange(self.elev_field.dat.data_with_halos.shape[0])
+            self.nodes = numpy.arange(self.elev_field.dat.data_with_halos.shape[0])
         else:
             bc = DirichletBC(fs, 0., boundary_ids)
             self.nodes = bc.nodes
@@ -726,7 +727,7 @@ class TidalBoundaryForcing(object):
                 x, y = fsx[node], fsy[node]
                 lat, lon = to_latlon(x, y, positive_lon=True)
                 latlon.append((lat, lon))
-            self.latlon = np.array(latlon)
+            self.latlon = numpy.array(latlon)
 
             # compute bounding box
             bounds_lat = [self.latlon[:, 0].min(), self.latlon[:, 0].max()]

@@ -29,8 +29,8 @@ class LagoonCallback(DiagnosticCallback):
         self.elevation_value = {"inner": assemble(solver_obj.fields['elev_2d'] * marked_areas["inner"]) / self.area["inner"],
                                 "outer": assemble(solver_obj.fields['elev_2d'] * marked_areas["outer"]) / self.area["outer"]}
 
-        self.elevation_array = {"inner": np.empty(number_timesteps),
-                                "outer": np.empty(number_timesteps)}
+        self.elevation_array = {"inner": numpy.empty(number_timesteps),
+                                "outer": numpy.empty(number_timesteps)}
 
         self.elevation_array["inner"][:], self.elevation_array["outer"][:] =\
             self.elevation_value["inner"], self.elevation_value["outer"]
@@ -44,11 +44,11 @@ class LagoonCallback(DiagnosticCallback):
             self.status = status
 
         self.control, self.parameters = lagoon_input[0][0], lagoon_input[1][0]
-        self.output = np.zeros(12)
+        self.output = numpy.zeros(12)
         self.boundaries = thetis_boundaries
 
         field_dims = [12]
-        attrs = {'field_names': np.array(["operation_output"], dtype='S'),
+        attrs = {'field_names': numpy.array(["operation_output"], dtype='S'),
                  'field_dims': field_dims}
 
         super(LagoonCallback, self).__init__(solver_obj, array_dim=sum(field_dims), attrs=attrs, **kwargs)
@@ -67,8 +67,8 @@ class LagoonCallback(DiagnosticCallback):
         self.time_operation += self.solver_obj.options.timestep
         for i in ["inner", "outer"]:
             self.elevation_value[i] = assemble(self.solver_obj.fields['elev_2d'] * self.marked_areas[i]) / self.area[i]
-            self.elevation_array[i] = np.append(np.delete(self.elevation_array[i], [0]), self.elevation_value[i])
-            self.elevation_mean[i] = np.average(self.elevation_array[i])
+            self.elevation_array[i] = numpy.append(numpy.delete(self.elevation_array[i], [0]), self.elevation_value[i])
+            self.elevation_mean[i] = numpy.average(self.elevation_array[i])
 
         self.output = lagoon_operation.lagoon(self.time_operation, self.solver_obj.options.timestep,
                                               self.elevation_mean["inner"], self.elevation_mean["outer"],

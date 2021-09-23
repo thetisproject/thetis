@@ -1,5 +1,5 @@
-import numpy as np
 import os
+import numpy
 import scipy.interpolate
 from netCDF4 import Dataset
 from firedrake import *
@@ -15,7 +15,7 @@ def interpolate_onto(interp_func, output_func, coords, min_val):
         bvector[i] = interp_func((node_x, node_y))
     shallow_ix = bvector < min_val
     bvector[shallow_ix] = min_val
-    bad_ix = ~np.isfinite(bvector)
+    bad_ix = ~numpy.isfinite(bvector)
     bvector[bad_ix] = min_val
 
 
@@ -35,9 +35,9 @@ def get_bathymetry(bathymetry_file, mesh2d, minimum_depth=5.0, project=False):
     x = d['x'][:]
     y = d['y'][:]
     bath = -d['bathymetry'][:]
-    if np.ma.isMaskedArray(bath):
+    if numpy.ma.isMaskedArray(bath):
         bath = bath.filled(minimum_depth)
-    bath[~np.isfinite(bath)] = minimum_depth
+    bath[~numpy.isfinite(bath)] = minimum_depth
     interpolator = scipy.interpolate.RegularGridInterpolator((x, y), bath.T)
 
     P1_2d = get_functionspace(mesh2d, 'CG', 1)

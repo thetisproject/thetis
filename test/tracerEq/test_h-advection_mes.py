@@ -2,7 +2,6 @@
 Testing 3D horizontal advection of tracers
 """
 from thetis import *
-import numpy
 from scipy import stats
 import pytest
 

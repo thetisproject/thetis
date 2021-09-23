@@ -52,19 +52,19 @@ class PlotCallback(DiagnosticCallback):
             x = self.xyz.dat.data[:, 0]
             x_max = x.max()
             x_min = x.min()
-            delta_x = self.solver_obj.fields.h_elem_size_2d.dat.data.mean()*np.sqrt(2)
-            n_x = int(np.round((x_max - x_min)/delta_x))
+            delta_x = self.solver_obj.fields.h_elem_size_2d.dat.data.mean()*numpy.sqrt(2)
+            n_x = int(numpy.round((x_max - x_min)/delta_x))
             npoints = layers*4
             epsilon = 1e-10  # nudge points to avoid libspatialindex errors
             z_min = -(depth - epsilon)
             z_max = -0.08  # do not include the top 8 cm to avoid surface waves
-            z = np.linspace(z_max, z_min, npoints)
+            z = numpy.linspace(z_max, z_min, npoints)
             npoints = n_x + 1
-            x = np.linspace(x_min + epsilon, x_max - epsilon, npoints)
-            xx, zz = np.meshgrid(x, z)
-            yy = np.zeros_like(xx)
+            x = numpy.linspace(x_min + epsilon, x_max - epsilon, npoints)
+            xx, zz = numpy.meshgrid(x, z)
+            yy = numpy.zeros_like(xx)
             self.mesh_shape = xx.shape
-            self.xyz = np.vstack((xx.ravel(), yy.ravel(), zz.ravel())).T
+            self.xyz = numpy.vstack((xx.ravel(), yy.ravel(), zz.ravel())).T
             self.x_plot = x/1000.0  # to km
             self.z_plot = z
 
@@ -79,10 +79,10 @@ class PlotCallback(DiagnosticCallback):
             cmin, cmax = clim
             overshoot_tol = 1e-6
             # divide each integer in color array to this many levels
-            cbar_reso = max(min(int(np.round(5.0/(cmax - cmin)*4)), 6), 1)
+            cbar_reso = max(min(int(numpy.round(5.0/(cmax - cmin)*4)), 6), 1)
             nlevels = int(cbar_reso*(cmax-cmin) + 1)
-            levels = np.linspace(cmin - overshoot_tol, cmax + overshoot_tol,
-                                 nlevels)
+            levels = numpy.linspace(cmin - overshoot_tol, cmax + overshoot_tol,
+                                    nlevels)
             p = ax.contourf(self.x_plot, self.z_plot, color_array, levels, cmap=cmap, extend='both')
             ax.set_xlabel('x [km]')
             ax.set_ylabel('z [m]')
@@ -94,7 +94,7 @@ class PlotCallback(DiagnosticCallback):
             cax = divider.append_axes('right', size=0.3, pad=0.1)
             cb = plt.colorbar(p, cax=cax, orientation='vertical', format='%4.1f')
             cb.set_label(cbartitle)
-            cticks = np.linspace(cmin, cmax, int(np.round((cmax-cmin))) + 1)
+            cticks = numpy.linspace(cmin, cmax, int(numpy.round((cmax-cmin))) + 1)
             cb.set_ticks(cticks)
             cax.invert_yaxis()
             return p
@@ -106,7 +106,7 @@ class PlotCallback(DiagnosticCallback):
         if MATPLOTLIB_INSTALLED:
             # evaluate function on regular grid
             func = self.rho
-            arr = np.array(func.at(tuple(self.xyz)))
+            arr = numpy.array(func.at(tuple(self.xyz)))
             arr = arr.reshape(self.mesh_shape)
 
             nplots = 1

@@ -5,6 +5,7 @@ from firedrake import *
 from .log import *
 from .callback import DiagnosticCallback
 from .optimisation import DiagnosticOptimisationCallback
+import numpy
 
 
 class TurbineFarm(object):
@@ -89,7 +90,7 @@ class TurbineFunctionalCallback(DiagnosticCallback):
             print_output('Number of turbines = {}'.format(self.cost))
 
     def __call__(self):
-        return np.transpose([farm.evaluate_timestep() for farm in self.farms])
+        return numpy.transpose([farm.evaluate_timestep() for farm in self.farms])
 
     def message_str(self, current_power, average_power, average_profit):
         return 'Current power, average power and profit for each farm: {}, {}, {}'.format(current_power, average_power, average_profit)

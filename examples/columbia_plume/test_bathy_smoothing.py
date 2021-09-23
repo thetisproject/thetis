@@ -79,7 +79,7 @@ def write_npz(outfile, func):
     y_arr = f.dat.data.copy()
     data = bathymetry_2d.dat.data
 
-    np.savez('bath.npz', x=x_arr, y=y_arr, data=data, connectivity=connectivity)
+    numpy.savez('bath.npz', x=x_arr, y=y_arr, data=data, connectivity=connectivity)
 
 
 # write final bathymetry out as numpy array

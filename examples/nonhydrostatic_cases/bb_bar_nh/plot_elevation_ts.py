@@ -1,9 +1,9 @@
 """
 Plots elevation time series
 """
+import numpy
 import h5py
 
-import numpy as np
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 
@@ -37,7 +37,7 @@ def make_plot(data):
         x_num = data['time'] + xshift
         y_num = data[list(data.keys())[i+1]]
         tck = interpolate.splrep(x_num, y_num, s=0)
-        xnew = np.arange(0, 40, 0.01).reshape(4000, 1)
+        xnew = numpy.arange(0, 40, 0.01).reshape(4000, 1)
         ynew = interpolate.splev(xnew, tck, der=0)
 
         ax.plot(xnew, ynew, 'b', linewidth=1, label='Gauge '+str(i+4), alpha=1.0)

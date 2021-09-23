@@ -115,13 +115,13 @@ def compute_pg_error(**kwargs):
     hcc_obj = Mesh3DConsistencyCalculator(solver_obj)
     hcc_obj.solve()
 
-    int_pg_mag = np.abs(solver_obj.fields.int_pg_3d.dat.data).max()
+    int_pg_mag = numpy.abs(solver_obj.fields.int_pg_3d.dat.data).max()
     print_output('int pg error: {:9.2e}'.format(int_pg_mag))
 
     if iterate:
         solver_obj.iterate()
 
-    uv_mag = np.abs(solver_obj.fields.uv_3d.dat.data).max()
+    uv_mag = numpy.abs(solver_obj.fields.uv_3d.dat.data).max()
     if iterate:
         print_output('uv error: {:9.2e}'.format(uv_mag))
 

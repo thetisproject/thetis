@@ -169,11 +169,11 @@ def compute_l2_error(refinement=1, quadratic_pressure=False, quadratic_density=F
 
     # error norms
     volume = comp_volume_3d(mesh)
-    l2_err_density = errornorm(density_expr, density_3d, degree_rise=2)/np.sqrt(volume)
+    l2_err_density = errornorm(density_expr, density_3d, degree_rise=2)/numpy.sqrt(volume)
     print_output('Density L2 error: {:}'.format(l2_err_density))
-    l2_err_bhead = errornorm(baroc_head_expr, baroc_head_3d, degree_rise=2)/np.sqrt(volume)
+    l2_err_bhead = errornorm(baroc_head_expr, baroc_head_3d, degree_rise=2)/numpy.sqrt(volume)
     print_output('B.head  L2 error: {:}'.format(l2_err_bhead))
-    l2_err_pg = errornorm(int_pg_expr, int_pg_3d, degree_rise=2)/np.sqrt(volume)
+    l2_err_pg = errornorm(int_pg_expr, int_pg_3d, degree_rise=2)/numpy.sqrt(volume)
     print_output('Int.PG  L2 error: {:}'.format(l2_err_pg))
 
     if not no_exports:
@@ -202,8 +202,8 @@ def run_convergence(ref_list, save_plot=False, **options):
     l2_err = []
     for r in ref_list:
         l2_err.append(compute_l2_error(r, **options))
-    x_log = np.log10(np.array(ref_list, dtype=float)**-1)
-    y_log = np.log10(np.array(l2_err))
+    x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
+    y_log = numpy.log10(numpy.array(l2_err))
     y_log_density = y_log[:, 0]
     y_log_bhead = y_log[:, 1]
     y_log_intpg = y_log[:, 2]
@@ -223,7 +223,7 @@ def run_convergence(ref_list, save_plot=False, **options):
             x_max = x_log.max()
             offset = 0.05*(x_max - x_min)
             n = 50
-            xx = np.linspace(x_min - offset, x_max + offset, n)
+            xx = numpy.linspace(x_min - offset, x_max + offset, n)
             yy = intercept + slope*xx
             # plot line
             ax.plot(xx, yy, linestyle='--', linewidth=0.5, color='k')

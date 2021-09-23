@@ -2,10 +2,10 @@
 Plots 2D tracer histogram
 """
 import h5py
-import numpy as np
 import os
 import matplotlib.pyplot as plt
 import matplotlib
+import numpy
 
 fontsize = 18
 matplotlib.rcParams['font.size'] = fontsize
@@ -25,10 +25,10 @@ nx = len(x_bins) - 1
 nrho = len(rho_bins) - 1
 
 hist = hdf5_file['value'][export_ix, :]
-hist = np.reshape(hist, (nrho, nx))
+hist = numpy.reshape(hist, (nrho, nx))
 
-x_mean = np.linspace(x_bins.min(), x_bins.max(), len(x_bins))/1000.
-rho_mean = np.linspace(rho_bins.min(), rho_bins.max(), len(rho_bins))
+x_mean = numpy.linspace(x_bins.min(), x_bins.max(), len(x_bins))/1000.
+rho_mean = numpy.linspace(rho_bins.min(), rho_bins.max(), len(rho_bins))
 
 fig = plt.figure(figsize=(10, 8))
 ax = fig.add_subplot(111)
@@ -38,7 +38,7 @@ cmap.set_over('w')
 cmap.set_under('k')
 cmap.set_bad('k')
 
-print('Loaded export {:}: {:}'.format(export_ix, np.linalg.norm(hist)))
+print('Loaded export {:}: {:}'.format(export_ix, numpy.linalg.norm(hist)))
 
 p = ax.pcolormesh(x_mean, rho_mean, hist, cmap=cmap, vmin=clim[0], vmax=clim[1])
 ax.invert_yaxis()

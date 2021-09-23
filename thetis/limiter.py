@@ -6,6 +6,7 @@ from .utility import *
 from firedrake import VertexBasedLimiter
 import ufl
 from pyop2.profiling import timed_region, timed_function, timed_stage  # NOQA
+import numpy
 
 
 def assert_function_space(fs, family, degree):
@@ -117,9 +118,9 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         else:
             entity_dim = (1, 1)  # get vertical facets
         boundary_dofs = entity_support_dofs(self.P1DG.finat_element, entity_dim)
-        local_facet_nodes = np.array([boundary_dofs[e] for e in sorted(boundary_dofs.keys())])
+        local_facet_nodes = numpy.array([boundary_dofs[e] for e in sorted(boundary_dofs.keys())])
         n_bnd_nodes = local_facet_nodes.shape[1]
-        local_facet_idx = op2.Global(local_facet_nodes.shape, local_facet_nodes, dtype=np.int32, name='local_facet_idx')
+        local_facet_idx = op2.Global(local_facet_nodes.shape, local_facet_nodes, dtype=numpy.int32, name='local_facet_idx')
         code = """
             void my_kernel(double *qmax, double *qmin, double *field, unsigned int *facet, unsigned int *local_facet_idx)
             {
@@ -148,8 +149,8 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
             # NOTE calling firedrake par_loop with measure=ds_t raises an error
             bottom_nodes = get_facet_mask(self.P1CG, 'bottom')
             top_nodes = get_facet_mask(self.P1CG, 'top')
-            bottom_idx = op2.Global(len(bottom_nodes), bottom_nodes, dtype=np.int32, name='node_idx')
-            top_idx = op2.Global(len(top_nodes), top_nodes, dtype=np.int32, name='node_idx')
+            bottom_idx = op2.Global(len(bottom_nodes), bottom_nodes, dtype=numpy.int32, name='node_idx')
+            top_idx = op2.Global(len(top_nodes), top_nodes, dtype=numpy.int32, name='node_idx')
             code = """
                 void my_kernel(double *qmax, double *qmin, double *field, int *idx) {
                     double face_mean = 0;
