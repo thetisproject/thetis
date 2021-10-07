@@ -181,18 +181,29 @@ class FlowSolver2d(FrozenClass):
         nelem2d = int(P1DG_2d.dim()/P1DG_2d.ufl_cell().num_vertices())
         dofs_elev2d = self.function_spaces.H_2d.dim()
         dofs_u2d = self.function_spaces.U_2d.dim()
-        dofs_elev3d_core = int(dofs_elev2d/self.comm.size)
+        dofs_tracer2d = self.function_spaces.Q_2d.dim()
+        dofs_elev2d_core = int(dofs_elev2d/self.comm.size)
+        dofs_tracer2d_core = int(dofs_tracer2d/self.comm.size)
         min_h_size = self.comm.allreduce(self.fields.h_elem_size_2d.dat.data.min(), MPI.MIN)
         max_h_size = self.comm.allreduce(self.fields.h_elem_size_2d.dat.data.max(), MPI.MAX)
 
-        print_output(f'Element family: {self.options.element_family}, degree: {self.options.polynomial_degree}')
+        if not self.options.tracer_only:
+            print_output(f'Element family: {self.options.element_family}, degree: {self.options.polynomial_degree}')
+        if self.solve_tracer:
+            print_output(f'Tracer element family: {self.options.tracer_element_family}, degree: 1')
         print_output(f'2D cell type: {self.mesh2d.ufl_cell()}')
         print_output(f'2D mesh: {nnodes} vertices, {nelem2d} elements')
         print_output(f'Horizontal element size: {min_h_size:.2f} ... {max_h_size:.2f} m')
-        print_output(f'Number of 2D elevation DOFs: {dofs_elev2d}')
-        print_output(f'Number of 2D velocity DOFs: {dofs_u2d}')
+        if not self.options.tracer_only:
+            print_output(f'Number of 2D elevation DOFs: {dofs_elev2d}')
+            print_output(f'Number of 2D velocity DOFs: {dofs_u2d}')
+        if self.solve_tracer:
+            print_output(f'Number of 2D tracer DOFs: {dofs_tracer2d}')
         print_output(f'Number of cores: {self.comm.size}')
-        print_output(f'Elevation DOFs per core: ~{dofs_elev3d_core:.1f}')
+        if not self.options.tracer_only:
+            print_output(f'Elevation DOFs per core: ~{dofs_elev2d_core:.1f}')
+        if self.solve_tracer:
+            print_output(f'Tracer DOFs per core: ~{dofs_tracer2d_core:.1f}')
 
     def set_time_step(self, alpha=0.05):
         """
