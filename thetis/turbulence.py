@@ -167,6 +167,7 @@ class VerticalGradSolver(object):
     Computes vertical gradient in the weak sense.
 
     """
+    @PETSc.Log.EventDecorator("thetis.VerticalGradSolver.__init__")
     def __init__(self, source, solution, solver_parameters=None):
         """
         :arg source: A :class:`Function` or expression to differentiate.
@@ -200,6 +201,7 @@ class VerticalGradSolver(object):
         prob = LinearVariationalProblem(a, l, self.solution, constant_jacobian=True)
         self.weak_grad_solver = LinearVariationalSolver(prob, solver_parameters=solver_parameters)
 
+    @PETSc.Log.EventDecorator("thetis.VerticalGradSolver.solve")
     def solve(self):
         """Computes the gradient"""
         self.weak_grad_solver.solve()
@@ -214,6 +216,7 @@ class ShearFrequencySolver(object):
         M^2 = \left(\frac{\partial u}{\partial z}\right)^2
             + \left(\frac{\partial v}{\partial z}\right)^2
     """
+    @PETSc.Log.EventDecorator("thetis.ShearFrequencySolver.__init__")
     def __init__(self, uv, m2, mu, mv, mu_tmp, relaxation=1.0, minval=1e-12):
         """
         :arg uv: horizontal velocity field
@@ -241,6 +244,7 @@ class ShearFrequencySolver(object):
         for i_comp in range(2):
             self.var_solvers.append(VerticalGradSolver(uv[i_comp], mu_tmp))
 
+    @PETSc.Log.EventDecorator("thetis.ShearFrequencySolver.solve")
     def solve(self, init_solve=False):
         """
         Computes buoyancy frequency
@@ -269,6 +273,7 @@ class BuoyFrequencySolver(object):
     .. math::
         N^2 = -\frac{g}{\rho_0}\frac{\partial \rho}{\partial z}
     """
+    @PETSc.Log.EventDecorator("thetis.BuoyFrequencySolver.__init__")
     def __init__(self, rho, n2, n2_tmp, relaxation=1.0, minval=1e-12):
         """
         :arg rho: water density field
@@ -297,6 +302,7 @@ class BuoyFrequencySolver(object):
             solver = VerticalGradSolver(p, self.n2_tmp)
             self.var_solver = solver
 
+    @PETSc.Log.EventDecorator("thetis.BuoyFrequencySolver.solve")
     def solve(self, init_solve=False):
         """
         Computes buoyancy frequency
@@ -345,6 +351,7 @@ class GenericLengthScaleModel(TurbulenceModel):
     """
     Generic Length Scale turbulence closure model implementation
     """
+    @PETSc.Log.EventDecorator("thetis.GenericLengthScaleModel.__init__")
     def __init__(self, solver, k_field, psi_field, uv_field, rho_field,
                  l_field, epsilon_field,
                  eddy_diffusivity, eddy_viscosity,
@@ -451,6 +458,7 @@ class GenericLengthScaleModel(TurbulenceModel):
         print_output(self.options)
         self._initialized = False
 
+    @PETSc.Log.EventDecorator("thetis.GenericLengthScaleModel.initialize")
     def initialize(self, l_init=0.01):
         """
         Initialize turbulent fields.
@@ -474,6 +482,7 @@ class GenericLengthScaleModel(TurbulenceModel):
         self.preprocess(init_solve=True)
         self.postprocess()
 
+    @PETSc.Log.EventDecorator("thetis.GenericLengthScaleModel.preprocess")
     def preprocess(self, init_solve=False):
         """
         Computes all diagnostic variables that depend on the mean flow model
@@ -496,6 +505,7 @@ class GenericLengthScaleModel(TurbulenceModel):
             self.n2_pos.dat.data[pos_ix] = self.n2.dat.data[pos_ix]
             self.n2_neg.dat.data[~pos_ix] = self.n2.dat.data[~pos_ix]
 
+    @PETSc.Log.EventDecorator("thetis.GenericLengthScaleModel.postprocess")
     def postprocess(self):
         r"""
         Updates all diagnostic variables that depend on the turbulence state
@@ -858,6 +868,7 @@ class PacanowskiPhilanderModel(TurbulenceModel):
     11(11):1443-1451.
     http://dx.doi.org/10.1175/1520-0485(1981)011%3C1443:POVMIN%3E2.0.CO;2
     """
+    @PETSc.Log.EventDecorator("thetis.PacanowskiPhilanderModel.__init__")
     def __init__(self, solver, uv_field, rho_field,
                  eddy_diffusivity, eddy_viscosity,
                  n2, m2, options=None):
@@ -909,6 +920,7 @@ class PacanowskiPhilanderModel(TurbulenceModel):
         self.initialize()
         print_output(self.options)
 
+    @PETSc.Log.EventDecorator("thetis.PacanowskiPhilanderModel.initialize")
     def initialize(self):
         """Initializes fields"""
         self.n2.assign(1e-12)
@@ -916,6 +928,7 @@ class PacanowskiPhilanderModel(TurbulenceModel):
         self.preprocess(init_solve=True)
         self.postprocess()
 
+    @PETSc.Log.EventDecorator("thetis.PacanowskiPhilanderModel.preprocess")
     def preprocess(self, init_solve=False):
         """
         Computes all diagnostic variables that depend on the mean flow model
@@ -933,6 +946,7 @@ class PacanowskiPhilanderModel(TurbulenceModel):
             pos_ix = self.n2.dat.data[:] >= 0.0
             self.n2_pos.dat.data[pos_ix] = self.n2.dat.data[pos_ix]
 
+    @PETSc.Log.EventDecorator("thetis.PacanowskiPhilanderModel.postprocess")
     def postprocess(self):
         """
         Updates all diagnostic variables that depend on the turbulence state

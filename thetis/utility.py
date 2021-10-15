@@ -11,6 +11,7 @@ from collections import OrderedDict, namedtuple  # NOQA
 import coffee.base as ast  # NOQA
 import ufl  # NOQA
 from firedrake import *
+from firedrake.petsc import PETSc
 from mpi4py import MPI  # NOQA
 from pyop2.profiling import timed_function, timed_region, timed_stage  # NOQA
 import numpy
@@ -224,6 +225,7 @@ def create_directory(path, comm=COMM_WORLD):
     return path
 
 
+@PETSc.Log.EventDecorator("thetis.get_facet_mask")
 def get_facet_mask(function_space, facet='bottom'):
     """
     Returns the top/bottom nodes of extruded 3D elements.
@@ -253,7 +255,7 @@ def get_facet_mask(function_space, facet='bottom'):
     indices = numpy.arange(nb_nodes_h)*nb_nodes_v + offset
     return indices
 
-
+@PETSc.Log.EventDecorator("thetis.extrude_mesh_sigma")
 def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, z_stretch_fact=1.0,
                        min_depth=None):
     """
@@ -325,12 +327,14 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, z_stretch_fact=1.0,
     return mesh
 
 
+@PETSc.Log.EventDecorator("thetis.comp_volume_2d")
 def comp_volume_2d(eta, bath):
     """Computes volume of the 2D domain as an integral of the elevation field"""
     val = assemble((eta+bath)*dx)
     return val
 
 
+@PETSc.Log.EventDecorator("thetis.comp_volume_3d")
 def comp_volume_3d(mesh):
     """Computes volume of the 3D domain as an integral"""
     one = Constant(1.0, domain=mesh.coordinates.ufl_domain())
@@ -338,6 +342,7 @@ def comp_volume_3d(mesh):
     return val
 
 
+@PETSc.Log.EventDecorator("thetis.comp_tracer_mass_2d")
 def comp_tracer_mass_2d(scalar_func, total_depth):
     """
     Computes total tracer mass in the 2D domain
@@ -348,6 +353,7 @@ def comp_tracer_mass_2d(scalar_func, total_depth):
     return val
 
 
+@PETSc.Log.EventDecorator("thetis.comp_tracer_mass_3d")
 def comp_tracer_mass_3d(scalar_func):
     """
     Computes total tracer mass in the 3D domain
@@ -358,6 +364,7 @@ def comp_tracer_mass_3d(scalar_func):
     return val
 
 
+@PETSc.Log.EventDecorator("thetis.get_zcoord_from_mesh")
 def get_zcoord_from_mesh(zcoord, solver_parameters=None):
     """
     Evaluates z coordinates from the 3D mesh
@@ -378,6 +385,7 @@ def get_zcoord_from_mesh(zcoord, solver_parameters=None):
     return zcoord
 
 
+@PETSc.Log.EventDecorator("thetis.compute_baroclinic_head")
 def compute_baroclinic_head(solver):
     r"""
     Computes the baroclinic head :math:`r` from the density field
@@ -394,6 +402,7 @@ def compute_baroclinic_head(solver):
         solver.int_pg_calculator.solve()
 
 
+@PETSc.Log.EventDecorator("thetis.extend_function_to_3d")
 def extend_function_to_3d(func, mesh_extruded):
     """
     Returns a 3D view of a 2D :class:`Function` on the extruded domain.
@@ -472,6 +481,7 @@ class SubdomainProjector(object):
         self.solver = LinearVariationalSolver(problem,
                                               solver_parameters=solver_parameters)
 
+    @PETSc.Log.EventDecorator("thetis.SubdomainProjector.project")
     def project(self):
         """
         Apply the projection.
@@ -479,6 +489,7 @@ class SubdomainProjector(object):
         self.solver.solve()
 
 
+@PETSc.Log.EventDecorator("thetis.compute_elem_height")
 def compute_elem_height(zcoord, output):
     """
     Computes the element height on an extruded mesh.
@@ -516,6 +527,7 @@ def compute_elem_height(zcoord, output):
     return output
 
 
+@PETSc.Log.EventDecorator("thetis.get_horizontal_elem_size_2d")
 def get_horizontal_elem_size_2d(sol2d):
     """
     Computes horizontal element size from the 2D mesh
@@ -531,6 +543,7 @@ def get_horizontal_elem_size_2d(sol2d):
     solve(a == l, sol2d)
 
 
+@PETSc.Log.EventDecorator("thetis.get_facet_areas")
 def get_facet_areas(mesh):
     """
     Compute area of each facet of `mesh`. The facet areas are stored as a HDiv trace field.
@@ -548,6 +561,7 @@ def get_facet_areas(mesh):
     return facet_areas
 
 
+@PETSc.Log.EventDecorator("thetis.get_minimum_angles_2d")
 def get_minimum_angles_2d(mesh2d):
     """
     Compute the minimum angle in each element of a triangular mesh, `mesh2d`, using the
@@ -588,6 +602,7 @@ def get_minimum_angles_2d(mesh2d):
     return min_angles
 
 
+@PETSc.Log.EventDecorator("thetis.get_cell_widths_2d")
 def get_cell_widths_2d(mesh2d):
     """
     Compute widths of mesh elements in each coordinate direction as the maximum distance
@@ -606,6 +621,7 @@ def get_cell_widths_2d(mesh2d):
     return cell_widths
 
 
+@PETSc.Log.EventDecorator("thetis.anisotropic_cell_size")
 def anisotropic_cell_size(mesh):
     """
     Measure of cell size for anisotropic meshes, as described in
@@ -727,6 +743,7 @@ def compute_boundary_length(mesh2d):
     return boundary_len
 
 
+@PETSc.Log.EventDecorator("thetis.select_and_move_detectors")
 def select_and_move_detectors(mesh, detector_locations, detector_names=None,
                               maximum_distance=0.):
     """Select those detectors that are within the domain and/or move them to
@@ -873,6 +890,7 @@ class VorticityCalculator2D(object):
     :arg solver_obj: :class:`FlowSolver2d` object.
     :kwargs: to be passed to the :class:`LinearVariationalSolver`.
     """
+    @PETSc.Log.EventDecorator("thetis.VorticityCalculator2D.__init__")
     def __init__(self, vorticity_2d, solver_obj, **kwargs):
         fs = vorticity_2d.function_space()
         if element_continuity(fs.ufl_element()).horizontal != 'cg':
@@ -900,6 +918,7 @@ class VorticityCalculator2D(object):
         if 'vorticity_2d' not in solver_obj.options.fields_to_export:
             print_output("NOTE: 'vorticity_2d' will be calculated but not exported.")
 
+    @PETSc.Log.EventDecorator("thetis.VorticityCalculator2D.solve")
     def solve(self):
         self.solver.solve()
 
@@ -925,6 +944,7 @@ class DepthIntegratedPoissonSolver(object):
     where the :math:`H = \eta + d` denotes the water depth
     and the superscript star symbol represents the intermediate level of terms.
     """
+    @PETSc.Log.EventDecorator("thetis.DepthIntegratedPoissonSolver.__init__")
     def __init__(self, q_2d, uv_2d, w_2d, elev_2d, depth, dt, bnd_functions=None, solver_parameters=None):
         if solver_parameters is None:
             solver_parameters = {'snes_type': 'ksponly',
@@ -996,6 +1016,7 @@ class DepthIntegratedPoissonSolver(object):
         prob_w = LinearVariationalProblem(a_w, l_w, self.w_2d)
         self.solver_w = LinearVariationalSolver(prob_w)
 
+    @PETSc.Log.EventDecorator("thetis.DepthIntegratedPoissonSolver.solve")
     def solve(self, solve_w=True):
         # solve non-hydrostatic pressure q
         self.solver_q.solve()

@@ -98,6 +98,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
             assemble(self.a_form, self.centroid_solver.A)
         self.centroid_solver.solve(self.centroids, b)
 
+    @PETSc.Log.EventDecorator("thetis.VertexBasedP1DGLimiter.compute_bounds")
     def compute_bounds(self, field):
         """
         Re-compute min/max values of all neighbouring centroids
@@ -179,6 +180,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
                          top_idx(op2.READ),
                          iterate=op2.ON_TOP)
 
+    @PETSc.Log.EventDecorator("thetis.VertexBasedP1DGLimiter.apply")
     def apply(self, field):
         """
         Applies the limiter on the given field (in place)

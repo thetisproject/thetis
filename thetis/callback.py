@@ -64,6 +64,7 @@ class DiagnosticHDF5(object):
     """
     A HDF5 file for storing diagnostic time series arrays.
     """
+    @PETSc.Log.EventDecorator("thetis.DiagnosticHDF5.__init__")
     def __init__(self, filename, varnames, array_dim=1, attrs=None,
                  comm=COMM_WORLD, new_file=True, dtype='d',
                  include_time=True):
@@ -120,6 +121,7 @@ class DiagnosticHDF5(object):
     def _nentries(self, hdf5file):
         return hdf5file[self.varnames[0]].shape[0]
 
+    @PETSc.Log.EventDecorator("thetis.DiagnosticHDF5.export")
     def export(self, variables, time=None, index=None):
         """
         Appends a new entry of (time, variables) to the file.
@@ -598,6 +600,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
     name = 'timeseries'
     variable_names = ['value']
 
+    @PETSc.Log.EventDecorator("thetis.TimeSeriesCallback2D.__init__")
     def __init__(self, solver_obj, fieldnames, x, y,
                  location_name,
                  outputdir=None, export_to_hdf5=True,
@@ -637,6 +640,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         self.y = y
         self._initialized = False
 
+    @PETSc.Log.EventDecorator("thetis.TimeSeriesCallback2D._initialize")
     def _initialize(self):
         outputdir = self.outputdir
         if outputdir is None:
@@ -653,6 +657,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         self.xyz = numpy.array([[self.x, self.y]])
         self._initialized = True
 
+    @PETSc.Log.EventDecorator("thetis.TimeSeriesCallback2D.__call__")
     def __call__(self):
         if not self._initialized:
             self._initialize()
@@ -685,6 +690,7 @@ class TimeSeriesCallback3D(DiagnosticCallback):
     name = 'timeseries'
     variable_names = ['value']
 
+    @PETSc.Log.EventDecorator("thetis.TimeSeriesCallback3D.__init__")
     def __init__(self, solver_obj, fieldnames, x, y, z,
                  location_name,
                  outputdir=None, export_to_hdf5=True,
@@ -725,6 +731,7 @@ class TimeSeriesCallback3D(DiagnosticCallback):
         self.z = z
         self._initialized = False
 
+    @PETSc.Log.EventDecorator("thetis.TimeSeriesCallback3D._initialize")
     def _initialize(self):
         outputdir = self.outputdir
         if outputdir is None:
@@ -745,6 +752,7 @@ class TimeSeriesCallback3D(DiagnosticCallback):
         self.xyz = numpy.array([[self.x, self.y, self.z]])
         self._initialized = True
 
+    @PETSc.Log.EventDecorator("thetis.TimeSeriesCallback3D.__call__")
     def __call__(self):
         if not self._initialized:
             self._initialize()
@@ -777,6 +785,7 @@ class VerticalProfileCallback(DiagnosticCallback):
     name = 'vertprofile'
     variable_names = ['z_coord', 'value']
 
+    @PETSc.Log.EventDecorator("thetis.VerticalProfileCallback.__init__")
     def __init__(self, solver_obj, fieldnames, x, y,
                  location_name,
                  npoints=48,
@@ -833,6 +842,7 @@ class VerticalProfileCallback(DiagnosticCallback):
             outputdir = self.solver_obj.options.outputdir
         self._initialized = True
 
+    @PETSc.Log.EventDecorator("thetis.VerticalProfileCallback._construct_z_array")
     def _construct_z_array(self):
         # construct mesh points for func evaluation
         try:
@@ -845,6 +855,7 @@ class VerticalProfileCallback(DiagnosticCallback):
         z_max = elev - self.epsilon
         self.xyz[:, 2] = z_max + (z_min - z_max)*self.alpha
 
+    @PETSc.Log.EventDecorator("thetis.VerticalProfileCallback.__call__")
     def __call__(self):
         if not self._initialized:
             self._initialize()
@@ -882,6 +893,7 @@ class TransectCallback(DiagnosticCallback):
     name = 'transect'
     variable_names = ['z_coord', 'value']
 
+    @PETSc.Log.EventDecorator("thetis.TransectCallback.__init__")
     def __init__(self, solver_obj, fieldnames, x, y,
                  location_name,
                  n_points_z=48,
@@ -955,6 +967,7 @@ class TransectCallback(DiagnosticCallback):
             append_to_log=append_to_log)
         self._initialized = False
 
+    @PETSc.Log.EventDecorator("thetis.TransectCallback._initialize")
     def _initialize(self):
         outputdir = self.outputdir
         if outputdir is None:
@@ -965,6 +978,7 @@ class TransectCallback(DiagnosticCallback):
         self.trans_x = numpy.tile(self.x[numpy.newaxis, :], (self.n_points_z, 1))
         self.trans_y = numpy.tile(self.y[numpy.newaxis, :], (self.n_points_z, 1))
 
+    @PETSc.Log.EventDecorator("thetis.TransectCallback._update_coords")
     def _update_coords(self):
         try:
             depth = numpy.array(self.solver_obj.fields.bathymetry_2d.at(self.xy))
@@ -985,6 +999,7 @@ class TransectCallback(DiagnosticCallback):
                                  self.trans_y.ravel(),
                                  self.trans_z.ravel())).T
 
+    @PETSc.Log.EventDecorator("thetis.TransectCallback.__call__")
     def __call__(self):
         if not self._initialized:
             self._initialize()

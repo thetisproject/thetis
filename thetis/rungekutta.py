@@ -447,6 +447,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
     All derived classes must define the Butcher tableau coefficients :attr:`a`,
     :attr:`b`, :attr:`c`.
     """
+    @PETSc.Log.EventDecorator("thetis.DIRKGeneric.__init__")
     def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all'):
         """
         :arg equation: the equation to solve
@@ -511,6 +512,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
             self.sol_expressions.append(sol_expr)
         self.final_sol_expr = self.solution_old + sum(map(operator.mul, self.k, self.dt_const*self.b))
 
+    @PETSc.Log.EventDecorator("thetis.DIRKGeneric.update_solver")
     def update_solver(self):
         """Create solver objects"""
         self.solver = []
@@ -523,11 +525,13 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
                                            options_prefix=sname,
                                            ad_block_tag=self.ad_block_tag + f'_stage{i}'))
 
+    @PETSc.Log.EventDecorator("thetis.DIRKGeneric.initialize")
     def initialize(self, init_cond):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(init_cond)
         self._initialized = True
 
+    @PETSc.Log.EventDecorator("thetis.DIRKGeneric.update_solution")
     def update_solution(self, i_stage):
         """
         Updates solution to i_stage sub-stage.
@@ -536,6 +540,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         """
         self.solution.assign(self.solution_old + self.sol_expressions[i_stage])
 
+    @PETSc.Log.EventDecorator("thetis.DIRKGeneric.solve_tendency")
     def solve_tendency(self, i_stage, t, update_forcings=None):
         """
         Evaluates the tendency of i-th stage.
@@ -549,10 +554,12 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
             update_forcings(t + self.c[i_stage]*self.dt)
         self.solver[i_stage].solve()
 
+    @PETSc.Log.EventDecorator("thetis.DIRKGeneric.get_final_solution")
     def get_final_solution(self):
         """Assign final solution to :attr:`self.solution`"""
         self.solution.assign(self.final_sol_expr)
 
+    @PETSc.Log.EventDecorator("thetis.DIRKGeneric.solve_stage")
     def solve_stage(self, i_stage, t, update_forcings=None):
         """Solve i-th stage and assign solution to :attr:`self.solution`."""
         self.solve_tendency(i_stage, t, update_forcings)
@@ -562,6 +569,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
 class DIRKGenericUForm(RungeKuttaTimeIntegrator):
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
+    @PETSc.Log.EventDecorator("thetis.DIRKGenericUForm.__init__")
     def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all'):
         """
         :arg equation: the equation to solve
@@ -631,6 +639,7 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
 
         self.update_solver()
 
+    @PETSc.Log.EventDecorator("thetis.DIRKGenericUForm.update_solver")
     def update_solver(self):
         """Create solver objects"""
         # Ensure LU assembles monolithic matrices
@@ -660,6 +669,7 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
                 ad_block_tag=self.ad_block_tag + f'_k_stage{i}')
             self.k_solver.append(s)
 
+    @PETSc.Log.EventDecorator("thetis.DIRKGenericUForm.initialize")
     def initialize(self, init_cond):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(init_cond)
@@ -671,6 +681,7 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
         """
         pass
 
+    @PETSc.Log.EventDecorator("thetis.DIRKGenericUForm.solve_stage")
     def solve_stage(self, i_stage, t, update_forcings=None):
         """
         Solves a single stage of step from t to t+dt.
@@ -743,6 +754,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
 
     Implements the Butcher form. All terms in the equation are treated explicitly.
     """
+    @PETSc.Log.EventDecorator("thetis.ERKGeneric.__init__")
     def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all'):
         """
         :arg equation: the equation to solve
@@ -782,6 +794,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
 
         self.update_solver()
 
+    @PETSc.Log.EventDecorator("thetis.ERKGeneric.update_solver")
     def update_solver(self):
         if self._nontrivial:
             self.solver = []
@@ -792,11 +805,13 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
                                                  ad_block_tag=self.ad_block_tag + f'_k{i}')
                 self.solver.append(solver)
 
+    @PETSc.Log.EventDecorator("thetis.ERKGeneric.initialize")
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
         self._initialized = True
 
+    @PETSc.Log.EventDecorator("thetis.ERKGeneric.update_solution")
     def update_solution(self, i_stage, additive=False):
         """
         Computes the solution of the i-th stage
@@ -811,6 +826,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
         if self._nontrivial and i_stage > 0:
             self.solution += self.sol_expressions[i_stage]
 
+    @PETSc.Log.EventDecorator("thetis.ERKGeneric.solve_tendency")
     def solve_tendency(self, i_stage, t, update_forcings=None):
         """
         Evaluates the tendency of i-th stage
@@ -820,6 +836,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
                 update_forcings(t + self.c[i_stage]*self.dt)
             self.solver[i_stage].solve()
 
+    @PETSc.Log.EventDecorator("thetis.ERKGeneric.get_final_solution")
     def get_final_solution(self, additive=False):
         """Assign final solution to :attr:`self.solution`
 
@@ -832,6 +849,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
             self.solution += self.final_sol_expr
         self.solution_old.assign(self.solution)
 
+    @PETSc.Log.EventDecorator("thetis.ERKGeneric.solve_stage")
     def solve_stage(self, i_stage, t, update_forcings=None):
         """Solve i-th stage and assign solution to :attr:`self.solution`."""
         self.update_solution(i_stage)
@@ -844,6 +862,7 @@ class ERKGenericShuOsher(TimeIntegrator):
 
     Implements the Shu-Osher form.
     """
+    @PETSc.Log.EventDecorator("thetis.ERKGenericShuOsher.__init__")
     def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all'):
         """
         :arg equation: the equation to solve
@@ -885,6 +904,7 @@ class ERKGenericShuOsher(TimeIntegrator):
 
         self.update_solver()
 
+    @PETSc.Log.EventDecorator("thetis.ERKGenericShuOsher.update_solver")
     def update_solver(self):
         if self._nontrivial:
             prob = LinearVariationalProblem(self.a_rk, self.l_rk, self.tendency)
@@ -895,6 +915,7 @@ class ERKGenericShuOsher(TimeIntegrator):
     def initialize(self, solution):
         pass
 
+    @PETSc.Log.EventDecorator("thetis.ERKGenericShuOsher.solve_stage")
     def solve_stage(self, i_stage, t, update_forcings=None):
         """Solve i-th stage and assign solution to :attr:`self.solution`."""
         if self._nontrivial:
@@ -913,6 +934,7 @@ class ERKGenericShuOsher(TimeIntegrator):
             if i_stage < self.n_stages - 1:
                 self.stage_sol[i_stage + 1].assign(self.solution)
 
+    @PETSc.Log.EventDecorator("thetis.ERKGenericShuOsher.advance")
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
         for i in range(self.n_stages):

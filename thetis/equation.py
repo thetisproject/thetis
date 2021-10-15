@@ -80,7 +80,7 @@ class Equation(object):
     nonlinear
         The term is nonlinear and should be treated fully implicitly
     """
-
+    @PETSc.Log.EventDecorator("thetis.Equation.__init__")
     def __init__(self, function_space):
         """
         :arg function_space: the :class:`FunctionSpace` the solution belongs to
@@ -149,6 +149,7 @@ class Equation(object):
             if self.labels[key] in labels:
                 yield value
 
+    @PETSc.Log.EventDecorator("thetis.Equation.residual")
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         """
         Returns an UFL form of the residual by summing up all the terms with the desired label.
@@ -171,6 +172,7 @@ class Equation(object):
             f += term.residual(solution, solution_old, fields, fields_old, bnd_conditions)
         return f
 
+    @PETSc.Log.EventDecorator("thetis.Equation.jacobian")
     def jacobian(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         """
         Returns an UFL form of the Jacobian by summing up all the Jacobians of the terms.

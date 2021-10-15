@@ -54,6 +54,7 @@ class VerticalVelocitySolver(object):
     where the :math:`\Gamma_b` terms vanish due to the bottom impermeability
     condition.
     """
+    @PETSc.Log.EventDecorator("thetis.VerticalVelocitySolver.__init__")
     def __init__(self, solution, uv, bathymetry, boundary_funcs={},
                  solver_parameters=None):
         """
@@ -122,6 +123,7 @@ class VerticalVelocitySolver(object):
         self.solver = LinearVariationalSolver(self.prob,
                                               solver_parameters=solver_parameters)
 
+    @PETSc.Log.EventDecorator("thetis.VerticalVelocitySolver.solve")
     def solve(self):
         """Compute w"""
         self.solver.solve()
@@ -131,6 +133,7 @@ class VerticalIntegrator(object):
     """
     Computes vertical integral (or average) of a field.
     """
+    @PETSc.Log.EventDecorator("thetis.VerticalIntegrator.__init__")
     def __init__(self, input, output, bottom_to_top=True,
                  bnd_value=Constant(0.0), average=False,
                  bathymetry=None, elevation=None, solver_parameters=None):
@@ -199,6 +202,7 @@ class VerticalIntegrator(object):
         self.prob = LinearVariationalProblem(self.a, self.l, output, constant_jacobian=average)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
+    @PETSc.Log.EventDecorator("thetis.VerticalIntegrator.solve")
     def solve(self):
         """
         Computes the integral and stores it in the output field.
@@ -220,6 +224,7 @@ class DensitySolver(object):
     Density is computed point-wise assuming that temperature, salinity and
     density are in the same function space.
     """
+    @PETSc.Log.EventDecorator("thetis.DensitySolver.__init__")
     def __init__(self, salinity, temperature, density, eos_class):
         """
         :arg salinity: water salinity field
@@ -253,6 +258,7 @@ class DensitySolver(object):
         # assume that function is a float
         return function
 
+    @PETSc.Log.EventDecorator("thetis.DensitySolver.solve")
     def solve(self):
         """Compute density"""
         s = self._get_array(self.s)
@@ -276,6 +282,7 @@ class DensitySolverWeak(object):
     Density is computed in a weak sense by projecting the analytical expression
     on the density field.
     """
+    @PETSc.Log.EventDecorator("thetis.DensitySolverWeak.__init__")
     def __init__(self, salinity, temperature, density, eos_class):
         """
         :arg salinity: water salinity field
@@ -313,6 +320,7 @@ class DensitySolverWeak(object):
         ix = self.s.dat.data < 0
         self.s.dat.data[ix] = 0.0
 
+    @PETSc.Log.EventDecorator("thetis.DensitySolverWeak.solve")
     def solve(self):
         """Compute density"""
         self.ensure_positive_salinity()
@@ -323,6 +331,7 @@ class VelocityMagnitudeSolver(object):
     """
     Computes magnitude of (u[0],u[1],w) and stores it in solution
     """
+    @PETSc.Log.EventDecorator("thetis.VelocityMagnitudeSolver.__init__")
     def __init__(self, solution, u=None, w=None, min_val=1e-6,
                  solver_parameters=None):
         """
@@ -357,6 +366,7 @@ class VelocityMagnitudeSolver(object):
         self.prob = LinearVariationalProblem(a, l, solution)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
+    @PETSc.Log.EventDecorator("thetis.VelocityMagnitudeSolver.solve")
     def solve(self):
         """Compute the magnitude"""
         self.solver.solve()
@@ -397,6 +407,7 @@ class Mesh3DConsistencyCalculator(object):
     the case where the highest bottom node is at the same level as the lowest
     surface node.
     """
+    @PETSc.Log.EventDecorator("thetis.Mesh3DConsistencyCalculator.__init__")
     def __init__(self, solver_obj):
         """
         :arg solver_obj: :class:`FlowSolver` object
@@ -441,6 +452,7 @@ class Mesh3DConsistencyCalculator(object):
             }""" % {'nodes': len(nodes)},
             'my_kernel')
 
+    @PETSc.Log.EventDecorator("thetis.Mesh3DConsistencyCalculator.solve")
     def solve(self):
         """Compute the HCC metric"""
         op2.par_loop(self.kernel, self.solver_obj.mesh.cell_set,
@@ -472,6 +484,7 @@ class ExpandFunctionTo3d(object):
         ex = ExpandFunctionTo3d(func2d, func3d)
         ex.solve()
     """
+    @PETSc.Log.EventDecorator("thetis.ExpandFunctionTo3d.__init__")
     def __init__(self, input_2d, output_3d, elem_height=None):
         """
         :arg input_2d: 2D source field
@@ -531,6 +544,7 @@ class ExpandFunctionTo3d(object):
             self.rt_scale_solver = LinearVariationalSolver(
                 prob, solver_parameters=solver_parameters)
 
+    @PETSc.Log.EventDecorator("thetis.ExpandFunctionTo3d.solve")
     def solve(self):
         with timed_stage('copy_2d_to_3d'):
             # execute par loop
@@ -582,6 +596,7 @@ class SubFunctionExtractor(object):
             boundary='bottom', elem_facet='top')
         ex.solve()
     """
+    @PETSc.Log.EventDecorator("thetis.SubFunctionExtractor.__init__")
     def __init__(self, input_3d, output_2d,
                  boundary='top', elem_facet=None,
                  elem_height=None):
@@ -677,6 +692,7 @@ class SubFunctionExtractor(object):
             self.rt_scale_solver = LinearVariationalSolver(
                 prob, solver_parameters=solver_parameters)
 
+    @PETSc.Log.EventDecorator("thetis.SubFunctionExtractor.solve")
     def solve(self):
         with timed_stage('copy_3d_to_2d'):
             # execute par loop
@@ -703,6 +719,7 @@ class ALEMeshUpdater(object):
     updated mesh coordinates. It also provides a method for computing the mesh
     velocity from two adjacent elevation fields.
     """
+    @PETSc.Log.EventDecorator("thetis.ALEMeshUpdater.__init__")
     def __init__(self, solver):
         """
         :arg solver: :class:`FlowSolver` object
@@ -778,23 +795,27 @@ class ALEMeshUpdater(object):
                     'v_nodes': n_vert_nodes},
             'my_kernel')
 
+    @PETSc.Log.EventDecorator("thetis.ALEMeshUpdater.intialize")
     def initialize(self):
         """Set values for initial mesh (elevation at rest)"""
         get_zcoord_from_mesh(self.fields.z_coord_ref_3d)
         self.fields.z_coord_3d.assign(self.fields.z_coord_ref_3d)
         self.update_elem_height()
 
+    @PETSc.Log.EventDecorator("thetis.ALEMeshUpdater.update_elem_height")
     def update_elem_height(self):
         """Updates vertical element size fields"""
         compute_elem_height(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
         self.cp_v_elem_size_to_2d.solve()
 
+    @PETSc.Log.EventDecorator("thetis.ALEMeshUpdater.compute_mesh_velocity_begin")
     def compute_mesh_velocity_begin(self):
         """Stores the current 2D elevation state as the "old" field"""
         assert self.solver.options.use_ale_moving_mesh
         self.proj_elev_to_cg_2d.project()
         self.proj_elev_cg_to_coords_2d.project()
 
+    @PETSc.Log.EventDecorator("thetis.ALEMeshUpdater.compute_mesh_velocity_finalize")
     def compute_mesh_velocity_finalize(self, c=1.0, w_mesh_surf_expr=None):
         """
         Computes mesh velocity from the elevation difference
@@ -825,6 +846,7 @@ class ALEMeshUpdater(object):
             iterate=op2.ALL
         )
 
+    @PETSc.Log.EventDecorator("thetis.ALEMeshUpdater.update_mesh_coordinates")
     def update_mesh_coordinates(self):
         """
         Updates 3D mesh coordinates to match current elev_2d field
@@ -883,6 +905,7 @@ class SmagorinskyViscosity(object):
     ocean models. Monthly Weather Review, 128(8):2935-2946.
     http://dx.doi.org/10.1175/1520-0493(2000)128%3C2935:BFWASL%3E2.0.CO;2
     """
+    @PETSc.Log.EventDecorator("thetis.SmagorinskyViscosity.__init__")
     def __init__(self, uv, output, c_s, h_elem_size, max_val, min_val=1e-10,
                  weak_form=True, solver_parameters=None):
         """
@@ -956,6 +979,7 @@ class SmagorinskyViscosity(object):
         self.prob = LinearVariationalProblem(a, l, output)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
+    @PETSc.Log.EventDecorator("thetis.SmagorinskyViscosity.solve")
     def solve(self):
         """Compute viscosity"""
         if self.weak_form:
@@ -1114,6 +1138,7 @@ class LinearEquationOfState(EquationOfState):
         return self.compute_rho(s, th, p, rho0)
 
 
+@PETSc.Log.EventDecorator("thetis.get_horizontal_elem_size_3d")
 def get_horizontal_elem_size_3d(sol2d, sol3d):
     """
     Computes horizontal element size from the 2D mesh, then copies it on a 3D
