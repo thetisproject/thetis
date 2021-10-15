@@ -255,6 +255,7 @@ def get_facet_mask(function_space, facet='bottom'):
     indices = numpy.arange(nb_nodes_h)*nb_nodes_v + offset
     return indices
 
+
 @PETSc.Log.EventDecorator("thetis.extrude_mesh_sigma")
 def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, z_stretch_fact=1.0,
                        min_depth=None):
@@ -540,7 +541,12 @@ def get_horizontal_elem_size_2d(sol2d):
     tri = TrialFunction(p1_2d)
     a = inner(test, tri) * dx
     l = inner(test, sqrt(CellVolume(mesh))) * dx
-    solve(a == l, sol2d)
+    sp = {
+        "snes_type": "ksponly",
+        "ksp_type": "gmres",
+        "pc_type": "ilu",
+    }
+    solve(a == l, sol2d, solver_parameters=sp)
 
 
 @PETSc.Log.EventDecorator("thetis.get_facet_areas")
@@ -906,13 +912,10 @@ class VorticityCalculator2D(object):
 
         # Setup vorticity solver
         prob = LinearVariationalProblem(a, L, vorticity_2d)
-        sp = {
-            'ksp_type': 'gmres',
-            'ksp_gmres_restart': 20,
-            'ksp_rtol': 1.0e-05,
-            'pc_type': 'sor',
-        }
-        kwargs.setdefault('solver_parameters', sp)
+        kwargs.setdefault('solver_parameters', {
+            "ksp_type": "gmres",
+            "pc_type": "ilu",
+        })
         self.solver = LinearVariationalSolver(prob, **kwargs)
 
         if 'vorticity_2d' not in solver_obj.options.fields_to_export:
@@ -1014,7 +1017,11 @@ class DepthIntegratedPoissonSolver(object):
         a_w = inner(tri_w, test_w)*dx
         l_w = dot(self.w_2d + self.dt/rho_0*(self.q_2d/h_star), test_w)*dx
         prob_w = LinearVariationalProblem(a_w, l_w, self.w_2d)
-        self.solver_w = LinearVariationalSolver(prob_w)
+        sp = {
+            "ksp_type": "gmres",
+            "pc_type": "ilu",
+        }
+        self.solver_w = LinearVariationalSolver(prob_w, solver_parameters=sp)
 
     @PETSc.Log.EventDecorator("thetis.DepthIntegratedPoissonSolver.solve")
     def solve(self, solve_w=True):
