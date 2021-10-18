@@ -286,11 +286,11 @@ class TracerEquation2D(Equation):
         if options.use_supg_tracer:
             unorm = options.horizontal_velocity_scale
             if unorm.values()[0] > 0:
-                cellsize = anisotropic_cell_size(function_space.mesh())
-                tau = 0.5*cellsize/unorm
+                self.cellsize = anisotropic_cell_size(function_space.mesh())
+                tau = 0.5*self.cellsize/unorm
                 D = options.horizontal_diffusivity_scale
                 if D.values()[0] > 0:
-                    Pe = 0.5*unorm*cellsize/D
+                    Pe = 0.5*unorm*self.cellsize/D
                     tau = min_value(tau, Pe/3)
                 self.test = self.test + tau*dot(velocity, grad(self.test))
                 kwargs['test_function'] = self.test
