@@ -75,6 +75,7 @@ class FlowSolver2d(FrozenClass):
 
     See the manual for more complex examples.
     """
+    @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.__init__")
     def __init__(self, mesh2d, bathymetry_2d, options=None):
         """
@@ -141,7 +142,6 @@ class FlowSolver2d(FrozenClass):
             field_metadata.pop('tracer_2d')
         self.solve_tracer = False
         self._field_preproc_funcs = {}
-        self._isfrozen = True
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.compute_time_step")
     def compute_time_step(self, u_scale=Constant(0.0)):
@@ -299,6 +299,7 @@ class FlowSolver2d(FrozenClass):
             msg = "Wetting and drying parameter of type '{:}' not supported"
             raise TypeError(msg.format(alpha.__class__.__name__))
 
+    @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_function_spaces")
     def create_function_spaces(self):
         """
@@ -307,7 +308,6 @@ class FlowSolver2d(FrozenClass):
         Function spaces are accessible via :attr:`.function_spaces`
         object.
         """
-        self._isfrozen = False
         on_the_sphere = self.mesh2d.geometric_dimension() == 3
         if on_the_sphere:
             assert self.options.element_family in ['rt-dg', 'bdm-dg'], \
@@ -346,8 +346,6 @@ class FlowSolver2d(FrozenClass):
         else:
             raise Exception('Unsupported finite element family {:}'.format(self.options.tracer_element_family))
 
-        self._isfrozen = True
-
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.add_new_field")
     def add_new_field(self, function, label, name, filename, shortname=None, unit='-', preproc_func=None):
         """
@@ -381,6 +379,7 @@ class FlowSolver2d(FrozenClass):
         if preproc_func is not None:
             self._field_preproc_funcs[label] = preproc_func
 
+    @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_equations")
     def create_equations(self):
         """
@@ -388,7 +387,6 @@ class FlowSolver2d(FrozenClass):
         """
         if not hasattr(self.function_spaces, 'U_2d'):
             self.create_function_spaces()
-        self._isfrozen = False
         # ----- fields
         self.fields.solution_2d = Function(self.function_spaces.V_2d, name='solution_2d')
         # correct treatment of the split 2d functions
@@ -468,8 +466,6 @@ class FlowSolver2d(FrozenClass):
                 TestFunction(self.function_spaces.H_2d), self.function_spaces.H_2d, self.function_spaces.U_2d,
                 self.depth, self.options)
             self.equations.fs.bnd_functions = self.bnd_functions['shallow_water']
-
-        self._isfrozen = True  # disallow creating new attributes
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.get_swe_timestepper")
     def get_swe_timestepper(self, integrator):
@@ -576,6 +572,7 @@ class FlowSolver2d(FrozenClass):
                           self.options.nh_model_options.free_surface_timestepper_options,
                           self.bnd_functions['shallow_water'])
 
+    @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_timestepper")
     def create_timestepper(self):
         """
@@ -583,8 +580,6 @@ class FlowSolver2d(FrozenClass):
         """
         if not hasattr(self, 'equations'):
             self.create_equations()
-
-        self._isfrozen = False
 
         if self.options.log_output and not self.options.no_exports:
             logfile = os.path.join(create_directory(self.options.output_directory), 'log')
@@ -636,8 +631,7 @@ class FlowSolver2d(FrozenClass):
             self.timestepper = self.get_swe_timestepper(steppers[self.options.swe_timestepper_type])
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
 
-        self._isfrozen = True  # disallow creating new attributes
-
+    @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_exporters")
     def create_exporters(self):
         """
@@ -645,7 +639,6 @@ class FlowSolver2d(FrozenClass):
         """
         if not hasattr(self, 'timestepper'):
             self.create_timestepper()
-        self._isfrozen = False
         self.exporters = OrderedDict()
         if not self.options.no_exports:
             e = exporter.ExportManager(self.options.output_directory,
@@ -665,8 +658,6 @@ class FlowSolver2d(FrozenClass):
                                        verbose=self.options.verbose > 0,
                                        preproc_funcs=self._field_preproc_funcs)
             self.exporters['hdf5'] = e
-
-        self._isfrozen = True  # disallow creating new attributes
 
     def initialize(self):
         """

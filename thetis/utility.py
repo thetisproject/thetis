@@ -13,6 +13,7 @@ from firedrake.petsc import PETSc
 from mpi4py import MPI  # NOQA
 from pyop2.profiling import timed_function, timed_region, timed_stage  # NOQA
 import numpy
+from functools import wraps
 
 from .field_defs import field_metadata
 from .log import *
@@ -23,13 +24,37 @@ ds_bottom = ds_b
 
 
 class FrozenClass(object):
-    """A class where creating a new attribute will raise an exception if _isfrozen == True"""
+    """
+    A class where creating a new attribute will raise an exception if
+    :attr:`_isfrozen` is ``True``.
+
+    :attr:`_unfreezedepth` allows for multiple applications of the
+    ``unfrozen`` decorator.
+    """
     _isfrozen = False
+    _unfreezedepth = 0
 
     def __setattr__(self, key, value):
         if self._isfrozen and not hasattr(self, key):
             raise TypeError('Adding new attribute "{:}" to {:} class is forbidden'.format(key, self.__class__.__name__))
         super(FrozenClass, self).__setattr__(key, value)
+
+
+def unfrozen(method):
+    """
+    Decorator to temporarily unfreeze an object
+    whilst one of its methods is being called.
+    """
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        self._isfrozen = False
+        self._unfreezedepth += 1
+        ret = method(self, *args, **kwargs)
+        self._unfreezedepth -= 1
+        self._isfrozen = self._unfreezedepth == 0
+        return ret
+
+    return wrapper
 
 
 class SumFunction(object):
