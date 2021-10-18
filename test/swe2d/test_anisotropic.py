@@ -16,6 +16,7 @@ resulting from this process is used in this test. The mesh is anisotropic in the
     pp.1053--1063 (2020), DOI: 10.1007/s42452-020-2745-9, URL: https://rdcu.be/b35wZ.
 """
 from thetis import *
+from petsc4py import PETSc
 import pytest
 import os
 
