@@ -563,7 +563,13 @@ def get_facet_areas(mesh):
     facet_areas = Function(HDivTrace, name="Facet areas")
     mass_term = v('+')*u('+')*dS + v*u*ds
     rhs = v('+')*FacetArea(mesh)*dS + v*FacetArea(mesh)*ds
-    solve(mass_term == rhs, facet_areas)
+    sp = {
+        "mat_type": "matfree",
+        "snes_type": "ksponly",
+        "ksp_type": "preonly",
+        "pc_type": "jacobi",
+    }
+    solve(mass_term == rhs, facet_areas, solver_parameters=sp)
     return facet_areas
 
 
