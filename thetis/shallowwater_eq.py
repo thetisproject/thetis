@@ -449,12 +449,12 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
         horiz_advection_by_parts = True
 
         if horiz_advection_by_parts:
-            f = -inner(div(outer(self.u_test, uv)), uv)*self.dx
+            f = -inner(div(outer(self.u_test, uv_old)), uv)*self.dx
             if self.u_continuity in ['dg', 'hdiv']:
                 un_av = dot(avg(uv_old), self.normal('-'))
                 # NOTE mean flux
                 uv_avg = avg(uv)
-                f += inner(uv_avg, jump(outer(self.u_test, uv), self.normal))*self.dS
+                f += inner(uv_avg, jump(outer(self.u_test, uv_old), self.normal))*self.dS
                 # Lax-Friedrichs stabilization
                 if self.options.use_lax_friedrichs_velocity:
                     uv_lax_friedrichs = fields_old.get('lax_friedrichs_velocity_scaling_factor')
