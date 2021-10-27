@@ -96,7 +96,7 @@ class PointDischargeParameters(object):
         self.boundary_conditions = {
             'tracer': {
                 1: {'value': Constant(0.0)},      # inflow
-                2: {'open': None},                # outflow
+                # ouflow -> natural BC
             },
             'shallow_water': {
                 1: {

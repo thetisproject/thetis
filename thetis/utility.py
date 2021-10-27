@@ -638,24 +638,23 @@ def anisotropic_cell_size(mesh):
 using namespace Eigen;
 
 void eigmin(double minEval[1], const double * J_) {
-  Matrix<double, 2, 2, RowMajor> A;
 
   // Map input onto an Eigen object
   Map<Matrix<double, 2, 2, RowMajor> > J((double *)J_);
 
-  // Compute singular value decomposition
-  JacobiSVD<Matrix<double, 2, 2, RowMajor> > svd(J, ComputeFullV);
-
-  // Get SPD part of polar decomposition
-  A = svd.matrixV() * svd.singularValues().asDiagonal() * svd.matrixV().transpose();
+  // Compute J^T * J
+  Matrix<double, 2, 2, RowMajor> A = J.transpose()*J;
 
   // Solve eigenvalue problem
   SelfAdjointEigenSolver<Matrix<double, 2, 2, RowMajor>> eigensolver(A);
   Vector2d D = eigensolver.eigenvalues();
 
+  // Take the square root
+  double lambda1 = sqrt(fabs(D(0)));
+  double lambda2 = sqrt(fabs(D(1)));
+
   // Select minimum eigenvalue in modulus
-  if (fabs(D(0)) < fabs(D(1))) minEval[0] = D(0);
-  else minEval[0] = D(1);
+  minEval[0] = fmin(lambda1, lambda2);
 }
 """
     kernel = op2.Kernel(kernel_str, 'eigmin', cpp=True, include_dirs=include_dir)
