@@ -92,6 +92,7 @@ class ForwardEuler(TimeIntegrator):
     """Standard forward Euler time integration scheme."""
     cfl_coeff = 1.0
 
+    @PETSc.Log.EventDecorator("thetis.ForwardEuler.__init__")
     def __init__(self, equation, solution, fields, dt, options, bnd_conditions):
         """
         :arg equation: the equation to solve
@@ -125,12 +126,14 @@ class ForwardEuler(TimeIntegrator):
 
         self.update_solver()
 
+    @PETSc.Log.EventDecorator("thetis.ForwardEuler.update_solver")
     def update_solver(self):
         prob = LinearVariationalProblem(self.A, self.L, self.solution)
         self.solver = LinearVariationalSolver(prob, options_prefix=self.name,
                                               solver_parameters=self.solver_parameters,
                                               ad_block_tag=self.ad_block_tag)
 
+    @PETSc.Log.EventDecorator("thetis.ForwardEuler.initialize")
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
@@ -138,6 +141,7 @@ class ForwardEuler(TimeIntegrator):
         for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
+    @PETSc.Log.EventDecorator("thetis.ForwardEuler.advance")
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
         if update_forcings is not None:
@@ -153,6 +157,7 @@ class CrankNicolson(TimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
+    @PETSc.Log.EventDecorator("thetis.CrankNicolson.__init__")
     def __init__(self, equation, solution, fields, dt, options, bnd_conditions):
         """
         :arg equation: the equation to solve
@@ -205,6 +210,7 @@ class CrankNicolson(TimeIntegrator):
 
         self.update_solver()
 
+    @PETSc.Log.EventDecorator("thetis.CrankNicolson.update_solver")
     def update_solver(self):
         """Create solver objects"""
         # Ensure LU assembles monolithic matrices
@@ -216,6 +222,7 @@ class CrankNicolson(TimeIntegrator):
                                                  options_prefix=self.name,
                                                  ad_block_tag=self.ad_block_tag)
 
+    @PETSc.Log.EventDecorator("thetis.CrankNicolson.initialize")
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
@@ -223,6 +230,7 @@ class CrankNicolson(TimeIntegrator):
         for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
+    @PETSc.Log.EventDecorator("thetis.CrankNicolson.advance")
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
         if update_forcings is not None:
@@ -233,6 +241,7 @@ class CrankNicolson(TimeIntegrator):
         for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
+    @PETSc.Log.EventDecorator("thetis.CrankNicolson.advance_picard")
     def advance_picard(self, t, update_forcings=None, update_lagged=True, update_fields=True):
         """Advances equations for one time step in a Picard iteration."""
         if update_forcings is not None:
@@ -253,6 +262,7 @@ class SteadyState(TimeIntegrator):
     """
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
+    @PETSc.Log.EventDecorator("thetis.SteadyState.__init__")
     def __init__(self, equation, solution, fields, dt, options, bnd_conditions):
         """
         :arg equation: the equation to solve
@@ -269,6 +279,7 @@ class SteadyState(TimeIntegrator):
         self.F = self.equation.residual('all', solution, solution, fields, fields, bnd_conditions)
         self.update_solver()
 
+    @PETSc.Log.EventDecorator("thetis.SteadyState.update_solver")
     def update_solver(self):
         """Create solver objects"""
         # Ensure LU assembles monolithic matrices
@@ -280,11 +291,13 @@ class SteadyState(TimeIntegrator):
                                                  options_prefix=self.name,
                                                  ad_block_tag=self.ad_block_tag)
 
+    @PETSc.Log.EventDecorator("thetis.SteadyState.initialize")
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
         # nothing to do here as the initial condition is passed in via solution
         return
 
+    @PETSc.Log.EventDecorator("thetis.SteadyState.advance")
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
         if update_forcings is not None:
@@ -301,6 +314,7 @@ class PressureProjectionPicard(TimeIntegrator):
     cfl_coeff = 1.0  # FIXME what is the right value?
 
     # TODO add more documentation
+    @PETSc.Log.EventDecorator("thetis.PressureProjectionPicard.__init__")
     def __init__(self, equation, equation_mom, solution, fields, dt, options, bnd_conditions):
         """
         :arg equation: free surface equation
@@ -417,6 +431,7 @@ class PressureProjectionPicard(TimeIntegrator):
 
         self.update_solver()
 
+    @PETSc.Log.EventDecorator("thetis.PressureProjectionPicard.update_solver")
     def update_solver(self):
         """Create solver objects"""
         prob = NonlinearVariationalProblem(self.F_mom, self.uv_star)
@@ -434,6 +449,7 @@ class PressureProjectionPicard(TimeIntegrator):
                                                  options_prefix=self.name,
                                                  ad_block_tag=self.ad_block_tag)
 
+    @PETSc.Log.EventDecorator("thetis.PressureProjectionPicard.initialize")
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
@@ -442,6 +458,7 @@ class PressureProjectionPicard(TimeIntegrator):
         for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
+    @PETSc.Log.EventDecorator("thetis.PressureProjectionPicard.advance")
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
         if update_forcings is not None:
@@ -478,6 +495,7 @@ class LeapFrogAM3(TimeIntegrator):
     """
     cfl_coeff = 1.5874
 
+    @PETSc.Log.EventDecorator("thetis.LeapFrogAM3.__init__")
     def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all'):
         """
         :arg equation: equation to solve
@@ -519,6 +537,7 @@ class LeapFrogAM3(TimeIntegrator):
 
         self._nontrivial = self.l != 0
 
+    @PETSc.Log.EventDecorator("thetis.LeapFrogAM3.initialize")
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
         self.mass_matrix = assemble(self.a)
@@ -537,6 +556,7 @@ class LeapFrogAM3(TimeIntegrator):
         """
         self.lin_solver.solve(self.solution, self.rhs_func)
 
+    @PETSc.Log.EventDecorator("thetis.LeapFrogAM3.predice")
     def predict(self):
         r"""
         Prediction step from :math:`t_{n-1/2}` to :math:`t_{n+1/2}`
@@ -566,6 +586,7 @@ class LeapFrogAM3(TimeIntegrator):
             with timed_region('lf_cor_asmb_rhs'):
                 assemble(self.l, self.rhs_func)
 
+    @PETSc.Log.EventDecorator("thetis.LeapFrogAM3.correct")
     def correct(self):
         r"""
         Correction step from :math:`t_{n}` to :math:`t_{n+1}`
@@ -588,6 +609,7 @@ class LeapFrogAM3(TimeIntegrator):
             with timed_region('lf_cor_solve'):
                 self._solve_system()
 
+    @PETSc.Log.EventDecorator("thetis.LeapFrogAM3.advance")
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
         if self._nontrivial:
@@ -613,6 +635,7 @@ class SSPRK22ALE(TimeIntegrator):
     """
     cfl_coeff = 1.0
 
+    @PETSc.Log.EventDecorator("thetis.SSPRK22ALE.__init__")
     def __init__(self, equation, solution, fields, dt, options, bnd_conditions, terms_to_add='all'):
         """
         :arg equation: equation to solve
@@ -649,6 +672,7 @@ class SSPRK22ALE(TimeIntegrator):
         self.n_stages = 2
         self.c = [0, 1]
 
+    @PETSc.Log.EventDecorator("thetis.SSPRK22ALE.initialize")
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
         self.solution.assign(solution)
@@ -659,6 +683,7 @@ class SSPRK22ALE(TimeIntegrator):
         # TODO: Linear solver is not annotated and does not accept ad_block_tag
         self._initialized = True
 
+    @PETSc.Log.EventDecorator("thetis.SSPRK22ALE.stage_one_prep")
     def stage_one_prep(self):
         """
         Preprocess first stage: compute all forms on the old geometry
@@ -674,6 +699,7 @@ class SSPRK22ALE(TimeIntegrator):
             with timed_region('pre1_incr_rhs'):
                 self.mu.assign(self.mu_old + self.tendency)
 
+    @PETSc.Log.EventDecorator("thetis.SSPRK22ALE.stage_one_solve")
     def stage_one_solve(self):
         r"""
         First stage: solve :math:`u^{(1)}` given previous solution :math:`u^n`.
@@ -692,6 +718,7 @@ class SSPRK22ALE(TimeIntegrator):
             with timed_region('sol1_solve'):
                 self.lin_solver.solve(self.solution, self.mu)
 
+    @PETSc.Log.EventDecorator("thetis.SSPRK22ALE.stage_two_prep")
     def stage_two_prep(self):
         """
         Preprocess 2nd stage: compute all forms on the old geometry
@@ -704,6 +731,7 @@ class SSPRK22ALE(TimeIntegrator):
             with timed_region('pre2_incr_rhs'):
                 self.mu.assign(0.5*self.mu + 0.5*self.mu_old + 0.5*self.tendency)
 
+    @PETSc.Log.EventDecorator("thetis.SSPRK22ALE.stage_two_solve")
     def stage_two_solve(self):
         r"""
         2nd stage: solve :math:`u^{n+1}` given previous solutions :math:`u^n, u^{(1)}`.
@@ -724,6 +752,7 @@ class SSPRK22ALE(TimeIntegrator):
             with timed_region('sol2_solve'):
                 self.lin_solver.solve(self.solution, self.mu)
 
+    @PETSc.Log.EventDecorator("thetis.SSPRK22ALE.solve_stage")
     def solve_stage(self, i_stage):
         """Solves i-th stage"""
         if i_stage == 0:
@@ -731,6 +760,7 @@ class SSPRK22ALE(TimeIntegrator):
         else:
             self.stage_two_solve()
 
+    @PETSc.Log.EventDecorator("thetis.SSPRK22ALE.prepare_stage")
     def prepare_stage(self, i_stage, t, update_forcings=None):
         """
         Preprocess stage i_stage.
@@ -744,6 +774,7 @@ class SSPRK22ALE(TimeIntegrator):
         else:
             self.stage_two_prep()
 
+    @PETSc.Log.EventDecorator("thetis.SSPRK22ALE.advance")
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
         if not self._initialized:

@@ -76,6 +76,7 @@ class FlowSolver2d(FrozenClass):
 
     See the manual for more complex examples.
     """
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.__init__")
     def __init__(self, mesh2d, bathymetry_2d, options=None):
         """
         :arg mesh2d: :class:`Mesh` object of the 2D mesh
@@ -143,6 +144,7 @@ class FlowSolver2d(FrozenClass):
         self._field_preproc_funcs = {}
         self._isfrozen = True
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.compute_time_step")
     def compute_time_step(self, u_scale=Constant(0.0)):
         r"""
         Computes maximum explicit time step from CFL condition.
@@ -172,6 +174,7 @@ class FlowSolver2d(FrozenClass):
         solve(a == l, solution)
         return solution
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.compute_mesh_stats")
     def compute_mesh_stats(self):
         """
         Computes number of elements, nodes etc and prints to sdtout
@@ -205,6 +208,7 @@ class FlowSolver2d(FrozenClass):
         if self.solve_tracer:
             print_output(f'Tracer DOFs per core: ~{dofs_tracer2d_core:.1f}')
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.set_time_step")
     def set_time_step(self, alpha=0.05):
         """
         Sets the model the model time step
@@ -241,6 +245,7 @@ class FlowSolver2d(FrozenClass):
             print_output('dt = {:}'.format(self.dt))
             sys.stdout.flush()
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.set_wetting_and_drying_alpha")
     def set_wetting_and_drying_alpha(self):
         r"""
         Compute a wetting and drying parameter :math:`\alpha` which ensures positive water
@@ -295,6 +300,7 @@ class FlowSolver2d(FrozenClass):
             msg = "Wetting and drying parameter of type '{:}' not supported"
             raise TypeError(msg.format(alpha.__class__.__name__))
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_function_spaces")
     def create_function_spaces(self):
         """
         Creates function spaces
@@ -343,6 +349,7 @@ class FlowSolver2d(FrozenClass):
 
         self._isfrozen = True
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.add_new_field")
     def add_new_field(self, function, label, name, filename, shortname=None, unit='-', preproc_func=None):
         """
         Add a field to :attr:`fields`.
@@ -375,6 +382,7 @@ class FlowSolver2d(FrozenClass):
         if preproc_func is not None:
             self._field_preproc_funcs[label] = preproc_func
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_equations")
     def create_equations(self):
         """
         Creates equation instances
@@ -464,6 +472,7 @@ class FlowSolver2d(FrozenClass):
 
         self._isfrozen = True  # disallow creating new attributes
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.get_swe_timestepper")
     def get_swe_timestepper(self, integrator):
         """
         Gets shallow water timestepper object with appropriate parameters
@@ -496,6 +505,7 @@ class FlowSolver2d(FrozenClass):
             return integrator(self.equations.sw, self.fields.solution_2d, fields, self.dt,
                               self.options.swe_timestepper_options, bnd_conditions)
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.get_tracer_timestepper")
     def get_tracer_timestepper(self, integrator, label):
         """
         Gets tracer timestepper object with appropriate parameters
@@ -518,6 +528,7 @@ class FlowSolver2d(FrozenClass):
         return integrator(self.equations[label], self.fields[label], fields, self.dt,
                           self.options.tracer_timestepper_options, bcs)
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.get_sediment_timestepper")
     def get_sediment_timestepper(self, integrator):
         """
         Gets sediment timestepper object with appropriate parameters
@@ -534,6 +545,7 @@ class FlowSolver2d(FrozenClass):
                           self.options.sediment_model_options.sediment_timestepper_options,
                           self.bnd_functions['sediment'])
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.get_exner_timestepper")
     def get_exner_timestepper(self, integrator):
         """
         Gets exner timestepper object with appropriate parameters
@@ -552,6 +564,7 @@ class FlowSolver2d(FrozenClass):
                           self.options.sediment_model_options.exner_timestepper_options,
                           self.bnd_functions['shallow_water'])
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.get_fs_timestepper")
     def get_fs_timestepper(self, integrator):
         """
         Gets free-surface correction timestepper object with appropriate parameters
@@ -564,6 +577,7 @@ class FlowSolver2d(FrozenClass):
                           self.options.nh_model_options.free_surface_timestepper_options,
                           self.bnd_functions['shallow_water'])
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_timestepper")
     def create_timestepper(self):
         """
         Creates time stepper instance
@@ -625,6 +639,7 @@ class FlowSolver2d(FrozenClass):
 
         self._isfrozen = True  # disallow creating new attributes
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_exporters")
     def create_exporters(self):
         """
         Creates file exporters
@@ -668,6 +683,7 @@ class FlowSolver2d(FrozenClass):
             self.create_exporters()
         self._initialized = True
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.assign_initial_conditions")
     def assign_initial_conditions(self, elev=None, uv=None, sediment=None, **tracers):
         r"""
         Assigns initial conditions
@@ -708,6 +724,7 @@ class FlowSolver2d(FrozenClass):
 
         self.timestepper.initialize(self.fields.solution_2d)
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.add_callback")
     def add_callback(self, callback, eval_interval='export'):
         """
         Adds callback to solver object
@@ -719,6 +736,7 @@ class FlowSolver2d(FrozenClass):
         """
         self.callbacks.add(callback, eval_interval)
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.export")
     def export(self):
         """
         Export all fields to disk
@@ -729,6 +747,7 @@ class FlowSolver2d(FrozenClass):
         for e in self.exporters.values():
             e.export()
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.load_state")
     def load_state(self, i_export, outputdir=None, t=None, iteration=None):
         """
         Loads simulation state from hdf5 outputs.
@@ -815,6 +834,7 @@ class FlowSolver2d(FrozenClass):
                                      u=norm_u, cpu=cputime))
         sys.stdout.flush()
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.iterate")
     def iterate(self, update_forcings=None,
                 export_func=None):
         """

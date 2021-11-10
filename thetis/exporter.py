@@ -13,6 +13,7 @@ def is_2d(fs):
     return fs.mesh().geometric_dimension() == 2
 
 
+@PETSc.Log.EventDecorator("thetis.get_visu_space")
 def get_visu_space(fs):
     """
     Returns an appropriate VTK visualization space for a function space
@@ -61,7 +62,10 @@ class ExporterBase(object):
 
 
 class VTKExporter(ExporterBase):
-    """Class that handles Paraview VTK file exports"""
+    """
+    Class that handles Paraview VTK file exports
+    """
+    @PETSc.Log.EventDecorator("thetis.VTKExporter.__init__")
     def __init__(self, fs_visu, func_name, outputdir, filename,
                  next_export_ix=0, project_output=False, verbose=False):
         """
@@ -96,6 +100,7 @@ class VTKExporter(ExporterBase):
         # FIXME hack to change correct output file count
         self.outfile.counter = itertools.count(start=self.next_export_ix)
 
+    @PETSc.Log.EventDecorator("thetis.VTKExporter.export")
     def export(self, function):
         """Exports given function to disk"""
         assert self.fs_visu.max_work_functions == 1
@@ -126,6 +131,7 @@ class HDF5Exporter(ExporterBase):
     """
     Stores fields in disk in native discretization using HDF5 containers
     """
+    @PETSc.Log.EventDecorator("thetis.HDF5Exporter.__init__")
     def __init__(self, function_space, outputdir, filename_prefix,
                  next_export_ix=0, verbose=False):
         """
@@ -168,6 +174,7 @@ class HDF5Exporter(ExporterBase):
             f.store(function)
         self.next_export_ix = iexport + 1
 
+    @PETSc.Log.EventDecorator("thetis.HDF5Exporter.export")
     def export(self, function):
         """
         Export function to disk.
@@ -178,6 +185,7 @@ class HDF5Exporter(ExporterBase):
         """
         self.export_as_index(self.next_export_ix, function)
 
+    @PETSc.Log.EventDecorator("thetis.HDF5Exporter.load")
     def load(self, iexport, function):
         """
         Loads nodal values from disk and assigns to the given function
@@ -311,6 +319,7 @@ class ExportManager(object):
             sys.stdout.write('\n')
             sys.stdout.flush()
 
+    @PETSc.Log.EventDecorator("thetis.ExportManager.export_bathymetry")
     def export_bathymetry(self, bathymetry_2d):
         """
         Special function to export 2D bathymetry data to disk

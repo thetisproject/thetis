@@ -77,6 +77,7 @@ class FlowSolver(FrozenClass):
 
     See the manual for more complex examples.
     """
+    @PETSc.Log.EventDecorator("thetis.FlowSolver.__init__")
     def __init__(self, mesh2d, bathymetry_2d, n_layers,
                  options=None, extrude_options=None):
         """
@@ -187,6 +188,7 @@ class FlowSolver(FrozenClass):
         factor = 0.5*0.25/l_r
         return factor
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver.compute_dt_2d")
     def compute_dt_2d(self, u_scale):
         r"""
         Computes maximum explicit time step from CFL condition.
@@ -213,7 +215,12 @@ class FlowSolver(FrozenClass):
         u = (sqrt(g * bath_pos) + u_scale)
         a = inner(test, trial) * dx
         l = inner(test, csize / u) * dx
-        solve(a == l, solution)
+        sp = {
+            "snes_type": "ksponly",
+            "ksp_type": "gmres",
+            "pc_type": "ilu",
+        }
+        solve(a == l, solution, solver_parameters=sp)
         dt = float(solution.dat.data.min())
         dt = self.comm.allreduce(dt, op=MPI.MIN)
         dt *= self.compute_dx_factor()
@@ -319,6 +326,7 @@ class FlowSolver(FrozenClass):
         print_output(f'Number of cores: {self.comm.size}')
         print_output(f'Tracer DOFs per core: ~{dofs_t3d_core:.1f}')
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver.set_time_step")
     def set_time_step(self):
         """
         Sets the model the model time step
@@ -393,6 +401,7 @@ class FlowSolver(FrozenClass):
             print_output('2D dt = {0:f} {1:d}'.format(self.dt_2d, self.M_modesplit))
         sys.stdout.flush()
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver.create_function_spaces")
     def create_function_spaces(self):
         """
         Creates function spaces
@@ -457,6 +466,7 @@ class FlowSolver(FrozenClass):
 
         self._isfrozen = True
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver.create_fields")
     def create_fields(self):
         """
         Creates all fields
@@ -605,6 +615,7 @@ class FlowSolver(FrozenClass):
 
         self._isfrozen = True
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver.add_new_field")
     def add_new_field(self, function, label, name, filename, shortname=None, unit='-', preproc_func=None):
         """
         Add a field to :attr:`fields`.
@@ -637,6 +648,7 @@ class FlowSolver(FrozenClass):
         if preproc_func is not None:
             self._field_preproc_funcs[label] = preproc_func
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver.create_equations")
     def create_equations(self):
         """
         Creates equation instances
@@ -826,6 +838,7 @@ class FlowSolver(FrozenClass):
 
         self._isfrozen = True
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver.create_timestepper")
     def create_timestepper(self):
         """
         Creates time stepper instance
@@ -859,6 +872,7 @@ class FlowSolver(FrozenClass):
 
         self._isfrozen = True
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver.create_exporters")
     def create_exporters(self):
         """
         Creates file exporters
@@ -905,6 +919,7 @@ class FlowSolver(FrozenClass):
             self.create_exporters()
         self._initialized = True
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver.assign_initial_conditions")
     def assign_initial_conditions(self, elev=None, salt=None, temp=None,
                                   uv_2d=None, uv_3d=None, tke=None, psi=None):
         """
@@ -973,6 +988,7 @@ class FlowSolver(FrozenClass):
         """
         self.callbacks.add(callback, eval_interval)
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver.export")
     def export(self):
         """
         Export all fields to disk
@@ -988,6 +1004,7 @@ class FlowSolver(FrozenClass):
         # restore uv_3d
         self.fields.uv_3d -= self.fields.uv_dav_3d
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver.load_state")
     def load_state(self, i_export, outputdir=None, t=None, iteration=None):
         """
         Loads simulation state from hdf5 outputs.
@@ -1124,6 +1141,7 @@ class FlowSolver(FrozenClass):
                 self._print_field(self.fields[fieldname])
         self.comm.barrier()
 
+    @PETSc.Log.EventDecorator("thetis.FlowSolver.iterate")
     def iterate(self, update_forcings=None, update_forcings3d=None,
                 export_func=None):
         """

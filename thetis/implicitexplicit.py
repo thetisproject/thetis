@@ -30,6 +30,7 @@ class IMEXGeneric(TimeIntegrator):
         """Explicit Runge-Kutta class"""
         pass
 
+    @PETSc.Log.EventDecorator("thetis.IMEXGeneric.__init__")
     def __init__(self, equation, solution, fields, dt, options, bnd_conditions):
         """
         :arg equation: equation to solve
@@ -60,22 +61,26 @@ class IMEXGeneric(TimeIntegrator):
         # FIXME may violate max DIRK SSP time step (if any)
         self.cfl_coeff = self.erk.cfl_coeff
 
+    @PETSc.Log.EventDecorator("thetis.IMEXGeneric.update_solver")
     def update_solver(self):
         """Create solver objects"""
         self.dirk.update_solver()
         self.erk.update_solver()
 
+    @PETSc.Log.EventDecorator("thetis.IMEXGeneric.initialize")
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
         self.dirk.initialize(solution)
         self.erk.initialize(solution)
 
+    @PETSc.Log.EventDecorator("thetis.IMEXGeneric.advance")
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
         for i in range(self.n_stages):
             self.solve_stage(i, t, update_forcings)
         self.get_final_solution()
 
+    @PETSc.Log.EventDecorator("thetis.IMEXGeneric.solve_stage")
     def solve_stage(self, i_stage, t, update_forcings=None):
         """
         Solves i-th stage
@@ -91,6 +96,7 @@ class IMEXGeneric(TimeIntegrator):
         # evaluate explicit tendency
         self.erk.solve_tendency(i_stage, t, update_forcings)
 
+    @PETSc.Log.EventDecorator("thetis.IMEXGeneric.get_final_solution")
     def get_final_solution(self):
         """
         Evaluates the final solution.

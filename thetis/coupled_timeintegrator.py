@@ -413,12 +413,14 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
     integrator_3d = timeintegrator.LeapFrogAM3
     integrator_vert_3d = rungekutta.BackwardEuler
 
+    @PETSc.Log.EventDecorator("thetis.CoupledLeapFrogAM3.__init__")
     def __init__(self, solver):
         super(CoupledLeapFrogAM3, self).__init__(solver)
         self.elev_domain_old_2d = Function(self.fields.elev_domain_2d)
         self.uv_old_2d = Function(self.fields.uv_2d)
         self.uv_new_2d = Function(self.fields.uv_2d)
 
+    @PETSc.Log.EventDecorator("thetis.CoupledLeapFrogAM3.advance")
     def advance(self, t, update_forcings=None, update_forcings3d=None):
         """
         Advances the equations for one time step
@@ -573,6 +575,7 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
     integrator_3d = timeintegrator.SSPRK22ALE
     integrator_vert_3d = rungekutta.BackwardEuler
 
+    @PETSc.Log.EventDecorator("thetis.CoupledTwoStageRK.__init__")
     def __init__(self, solver):
         super(CoupledTwoStageRK, self).__init__(solver)
         # allocate CG elevation fields for storing mesh geometry
@@ -581,6 +584,7 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
             e = Function(self.fields.elev_cg_2d)
             self.elev_fields.append(e)
 
+    @PETSc.Log.EventDecorator("thetis.CoupledTwoStageRK.store_elevation")
     def store_elevation(self, istage):
         """
         Store current elevation field for computing mesh velocity
@@ -594,6 +598,7 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
             self.solver.mesh_updater.compute_mesh_velocity_begin()
             self.elev_fields[istage].assign(self.fields.elev_cg_2d)
 
+    @PETSc.Log.EventDecorator("thetis.CoupledTwoStageRK.compute_mesh_velocity")
     def compute_mesh_velocity(self, istage):
         """
         Computes mesh velocity for stage i
@@ -615,6 +620,7 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
             self.solver.mesh_updater.compute_mesh_velocity_finalize(
                 w_mesh_surf_expr=w_s)
 
+    @PETSc.Log.EventDecorator("thetis.CoupledTwoStageRK.advance")
     def advance(self, t, update_forcings=None, update_forcings3d=None):
         """
         Advances the equations for one time step

@@ -2,6 +2,7 @@
 Classes related to tidal turbine farms in Thetis.
 """
 from firedrake import *
+from firedrake.petsc import PETSc
 from .log import *
 from .callback import DiagnosticCallback
 from .optimisation import DiagnosticOptimisationCallback
@@ -54,6 +55,7 @@ class TurbineFarm(object):
         self.average_profit = 0.
         self.time_period = 0.
 
+    @PETSc.Log.EventDecorator("thetis.TurbineFarm.evaluate_timestep")
     def evaluate_timestep(self):
         """Perform time integration and return current power and time-averaged power and profit."""
         self.time_period = self.time_period + self.dt
@@ -71,6 +73,7 @@ class TurbineFunctionalCallback(DiagnosticCallback):
     name = 'turbine'  # this name will be used in the hdf5 file
     variable_names = ['current_power', 'average_power', 'average_profit']
 
+    @PETSc.Log.EventDecorator("thetis.TurbineFunctionalCallback.__init__")
     def __init__(self, solver_obj, **kwargs):
         """
         :arg solver_obj: a :class:`.FlowSolver2d` object containing the tidal_turbine_farms

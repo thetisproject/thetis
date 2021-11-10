@@ -26,6 +26,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         """time integrator for the exner equation"""
         pass
 
+    @PETSc.Log.EventDecorator("thetis.CoupledTimeIntegrator2D.__init__")
     def __init__(self, solver):
         """
         :arg solver: :class:`.FlowSolver` object
@@ -69,6 +70,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         for stepper in sorted(self.timesteppers):
             self.timesteppers[stepper].set_dt(dt)
 
+    @PETSc.Log.EventDecorator("thetis.CoupledTimeIntegrator2D.initialize")
     def initialize(self, solution2d):
         """
         Assign initial conditions to all necessary fields
@@ -91,6 +93,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
 
         self._initialized = True
 
+    @PETSc.Log.EventDecorator("thetis.CoupledTimeIntegrator2D.advance")
     def advance(self, t, update_forcings=None):
         if self.options.tracer_picard_iterations > 1:
             self.advance_picard(t, update_forcings=update_forcings)
@@ -110,6 +113,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
             if self.options.sediment_model_options.solve_exner:
                 self.timesteppers.exner.advance(t, update_forcings=update_forcings)
 
+    @PETSc.Log.EventDecorator("thetis.CoupledTimeIntegrator2D.advance_picard")
     def advance_picard(self, t, update_forcings=None):
         if not self.options.tracer_only:
             self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
@@ -182,6 +186,7 @@ class NonHydrostaticTimeIntegrator2D(CoupledTimeIntegrator2D):
                   'Free Surface time integrators should be the same.'
             assert self.options.swe_timestepper_type == self.nh_options.free_surface_timestepper_type, msg
 
+    @PETSc.Log.EventDecorator("thetis.NonHydrostaticTimeIntegrator2D.initialize")
     def initialize(self, solution2d):
         """
         Assign initial conditions to all necessary fields
@@ -195,6 +200,7 @@ class NonHydrostaticTimeIntegrator2D(CoupledTimeIntegrator2D):
             self.timesteppers.fs2d.initialize(self.fields.elev_2d)
             self.elev_old.assign(self.fields.elev_2d)
 
+    @PETSc.Log.EventDecorator("thetis.NonHydrostaticTimeIntegrator2D.advance")
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
         if self.serial_advancing:

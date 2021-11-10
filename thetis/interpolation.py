@@ -54,6 +54,7 @@ import scipy.spatial.qhull as qhull
 import netCDF4
 from abc import ABCMeta, abstractmethod
 from firedrake import *
+from firedrake.petsc import PETSc
 import re
 import string
 import numpy
@@ -89,6 +90,7 @@ class GridInterpolator(object):
     Based on
     http://stackoverflow.com/questions/20915502/speedup-scipy-griddata-for-multiple-interpolations-between-two-irregular-grids
     """
+    @PETSc.Log.EventDecorator("thetis.GridInterpolator.__init__")
     def __init__(self, grid_xyz, target_xyz, fill_mode=None, fill_value=numpy.nan,
                  normalize=False, dont_raise=False):
         """
@@ -168,6 +170,7 @@ class GridInterpolator(object):
                 dist, ix = cKDTree(ngrid_xyz).query(ntarget_xyz)
                 self.outside_to_nearest = ix
 
+    @PETSc.Log.EventDecorator("thetis.GridInterpolator.__call__")
     def __call__(self, values):
         """
         Interpolate values defined on grid_xyz to target_xyz.
@@ -303,6 +306,7 @@ class SpatialInterpolator2d(SpatialInterpolator):
     """
     __metaclass__ = ABCMeta
 
+    @PETSc.Log.EventDecorator("thetis.SpatialInterpolator2d.__init__")
     def __init__(self, function_space, to_latlon):
         """
         :arg function_space: target Firedrake FunctionSpace
@@ -377,6 +381,7 @@ class NetCDFLatLonInterpolator2d(SpatialInterpolator2d):
         myfunc.dat.data_with_halos[:] = val1 + val2
 
     """
+    @PETSc.Log.EventDecorator("thetis.NetCDFLatLonInterpolator2d.interpolate")
     def interpolate(self, nc_filename, variable_list, itime):
         """
         Interpolates data from a netCDF file onto Firedrake function space.
