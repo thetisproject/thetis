@@ -1,8 +1,6 @@
 """
 Utility functions and classes for 2D and 3D ocean models
 """
-from __future__ import absolute_import
-
 import os
 import sys
 from abc import ABCMeta, abstractmethod  # NOQA

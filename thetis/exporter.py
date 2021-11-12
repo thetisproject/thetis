@@ -1,7 +1,6 @@
 """
 Routines for handling file exports.
 """
-from __future__ import absolute_import
 from .utility import *
 from firedrake.output import is_cg
 from collections import OrderedDict

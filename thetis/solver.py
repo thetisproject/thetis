@@ -1,7 +1,6 @@
 """
 Module for three dimensional baroclinic solver
 """
-from __future__ import absolute_import
 from .utility import *
 from .utility3d import *
 from . import shallowwater_eq

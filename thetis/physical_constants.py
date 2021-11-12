@@ -1,7 +1,6 @@
 """
 Default values for physical constants and parameters
 """
-from __future__ import absolute_import
 from firedrake import Constant
 
 physical_constants = {

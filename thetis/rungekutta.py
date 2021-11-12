@@ -4,7 +4,6 @@ Implements Runge-Kutta time integration methods.
 The abstract class :class:`~.AbstractRKScheme` defines the Runge-Kutta
 coefficients, and can be used to implement generic time integrators.
 """
-from __future__ import absolute_import
 from .timeintegrator import *
 from abc import ABCMeta, abstractproperty, abstractmethod
 import operator

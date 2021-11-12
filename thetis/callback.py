@@ -2,7 +2,6 @@
 Defines custom callback functions used to compute various metrics at runtime.
 
 """
-from __future__ import absolute_import
 from .utility import *
 from abc import ABC, abstractproperty, abstractmethod
 import h5py

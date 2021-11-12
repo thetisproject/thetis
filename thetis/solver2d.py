@@ -1,7 +1,6 @@
 """
 Module for 2D depth averaged solver
 """
-from __future__ import absolute_import
 from .utility import *
 from . import shallowwater_eq
 from . import timeintegrator

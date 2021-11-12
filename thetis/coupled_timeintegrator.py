@@ -1,7 +1,6 @@
 """
 Time integrators for solving coupled 2D-3D system of equations.
 """
-from __future__ import absolute_import
 from .utility import *
 from . import timeintegrator
 from .log import *

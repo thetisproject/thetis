@@ -1,7 +1,6 @@
 """
 Time integrators for solving coupled shallow water equations with one tracer or sediment.
 """
-from __future__ import absolute_import
 from .utility import *
 from . import timeintegrator
 from .log import *

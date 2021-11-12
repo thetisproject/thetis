@@ -57,7 +57,6 @@ Higdon and de Szoeke (1997). Barotropic-Baroclinic Time Splitting for Ocean
 Circulation Modeling. Journal of Computational Physics, 135(1):30-53.
 http://dx.doi.org/10.1006/jcph.1997.5733
 """
-from __future__ import absolute_import
 from .utility import *
 from .equation import Term, Equation
 
