@@ -27,7 +27,6 @@ op = inversion_tools.OptimisationProgress(options.output_directory)
 
 for control_name in controls:
     if control_name == 'Bathymetry':
-        # FIXME move allocation to model_config
         bathymetry_2d.assign(5.0)
         bounds = [1.0, 50.]
         op.add_control(bathymetry_2d)
@@ -47,7 +46,8 @@ for control_name in controls:
     print_output(f'{control_name} regularization params: hess={float(gamma_hessian):.3g}')
     gamma_hessian_list.append(gamma_hessian)
     control_bounds_list.append(bounds)
-control_bounds = numpy.array(control_bounds_list).T  # [[lo1, lo2], [hi1, hi2]]
+# reshape to [[lo1, lo2, ...], [hi1, hi2, ...]]
+control_bounds = numpy.array(control_bounds_list).T
 
 print_output('Exporting to ' + options.output_directory)
 solver_obj.assign_initial_conditions(elev=elev_init_2d, uv=Constant((1e-5, 0)))
@@ -84,8 +84,7 @@ def cost_function():
     t = solver_obj.simulation_time
 
     J_misfit = stationmanager.eval_cost_function(t)
-    # J_regularization = regularizationmanager.eval_cost_function()
-    op.J += J_misfit  # + J_regularization
+    op.J += J_misfit
 
 
 def gradient_eval_callback(j, djdm, m):
@@ -120,7 +119,7 @@ if do_taylor_test:
     for f in op.control_coeff_list:
         dc = Function(f.function_space()).assign(f)
         func_list.append(dc)
-    minconv = taylor_test(Jhat, op.control_coeff_list, dc)
+    minconv = taylor_test(Jhat, op.control_coeff_list, func_list)
     assert minconv > 1.9
     print_output('Taylor test passed!')
 
@@ -135,9 +134,9 @@ def optimization_callback(m):
 
 # Run inversion
 opt_method = 'L-BFGS-B'
-opt_verbose = -1  # print scipy diagnostics -1, 0, 1, 99, 100, 101
+opt_verbose = -1  # scipy diagnostics -1, 0, 1, 99, 100, 101
 opt_options = {
-    'maxiter': 15,
+    'maxiter': 6,  # NOTE increase to run iteration longer
     'ftol': 1e-5,
     'disp': opt_verbose if mesh2d.comm.rank == 0 else -1,
 }
