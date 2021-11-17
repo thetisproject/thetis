@@ -813,13 +813,13 @@ class BaseShallowWaterEquation(Equation):
 
     def add_momentum_terms(self, *args):
         self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
-        self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
+        self.add_term(HorizontalAdvectionTerm(*args), 'implicit')
         self.add_term(HorizontalViscosityTerm(*args), 'explicit')
-        self.add_term(CoriolisTerm(*args), 'explicit')
+        self.add_term(CoriolisTerm(*args), 'implicit')
         self.add_term(WindStressTerm(*args), 'source')
         self.add_term(AtmosphericPressureTerm(*args), 'source')
-        self.add_term(QuadraticDragTerm(*args), 'explicit')
-        self.add_term(LinearDragTerm(*args), 'explicit')
+        self.add_term(QuadraticDragTerm(*args), 'implicit')
+        self.add_term(LinearDragTerm(*args), 'implicit')
         self.add_term(BottomDrag3DTerm(*args), 'source')
         self.add_term(TurbineDragTerm(*args), 'implicit')
         self.add_term(MomentumSourceTerm(*args), 'source')
