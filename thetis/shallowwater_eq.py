@@ -240,6 +240,8 @@ class ShallowWaterTerm(Term):
         """
         bnd_len = self.boundary_len[bnd_id]
         funcs = bnd_conditions.get(bnd_id)
+        assert funcs is not None
+        eta_ext = uv_ext = None
         if 'elev' in funcs and 'uv' in funcs:
             eta_ext = funcs['elev']
             uv_ext = funcs['uv']
@@ -265,9 +267,22 @@ class ShallowWaterTerm(Term):
             h_ext = self.depth.get_total_depth(eta_ext)
             area = h_ext*bnd_len  # NOTE using internal elevation
             uv_ext = funcs['flux']/area*self.normal
-        else:
-            raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
+        if eta_ext is None or uv_ext is None:
+            raise Exception('Unsupported open bnd type: {:}'.format(funcs.keys()))
         return eta_ext, uv_ext
+
+    def is_open_bnd(self, bnd_funcs, bnd_id):
+        open_tags = ['elev', 'uv', 'un', 'flux']
+        all_tags = open_tags + ['drag']
+        if bnd_funcs is None:
+            return False
+        for k in bnd_funcs.keys():
+            if k not in all_tags:
+                raise Exception(f'Invalid boundary tag "{k}" '
+                                f'specified on boundary {bnd_id}')
+            if k in open_tags:
+                return True
+        return False
 
 
 class ShallowWaterMomentumTerm(ShallowWaterTerm):
@@ -341,13 +356,13 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is not None:
+                if self.is_open_bnd(funcs, bnd_marker):
                     eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     un_jump = inner(uv - uv_ext, self.normal)
                     eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
                     f += g_grav*eta_rie*dot(self.u_test, self.normal)*ds_bnd
-                if funcs is None or 'symm' in funcs:
+                else:
                     # assume land boundary
                     # impermeability implies external un=0
                     un_jump = inner(uv, self.normal)
@@ -358,7 +373,7 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is not None:
+                if self.is_open_bnd(funcs, bnd_marker):
                     eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     un_jump = inner(uv - uv_ext, self.normal)
@@ -402,7 +417,7 @@ class HUDivTerm(ShallowWaterContinuityTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is not None:
+                if self.is_open_bnd(funcs, bnd_marker):
                     eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
                     eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
@@ -419,7 +434,7 @@ class HUDivTerm(ShallowWaterContinuityTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is None or 'un' in funcs:
+                if self.is_open_bnd(funcs, bnd_marker) or 'un' in funcs:
                     f += -total_h*dot(uv, self.normal)*self.eta_test*ds_bnd
         return -f
 
@@ -463,7 +478,7 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
                     for bnd_marker in self.boundary_markers:
                         funcs = bnd_conditions.get(bnd_marker)
                         ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                        if funcs is None:
+                        if not self.is_open_bnd(funcs, bnd_marker):
                             # impose impermeability with mirror velocity
                             n = self.normal
                             uv_ext = uv - 2*dot(uv, n)*n
@@ -472,7 +487,7 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is not None:
+                if self.is_open_bnd(funcs, bnd_marker):
                     eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
                     eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
@@ -564,7 +579,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is not None:
+                if self.is_open_bnd(funcs, bnd_marker):
                     if 'un' in funcs:
                         delta_uv = (dot(uv, n) - funcs['un'])*n
                     else:
@@ -672,6 +687,25 @@ class QuadraticDragTerm(ShallowWaterMomentumTerm):
 
         if C_D is not None:
             f += C_D * sqrt(dot(uv_old, uv_old) + self.options.norm_smoother**2) * inner(self.u_test, uv) / total_h * self.dx
+        return -f
+
+
+class BoundaryDragTerm(ShallowWaterMomentumTerm):
+    r"""
+    Quadratic friction term on the boundary
+    :math:`C_D \| \bar{\textbf{u}} \| \bar{\textbf{u}}`
+
+    where the drag term is user-defined.
+    """
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
+        f = 0
+        for bnd_marker in self.boundary_markers:
+            funcs = bnd_conditions.get(bnd_marker)
+            ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+            if funcs is not None and 'drag' in funcs:
+                C_D = funcs['drag']
+                uv_mag = sqrt(dot(uv_old, uv_old))
+                f += C_D * uv_mag * inner(self.u_test, uv) * ds_bnd
         return -f
 
 
@@ -820,6 +854,7 @@ class BaseShallowWaterEquation(Equation):
         self.add_term(AtmosphericPressureTerm(*args), 'source')
         self.add_term(QuadraticDragTerm(*args), 'implicit')
         self.add_term(LinearDragTerm(*args), 'implicit')
+        self.add_term(BoundaryDragTerm(*args), 'implicit')
         self.add_term(BottomDrag3DTerm(*args), 'source')
         self.add_term(TurbineDragTerm(*args), 'implicit')
         self.add_term(MomentumSourceTerm(*args), 'source')
