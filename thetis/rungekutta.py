@@ -462,7 +462,13 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
         """
         super(DIRKGeneric, self).__init__(equation, solution, fields, dt, options)
-        self.solver_parameters.setdefault('snes_type', 'newtonls')
+        semi_implicit = False
+        if hasattr(options, 'use_semi_implicit_linearization'):
+            semi_implicit = options.use_semi_implicit_linearization
+        if semi_implicit:
+            self.solver_parameters.setdefault('snes_type', 'ksponly')
+        else:
+            self.solver_parameters.setdefault('snes_type', 'newtonls')
         self._initialized = False
 
         fs = self.equation.function_space
@@ -477,17 +483,27 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
             fname = f'{self.name}_k{i}'
             self.k.append(Function(fs, name=fname))
 
+        u = self.solution
+        u_old = self.solution_old
+        if semi_implicit:
+            # linearize around last timestep using the fact that all terms are
+            # written in the form A(u_nl) u
+            u_nl = u_old
+        else:
+            # solve the full nonlinear residual form
+            u_nl = u
+
         # construct variational problems
         self.F = []
         if not mixed_space:
             for i in range(self.n_stages):
                 for j in range(i+1):
                     if j == 0:
-                        u = self.solution_old + self.a[i][j]*self.dt_const*self.k[j]
+                        u = u_old + self.a[i][j]*self.dt_const*self.k[j]
                     else:
                         u += self.a[i][j]*self.dt_const*self.k[j]
                 self.F.append(-inner(self.k[i], test)*dx
-                              + self.equation.residual(terms_to_add, u, self.solution_old, fields, fields, bnd_conditions))
+                              + self.equation.residual(terms_to_add, u, u_nl, fields, fields, bnd_conditions))
         else:
             # solution must be split before computing sum
             # pass components to equation in a list
@@ -495,13 +511,13 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
                 for j in range(i+1):
                     if j == 0:
                         u = []  # list of components in the mixed space
-                        for s, k in zip(split(self.solution_old), split(self.k[j])):
+                        for s, k in zip(split(u_old), split(self.k[j])):
                             u.append(s + self.a[i][j]*self.dt_const*k)
                     else:
                         for l, k in enumerate(split(self.k[j])):
                             u[l] += self.a[i][j]*self.dt_const*k
                 self.F.append(-inner(self.k[i], test)*dx
-                              + self.equation.residual(terms_to_add, u, self.solution_old, fields, fields, bnd_conditions))
+                              + self.equation.residual(terms_to_add, u, u_nl, fields, fields, bnd_conditions))
         self.update_solver()
 
         # construct expressions for stage solutions
@@ -509,7 +525,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         for i_stage in range(self.n_stages):
             sol_expr = sum(map(operator.mul, self.k[:i_stage+1], self.dt_const*self.a[i_stage][:i_stage+1]))
             self.sol_expressions.append(sol_expr)
-        self.final_sol_expr = self.solution_old + sum(map(operator.mul, self.k, self.dt_const*self.b))
+        self.final_sol_expr = u_old + sum(map(operator.mul, self.k, self.dt_const*self.b))
 
     @PETSc.Log.EventDecorator("thetis.DIRKGeneric.update_solver")
     def update_solver(self):
