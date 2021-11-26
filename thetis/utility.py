@@ -920,8 +920,9 @@ class VorticityCalculator2D(object):
         # Setup vorticity solver
         prob = LinearVariationalProblem(a, L, vorticity_2d)
         kwargs.setdefault('solver_parameters', {
-            "ksp_type": "gmres",
-            "pc_type": "ilu",
+            "ksp_type": "cg",
+            "pc_type": "bjacobi",
+            "sub_pc_type": "ilu",
         })
         self.solver = LinearVariationalSolver(prob, **kwargs)
 
@@ -1025,8 +1026,9 @@ class DepthIntegratedPoissonSolver(object):
         l_w = dot(self.w_2d + self.dt/rho_0*(self.q_2d/h_star), test_w)*dx
         prob_w = LinearVariationalProblem(a_w, l_w, self.w_2d)
         sp = {
-            "ksp_type": "gmres",
-            "pc_type": "ilu",
+            "ksp_type": "cg",
+            "pc_type": "bjacobi",
+            "sub_pc_type": "ilu",
         }
         self.solver_w = LinearVariationalSolver(prob_w, solver_parameters=sp)
 
