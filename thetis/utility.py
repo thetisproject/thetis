@@ -893,48 +893,6 @@ class DepthExpression:
         return total_h
 
 
-class VorticityCalculator2D(object):
-    r"""
-    Linear solver for recovering fluid vorticity.
-
-    It is recommended that the vorticity is sought
-    in :math:`\mathbb P1` space.
-
-    :arg vorticity_2d: :class:`Function` to hold calculated vorticity.
-    :arg solver_obj: :class:`FlowSolver2d` object.
-    :kwargs: to be passed to the :class:`LinearVariationalSolver`.
-    """
-    @PETSc.Log.EventDecorator("thetis.VorticityCalculator2D.__init__")
-    def __init__(self, vorticity_2d, solver_obj, **kwargs):
-        fs = vorticity_2d.function_space()
-        if element_continuity(fs.ufl_element()).horizontal != 'cg':
-            raise NotImplementedError
-        n = FacetNormal(fs.mesh())
-
-        # Weak formulation
-        test = TestFunction(fs)
-        uv, elev = split(solver_obj.fields.solution_2d)
-        a = TrialFunction(fs)*test*dx
-        L = -inner(perp(uv), grad(test))*dx \
-            + dot(perp(uv), n)*test*ds
-
-        # Setup vorticity solver
-        prob = LinearVariationalProblem(a, L, vorticity_2d)
-        kwargs.setdefault('solver_parameters', {
-            "ksp_type": "cg",
-            "pc_type": "bjacobi",
-            "sub_pc_type": "ilu",
-        })
-        self.solver = LinearVariationalSolver(prob, **kwargs)
-
-        if 'vorticity_2d' not in solver_obj.options.fields_to_export:
-            print_output("NOTE: 'vorticity_2d' will be calculated but not exported.")
-
-    @PETSc.Log.EventDecorator("thetis.VorticityCalculator2D.solve")
-    def solve(self):
-        self.solver.solve()
-
-
 class DepthIntegratedPoissonSolver(object):
     r"""
     Construct solvers for Poisson equation and updating velocities
