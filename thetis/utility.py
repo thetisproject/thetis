@@ -543,8 +543,9 @@ def get_horizontal_elem_size_2d(sol2d):
     l = inner(test, sqrt(CellVolume(mesh))) * dx
     sp = {
         "snes_type": "ksponly",
-        "ksp_type": "gmres",
-        "pc_type": "ilu",
+        "ksp_type": "cg",
+        "pc_type": "bjacobi",
+        "sub_pc_type": "ilu",
     }
     solve(a == l, sol2d, solver_parameters=sp)
 

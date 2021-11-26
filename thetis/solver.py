@@ -217,8 +217,9 @@ class FlowSolver(FrozenClass):
         l = inner(test, csize / u) * dx
         sp = {
             "snes_type": "ksponly",
-            "ksp_type": "gmres",
-            "pc_type": "ilu",
+            "ksp_type": "cg",
+            "pc_type": "bjacobi",
+            "sub_pc_type": "ilu",
         }
         solve(a == l, solution, solver_parameters=sp)
         dt = float(solution.dat.data.min())
