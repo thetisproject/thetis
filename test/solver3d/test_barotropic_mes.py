@@ -5,6 +5,7 @@ tracers.
 """
 from thetis import *
 from scipy import stats
+import pytest
 
 
 def run(refinement=1, ncycles=2, **kwargs):
@@ -98,6 +99,8 @@ def run(refinement=1, ncycles=2, **kwargs):
 
 def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
+    if saveplot and COMM_WORLD.size > 1:
+        raise Exception('Cannot use matplotlib in parallel')
     polynomial_degree = options.get('polynomial_degree', 1)
     space_str = options.get('element_family')
     l2_err = []
@@ -161,6 +164,7 @@ def run_convergence(ref_list, saveplot=False, **options):
         plt.savefig(imgfile, dpi=200, bbox_inches='tight')
 
 
+@pytest.mark.parallel(nprocs=2)
 def test_standing_wave():
     run_convergence([1, 2, 4, 8],
                     polynomial_degree=1, element_family='dg-dg',
@@ -170,4 +174,4 @@ def test_standing_wave():
 if __name__ == '__main__':
     run_convergence([1, 2, 4, 6, 8, 10],
                     polynomial_degree=1, element_family='dg-dg',
-                    saveplot=True, no_exports=True)
+                    saveplot=False, no_exports=True)

@@ -3,6 +3,8 @@ MMS test for baroclinic 3D model
 """
 from thetis import *
 from scipy import stats
+import pytest
+
 
 field_metadata['uv_full'] = dict(field_metadata['uv_3d'])
 
@@ -341,6 +343,8 @@ def run(setup, refinement, polynomial_degree, do_export=True, **options):
 
 def run_convergence(setup, ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
+    if saveplot and COMM_WORLD.size > 1:
+        raise Exception('Cannot use matplotlib in parallel')
     polynomial_degree = options.get('polynomial_degree', 1)
     space_str = options.get('element_family')
     l2_err = []
@@ -417,6 +421,7 @@ def run_convergence(setup, ref_list, saveplot=False, **options):
         plt.savefig(imgfile, dpi=200, bbox_inches='tight')
 
 
+@pytest.mark.parallel(nprocs=2)
 def test_baroclinic_mms():
     run_convergence(setup5, [1, 2, 4],
                     polynomial_degree=1, element_family='dg-dg',
