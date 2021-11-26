@@ -114,7 +114,7 @@ class FieldDict(AttrDict):
 
 
 def get_functionspace(mesh, h_family, h_degree, v_family=None, v_degree=None,
-                      vector=False, hdiv=False, variant=None, v_variant=None,
+                      vector=False, tensor=False, hdiv=False, variant=None, v_variant=None,
                       **kwargs):
     cell_dim = mesh.cell_dimension()
     assert cell_dim in [2, (2, 1)], 'Unsupported cell dimension'
@@ -146,7 +146,8 @@ def get_functionspace(mesh, h_family, h_degree, v_family=None, v_degree=None,
     else:
         elt = FiniteElement(h_family, mesh.ufl_cell(), h_degree, variant=variant)
 
-    constructor = VectorFunctionSpace if vector else FunctionSpace
+    assert not (vector and tensor)
+    constructor = TensorFunctionSpace if tensor else VectorFunctionSpace if vector else FunctionSpace
     return constructor(mesh, elt, **kwargs)
 
 
