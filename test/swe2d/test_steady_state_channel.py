@@ -1,7 +1,9 @@
 from thetis import *
 import math
+import pytest
 
 
+@pytest.mark.parallel(nprocs=2)
 def test_steady_state_channel(do_export=False):
 
     lx = 5e3
