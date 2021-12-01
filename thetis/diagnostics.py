@@ -4,6 +4,9 @@ Classes for computing diagnostics.
 from .utility import *
 
 
+__all__ = ["VorticityCalculator2D", "HessianRecoverer2D"]
+
+
 class VorticityCalculator2D(object):
     r"""
     Linear solver for recovering fluid vorticity.

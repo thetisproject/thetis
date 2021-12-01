@@ -14,6 +14,7 @@ import thetis.coordsys as coordsys      # NOQA
 import thetis.timezone as timezone      # NOQA
 import thetis.turbines  # NOQA
 import thetis.optimisation  # NOQA
+import thetis.diagnostics  # NOQA
 from thetis._version import get_versions
 from thetis.assembledschur import AssembledSchurPC  # NOQA
 from thetis.options import TidalTurbineFarmOptions  # NOQA
