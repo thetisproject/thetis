@@ -152,7 +152,7 @@ def run(refinement_level, **model_options):
     # Physics
     g = physical_constants['g_grav'].values()[0]
     physical_constants['g_grav'].assign(1.0)
-    P1_2d = FunctionSpace(mesh2d, "CG", 1)
+    P1_2d = get_functionspace(mesh2d, "CG", 1)
     bathymetry2d = Function(P1_2d).assign(1.0)
 
     # Create solver object
@@ -163,7 +163,7 @@ def run(refinement_level, **model_options):
         options.swe_timestepper_options.use_automatic_timestep = False
     options.timestep = 0.96/refinement_level if stepper == 'SSPRK33' else 9.6/refinement_level
     options.simulation_export_time = 5.0
-    options.simulation_end_time = model_options.get('simulation_end_time')
+    options.simulation_end_time = model_options.get('simulation_end_time', 120.0)
     options.use_grad_div_viscosity_term = False
     options.use_grad_depth_viscosity_term = False
     options.horizontal_viscosity = None
@@ -171,7 +171,18 @@ def run(refinement_level, **model_options):
     options.coriolis_frequency = interpolate(y, solver_obj.function_spaces.P1_2d)
     options.swe_timestepper_options.solver_parameters['ksp_rtol'] = 1.0e-04
     options.no_exports = True
+    options.fields_to_export = ['uv_2d', 'elev_2d', 'vorticity_2d']
     options.update(model_options)
+    solver_obj.create_equations()
+
+    # Calculate vorticity
+    if 'vorticity_2d' in field_metadata:
+        field_metadata.pop('vorticity_2d')
+    vorticity_2d = Function(P1_2d)
+    uv_2d = solver_obj.fields.uv_2d
+    vorticity_calculator = thetis.diagnostics.VorticityCalculator2D(uv_2d, vorticity_2d)
+    solver_obj.add_new_field(vorticity_2d, 'vorticity_2d', 'Fluid vorticity', 'Vorticity2d',
+                             preproc_func=vorticity_calculator.solve)
 
     # Apply boundary conditions
     for tag in mesh2d.exterior_facets.unique_markers:
@@ -267,4 +278,5 @@ def test_convergence(stepper, family):
 # ---------------------------
 
 if __name__ == '__main__':
-    test_convergence('DIRK22', 'bdm-dg')
+    run(24, swe_timestepper_type='DIRK22', element_family='bdm-dg',
+        expansion_order=1, no_exports=False)
