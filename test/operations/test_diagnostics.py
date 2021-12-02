@@ -46,3 +46,33 @@ def test_hessian_recovery2d(interp, tol=1.0e-08):
     assert err_g < tol, f'Gradient approximation error {err_g:.4e}'
     err_H = errornorm(H, H_expect)/norm(H_expect)
     assert err_H < tol, f'Hessian approximation error {err_H:.4e}'
+
+
+def test_vorticity_calculation2d(interp, tol=1.0e-08):
+    r"""
+    Calculate the vorticity of the velocity field
+    :math:`\mathbf u(x, y) = \frac12(y, -x)` and check
+    that the result is unity.
+
+    :arg interp: should the velocity be interpolated as
+        as a :class:`Function`, or left as a UFL expression?
+    :kwarg tol: relative tolerance for value checking
+    """
+    mesh2d = UnitSquareMesh(4, 4)
+    x, y = SpatialCoordinate(mesh2d)
+    uv = 0.5*as_vector([y, -x])
+    if interp:
+        P1v_2d = get_functionspace(mesh2d, 'CG', 1, vector=True)
+        uv = interpolate(uv, P1v_2d)
+    P1_2d = get_functionspace(mesh2d, 'CG', 1)
+
+    # Recover vorticity
+    omega = Function(P1_2d, name='Vorticity')
+    vorticity_calculator = VorticityCalculator2D(uv, omega)
+    vorticity_calculator.solve()
+
+    # Check values
+    omega_expect = Function(P1_2d, name='Expected vorticity')
+    omega_expect.assign(1.0)
+    err = errornorm(omega, omega_expect)/norm(omega_expect)
+    assert err < tol, f'Vorticity approximation error {err:.4e}'
