@@ -87,14 +87,20 @@ class HessianRecoverer2D(DiagnosticCalculator):
     It is recommended that gradients and Hessians
     are sought in :math:`\mathbb P1` space of
     appropriate dimension.
-
-    :arg field_2d: :class:`Function` to recover the Hessian of.
-    :arg hessian_2d: :class:`Function` to hold recovered Hessian.
-    :kwarg gradient_2d: :class:`Function` to hold recovered gradient.
-    :kwargs: to be passed to the :class:`LinearVariationalSolver`.
     """
+    field_2d = FiredrakeScalarExpression(
+        Constant(0.0), help='Field to be recovered').tag(config=True)
+
+    @unfrozen
     @PETSc.Log.EventDecorator("thetis.HessianRecoverer2D.__init__")
     def __init__(self, field_2d, hessian_2d, gradient_2d=None, **kwargs):
+        """
+        :arg field_2d: scalar expression to recover the Hessian of.
+        :arg hessian_2d: :class:`Function` to hold recovered Hessian.
+        :kwarg gradient_2d: :class:`Function` to hold recovered gradient.
+        :kwargs: to be passed to the :class:`LinearVariationalSolver`.
+        """
+        self.field_2d = field_2d
         self.hessian_2d = hessian_2d
         self.gradient_2d = gradient_2d
         Sigma = hessian_2d.function_space()
@@ -132,9 +138,9 @@ class HessianRecoverer2D(DiagnosticCalculator):
             + inner(phi, g)*dx \
             - dot(g, dot(tau, n))*ds \
             - dot(avg(g), jump(tau, n))*dS
-        L = field_2d*dot(phi, n)*ds \
-            + avg(field_2d)*jump(phi, n)*dS \
-            - field_2d*div(phi)*dx
+        L = self.field_2d*dot(phi, n)*ds \
+            + avg(self.field_2d)*jump(phi, n)*dS \
+            - self.field_2d*div(phi)*dx
 
         # Apply stationary preconditioners in the Schur complement to get away
         # with applying GMRES to the whole mixed system
