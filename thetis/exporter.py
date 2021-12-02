@@ -21,13 +21,15 @@ def get_visu_space(fs):
     :arg fs: function space
     :return: function space for VTK visualization
     """
-    is_vector = len(fs.ufl_element().value_shape()) == 1
     mesh = fs.mesh()
     family = 'Lagrange' if is_cg(fs) else 'Discontinuous Lagrange'
-    if is_vector:
+    if len(fs.ufl_element().value_shape()) == 1:
         dim = fs.ufl_element().value_shape()[0]
         visu_fs = get_functionspace(mesh, family, 1, family, 1,
                                     vector=True, dim=dim)
+    elif len(fs.ufl_element().value_shape()) == 2:
+        visu_fs = get_functionspace(mesh, family, 1, family, 1,
+                                    tensor=True)
     else:
         visu_fs = get_functionspace(mesh, family, 1, family, 1)
     # make sure that you always get the same temp work function

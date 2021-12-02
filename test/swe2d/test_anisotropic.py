@@ -57,7 +57,7 @@ def run(**model_options):
         'pc_factor_mat_solver_type': 'mumps',
     }
     options.output_directory = 'outputs'
-    options.fields_to_export = ['uv_2d', 'elev_2d']
+    options.fields_to_export = ['uv_2d', 'elev_2d', 'hessian_2d']
     options.use_grad_div_viscosity_term = False
     options.horizontal_viscosity = viscosity
     options.quadratic_drag_coefficient = drag_coefficient
@@ -67,6 +67,16 @@ def run(**model_options):
     options.no_exports = True
     options.update(model_options)
     solver_obj.create_equations()
+
+    # recover Hessian
+    if 'hessian_2d' in field_metadata:
+        field_metadata.pop('hessian_2d')
+    P1t_2d = get_functionspace(mesh2d, 'CG', 1, tensor=True)
+    hessian_2d = Function(P1t_2d)
+    u_2d = solver_obj.fields.uv_2d[0]
+    hessian_calculator = thetis.diagnostics.HessianRecoverer2D(u_2d, hessian_2d)
+    solver_obj.add_new_field(hessian_2d, 'hessian_2d', 'Hessian of x-velocity', 'Hessian2d',
+                             preproc_func=hessian_calculator.solve)
 
     # apply boundary conditions
     solver_obj.bnd_functions['shallow_water'] = {
@@ -143,4 +153,4 @@ def test_sipg(family):
 
 
 if __name__ == '__main__':
-    print_output(run(no_exports=False, element_family='rt-dg'))
+    print_output(f"Converged in {run(no_exports=False, element_family='rt-dg')} iterations")

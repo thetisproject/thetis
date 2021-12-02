@@ -114,4 +114,4 @@ def test_standing_wave_channel(timesteps, max_rel_err, timestepper, tmpdir, do_e
 
 
 if __name__ == '__main__':
-    test_standing_wave_channel(do_export=True)
+    test_standing_wave_channel(10, 1.6e-02, 'CrankNicolson', 'outputs', do_export=True)
