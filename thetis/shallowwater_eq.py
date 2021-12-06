@@ -656,7 +656,7 @@ class QuadraticDragTerm(ShallowWaterMomentumTerm):
     Quadratic Manning bottom friction term
     :math:`C_D \| \bar{\textbf{u}} \| \bar{\textbf{u}}`
 
-    where the drag term is computed with the Manning formula
+    where the drag coefficient is computed with the Manning formula
 
     .. math::
         C_D = g \frac{\mu^2}{H^{1/3}}
@@ -692,9 +692,10 @@ class QuadraticDragTerm(ShallowWaterMomentumTerm):
 class BoundaryDragTerm(ShallowWaterMomentumTerm):
     r"""
     Quadratic friction term on the boundary
-    :math:`C_D \| \bar{\textbf{u}} \| \bar{\textbf{u}}`
+    :math:`C_D \| \bar{\textbf{u}}_t \| \bar{\textbf{u}}_t`
 
-    where the drag term is user-defined.
+    where :math:`\bar{\textbf{u}}_t` denotes the tangential velocity component
+    and the drag coefficient :math:`C_D` is user-defined.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         f = 0
@@ -703,8 +704,12 @@ class BoundaryDragTerm(ShallowWaterMomentumTerm):
             ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
             if funcs is not None and 'drag' in funcs:
                 C_D = funcs['drag']
-                uv_mag = sqrt(dot(uv_old, uv_old))
-                f += C_D * uv_mag * inner(self.u_test, uv) * ds_bnd
+                # compute tangetial velocity
+                n = self.normal
+                ut = uv - dot(uv, n) * n
+                ut_old = uv_old - dot(uv_old, n) * n
+                ut_mag = sqrt(dot(ut_old, ut_old))
+                f += C_D * ut_mag * inner(self.u_test, ut) * ds_bnd
         return -f
 
 
