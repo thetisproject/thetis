@@ -11,7 +11,7 @@ Also see `instructions for citing Firedrake <https://firedrakeproject.org/citing
 2021
 ----
 
-Fofonova,​​​​​ V., Kärnä, T., Klingbeil, K., Androsov, A., Kuznetsov, I., Sidorenko, D., Danilov, S., Burchard, H., Wiltshire, K. H.: Plume spreading test case for coastal ocean models. *Geosci. Model Dev.*, 14:6945–6975, doi:`10.5194/gmd-14-6945-2021 <https://doi.org/10.5194/gmd-14-6945-2021>`_, 2021.
+Fofonova, V., Kärnä, T., Klingbeil, K., Androsov, A., Kuznetsov, I., Sidorenko, D., Danilov, S., Burchard, H., Wiltshire, K. H.: Plume spreading test case for coastal ocean models. *Geosci. Model Dev.*, 14:6945–6975, doi:`10.5194/gmd-14-6945-2021 <https://doi.org/10.5194/gmd-14-6945-2021>`_, 2021.
 
 Bateman, M. D., Kinnaird, T. C., Hill, J., Ashurst, R. A., Mohan, J., Bateman, R. B. I., Robinson, R.: Detailing the impact of the Storegga Tsunami at Montrose, Scotland. *Boreas*, bor.12532, doi:`10.1111/bor.12532 <https://doi.org/10.1111/bor.12532>`_, 2021.
 
