@@ -38,7 +38,7 @@ def compute_wind_stress(wind_u, wind_v, method='LargeYeager2009'):
     - "SmithBanke1975":
         Wind stress formulation by [2]
     - "LargeYeager2009":
-        Wind stress formulation by [2]
+        Wind stress formulation by [3]
 
     [1] Large and Pond (1981). Open Ocean Momentum Flux Measurements in
         Moderate to Strong Winds. Journal of Physical Oceanography,
@@ -82,10 +82,11 @@ class ATMNetCDFTime(interpolation.NetCDFTimeParser):
     """
     A TimeParser class for reading atmosphere model output files.
     """
+    @PETSc.Log.EventDecorator("thetis.ATMNetCDFTime.__init__")
     def __init__(self, filename, max_duration=None, verbose=False):
         """
         :arg filename:
-        :kwarg max_duration: Time span to read from each file (in secords).
+        :kwarg max_duration: Time span to read from each file (in seconds).
             E.g. forecast files can consist of daily files with > 1 day of
             data. In this case max_duration should be set to 24 h. If None,
             all time steps are loaded. Default: None.
@@ -115,6 +116,7 @@ class ATMInterpolator(object):
     """
     Interpolates WRF/NAM atmospheric model data on 2D fields.
     """
+    @PETSc.Log.EventDecorator("thetis.ATMInterpolator.__init__")
     def __init__(self, function_space, wind_stress_field,
                  atm_pressure_field, to_latlon,
                  ncfile_pattern, init_date, target_coordsys=None,
@@ -164,6 +166,7 @@ class ATMInterpolator(object):
         else:
             self.vect_rotator = vect_rotator
 
+    @PETSc.Log.EventDecorator("thetis.ATMInterpolator.set_fields")
     def set_fields(self, time):
         """
         Evaluates forcing fields at the given time.
@@ -191,6 +194,7 @@ class SpatialInterpolatorNCOMBase(interpolation.SpatialInterpolator):
     """
     Base class for 2D and 3D NCOM spatial interpolators.
     """
+    @PETSc.Log.EventDecorator("thetis.SpatialInterpolatorNCOMBase.__init__")
     def __init__(self, function_space, to_latlon, grid_path):
         """
         :arg function_space: Target (scalar) :class:`FunctionSpace` object onto
@@ -204,6 +208,7 @@ class SpatialInterpolatorNCOMBase(interpolation.SpatialInterpolator):
         self.grid_path = grid_path
         self._initialized = False
 
+    @PETSc.Log.EventDecorator("thetis.SpatialInterpolatorNCOMBase._create_2d_mapping")
     def _create_2d_mapping(self, ncfile):
         """
         Create map for 2D nodes.
@@ -281,6 +286,7 @@ class SpatialInterpolatorNCOM3d(SpatialInterpolatorNCOMBase):
     """
     Spatial interpolator class for interpolating NCOM ocean model 3D fields.
     """
+    @PETSc.Log.EventDecorator("thetis.SpatialInterpolatorNCOM3d.__init__")
     def __init__(self, function_space, to_latlon, grid_path):
         """
         :arg function_space: Target (scalar) :class:`FunctionSpace` object onto
@@ -307,6 +313,7 @@ class SpatialInterpolatorNCOM3d(SpatialInterpolatorNCOMBase):
         self.latlonz_array[:, 1] = lon
         self.latlonz_array[:, 2] = xyz_array[:, 2]
 
+    @PETSc.Log.EventDecorator("thetis.SpatialInterpolatorNCOM3d._create_interpolator")
     def _create_interpolator(self, ncfile):
         """
         Create a compact interpolator by finding the minimal necessary support
@@ -347,6 +354,7 @@ class SpatialInterpolatorNCOM3d(SpatialInterpolatorNCOMBase):
         print_output('done.')
         self._initialized = True
 
+    @PETSc.Log.EventDecorator("thetis.SpatialInterpolatorNCOM3d.interpolate")
     def interpolate(self, nc_filename, variable_list, itime):
         """
         Calls the interpolator object
@@ -367,6 +375,7 @@ class SpatialInterpolatorNCOM2d(SpatialInterpolatorNCOMBase):
     """
     Spatial interpolator class for interpolating NCOM ocean model 2D fields.
     """
+    @PETSc.Log.EventDecorator("thetis.SpatialInterpolatorNCOM2d.__init__")
     def __init__(self, function_space, to_latlon, grid_path):
         """
         :arg function_space: Target (scalar) :class:`FunctionSpace` object onto
@@ -391,6 +400,7 @@ class SpatialInterpolatorNCOM2d(SpatialInterpolatorNCOMBase):
         self.latlonz_array[:, 0] = lat
         self.latlonz_array[:, 1] = lon
 
+    @PETSc.Log.EventDecorator("thetis.SpatialInterpolatorNCOM2d._create_interpolator")
     def _create_interpolator(self, ncfile):
         """
         Create a compact interpolator by finding the minimal necessary support
@@ -412,6 +422,7 @@ class SpatialInterpolatorNCOM2d(SpatialInterpolatorNCOMBase):
         )
         self._initialized = True
 
+    @PETSc.Log.EventDecorator("thetis.SpatialInterpolatorNCOM2d.interpolate")
     def interpolate(self, nc_filename, variable_list, itime):
         """
         Calls the interpolator object
@@ -450,6 +461,7 @@ class NCOMInterpolator(object):
         ./forcings/ncom/2006/ssh/ssh.glb8_2f_2006041900.nc
         ./forcings/ncom/2006/ssh/ssh.glb8_2f_2006042000.nc
     """
+    @PETSc.Log.EventDecorator("thetis.NCOMInterpolator.__init__")
     def __init__(self, function_space_2d, function_space_3d, fields, field_names, field_fnstr,
                  to_latlon, basedir,
                  file_pattern, init_date, target_coordsys, verbose=False):
@@ -513,6 +525,7 @@ class NCOMInterpolator(object):
             self.vect_rotator = coordsys.VectorCoordSysRotation(
                 coordsys.LL_WGS84, target_coordsys, lon, lat)
 
+    @PETSc.Log.EventDecorator("thetis.NCOMInterpolator.set_fields")
     def set_fields(self, time):
         """
         Evaluates forcing fields at the given time
@@ -535,6 +548,7 @@ class SpatialInterpolatorROMS3d(interpolation.SpatialInterpolator):
     """
     Abstract spatial interpolator class that can interpolate onto a Function
     """
+    @PETSc.Log.EventDecorator("thetis.SpatialInterpolatorROMS3d.__init__")
     def __init__(self, function_space, to_latlon):
         """
         :arg function_space: target Firedrake FunctionSpace
@@ -562,7 +576,7 @@ class SpatialInterpolatorROMS3d(interpolation.SpatialInterpolator):
 
     def _get_subset_nodes(self, grid_x, grid_y, target_x, target_y):
         """
-        Retuns grid nodes that are necessary for intepolating onto target_x,y
+        Returns grid nodes that are necessary for intepolating onto target_x,y
         """
         orig_shape = grid_x.shape
         grid_xy = numpy.array((grid_x.ravel(), grid_y.ravel())).T
@@ -575,6 +589,7 @@ class SpatialInterpolatorROMS3d(interpolation.SpatialInterpolator):
 
         return nodes, nodes_x, nodes_y
 
+    @PETSc.Log.EventDecorator("thetis.SpatialInterpolatorROMS3d._compute_roms_z_coord")
     def _compute_roms_z_coord(self, ncfile, constant_zeta=None):
         zeta = ncfile['zeta'][0, :, :]
         bath = ncfile['h'][:]
@@ -596,6 +611,7 @@ class SpatialInterpolatorROMS3d(interpolation.SpatialInterpolator):
         grid_z[-1, :] = grid_z_w[-1, :]
         return grid_z
 
+    @PETSc.Log.EventDecorator("thetis.SpatialInterpolatorROMS3d._create_interpolator")
     def _create_interpolator(self, ncfile):
         """
         Create compact interpolator by finding the minimal necessary support
@@ -639,6 +655,7 @@ class SpatialInterpolatorROMS3d(interpolation.SpatialInterpolator):
 
         self._initialized = True
 
+    @PETSc.Log.EventDecorator("thetis.SpatialInterpolatorROMS3d.interpolate")
     def interpolate(self, nc_filename, variable_list, itime):
         """
         Calls the interpolator object
@@ -659,6 +676,7 @@ class LiveOceanInterpolator(object):
     """
     Interpolates LiveOcean (ROMS) model data on 3D fields
     """
+    @PETSc.Log.EventDecorator("thetis.LiveOceanInterpolator.__init__")
     def __init__(self, function_space, fields, field_names, ncfile_pattern, init_date, to_latlon):
         self.function_space = function_space
         for f in fields:
@@ -673,6 +691,7 @@ class LiveOceanInterpolator(object):
         self.timesearch_obj = interpolation.NetCDFTimeSearch(ncfile_pattern, init_date, interpolation.NetCDFTimeParser, time_variable_name='ocean_time', verbose=False)
         self.time_interpolator = interpolation.LinearTimeInterpolator(self.timesearch_obj, self.reader)
 
+    @PETSc.Log.EventDecorator("thetis.LiveOceanInterpolator.set_fields")
     def set_fields(self, time):
         """
         Evaluates forcing fields at the given time
@@ -706,7 +725,7 @@ class GenericSpatialInterpolator2D(interpolation.SpatialInterpolator2d):
 
     def _get_subset_nodes(self, grid_x, grid_y, target_x, target_y):
         """
-        Retuns grid nodes that are necessary for intepolating onto target_x,y
+        Returns grid nodes that are necessary for intepolating onto target_x,y
         """
         orig_shape = grid_x.shape
         grid_xy = numpy.array((grid_x.ravel(), grid_y.ravel())).T
@@ -719,6 +738,7 @@ class GenericSpatialInterpolator2D(interpolation.SpatialInterpolator2d):
 
         return nodes, nodes_x, nodes_y
 
+    @PETSc.Log.EventDecorator("thetis.GenericSpatialInterpolator2D._create_interpolator")
     def _create_interpolator(self, ncfile):
         """
         Create compact interpolator by finding the minimal necessary support
@@ -768,6 +788,7 @@ class GenericSpatialInterpolator2D(interpolation.SpatialInterpolator2d):
 
         self._initialized = True
 
+    @PETSc.Log.EventDecorator("thetis.GenericSpatialInterpolator2D.interpolate")
     def interpolate(self, nc_filename, variable_list, itime):
         """
         Calls the interpolator object
@@ -792,6 +813,7 @@ class GenericInterpolator2D(object):
     with CF standard_name attributes "latitude" and "longitude". Time must be
     defined with cftime compliant units and metadata.
     """
+    @PETSc.Log.EventDecorator("thetis.GenericInterpolator2D.__init__")
     def __init__(self, function_space, fields, field_names, ncfile_pattern,
                  init_date, to_latlon, vector_field=None,
                  vector_components=None, vector_rotator=None):
@@ -817,6 +839,7 @@ class GenericInterpolator2D(object):
         self.timesearch_obj = interpolation.NetCDFTimeSearch(ncfile_pattern, init_date, interpolation.NetCDFTimeParser, time_variable_name='time', verbose=False)
         self.time_interpolator = interpolation.LinearTimeInterpolator(self.timesearch_obj, self.reader)
 
+    @PETSc.Log.EventDecorator("thetis.GenericInterpolator2D.set_fields")
     def set_fields(self, time):
         """
         Evaluates forcing fields at the given time
@@ -872,6 +895,7 @@ class TidalBoundaryForcing(object):
         """Grid NetCDF file name."""
         return None
 
+    @PETSc.Log.EventDecorator("thetis.TidalBoundaryForcing.__init__")
     def __init__(self, elev_field, init_date, to_latlon, target_coordsys=None,
                  vect_rotator=None,
                  uv_field=None, constituents=None, boundary_ids=None,
@@ -961,6 +985,7 @@ class TidalBoundaryForcing(object):
         """Create uptide netcdf reader objects."""
         pass
 
+    @PETSc.Log.EventDecorator("thetis.TidalBoundaryForcing.set_tidal_field")
     def set_tidal_field(self, t):
         elev_data = self.elev_field.dat.data_with_halos
         if self.compute_velocity:
@@ -1003,6 +1028,7 @@ class TPXOTidalBoundaryForcing(TidalBoundaryForcing):
     coord_layout = 'lon,lat'
     compute_velocity = True
 
+    @PETSc.Log.EventDecorator("thetis.TPXOTidalBoundaryForcing._create_readers")
     def _create_readers(self, ):
         """Create uptide netcdf reader objects."""
         msg = 'File {:} not found, download it from \nftp://ftp.oce.orst.edu/dist/tides/Global/tpxo9_netcdf.tar.gz'
@@ -1026,6 +1052,7 @@ class FES2004TidalBoundaryForcing(TidalBoundaryForcing):
     coord_layout = 'lat,lon'
     compute_velocity = False
 
+    @PETSc.Log.EventDecorator("thetis.FES2004TidalBoundaryForcing._create_readers")
     def _create_readers(self, ):
         """Create uptide netcdf reader objects."""
         f_elev = os.path.join(self.data_dir, self.elev_nc_file)

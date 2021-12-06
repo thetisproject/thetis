@@ -391,6 +391,7 @@ class SpatialInterpolator2d(SpatialInterpolator):
 
         self._initialized = False
 
+    @PETSc.Log.EventDecorator("thetis.SpatialInterpolator2d._create_interpolator")
     def _create_interpolator(self, lat_array, lon_array):
         """
         Create compact interpolator by finding the minimal necessary support
@@ -610,6 +611,7 @@ class NetCDFTimeSearch(TimeSearch):
     """
     Finds a nearest time stamp in a collection of netCDF files.
     """
+    @PETSc.Log.EventDecorator("thetis.NetCDFTimeSearch.__init__")
     def __init__(self, file_pattern, init_date, netcdf_class, *args, **kwargs):
         all_files = glob.glob(file_pattern)
         assert len(all_files) > 0, 'No files found: {:}'.format(file_pattern)
@@ -644,6 +646,7 @@ class NetCDFTimeSearch(TimeSearch):
     def simulation_time_to_datetime(self, t):
         return epoch_to_datetime(datetime_to_epoch(self.init_date) + t).astimezone(self.init_date.tzinfo)
 
+    @PETSc.Log.EventDecorator("thetis.NetCDFTimeSearch.find")
     def find(self, simulation_time, previous=False):
         """
         Find file that contains the given simulation time
@@ -691,6 +694,7 @@ class DailyFileTimeSearch(TimeSearch):
     filename, no other metadata is used. By default the data is assumed to be
     centered at 12:00 UTC every day.
     """
+    @PETSc.Log.EventDecorator("thetis.DailyFileTimeSearch.__init__")
     def __init__(self, file_pattern, init_date, verbose=False,
                  center_hour=12, center_timezone=pytz.utc):
         self.file_pattern = file_pattern
@@ -745,6 +749,7 @@ class DailyFileTimeSearch(TimeSearch):
     def simulation_time_to_datetime(self, t):
         return epoch_to_datetime(datetime_to_epoch(self.init_date) + t).astimezone(self.init_date.tzinfo)
 
+    @PETSc.Log.EventDecorator("thetis.DailyFileTimeSearch.find")
     def find(self, simulation_time, previous=False):
         """
         Find file that contains the given simulation time
@@ -828,6 +833,7 @@ class NetCDFTimeSeriesInterpolator(object):
     """
     Reads and interpolates scalar time series from a sequence of netCDF files.
     """
+    @PETSc.Log.EventDecorator("thetis.NetCDFTimeSeriesInterpolator.__init__")
     def __init__(self, ncfile_pattern, variable_list, init_date,
                  time_variable_name='time', scalars=None, allow_gaps=False):
         """
@@ -852,6 +858,7 @@ class NetCDFTimeSeriesInterpolator(object):
             assert len(scalars) == len(variable_list)
         self.scalars = scalars
 
+    @PETSc.Log.EventDecorator("thetis.NetCDFTimeSeriesInterpolator.__call__")
     def __call__(self, time):
         """
         Time series at the given time
