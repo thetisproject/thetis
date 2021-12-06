@@ -270,7 +270,14 @@ class ShallowWaterTerm(Term):
             raise Exception('Unsupported open bnd type: {:}'.format(funcs.keys()))
         return eta_ext, uv_ext
 
-    def is_open_bnd(self, bnd_funcs, bnd_id):
+    def bnd_state_defined(self, bnd_funcs, bnd_id):
+        """
+        Check if the prognostic variables have been speficied on the boundary
+
+        :arg bnd_funcs: None or dictionary of boundary coefficients.
+        :arg bnd_id: Boundary marker id
+        :returns: True if elev or uv is defined, otherwise False.
+        """
         open_tags = ['elev', 'uv', 'un', 'flux']
         all_tags = open_tags + ['drag']
         if bnd_funcs is None:
@@ -355,7 +362,7 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if self.is_open_bnd(funcs, bnd_marker):
+                if self.bnd_state_defined(funcs, bnd_marker):
                     eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     un_jump = inner(uv - uv_ext, self.normal)
@@ -372,7 +379,7 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if self.is_open_bnd(funcs, bnd_marker):
+                if self.bnd_state_defined(funcs, bnd_marker):
                     eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     un_jump = inner(uv - uv_ext, self.normal)
@@ -416,7 +423,7 @@ class HUDivTerm(ShallowWaterContinuityTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if self.is_open_bnd(funcs, bnd_marker):
+                if self.bnd_state_defined(funcs, bnd_marker):
                     eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
                     eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
@@ -433,7 +440,7 @@ class HUDivTerm(ShallowWaterContinuityTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if self.is_open_bnd(funcs, bnd_marker) or 'un' in funcs:
+                if self.bnd_state_defined(funcs, bnd_marker) or 'un' in funcs:
                     f += -total_h*dot(uv, self.normal)*self.eta_test*ds_bnd
         return -f
 
@@ -477,7 +484,7 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
                     for bnd_marker in self.boundary_markers:
                         funcs = bnd_conditions.get(bnd_marker)
                         ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                        if not self.is_open_bnd(funcs, bnd_marker):
+                        if not self.bnd_state_defined(funcs, bnd_marker):
                             # impose impermeability with mirror velocity
                             n = self.normal
                             uv_ext = uv - 2*dot(uv, n)*n
@@ -486,7 +493,7 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if self.is_open_bnd(funcs, bnd_marker):
+                if self.bnd_state_defined(funcs, bnd_marker):
                     eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
                     eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
@@ -578,7 +585,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if self.is_open_bnd(funcs, bnd_marker):
+                if self.bnd_state_defined(funcs, bnd_marker):
                     if 'un' in funcs:
                         delta_uv = (dot(uv, n) - funcs['un'])*n
                     else:
