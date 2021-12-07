@@ -238,7 +238,8 @@ class ShallowWaterTerm(Term):
         the domain.
         """
         bnd_len = self.boundary_len[bnd_id]
-        funcs = bnd_conditions.get(bnd_id)
+        funcs = bnd_conditions[bnd_id]
+        eta_ext = uv_ext = None
         if 'elev' in funcs and 'uv' in funcs:
             eta_ext = funcs['elev']
             uv_ext = funcs['uv']
@@ -264,9 +265,35 @@ class ShallowWaterTerm(Term):
             h_ext = self.depth.get_total_depth(eta_ext)
             area = h_ext*bnd_len  # NOTE using internal elevation
             uv_ext = funcs['flux']/area*self.normal
-        else:
-            raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
+        if eta_ext is None or uv_ext is None:
+            raise Exception('Unsupported bnd type, one of "elev", "uv", "un", '
+                            'or "flux" must be defined on boundary '
+                            f'{bnd_marker}: {funcs}')
         return eta_ext, uv_ext
+
+    def impose_dynamic_bnd(self, bnd_funcs, bnd_id):
+        """
+        Check if the prognostic variables have been specified on the boundary.
+
+        If any prognostic value has been specified, dynamic boundary terms
+        will be evaluated. If not, a closed boundary is assumed (which implies
+        e.g. that volume flux boundary terms are omitted).
+
+        :arg bnd_funcs: None or dictionary of boundary coefficients.
+        :arg bnd_id: Boundary marker id
+        :returns: True if elev or uv is defined, otherwise False.
+        """
+        open_tags = ['elev', 'uv', 'un', 'flux']
+        all_tags = open_tags + ['drag']
+        if bnd_funcs is None:
+            return False
+        for k in bnd_funcs.keys():
+            if k not in all_tags:
+                raise Exception(f'Invalid boundary tag "{k}" '
+                                f'specified on boundary {bnd_id}')
+            if k in open_tags:
+                return True
+        return False
 
 
 class ShallowWaterMomentumTerm(ShallowWaterTerm):
@@ -340,13 +367,13 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is not None:
+                if self.impose_dynamic_bnd(funcs, bnd_marker):
                     eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     un_jump = inner(uv - uv_ext, self.normal)
                     eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
                     f += g_grav*eta_rie*dot(self.u_test, self.normal)*ds_bnd
-                if funcs is None or 'symm' in funcs:
+                else:
                     # assume land boundary
                     # impermeability implies external un=0
                     un_jump = inner(uv, self.normal)
@@ -357,7 +384,7 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is not None:
+                if self.impose_dynamic_bnd(funcs, bnd_marker):
                     eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     un_jump = inner(uv - uv_ext, self.normal)
@@ -401,7 +428,7 @@ class HUDivTerm(ShallowWaterContinuityTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is not None:
+                if self.impose_dynamic_bnd(funcs, bnd_marker):
                     eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
                     eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
@@ -418,7 +445,7 @@ class HUDivTerm(ShallowWaterContinuityTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is None or 'un' in funcs:
+                if not self.impose_dynamic_bnd(funcs, bnd_marker) or 'un' in funcs:
                     f += -total_h*dot(uv, self.normal)*self.eta_test*ds_bnd
         return -f
 
@@ -462,7 +489,7 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
                     for bnd_marker in self.boundary_markers:
                         funcs = bnd_conditions.get(bnd_marker)
                         ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                        if funcs is None:
+                        if not self.impose_dynamic_bnd(funcs, bnd_marker):
                             # impose impermeability with mirror velocity
                             n = self.normal
                             uv_ext = uv - 2*dot(uv, n)*n
@@ -471,7 +498,7 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is not None:
+                if self.impose_dynamic_bnd(funcs, bnd_marker):
                     eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
                     eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
@@ -563,7 +590,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is not None:
+                if self.impose_dynamic_bnd(funcs, bnd_marker):
                     if 'un' in funcs:
                         delta_uv = (dot(uv, n) - funcs['un'])*n
                     else:
@@ -641,7 +668,7 @@ class QuadraticDragTerm(ShallowWaterMomentumTerm):
     Quadratic Manning bottom friction term
     :math:`C_D \| \bar{\textbf{u}} \| \bar{\textbf{u}}`
 
-    where the drag term is computed with the Manning formula
+    where the drag coefficient is computed with the Manning formula
 
     .. math::
         C_D = g \frac{\mu^2}{H^{1/3}}
@@ -671,6 +698,30 @@ class QuadraticDragTerm(ShallowWaterMomentumTerm):
 
         if C_D is not None:
             f += C_D * sqrt(dot(uv_old, uv_old) + self.options.norm_smoother**2) * inner(self.u_test, uv) / total_h * self.dx
+        return -f
+
+
+class BoundaryDragTerm(ShallowWaterMomentumTerm):
+    r"""
+    Quadratic friction term on the boundary
+    :math:`C_D \| \bar{\textbf{u}}_t \| \bar{\textbf{u}}_t`
+
+    where :math:`\bar{\textbf{u}}_t` denotes the tangential velocity component
+    and the drag coefficient :math:`C_D` is user-defined.
+    """
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
+        f = 0
+        for bnd_marker in self.boundary_markers:
+            funcs = bnd_conditions.get(bnd_marker)
+            ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+            if funcs is not None and 'drag' in funcs:
+                C_D = funcs['drag']
+                # compute tangential velocity
+                n = self.normal
+                ut = uv - dot(uv, n) * n
+                ut_old = uv_old - dot(uv_old, n) * n
+                ut_mag = sqrt(dot(ut_old, ut_old))
+                f += C_D * ut_mag * inner(self.u_test, ut) * ds_bnd
         return -f
 
 
@@ -812,13 +863,14 @@ class BaseShallowWaterEquation(Equation):
 
     def add_momentum_terms(self, *args):
         self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
-        self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
+        self.add_term(HorizontalAdvectionTerm(*args), 'implicit')
         self.add_term(HorizontalViscosityTerm(*args), 'explicit')
-        self.add_term(CoriolisTerm(*args), 'explicit')
+        self.add_term(CoriolisTerm(*args), 'implicit')
         self.add_term(WindStressTerm(*args), 'source')
         self.add_term(AtmosphericPressureTerm(*args), 'source')
-        self.add_term(QuadraticDragTerm(*args), 'explicit')
-        self.add_term(LinearDragTerm(*args), 'explicit')
+        self.add_term(QuadraticDragTerm(*args), 'implicit')
+        self.add_term(LinearDragTerm(*args), 'implicit')
+        self.add_term(BoundaryDragTerm(*args), 'implicit')
         self.add_term(BottomDrag3DTerm(*args), 'source')
         self.add_term(TurbineDragTerm(*args), 'implicit')
         self.add_term(MomentumSourceTerm(*args), 'source')

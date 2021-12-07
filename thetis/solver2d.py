@@ -317,9 +317,11 @@ class FlowSolver2d(FrozenClass):
         DG = 'DG' if self.mesh2d.ufl_cell().cellname() == 'triangle' else 'DQ'
         self.function_spaces.P0_2d = get_functionspace(self.mesh2d, DG, 0, name='P0_2d')
         self.function_spaces.P1_2d = get_functionspace(self.mesh2d, 'CG', 1, name='P1_2d')
-        self.function_spaces.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1, name='P1v_2d')
+        self.function_spaces.P1v_2d = get_functionspace(self.mesh2d, 'CG', 1, name='P1v_2d',
+                                                        vector=True)
         self.function_spaces.P1DG_2d = get_functionspace(self.mesh2d, DG, 1, name='P1DG_2d')
-        self.function_spaces.P1DGv_2d = VectorFunctionSpace(self.mesh2d, DG, 1, name='P1DGv_2d')
+        self.function_spaces.P1DGv_2d = get_functionspace(self.mesh2d, DG, 1, name='P1DGv_2d',
+                                                          vector=True)
         # 2D velocity space
         if self.options.element_family in ['rt-dg', 'bdm-dg']:
             family_prefix = self.options.element_family.split('-')[0].upper()
@@ -330,10 +332,10 @@ class FlowSolver2d(FrozenClass):
             self.function_spaces.U_2d = get_functionspace(self.mesh2d, fam, degree, name='U_2d')
             self.function_spaces.H_2d = get_functionspace(self.mesh2d, DG, self.options.polynomial_degree, name='H_2d')
         elif self.options.element_family == 'dg-cg':
-            self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, DG, self.options.polynomial_degree, name='U_2d')
+            self.function_spaces.U_2d = get_functionspace(self.mesh2d, DG, self.options.polynomial_degree, name='U_2d', vector=True)
             self.function_spaces.H_2d = get_functionspace(self.mesh2d, 'CG', self.options.polynomial_degree+1, name='H_2d')
         elif self.options.element_family == 'dg-dg':
-            self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, DG, self.options.polynomial_degree, name='U_2d')
+            self.function_spaces.U_2d = get_functionspace(self.mesh2d, DG, self.options.polynomial_degree, name='U_2d', vector=True)
             self.function_spaces.H_2d = get_functionspace(self.mesh2d, DG, self.options.polynomial_degree, name='H_2d')
         else:
             raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
