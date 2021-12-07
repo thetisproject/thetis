@@ -76,6 +76,7 @@ class FlowSolver(FrozenClass):
 
     See the manual for more complex examples.
     """
+    @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver.__init__")
     def __init__(self, mesh2d, bathymetry_2d, n_layers,
                  options=None, extrude_options=None):
@@ -156,7 +157,6 @@ class FlowSolver(FrozenClass):
 
         self._simulation_continued = False
         self._field_preproc_funcs = {}
-        self._isfrozen = True
 
     def compute_dx_factor(self):
         """
@@ -401,6 +401,7 @@ class FlowSolver(FrozenClass):
             print_output('2D dt = {0:f} {1:d}'.format(self.dt_2d, self.M_modesplit))
         sys.stdout.flush()
 
+    @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver.create_function_spaces")
     def create_function_spaces(self):
         """
@@ -409,7 +410,6 @@ class FlowSolver(FrozenClass):
         Function spaces are accessible via :attr:`.function_spaces`
         object.
         """
-        self._isfrozen = False
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.function_spaces.P0 = get_functionspace(self.mesh, 'DG', 0, 'DG', 0, name='P0')
         self.function_spaces.P1 = get_functionspace(self.mesh, 'CG', 1, 'CG', 1, name='P1')
@@ -464,8 +464,7 @@ class FlowSolver(FrozenClass):
             self.function_spaces.H_bhead_2d = self.function_spaces.P1DG_2d
             self.function_spaces.U_int_pg = self.function_spaces.U
 
-        self._isfrozen = True
-
+    @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver.create_fields")
     def create_fields(self):
         """
@@ -473,7 +472,6 @@ class FlowSolver(FrozenClass):
         """
         if not hasattr(self, 'U_2d'):
             self.create_function_spaces()
-        self._isfrozen = False
 
         if self.options.log_output and not self.options.no_exports:
             logfile = os.path.join(create_directory(self.options.output_directory), 'log')
@@ -613,8 +611,6 @@ class FlowSolver(FrozenClass):
         self.tot_v_diff.add(self.options.vertical_diffusivity)
         self.tot_v_diff.add(self.fields.get('eddy_diff_3d'))
 
-        self._isfrozen = True
-
     @PETSc.Log.EventDecorator("thetis.FlowSolver.add_new_field")
     def add_new_field(self, function, label, name, filename, shortname=None, unit='-', preproc_func=None):
         """
@@ -648,6 +644,7 @@ class FlowSolver(FrozenClass):
         if preproc_func is not None:
             self._field_preproc_funcs[label] = preproc_func
 
+    @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver.create_equations")
     def create_equations(self):
         """
@@ -655,7 +652,6 @@ class FlowSolver(FrozenClass):
         """
         if 'uv_3d' not in self.fields:
             self.create_fields()
-        self._isfrozen = False
 
         if self.options.log_output and not self.options.no_exports:
             logfile = os.path.join(create_directory(self.options.output_directory), 'log')
@@ -836,8 +832,7 @@ class FlowSolver(FrozenClass):
                                                                 self.fields.max_h_diff,
                                                                 weak_form=True)
 
-        self._isfrozen = True
-
+    @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver.create_timestepper")
     def create_timestepper(self):
         """
@@ -845,8 +840,6 @@ class FlowSolver(FrozenClass):
         """
         if not hasattr(self, 'equations'):
             self.create_equations()
-
-        self._isfrozen = False
 
         self.dt_mode = '3d'  # 'split'|'2d'|'3d' use constant 2d/3d dt, or split
         if self.options.timestepper_type == 'LeapFrog':
@@ -870,8 +863,7 @@ class FlowSolver(FrozenClass):
         d = self.fields.max_h_diff.dat.data
         print_output('max h diff {:} - {:}'.format(d.min(), d.max()))
 
-        self._isfrozen = True
-
+    @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver.create_exporters")
     def create_exporters(self):
         """
@@ -879,7 +871,6 @@ class FlowSolver(FrozenClass):
         """
         if not hasattr(self, 'timestepper'):
             self.create_timestepper()
-        self._isfrozen = False
 
         # ----- File exporters
         # create export_managers and store in a list
@@ -902,8 +893,6 @@ class FlowSolver(FrozenClass):
                                        verbose=self.options.verbose > 0,
                                        preproc_funcs=self._field_preproc_funcs)
             self.exporters['hdf5'] = e
-
-        self._isfrozen = True
 
     def initialize(self):
         """
