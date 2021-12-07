@@ -2,12 +2,27 @@
 Classes for computing diagnostics.
 """
 from .utility import *
+from .configuration import *
 
 
-__all__ = ["VorticityCalculator2D", "HessianRecoverer2D"]
+__all__ = ["VorticityCalculator2D", "HessianRecoverer2D", "KineticEnergyCalculator"]
 
 
-class VorticityCalculator2D(object):
+class DiagnosticCalculator(FrozenHasTraits):
+    """
+    Base class that defines the API for all diagnostic calculators.
+    """
+    __metaclass__ = ABCMeta
+
+    def __call__(self):
+        self.solve()
+
+    @abstractmethod
+    def solve(self):
+        pass
+
+
+class VorticityCalculator2D(DiagnosticCalculator):
     r"""
     Linear solver for recovering fluid vorticity.
 
@@ -49,7 +64,7 @@ class VorticityCalculator2D(object):
         self.solver.solve()
 
 
-class HessianRecoverer2D(object):
+class HessianRecoverer2D(DiagnosticCalculator):
     r"""
     Linear solver for recovering Hessians.
 
@@ -147,3 +162,45 @@ class HessianRecoverer2D(object):
         self.hessian_2d.assign(self._hessian)
         if self.gradient_2d is not None:
             self.gradient_2d.assign(self._gradient)
+
+
+class KineticEnergyCalculator(DiagnosticCalculator):
+    r"""
+    Class for calculating dynamic pressure (i.e. kinetic energy),
+
+    .. math::
+        E_K = \frac12 \rho \|\mathbf{u}\|^2,
+
+    where :math:`\rho` is the water density and :math:`\mathbf{u}`
+    is the velocity.
+    """
+    density = FiredrakeScalarExpression(
+        physical_constants['rho0'], help='Fluid density').tag(config=True)
+
+    @unfrozen
+    @PETSc.Log.EventDecorator("thetis.KineticEnergyCalculator.__init__")
+    def __init__(self, uv, ke, density=None, horizontal=False, project=False):
+        """
+        :arg uv: scalar expression for the fluid velocity.
+        :arg ke: :class:`Function` to hold calculated kinetic energy.
+        :kwarg density: fluid density.
+        :kwarg horizontal: consider the horizontal components of velocity only?
+        :kwarg project: project, rather than interpolate?
+        """
+        if density is not None:
+            self.density = density
+        self.ke = ke
+        u_sq = uv[0]*uv[0] + uv[1]*uv[1] if horizontal else dot(uv, uv)
+        self.ke_expr = 0.5*self.density*u_sq
+        if project:
+            self.projector = Projector(self.ke_expr, self.ke)
+        else:
+            self.interpolator = Interpolator(self.ke_expr, self.ke)
+
+    @PETSc.Log.EventDecorator("thetis.KineticEnergyCalculator.solve")
+    def solve(self):
+        if hasattr(self, 'projector'):
+            self.projector.project()
+        else:
+            assert hasattr(self, 'interpolator')
+            self.interpolator.interpolate()
