@@ -48,7 +48,7 @@ def netcdf_files(request, dataset, tmp_outputdir):
         basetime = pytz.utc.localize(datetime.datetime(1972, 1, 1))
         basetime_str = basetime.strftime('%Y-%m-%d')
 
-    print('Basetime: {:}'.format(basetime))
+    print(f'Basetime: {basetime}')
     nfiles = 5
     all_files = []
     for i in range(nfiles):
@@ -60,14 +60,15 @@ def netcdf_files(request, dataset, tmp_outputdir):
         time_var = d.createVariable('time', 'f8', ('time', ))
         time_var.long_name = 'Time'
         time_var.standard_name = 'time'
-        time_var.units = 'seconds since {:}'.format(basetime_str)
+        time_var.units = f'seconds since {basetime_str}'
+        time_var.calendar = 'gregorian'
 
         data_var = d.createVariable('data', 'f8', ('time',))
         time_var[:] = xx[ix]
         data_var[:] = yy[ix]
-        print('{:} {:} {:}'.format(i,
-                                   epoch_to_datetime(time_var[0] + datetime_to_epoch(basetime)),
-                                   epoch_to_datetime(time_var[-1] + datetime_to_epoch(basetime))))
+        first = epoch_to_datetime(time_var[0] + datetime_to_epoch(basetime))
+        last = epoch_to_datetime(time_var[-1] + datetime_to_epoch(basetime))
+        print(f'{i} {first} {last}')
         all_files.append(fn)
 
     def teardown():
@@ -88,7 +89,6 @@ def test_netcdftime(dataset, netcdf_files):
         nn = int(ndata/nfiles)
         t_offset = xx[i*nn]
         t_offset_end = xx[(i+1)*nn - 1]
-        assert nct.time_unit == 'seconds'
         assert nct.start_time == basetime + datetime.timedelta(seconds=t_offset)
         assert nct.get_start_time() == epoch_to_datetime(datetime_to_epoch(basetime) + t_offset)
         assert (nct.get_end_time() - basetime).total_seconds() - t_offset_end < 1e-6

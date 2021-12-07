@@ -58,8 +58,64 @@ from firedrake.petsc import PETSc
 import re
 import string
 import numpy
+import cftime
 
 TIMESEARCH_TOL = 1e-6
+
+
+def get_ncvar_name(ncfile, standard_name=None, long_name=None, var_name=None):
+    """
+    Look for variables that match either CF standard_name or long_name
+    attributes.
+
+    If both are defined, standard_name takes precedence.
+
+    Note that the attributes in the netCDF file converted to
+    lower case prior to checking.
+
+    :arg ncfile: netCDF4 Dataset object
+    :kwarg standard_name: a target standard_name, or a list of them
+    :kwarg long_name: a target long_name, or a list of them
+    :kwarg var_name: a target netCDF variable name, or a list of them
+    """
+    assert standard_name is not None or long_name is not None, \
+        'Either standard_name or long_name must be defined'
+    # convert to list
+
+    def listify(arg):
+        if not isinstance(arg, (list, tuple)):
+            arg = [arg]
+        if arg is None:
+            arg = []
+        return arg
+    standard_name = listify(standard_name)
+    long_name = listify(long_name)
+    var_name = listify(var_name)
+    found = False
+    for name, var in ncfile.variables.items():
+        if 'standard_name' in var.ncattrs():
+            if var.standard_name.lower() in standard_name:
+                found = True
+                break
+        if 'long_name' in var.ncattrs():
+            if var.long_name.lower() in long_name:
+                found = True
+                break
+        if var.name.lower() in var_name:
+            found = True
+            break
+
+    if not found:
+        filter_str = []
+        if standard_name is not None:
+            filter_str.append(f'standard_name={standard_name}')
+        if long_name is not None:
+            filter_str.append(f'long_name={long_name}')
+        filter_str = ' '.join(filter_str)
+        msg = f'Variable matching {filter_str} not found ' \
+            f'in {ncfile.filepath()}'
+        raise ValueError(msg)
+    return name
 
 
 class GridInterpolator(object):
@@ -316,22 +372,32 @@ class SpatialInterpolator2d(SpatialInterpolator):
         assert function_space.ufl_element().value_shape() == ()
 
         # construct local coordinates
-        x, y = SpatialCoordinate(function_space.mesh())
-        fsx = Function(function_space).interpolate(x).dat.data_with_halos
-        fsy = Function(function_space).interpolate(y).dat.data_with_halos
+        on_sphere = function_space.mesh().geometric_dimension() == 3
 
-        mesh_lonlat = []
-        for node in range(len(fsx)):
-            lat, lon = to_latlon(fsx[node], fsy[node])
-            mesh_lonlat.append((lon, lat))
-        self.mesh_lonlat = numpy.array(mesh_lonlat)
+        if on_sphere:
+            x, y, z = SpatialCoordinate(function_space.mesh())
+            fsx = Function(function_space).interpolate(x).dat.data_with_halos
+            fsy = Function(function_space).interpolate(y).dat.data_with_halos
+            fsz = Function(function_space).interpolate(z).dat.data_with_halos
+            coords = (fsx, fsy, fsz)
+        else:
+            x, y = SpatialCoordinate(function_space.mesh())
+            fsx = Function(function_space).interpolate(x).dat.data_with_halos
+            fsy = Function(function_space).interpolate(y).dat.data_with_halos
+            coords = (fsx, fsy)
+
+        lat, lon = to_latlon(*coords)
+        self.mesh_lonlat = numpy.array([lon, lat]).T
 
         self._initialized = False
 
+    @PETSc.Log.EventDecorator("thetis.SpatialInterpolator2d._create_interpolator")
     def _create_interpolator(self, lat_array, lon_array):
         """
         Create compact interpolator by finding the minimal necessary support
         """
+        assert len(lat_array.shape) == 2, 'Latitude must be two dimensional array.'
+        assert len(lon_array.shape) == 2, 'longitude must be two dimensional array.'
         self.nodes, self.ind_lon, self.ind_lat = _get_subset_nodes(
             lon_array,
             lat_array,
@@ -393,12 +459,22 @@ class NetCDFLatLonInterpolator2d(SpatialInterpolator2d):
         """
         with netCDF4.Dataset(nc_filename, 'r') as ncfile:
             if not self._initialized:
-                grid_lat = ncfile['lat'][:]
-                grid_lon = ncfile['lon'][:]
+                name_lat = get_ncvar_name(
+                    ncfile, 'latitude', 'latitude', ['latitude', 'lat'])
+                name_lon = get_ncvar_name(
+                    ncfile, 'longitude', 'longitude', ['longitude', 'lon'])
+                grid_lat = ncfile[name_lat][:]
+                grid_lon = ncfile[name_lon][:]
+                lat_is_1d = len(grid_lat.shape) == 1
+                lon_is_1d = len(grid_lat.shape) == 1
+                assert lat_is_1d == lon_is_1d, 'Unsupported lat lon grid'
+                if lat_is_1d and lon_is_1d:
+                    grid_lon, grid_lat = numpy.meshgrid(grid_lon, grid_lat)
                 self._create_interpolator(grid_lat, grid_lon)
             output = []
             for var in variable_list:
-                assert var in ncfile.variables
+                msg = f'Variable {var} not found: {nc_filename}'
+                assert var in ncfile.variables, msg
                 # TODO generalize data dimensions, sniff from netcdf file
                 grid_data = ncfile[var][itime, self.ind_lon, self.ind_lat].ravel()
                 data = self.grid_interpolator(grid_data)
@@ -450,11 +526,6 @@ class NetCDFTimeParser(TimeParser):
     """
     Describes the time stamps stored in a netCDF file.
     """
-    scalars = {
-        'seconds': 1.0,
-        'days': 24*3600.0,
-    }
-
     def __init__(self, filename, time_variable_name='time', allow_gaps=False,
                  verbose=False):
         """
@@ -469,42 +540,26 @@ class NetCDFTimeParser(TimeParser):
         self.filename = filename
         self.time_variable_name = time_variable_name
 
+        def get_datetime(time, units, calendar):
+            """
+            Convert netcdf time value to datetime.
+            """
+            d = cftime.num2pydate(time, units, calendar)
+            if d.tzinfo is None:
+                d = pytz.utc.localize(d)  # assume UTC
+            return d
+
         with netCDF4.Dataset(filename) as d:
             time_var = d[self.time_variable_name]
-            assert 'units' in time_var.ncattrs(), 'Time does not have units; {:}'.format(self.filename)
-            unit_str = time_var.getncattr('units')
-            msg = 'Unknown time unit "{:}" in {:}'.format(unit_str, self.filename)
-            words = unit_str.split()
-            assert words[0] in ['days', 'seconds'], msg
-            self.time_unit = words[0]
-            self.time_scalar = self.scalars[self.time_unit]
-            assert words[1] == 'since', msg
-            if len(words) == 3:
-                # assuming format "days since 2000-01-01" in UTC
-                base_date_srt = words[2]
-                numbers = len(base_date_srt.split('-'))
-                assert numbers == 3, msg
-                try:
-                    self.basetime = datetime.datetime.strptime(base_date_srt, '%Y-%m-%d').replace(tzinfo=pytz.utc)
-                except ValueError:
-                    raise ValueError(msg)
-            if len(words) == 4:
-                # assuming format "days since 2000-01-01 00:00:00" in UTC
-                # or "days since 2000-01-01 00:00:00-10"
-                base_date_srt = ' '.join(words[2:4])
-                assert len(words[2].split('-')) == 3, msg
-                assert len(words[3].split(':')) == 3, msg
-                if len(words[3].split('-')) == 2:
-                    base_date_srt = base_date_srt[:-3]
-                    tz_offset = int(words[3][-3:])
-                    timezone = FixedTimeZone(tz_offset, 'UTC{:}'.format(tz_offset))
-                else:
-                    timezone = pytz.utc
-                try:
-                    self.basetime = datetime.datetime.strptime(base_date_srt, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone)
-                except ValueError:
-                    raise ValueError(msg)
-            self.time_array = datetime_to_epoch(self.basetime) + numpy.array(time_var[:]*self.time_scalar, dtype=float)
+            assert 'units' in time_var.ncattrs(), \
+                f'Time units not defined: {self.filename}'
+            assert 'calendar' in time_var.ncattrs(), \
+                f'Time calendar not defined: {self.filename}'
+            units = time_var.units
+            calendar = time_var.calendar
+
+            dates = [get_datetime(t, units, calendar) for t in time_var[:]]
+            self.time_array = numpy.array([datetime_to_epoch(d) for d in dates])
             self.start_time = epoch_to_datetime(float(self.time_array[0]))
             self.end_time = epoch_to_datetime(float(self.time_array[-1]))
             self.time_step = numpy.mean(numpy.diff(self.time_array))
@@ -556,6 +611,7 @@ class NetCDFTimeSearch(TimeSearch):
     """
     Finds a nearest time stamp in a collection of netCDF files.
     """
+    @PETSc.Log.EventDecorator("thetis.NetCDFTimeSearch.__init__")
     def __init__(self, file_pattern, init_date, netcdf_class, *args, **kwargs):
         all_files = glob.glob(file_pattern)
         assert len(all_files) > 0, 'No files found: {:}'.format(file_pattern)
@@ -590,6 +646,7 @@ class NetCDFTimeSearch(TimeSearch):
     def simulation_time_to_datetime(self, t):
         return epoch_to_datetime(datetime_to_epoch(self.init_date) + t).astimezone(self.init_date.tzinfo)
 
+    @PETSc.Log.EventDecorator("thetis.NetCDFTimeSearch.find")
     def find(self, simulation_time, previous=False):
         """
         Find file that contains the given simulation time
@@ -637,6 +694,7 @@ class DailyFileTimeSearch(TimeSearch):
     filename, no other metadata is used. By default the data is assumed to be
     centered at 12:00 UTC every day.
     """
+    @PETSc.Log.EventDecorator("thetis.DailyFileTimeSearch.__init__")
     def __init__(self, file_pattern, init_date, verbose=False,
                  center_hour=12, center_timezone=pytz.utc):
         self.file_pattern = file_pattern
@@ -691,6 +749,7 @@ class DailyFileTimeSearch(TimeSearch):
     def simulation_time_to_datetime(self, t):
         return epoch_to_datetime(datetime_to_epoch(self.init_date) + t).astimezone(self.init_date.tzinfo)
 
+    @PETSc.Log.EventDecorator("thetis.DailyFileTimeSearch.find")
     def find(self, simulation_time, previous=False):
         """
         Find file that contains the given simulation time
@@ -774,6 +833,7 @@ class NetCDFTimeSeriesInterpolator(object):
     """
     Reads and interpolates scalar time series from a sequence of netCDF files.
     """
+    @PETSc.Log.EventDecorator("thetis.NetCDFTimeSeriesInterpolator.__init__")
     def __init__(self, ncfile_pattern, variable_list, init_date,
                  time_variable_name='time', scalars=None, allow_gaps=False):
         """
@@ -798,6 +858,7 @@ class NetCDFTimeSeriesInterpolator(object):
             assert len(scalars) == len(variable_list)
         self.scalars = scalars
 
+    @PETSc.Log.EventDecorator("thetis.NetCDFTimeSeriesInterpolator.__call__")
     def __call__(self, time):
         """
         Time series at the given time
