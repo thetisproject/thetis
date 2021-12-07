@@ -121,7 +121,7 @@ class AngularMomentumCalculator(DiagnosticCallback):
         return line
 
 
-class KineticEnergyCalculator(DiagnosticCallback):
+class HorizontalKineticEnergyCalculator(DiagnosticCallback):
     r"""
     Computes the total kinetic energy of the horizontal velocity field.
 
@@ -135,9 +135,18 @@ class KineticEnergyCalculator(DiagnosticCallback):
     def _initialize(self):
         self.initial_val = None
         self._initialized = True
-        uv = self.solver_obj.fields.uv_3d
-        rho = self.solver_obj.fields.density_3d + rho0
-        self.expression = 0.5*rho*(uv[0]*uv[0] + uv[1]*uv[1])
+
+        ke_3d = Function(self.solver_obj.function_spaces.P1)
+        uv_3d = self.solver_obj.fields.uv_3d
+        rho_3d = self.solver_obj.fields.density_3d + physical_constants['rho0']
+        ke_calculator = thetis.diagnostics.KineticEnergyCalculator(
+            uv_3d, ke_3d, rho_3d, horizontal=True,
+        )
+        self.solver_obj.add_new_field(
+            ke_3d, 'ke_3d', 'Kinetic energy', 'KineticEnergy3d',
+            preproc_func=ke_calculator,
+        )
+        self.expression = ke_calculator.ke_expr
 
     def __call__(self):
         if not hasattr(self, '_initialized') or self._initialized is False:
@@ -254,7 +263,7 @@ options.equation_of_state_options.beta = 0.78
 
 solver_obj.add_callback(VorticityCalculator(solver_obj))
 solver_obj.add_callback(AngularMomentumCalculator(solver_obj))
-solver_obj.add_callback(KineticEnergyCalculator(solver_obj))
+solver_obj.add_callback(HorizontalKineticEnergyCalculator(solver_obj))
 
 solver_obj.create_equations()
 # assign initial salinity
