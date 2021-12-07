@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 from thetis.utility import *
 from thetis.utility3d import *
 from thetis.log import *
