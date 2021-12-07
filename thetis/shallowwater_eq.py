@@ -238,8 +238,7 @@ class ShallowWaterTerm(Term):
         the domain.
         """
         bnd_len = self.boundary_len[bnd_id]
-        funcs = bnd_conditions.get(bnd_id)
-        assert funcs is not None
+        funcs = bnd_conditions[bnd_id]
         eta_ext = uv_ext = None
         if 'elev' in funcs and 'uv' in funcs:
             eta_ext = funcs['elev']
@@ -267,12 +266,18 @@ class ShallowWaterTerm(Term):
             area = h_ext*bnd_len  # NOTE using internal elevation
             uv_ext = funcs['flux']/area*self.normal
         if eta_ext is None or uv_ext is None:
-            raise Exception('Unsupported open bnd type: {:}'.format(funcs.keys()))
+            raise Exception('Unsupported bnd type, one of "elev", "uv", "un", '
+                            'or "flux" must be defined on boundary '
+                            f'{bnd_marker}: {funcs}')
         return eta_ext, uv_ext
 
-    def bnd_state_defined(self, bnd_funcs, bnd_id):
+    def impose_dynamic_bnd(self, bnd_funcs, bnd_id):
         """
-        Check if the prognostic variables have been speficied on the boundary
+        Check if the prognostic variables have been specified on the boundary.
+
+        If any prognostic value has been specified, dynamic boundary terms
+        will be evaluated. If not, a closed boundary is assumed (which implies
+        e.g. that volume flux boundary terms are omitted).
 
         :arg bnd_funcs: None or dictionary of boundary coefficients.
         :arg bnd_id: Boundary marker id
@@ -362,7 +367,7 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if self.bnd_state_defined(funcs, bnd_marker):
+                if self.impose_dynamic_bnd(funcs, bnd_marker):
                     eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     un_jump = inner(uv - uv_ext, self.normal)
@@ -379,7 +384,7 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if self.bnd_state_defined(funcs, bnd_marker):
+                if self.impose_dynamic_bnd(funcs, bnd_marker):
                     eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     un_jump = inner(uv - uv_ext, self.normal)
@@ -423,7 +428,7 @@ class HUDivTerm(ShallowWaterContinuityTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if self.bnd_state_defined(funcs, bnd_marker):
+                if self.impose_dynamic_bnd(funcs, bnd_marker):
                     eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
                     eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
@@ -440,7 +445,7 @@ class HUDivTerm(ShallowWaterContinuityTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if self.bnd_state_defined(funcs, bnd_marker) or 'un' in funcs:
+                if not self.impose_dynamic_bnd(funcs, bnd_marker) or 'un' in funcs:
                     f += -total_h*dot(uv, self.normal)*self.eta_test*ds_bnd
         return -f
 
@@ -484,7 +489,7 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
                     for bnd_marker in self.boundary_markers:
                         funcs = bnd_conditions.get(bnd_marker)
                         ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                        if not self.bnd_state_defined(funcs, bnd_marker):
+                        if not self.impose_dynamic_bnd(funcs, bnd_marker):
                             # impose impermeability with mirror velocity
                             n = self.normal
                             uv_ext = uv - 2*dot(uv, n)*n
@@ -493,7 +498,7 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if self.bnd_state_defined(funcs, bnd_marker):
+                if self.impose_dynamic_bnd(funcs, bnd_marker):
                     eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
                     eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
@@ -585,7 +590,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if self.bnd_state_defined(funcs, bnd_marker):
+                if self.impose_dynamic_bnd(funcs, bnd_marker):
                     if 'un' in funcs:
                         delta_uv = (dot(uv, n) - funcs['un'])*n
                     else:
@@ -711,7 +716,7 @@ class BoundaryDragTerm(ShallowWaterMomentumTerm):
             ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
             if funcs is not None and 'drag' in funcs:
                 C_D = funcs['drag']
-                # compute tangetial velocity
+                # compute tangential velocity
                 n = self.normal
                 ut = uv - dot(uv, n) * n
                 ut_old = uv_old - dot(uv_old, n) * n
