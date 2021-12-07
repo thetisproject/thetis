@@ -1,7 +1,6 @@
 """
 Utility solvers and calculators for 3D hydrostatic ocean model
 """
-from __future__ import absolute_import
 from .utility import *
 import numpy
 

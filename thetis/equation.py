@@ -2,7 +2,6 @@
 Implements Equation and Term classes.
 
 """
-from __future__ import absolute_import
 from .utility import *
 from collections import OrderedDict
 

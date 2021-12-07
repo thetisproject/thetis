@@ -15,7 +15,6 @@ where :math:`\nabla_h` denotes horizontal gradient, :math:`\textbf{u}` and
 :math:`w` are the horizontal and vertical velocities, respectively, and
 :math:`\mu_h` and :math:`\mu` denote horizontal and vertical diffusivity.
 """
-from __future__ import absolute_import
 from .utility import *
 from .equation import Term, Equation
 

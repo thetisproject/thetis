@@ -14,7 +14,6 @@ where :math:`S` is :math:`q` for conservative and :math:`T` for non-conservative
 :math:`\nabla_h` denotes horizontal gradient, :math:`\textbf{u}` are the horizontal
 velocities, and :math:`\mu_h` denotes horizontal diffusivity.
 """
-from __future__ import absolute_import
 from .equation import Equation
 from .tracer_eq_2d import HorizontalDiffusionTerm, HorizontalAdvectionTerm, TracerTerm
 from .conservative_tracer_eq_2d import ConservativeHorizontalAdvectionTerm

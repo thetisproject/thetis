@@ -173,7 +173,6 @@ The free surface and momentum equations then become:
    :label: swe_momentum_wd
 
 """
-from __future__ import absolute_import
 from .utility import *
 from .equation import Term, Equation
 

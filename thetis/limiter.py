@@ -1,7 +1,6 @@
 """
 Slope limiters for discontinuous fields
 """
-from __future__ import absolute_import
 from .utility import *
 from firedrake import VertexBasedLimiter
 import ufl

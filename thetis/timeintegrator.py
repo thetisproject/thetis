@@ -1,7 +1,6 @@
 """
 Generic time integration schemes to advance equations in time.
 """
-from __future__ import absolute_import
 from .utility import *
 from abc import ABCMeta, abstractmethod
 import numpy

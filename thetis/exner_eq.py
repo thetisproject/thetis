@@ -15,8 +15,6 @@ and T is the sediment field) and :math:`T` for non-conservative (where T is the 
 :math:`\nabla_h` denotes horizontal gradient, :math:`m` is the morphological scale factor,
 :math:`p` is the porosity and :math:`\textbf{Q_b}` is the bedload transport vector
 """
-
-from __future__ import absolute_import
 from .equation import Term, Equation
 from .utility import *
 

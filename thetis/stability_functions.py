@@ -34,7 +34,6 @@ geophysical turbulence models. Journal of Marine Research, 61:235--265(31).
 http://dx.doi.org/10.1357/002224003322005087
 
 """
-from __future__ import absolute_import
 import numpy
 from abc import ABC, abstractmethod
 from scipy.optimize import minimize

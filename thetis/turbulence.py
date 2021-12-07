@@ -138,7 +138,6 @@ See :mod:`.stability_functions` for more information.
     Journal of Marine Systems, 21(1-4):29-53.
     http://dx.doi.org/10.1016/S0924-7963(99)00004-4
 """
-from __future__ import absolute_import
 from .utility import *
 from .equation import Equation
 from .tracer_eq import *
