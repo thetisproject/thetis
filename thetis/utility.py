@@ -14,6 +14,7 @@ from mpi4py import MPI  # NOQA
 from pyop2.profiling import timed_function, timed_region, timed_stage  # NOQA
 import numpy
 from functools import wraps
+from pyadjoint.tape import no_annotations
 
 from .field_defs import field_metadata
 from .log import *
@@ -552,6 +553,7 @@ def compute_elem_height(zcoord, output):
     return output
 
 
+@no_annotations
 @PETSc.Log.EventDecorator("thetis.get_horizontal_elem_size_2d")
 def get_horizontal_elem_size_2d(sol2d):
     """
