@@ -383,9 +383,9 @@ class FlowSolver2d(FrozenClass):
 
     @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_equations")
-    def create_equations(self):
+    def create_fields(self):
         """
-        Creates equation instances
+        Creates field Functions
         """
         if not hasattr(self.function_spaces, 'U_2d'):
             self.create_function_spaces()
@@ -393,7 +393,6 @@ class FlowSolver2d(FrozenClass):
         if self.options.log_output and not self.options.no_exports:
             set_log_directory(self.options.output_directory)
 
-        # ----- fields
         self.fields.solution_2d = Function(self.function_spaces.V_2d, name='solution_2d')
         # correct treatment of the split 2d functions
         uv_2d, elev_2d = self.fields.solution_2d.split()
@@ -407,7 +406,15 @@ class FlowSolver2d(FrozenClass):
                                      use_wetting_and_drying=self.options.use_wetting_and_drying,
                                      wetting_and_drying_alpha=self.options.wetting_and_drying_alpha)
 
-        # ----- Equations
+    @unfrozen
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_equations")
+    def create_equations(self):
+        """
+        Creates equation instances
+        """
+        if not hasattr(self.fields, 'uv_2d'):
+            self.create_fields()
+
         self.equations = AttrDict()
         self.equations.sw = shallowwater_eq.ShallowWaterEquations(
             self.fields.solution_2d.function_space(),
