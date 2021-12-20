@@ -817,7 +817,8 @@ class GenericInterpolator2D(object):
     @PETSc.Log.EventDecorator("thetis.GenericInterpolator2D.__init__")
     def __init__(self, function_space, fields, field_names, ncfile_pattern,
                  init_date, to_latlon, vector_field=None,
-                 vector_components=None, vector_rotator=None):
+                 vector_components=None, vector_rotator=None,
+                 target_coordsys=None):
         self.function_space = function_space
         for f in fields:
             assert f.function_space() == self.function_space, 'field \'{:}\' does not belong to given function space {:}.'.format(f.name(), self.function_space.name)
@@ -825,20 +826,30 @@ class GenericInterpolator2D(object):
         self.fields = fields
         self.field_names = list(field_names)
         self.scalar_field_index = list(range(len(field_names)))
-        self.rotate_velocity = vector_components is not None
-        if self.rotate_velocity:
-            assert vector_field is not None, 'vector_field must be provided'
-            assert vector_rotator is not None, 'vect_rotator function must be provided'
-            self.field_names += list(vector_components)
-            self.vector_field_index = [self.field_names.index(c) for c in vector_components]
-            self.vect_rotator = vector_rotator
-            self.vector_field = vector_field
         # construct interpolators
         self.grid_interpolator = GenericSpatialInterpolator2D(self.function_space, to_latlon)
         self.reader = interpolation.NetCDFSpatialInterpolator(self.grid_interpolator, self.field_names)
         # TODO generalize _get_nc_var_name and use it for time dimension as well
         self.timesearch_obj = interpolation.NetCDFTimeSearch(ncfile_pattern, init_date, interpolation.NetCDFTimeParser, time_variable_name='time', verbose=False)
         self.time_interpolator = interpolation.LinearTimeInterpolator(self.timesearch_obj, self.reader)
+
+        self.rotate_velocity = vector_components is not None
+        if self.rotate_velocity:
+            assert vector_field is not None, 'vector_field must be provided'
+            self.field_names += list(vector_components)
+            self.vector_field_index = [self.field_names.index(c) for c in vector_components]
+            self.vector_field = vector_field
+
+            lon = self.grid_interpolator.mesh_lonlat[:, 0]
+            lat = self.grid_interpolator.mesh_lonlat[:, 1]
+            assert target_coordsys is not None or vector_rotator is not None, \
+                'Either target_coordsys or vect_rotator must be defined'
+            if vector_rotator is None:
+                self.vect_rotator = coordsys.VectorCoordSysRotation(
+                    coordsys.LL_WGS84, target_coordsys, lon, lat)
+            else:
+                self.vect_rotator = vector_rotator
+
 
     @PETSc.Log.EventDecorator("thetis.GenericInterpolator2D.set_fields")
     def set_fields(self, time):
