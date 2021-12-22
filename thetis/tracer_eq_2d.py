@@ -41,7 +41,7 @@ class TracerTerm(Term):
         """
         super(TracerTerm, self).__init__(function_space)
         self.depth = depth
-        self.cellsize = CellSize(self.mesh)
+        self.cellsize = sqrt(CellVolume(self.mesh))
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
         self.use_lax_friedrichs = use_lax_friedrichs

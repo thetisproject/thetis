@@ -217,7 +217,7 @@ class ShallowWaterTerm(Term):
         self.options = options
 
         # mesh dependent variables
-        self.cellsize = CellSize(self.mesh)
+        self.cellsize = sqrt(CellVolume(self.mesh))
 
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
