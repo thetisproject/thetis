@@ -123,7 +123,9 @@ class ATMInterpolator(object):
                  ncfile_pattern, init_date, target_coordsys=None,
                  vect_rotator=None,
                  east_wind_var_name='uwind', north_wind_var_name='vwind',
-                 pressure_var_name='prmsl', verbose=False):
+                 pressure_var_name='prmsl', fill_mode=None,
+                 fill_value=numpy.nan,
+                 verbose=False):
         """
         :arg function_space: Target (scalar) :class:`FunctionSpace` object onto
             which data will be interpolated.
@@ -144,6 +146,10 @@ class ATMInterpolator(object):
             to target function space (optional).
         :kwarg east_wind_var_name, north_wind_var_name, pressure_var_name:
             wind component and pressure field names in netCDF file.
+        :kwarg fill_mode: Determines how points outside the source grid will be
+            treated. If 'nearest', value of the nearest source point will be
+            used. Otherwise a constant fill value will be used (default).
+        :kwarg float fill_value: Set the fill value (default: NaN)
         :kwarg bool verbose: Se True to print debug information.
         """
         self.function_space = function_space
@@ -151,7 +157,9 @@ class ATMInterpolator(object):
         self.atm_pressure_field = atm_pressure_field
 
         # construct interpolators
-        self.grid_interpolator = interpolation.NetCDFLatLonInterpolator2d(self.function_space, to_latlon)
+        self.grid_interpolator = interpolation.NetCDFLatLonInterpolator2d(
+            self.function_space, to_latlon, fill_mode=fill_mode,
+            fill_value=fill_value)
         var_list = [east_wind_var_name, north_wind_var_name, pressure_var_name]
         self.reader = interpolation.NetCDFSpatialInterpolator(
             self.grid_interpolator, var_list)
