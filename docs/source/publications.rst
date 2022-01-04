@@ -13,11 +13,11 @@ Also see `instructions for citing Firedrake <https://firedrakeproject.org/citing
 
 Wallwork, J. G., Barral, N., Ham, D. A., Piggott, M. D.:
 Goal-Oriented Error Estimation and Mesh Adaptation for Tracer Transport Modelling. *Computer-Aided Design*, 145:103187,
-doi:`10.1016/j.cad.2021.103187`_, 2022.
+doi:`10.1016/j.cad.2021.103187 <https://doi.org/10.1016/j.cad.2021.103187>`_, 2022.
 
 Clare, M. C. A., Wallwork, J. G., Kramer, S. C., Weller, H., Cotter, C. J., Piggott, M. D.:
 Multi-scale hydro-morphodynamic modelling using mesh movement methods. *GEM - International Journal on Geomathematics*, 13:1,
-doi:`10.1007/s13137-021-00191-1`_, 2022.
+doi:`10.1007/s13137-021-00191-1 <https://doi.org/10.1007/s13137-021-00191-1>`_, 2022.
 
 2021
 ----
