@@ -284,6 +284,7 @@ class FrozenHasTraits(OptionsBase, HasTraits):
     definition or when  self._isfrozen is False.
     """
     _isfrozen = False
+    _unfreezedepth = 0
 
     def __init__(self, *args, **kwargs):
         super(FrozenHasTraits, self).__init__(*args, **kwargs)
@@ -301,6 +302,7 @@ class FrozenConfigurable(OptionsBase, Configurable):
     definition or when  self._isfrozen is False.
     """
     __metaclass__ = ABCMetaHasTraits
+    _unfreezedepth = 0
 
     _isfrozen = False
 

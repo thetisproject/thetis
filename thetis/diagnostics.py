@@ -2,24 +2,51 @@
 Classes for computing diagnostics.
 """
 from .utility import *
+from .configuration import *
 
 
-__all__ = ["VorticityCalculator2D", "HessianRecoverer2D"]
+__all__ = ["VorticityCalculator2D", "HessianRecoverer2D", "KineticEnergyCalculator"]
 
 
-class VorticityCalculator2D(object):
+class DiagnosticCalculator(FrozenHasTraits):
+    """
+    Base class that defines the API for all diagnostic calculators.
+    """
+    __metaclass__ = ABCMeta
+
+    def __call__(self):
+        self.solve()
+
+    @abstractmethod
+    def solve(self):
+        pass
+
+
+class VorticityCalculator2D(DiagnosticCalculator):
     r"""
-    Linear solver for recovering fluid vorticity.
+    Linear solver for recovering fluid vorticity,
+    interpreted as a scalar field:
+
+    .. math::
+        \omega = -v_x + u_y,
+
+    for a velocity field :math:`\mathbf{u} = (u, v)`.
 
     It is recommended that the vorticity is sought
     in :math:`\mathbb P1` space.
-
-    :arg uv_2d: horizontal velocity :class:`Function`.
-    :arg vorticity_2d: :class:`Function` to hold calculated vorticity.
-    :kwargs: to be passed to the :class:`LinearVariationalSolver`.
     """
+    uv_2d = FiredrakeVectorExpression(
+        Constant(as_vector([0.0, 0.0])), help='Horizontal velocity').tag(config=True)
+
+    @unfrozen
     @PETSc.Log.EventDecorator("thetis.VorticityCalculator2D.__init__")
     def __init__(self, uv_2d, vorticity_2d, **kwargs):
+        """
+        :arg uv_2d: vector expression for the horizontal velocity.
+        :arg vorticity_2d: :class:`Function` to hold calculated vorticity.
+        :kwargs: to be passed to the :class:`LinearVariationalSolver`.
+        """
+        self.uv_2d = uv_2d
         fs = vorticity_2d.function_space()
         dim = fs.mesh().topological_dimension()
         if dim != 2:
@@ -31,9 +58,9 @@ class VorticityCalculator2D(object):
         # Weak formulation
         test = TestFunction(fs)
         a = TrialFunction(fs)*test*dx
-        L = -inner(perp(uv_2d), grad(test))*dx \
-            + dot(perp(uv_2d), test*n)*ds \
-            + dot(avg(perp(uv_2d)), jump(test, n))*dS
+        L = -inner(perp(self.uv_2d), grad(test))*dx \
+            + dot(perp(self.uv_2d), test*n)*ds \
+            + dot(avg(perp(self.uv_2d)), jump(test, n))*dS
 
         # Setup vorticity solver
         prob = LinearVariationalProblem(a, L, vorticity_2d)
@@ -49,7 +76,7 @@ class VorticityCalculator2D(object):
         self.solver.solve()
 
 
-class HessianRecoverer2D(object):
+class HessianRecoverer2D(DiagnosticCalculator):
     r"""
     Linear solver for recovering Hessians.
 
@@ -60,14 +87,20 @@ class HessianRecoverer2D(object):
     It is recommended that gradients and Hessians
     are sought in :math:`\mathbb P1` space of
     appropriate dimension.
-
-    :arg field_2d: :class:`Function` to recover the Hessian of.
-    :arg hessian_2d: :class:`Function` to hold recovered Hessian.
-    :kwarg gradient_2d: :class:`Function` to hold recovered gradient.
-    :kwargs: to be passed to the :class:`LinearVariationalSolver`.
     """
+    field_2d = FiredrakeScalarExpression(
+        Constant(0.0), help='Field to be recovered').tag(config=True)
+
+    @unfrozen
     @PETSc.Log.EventDecorator("thetis.HessianRecoverer2D.__init__")
     def __init__(self, field_2d, hessian_2d, gradient_2d=None, **kwargs):
+        """
+        :arg field_2d: scalar expression to recover the Hessian of.
+        :arg hessian_2d: :class:`Function` to hold recovered Hessian.
+        :kwarg gradient_2d: :class:`Function` to hold recovered gradient.
+        :kwargs: to be passed to the :class:`LinearVariationalSolver`.
+        """
+        self.field_2d = field_2d
         self.hessian_2d = hessian_2d
         self.gradient_2d = gradient_2d
         Sigma = hessian_2d.function_space()
@@ -105,9 +138,9 @@ class HessianRecoverer2D(object):
             + inner(phi, g)*dx \
             - dot(g, dot(tau, n))*ds \
             - dot(avg(g), jump(tau, n))*dS
-        L = field_2d*dot(phi, n)*ds \
-            + avg(field_2d)*jump(phi, n)*dS \
-            - field_2d*div(phi)*dx
+        L = self.field_2d*dot(phi, n)*ds \
+            + avg(self.field_2d)*jump(phi, n)*dS \
+            - self.field_2d*div(phi)*dx
 
         # Apply stationary preconditioners in the Schur complement to get away
         # with applying GMRES to the whole mixed system
@@ -147,3 +180,45 @@ class HessianRecoverer2D(object):
         self.hessian_2d.assign(self._hessian)
         if self.gradient_2d is not None:
             self.gradient_2d.assign(self._gradient)
+
+
+class KineticEnergyCalculator(DiagnosticCalculator):
+    r"""
+    Class for calculating dynamic pressure (i.e. kinetic energy),
+
+    .. math::
+        E_K = \frac12 \rho \|\mathbf{u}\|^2,
+
+    where :math:`\rho` is the water density and :math:`\mathbf{u}`
+    is the velocity.
+    """
+    density = FiredrakeScalarExpression(
+        physical_constants['rho0'], help='Fluid density').tag(config=True)
+
+    @unfrozen
+    @PETSc.Log.EventDecorator("thetis.KineticEnergyCalculator.__init__")
+    def __init__(self, uv, ke, density=None, horizontal=False, project=False):
+        """
+        :arg uv: scalar expression for the fluid velocity.
+        :arg ke: :class:`Function` to hold calculated kinetic energy.
+        :kwarg density: fluid density.
+        :kwarg horizontal: consider the horizontal components of velocity only?
+        :kwarg project: project, rather than interpolate?
+        """
+        if density is not None:
+            self.density = density
+        self.ke = ke
+        u_sq = uv[0]*uv[0] + uv[1]*uv[1] if horizontal else dot(uv, uv)
+        self.ke_expr = 0.5*self.density*u_sq
+        if project:
+            self.projector = Projector(self.ke_expr, self.ke)
+        else:
+            self.interpolator = Interpolator(self.ke_expr, self.ke)
+
+    @PETSc.Log.EventDecorator("thetis.KineticEnergyCalculator.solve")
+    def solve(self):
+        if hasattr(self, 'projector'):
+            self.projector.project()
+        else:
+            assert hasattr(self, 'interpolator')
+            self.interpolator.interpolate()

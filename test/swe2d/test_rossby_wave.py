@@ -182,7 +182,7 @@ def run(refinement_level, **model_options):
     uv_2d = solver_obj.fields.uv_2d
     vorticity_calculator = thetis.diagnostics.VorticityCalculator2D(uv_2d, vorticity_2d)
     solver_obj.add_new_field(vorticity_2d, 'vorticity_2d', 'Fluid vorticity', 'Vorticity2d',
-                             preproc_func=vorticity_calculator.solve)
+                             preproc_func=vorticity_calculator)
 
     # Apply boundary conditions
     for tag in mesh2d.exterior_facets.unique_markers:

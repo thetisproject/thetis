@@ -76,7 +76,7 @@ def run(**model_options):
     u_2d = solver_obj.fields.uv_2d[0]
     hessian_calculator = thetis.diagnostics.HessianRecoverer2D(u_2d, hessian_2d)
     solver_obj.add_new_field(hessian_2d, 'hessian_2d', 'Hessian of x-velocity', 'Hessian2d',
-                             preproc_func=hessian_calculator.solve)
+                             preproc_func=hessian_calculator)
 
     # apply boundary conditions
     solver_obj.bnd_functions['shallow_water'] = {
