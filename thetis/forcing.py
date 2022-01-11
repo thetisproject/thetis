@@ -70,7 +70,8 @@ def compute_wind_stress(wind_u, wind_v, method='LargeYeager2009'):
         # NOTE wind velocity should be shifted to 10 m neutral equivalent
         # but it requires air temperature, humidity and iteration, see [3]
         high_wind = wind_mag > 33.0
-        C_D = 1.e-3 * (2.7 / wind_mag + 0.142
+        eps = 1e-3
+        C_D = 1.e-3 * (2.7 / (wind_mag + eps) + 0.142
                        + wind_mag / 13.09 - 3.14807e-10*wind_mag**6)
         C_D[high_wind] = 2.34e-3
     tau = C_D*rho_air*wind_mag
