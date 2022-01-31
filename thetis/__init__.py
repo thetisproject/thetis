@@ -24,3 +24,5 @@ import numpy  # NOQA
 __version__ = get_versions()['version']
 del get_versions
 
+thetis_log_level(DEBUG)
+set_thetis_loggers(comm=COMM_WORLD)
