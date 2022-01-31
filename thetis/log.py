@@ -44,9 +44,8 @@ def set_thetis_loggers(comm=COMM_WORLD):
     """Set stream handlers for log messages.
 
     :kwarg comm: The communicator the handler should be collective
-         over. If provided, only rank-0 on that communicator will
-         write to the log, other ranks will use a :class:`logging.NullHandler`.
-         If set to ``None``, all ranks will write to log.
+         over. Only rank-0 on that communicator will write to the log, other
+         ranks will use a :class:`logging.NullHandler`.
     """
     def add_stream_handler(buffered=False):
         if comm is None or comm.rank == 0:
@@ -84,9 +83,8 @@ def set_log_directory(output_directory, comm=COMM_WORLD, mode='w'):
 
     :arg output_directory: the directory where log file is stored
     :kwarg comm: The communicator the handler should be collective
-         over. If provided, only rank-0 on that communicator will
-         write to the log, other ranks will use a :class:`logging.NullHandler`.
-         If set to ``None``, all ranks will write to log.
+         over. Only rank-0 on that communicator will write to the log, other
+         ranks will use a :class:`logging.NullHandler`.
     :kwarg mode: write mode, 'w' removes previous log file (if any), otherwise
         appends to it. Default: 'w'.
     """
@@ -127,9 +125,9 @@ def set_log_directory(output_directory, comm=COMM_WORLD, mode='w'):
     if thetis_log_config.filename == logfile:
         # no change
         return
-    changed = (thetis_log_config.filename is not None
-               and thetis_log_config.filename != logfile)
-    if changed:
+    different_file = (thetis_log_config.filename is not None
+                      and thetis_log_config.filename != logfile)
+    if different_file:
         old_file = str(thetis_log_config.filename)
         rm_file_handlers()
     if mode == 'w' and os.path.isfile(logfile):
@@ -141,10 +139,10 @@ def set_log_directory(output_directory, comm=COMM_WORLD, mode='w'):
         buffer_content = thetis_log_config.mem_buffer.getvalue()
         with open(logfile, 'w') as f:
             f.write(buffer_content)
-        rm_buf_handlers()
+    rm_buf_handlers()
     thetis_log_config.filename = logfile
     assign_file_handler(logfile)
-    if changed:
+    if different_file:
         msg = (f'Setting a log file "{logfile}" that differs from previous '
                f'"{old_file}", removing old handler')
         warning(msg)  # to new log
@@ -156,7 +154,8 @@ def thetis_log_level(level):
     This controls what level of logging messages are printed to
     stderr. The higher the level, the fewer the number of messages.
 
-    :arg level: The level to use.
+    :arg level: The level to use, one of 'DEBUG', 'INFO', 'WARNING', 'ERROR',
+        'CRITICAL'.
     """
     logger = logging.getLogger('thetis')
     logger.setLevel(level)
