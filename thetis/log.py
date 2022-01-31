@@ -13,6 +13,7 @@ from thetis.utility import COMM_WORLD
 import logging
 from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL
 import os
+import io
 
 __all__ = ('logger', 'output_logger',
            'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL',
@@ -29,9 +30,14 @@ logger_format = {
 class ThetisLogConfig:
     """Module-wide config object"""
     filename = None
+    mem_buffer = None
 
 
 thetis_log_config = ThetisLogConfig()
+
+
+class BufferHandler(logging.StreamHandler):
+    pass
 
 
 def set_thetis_loggers(comm=COMM_WORLD):
@@ -42,18 +48,28 @@ def set_thetis_loggers(comm=COMM_WORLD):
          write to the log, other ranks will use a :class:`logging.NullHandler`.
          If set to ``None``, all ranks will write to log.
     """
+    def add_stream_handler(buffered=False):
+        if comm is None or comm.rank == 0:
+            if buffered:
+                handler = BufferHandler(thetis_log_config.mem_buffer)
+            else:
+                handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter(fmt=fmt))
+        else:
+            handler = logging.NullHandler()
+        logger.addHandler(handler)
+
+    if thetis_log_config.mem_buffer is None:
+        thetis_log_config.mem_buffer = io.StringIO()
+
     for name, fmt in logger_format.items():
         logger = logging.getLogger(name)
         for handler in logger.handlers:
             if isinstance(handler, logging.StreamHandler):
                 logger.removeHandler(handler)
 
-        if comm is None or comm.rank == 0:
-            handler = logging.StreamHandler()
-            handler.setFormatter(logging.Formatter(fmt=fmt))
-        else:
-            handler = logging.NullHandler()
-        logger.addHandler(handler)
+        add_stream_handler()
+        add_stream_handler(buffered=True)
 
 
 def set_log_directory(output_directory, comm=COMM_WORLD, mode='w'):
@@ -74,20 +90,29 @@ def set_log_directory(output_directory, comm=COMM_WORLD, mode='w'):
     :kwarg mode: write mode, 'w' removes previous log file (if any), otherwise
         appends to it. Default: 'w'.
     """
-    def rm_all_file_handlers():
+    def create_directory(dir):
+        if comm.rank == 0:
+            if os.path.exists(dir):
+                if not os.path.isdir(dir):
+                    raise IOError('file with same name exists', dir)
+            else:
+                os.makedirs(dir)
+
+    def rm_handlers(cls=logging.FileHandler):
         for name in logger_format:
             logger = logging.getLogger(name)
             for handler in logger.handlers:
-                if isinstance(handler, logging.FileHandler):
+                if isinstance(handler, cls):
+                    debug(f'rm handler {type(handler)} from {name}')
                     logger.removeHandler(handler)
 
+    def rm_file_handlers():
+        rm_handlers(cls=logging.FileHandler)
+
+    def rm_buf_handlers():
+        rm_handlers(cls=BufferHandler)
+
     def assign_file_handler(logfile):
-        if comm.rank == 0:
-            if os.path.exists(output_directory):
-                if not os.path.isdir(output_directory):
-                    raise IOError('file with same name exists', output_directory)
-            else:
-                os.makedirs(output_directory)
 
         for name, fmt in logger_format.items():
             logger = logging.getLogger(name)
@@ -106,11 +131,17 @@ def set_log_directory(output_directory, comm=COMM_WORLD, mode='w'):
                and thetis_log_config.filename != logfile)
     if changed:
         old_file = str(thetis_log_config.filename)
-        rm_all_file_handlers()
+        rm_file_handlers()
     if mode == 'w' and os.path.isfile(logfile):
         # silently remove previous log
         if comm.rank == 0:
             os.remove(logfile)
+    create_directory(output_directory)
+    if comm.rank == 0:
+        buffer_content = thetis_log_config.mem_buffer.getvalue()
+        with open(logfile, 'w') as f:
+            f.write(buffer_content)
+        rm_buf_handlers()
     thetis_log_config.filename = logfile
     assign_file_handler(logfile)
     if changed:
