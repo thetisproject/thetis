@@ -363,11 +363,16 @@ class SpatialInterpolator2d(SpatialInterpolator):
     __metaclass__ = ABCMeta
 
     @PETSc.Log.EventDecorator("thetis.SpatialInterpolator2d.__init__")
-    def __init__(self, function_space, to_latlon):
+    def __init__(self, function_space, to_latlon, fill_mode=None,
+                 fill_value=numpy.nan):
         """
         :arg function_space: target Firedrake FunctionSpace
         :arg to_latlon: Python function that converts local mesh coordinates to
             latitude and longitude: 'lat, lon = to_latlon(x, y)'
+        :kwarg fill_mode: Determines how points outside the source grid will be
+            treated. If 'nearest', value of the nearest source point will be
+            used. Otherwise a constant fill value will be used (default).
+        :kwarg float fill_value: Set the fill value (default: NaN)
         """
         assert function_space.ufl_element().value_shape() == ()
 
@@ -389,6 +394,8 @@ class SpatialInterpolator2d(SpatialInterpolator):
         lat, lon = to_latlon(*coords)
         self.mesh_lonlat = numpy.array([lon, lat]).T
 
+        self.fill_mode = fill_mode
+        self.fill_value = fill_value
         self._initialized = False
 
     @PETSc.Log.EventDecorator("thetis.SpatialInterpolator2d._create_interpolator")
@@ -408,7 +415,9 @@ class SpatialInterpolator2d(SpatialInterpolator):
         subset_lat = lat_array[self.ind_lon, self.ind_lat].ravel()
         subset_lon = lon_array[self.ind_lon, self.ind_lat].ravel()
         subset_lonlat = numpy.array((subset_lon, subset_lat)).T
-        self.grid_interpolator = GridInterpolator(subset_lonlat, self.mesh_lonlat)
+        self.grid_interpolator = GridInterpolator(
+            subset_lonlat, self.mesh_lonlat, fill_mode=self.fill_mode,
+            fill_value=self.fill_value)
         self._initialized = True
 
         # debug: plot subsets
