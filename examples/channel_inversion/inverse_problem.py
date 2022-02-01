@@ -3,6 +3,27 @@ from firedrake_adjoint import *
 import numpy
 import thetis.inversion_tools as inversion_tools
 from model_config import construct_solver
+import argparse
+
+# parse user input
+parser = argparse.ArgumentParser(
+    description='Channel inversion problem',
+    # includes default values in help entries
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+)
+parser.add_argument('controls', nargs='+',
+                    help='Control variable(s) to optimize',
+                    choices=['Bathymetry', 'Manning', 'InitialElev']
+                    )
+parser.add_argument('--no-consistency-test', action='store_true',
+                    help='Skip consistency test')
+parser.add_argument('--no-taylor-test', action='store_true',
+                    help='Skip Taylor test')
+args = parser.parse_args()
+controls = sorted(args.controls)
+do_consistency_test = not args.no_consistency_test
+do_taylor_test = not args.no_taylor_test
+
 
 solver_obj = construct_solver(
     output_directory='outputs', store_station_time_series=False)
@@ -12,12 +33,6 @@ bathymetry_2d = solver_obj.fields.bathymetry_2d
 manning_2d = solver_obj.fields.manning_2d
 elev_init_2d = solver_obj.fields.elev_init_2d
 
-# choose control variable(s)
-controls = [
-    # 'Bathymetry',
-    'Manning',
-    # 'InitialElev',
-]
 output_dir_suffix = '_' + '-'.join(controls) + '-opt'
 options.output_directory += output_dir_suffix
 
@@ -102,9 +117,6 @@ op.J = reg_manager.eval_cost_function()
 solver_obj.iterate(export_func=cost_function)
 Jhat = ReducedFunctional(op.J, op.control_list, derivative_cb_post=gradient_eval_callback)
 stop_annotating()
-
-do_consistency_test = True
-do_taylor_test = True
 
 # Consistency test
 if do_consistency_test:
