@@ -1,4 +1,4 @@
-from firedrake import *
+import firedrake as fd
 from firedrake_adjoint import *
 from .utility import create_directory, print_function_value_range
 from .utility import get_functionspace
@@ -40,9 +40,9 @@ class OptimisationProgress(object):
         create_directory(self.output_dir + '/hdf5')
         for i in range(len(self.control_coeff_list)):
             self.outfiles_m.append(
-                File(f'{self.output_dir}/control_progress_{i:02d}.pvd'))
+                fd.File(f'{self.output_dir}/control_progress_{i:02d}.pvd'))
             self.outfiles_dJdm.append(
-                File(f'{self.output_dir}/gradient_progress_{i:02d}.pvd'))
+                fd.File(f'{self.output_dir}/gradient_progress_{i:02d}.pvd'))
         self.initialized = True
 
     def add_control(self, f):
@@ -102,7 +102,7 @@ class OptimisationProgress(object):
             self.initialize()
 
         # cost function and gradient norm output
-        djdm = [norm(f) for f in self.dJdm_list]
+        djdm = [fd.norm(f) for f in self.dJdm_list]
         self.J_progress.append(self.J)
         self.dJdm_progress.append(djdm)
         comm = self.control_coeff_list[0].comm
@@ -122,7 +122,7 @@ class OptimisationProgress(object):
             o.write(m)
             # hdf5 format
             h5_filename = f'{self.output_dir}/hdf5/control_{j:02d}_{self.i:04d}'
-            with DumbCheckpoint(h5_filename, mode=FILE_CREATE) as chk:
+            with fd.DumbCheckpoint(h5_filename, mode=fd.FILE_CREATE) as chk:
                 chk.store(m)
         # gradient output
         for f, o in zip(self.dJdm_list, self.outfiles_dJdm):
@@ -156,7 +156,7 @@ class StationObservationManager:
         on_sphere = self.mesh.geometric_dimension() == 3
         if on_sphere:
             raise NotImplementedError('Sphere meshes are not supported yet.')
-        self.J_scalar = J_scalar if J_scalar else Constant(1.0)
+        self.J_scalar = J_scalar if J_scalar else fd.Constant(1.0)
         self.output_directory = output_directory
         create_directory(self.output_directory)
         # keep observation time series in memory
@@ -236,10 +236,10 @@ class StationObservationManager:
         """
         # Create 0D mesh for station evaluation
         xy = numpy.array((self.observation_x, self.observation_y)).T
-        mesh0d = VertexOnlyMesh(self.mesh, xy)
-        self.fs_points_0d = FunctionSpace(mesh0d, 'DG', 0)
-        self.obs_values_0d = Function(self.fs_points_0d, name='observations')
-        self.mod_values_0d = Function(self.fs_points_0d, name='model values')
+        mesh0d = fd.VertexOnlyMesh(self.mesh, xy)
+        self.fs_points_0d = fd.FunctionSpace(mesh0d, 'DG', 0)
+        self.obs_values_0d = fd.Function(self.fs_points_0d, name='observations')
+        self.mod_values_0d = fd.Function(self.fs_points_0d, name='model values')
 
         # Construct timeseries interpolator
         self.station_interpolators = []
@@ -288,14 +288,14 @@ class StationObservationManager:
         assert self.model_observation_field is not None, 'Model field not set.'
         self.simulation_time.append(t)
         # evaluate observations at simulation time and stash the result
-        obs_func = Function(self.fs_points_0d)
+        obs_func = fd.Function(self.fs_points_0d)
         obs_func.dat.data[:] = self.eval_observation_at_time(t)
         self.obs_func_list.append(obs_func)
 
         # compute square error
         self.obs_values_0d.assign(obs_func)
         self.mod_values_0d.interpolate(self.model_observation_field, ad_block_tag='observation')
-        J_misfit = assemble(self.J_scalar*self.misfit_expr**2*dx)
+        J_misfit = fd.assemble(self.J_scalar*self.misfit_expr**2*fd.dx)
         return J_misfit
 
     def dump_time_series(self):
@@ -360,23 +360,23 @@ class ControlRegularizationCalculator:
         P1v_2d = get_functionspace(mesh, 'CG', 1, vector=True)
         P1t_2d = get_functionspace(mesh, 'CG', 1, tensor=True)
         name = function.name()
-        gradient_2d = Function(P1v_2d, name=f'{name} gradient')
-        hessian_2d = Function(P1t_2d, name=f'{name} hessian')
+        gradient_2d = fd.Function(P1v_2d, name=f'{name} gradient')
+        hessian_2d = fd.Function(P1t_2d, name=f'{name} hessian')
         self.hessian_calculator = HessianRecoverer2D(
             function, hessian_2d, gradient_2d)
 
-        h = CellSize(mesh)
+        h = fd.CellSize(mesh)
         # regularization expression |hessian|^2
         # NOTE this is normalized by the mesh element size
         # d^2 u/dx^2 * dx^2 ~ du^2
-        self.regularization_hess_expr = gamma_hessian * inner(hessian_2d, hessian_2d)*h**4
+        self.regularization_hess_expr = gamma_hessian * fd.inner(hessian_2d, hessian_2d)*h**4
         # calculate mesh area (to scale the cost function)
-        self.mesh_area = assemble(Constant(1.0, domain=mesh)*dx)
+        self.mesh_area = fd.assemble(fd.Constant(1.0, domain=mesh)*fd.dx)
 
     def eval_cost_function(self):
         self.hessian_calculator.solve()
-        J_regularization = assemble(
-            self.regularization_hess_expr / self.mesh_area * dx
+        J_regularization = fd.assemble(
+            self.regularization_hess_expr / self.mesh_area * fd.dx
         )
         return J_regularization
 
