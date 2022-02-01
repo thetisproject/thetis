@@ -101,7 +101,6 @@ def set_log_directory(output_directory, comm=COMM_WORLD, mode='w'):
             logger = logging.getLogger(name)
             for handler in logger.handlers:
                 if isinstance(handler, cls):
-                    debug(f'rm handler {type(handler)} from {name}')
                     logger.removeHandler(handler)
 
     def rm_file_handlers():
@@ -125,8 +124,7 @@ def set_log_directory(output_directory, comm=COMM_WORLD, mode='w'):
     if thetis_log_config.filename == logfile:
         # no change
         return
-    different_file = (thetis_log_config.filename is not None
-                      and thetis_log_config.filename != logfile)
+    different_file = thetis_log_config.filename is not None
     if different_file:
         old_file = str(thetis_log_config.filename)
         rm_file_handlers()
