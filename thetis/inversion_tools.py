@@ -27,6 +27,9 @@ class OptimisationProgress(object):
     control_list = []
 
     def __init__(self, output_dir='outputs'):
+        """
+        :arg output_dir: model output directory
+        """
         self.output_dir = output_dir
         self.outfiles_m = []
         self.outfiles_dJdm = []
@@ -46,7 +49,7 @@ class OptimisationProgress(object):
         """
         Add a control field.
 
-        Can be called multiple times in case of multiparameter optimization.
+        Can be called multiple times in case of multiparameter optimisation.
 
         :arg f: Function or Constant to be used as a control variable.
         """
@@ -58,7 +61,13 @@ class OptimisationProgress(object):
 
     def set_control_state(self, j, djdm_list, m_list):
         """
+        Stores optimisation state.
+
         To call whenever variables are updated.
+
+        :arg j: error functional value
+        :arg djdm_list: list of gradient functions
+        :arg m_list: list of control coefficents
         """
         self.J = j
         self.dJdm_list = djdm_list
@@ -67,15 +76,21 @@ class OptimisationProgress(object):
     def start_clock(self):
         self.tic = time_mod.perf_counter()
 
+    def stop_clock(self):
+        toc = time_mod.perf_counter()
+        return toc
+
     def set_initial_state(self, *state):
         self.set_control_state(*state)
         self.update_progress()
 
     def update_progress(self):
         """
+        Updates optimisation progress and stores variables to disk.
+
         To call after successful line searches.
         """
-        toc = time_mod.perf_counter()
+        toc = self.stop_clock()
         if self.i == 0:
             for f in self.control_coeff_list:
                 print_function_value_range(f, prefix='Initial')
@@ -118,7 +133,23 @@ class OptimisationProgress(object):
 
 
 class StationObservationManager:
+    """
+    Implements error functional based on observation time series.
+
+    The functional is the squared sum of error between the model and
+    observations.
+
+    This object evaluates the model fields at the station locations,
+    interpolates the observations time series to the model time, computes the
+    error functional, and also stores the model's time series data to disk.
+    """
     def __init__(self, mesh, J_scalar=None, output_directory='outputs'):
+        """
+        :arg mesh: the 2D mesh object.
+        :kwarg J_scalar: Optional factor to scale the error functional. As a
+            rule of thumb, it's good to scale the functional to J < 1.
+        :kwarg output_directory: directory where model time series are stored.
+        """
         self.mesh = mesh
         on_sphere = self.mesh.geometric_dimension() == 3
         if on_sphere:
@@ -128,7 +159,7 @@ class StationObservationManager:
         create_directory(self.output_directory)
         # keep observation time series in memory
         self.obs_func_list = []
-        # keep model time series in memory during optimization progress
+        # keep model time series in memory during optimisation progress
         self.station_value_progress = []
         # model time when cost function was evaluated
         self.simulation_time = []
@@ -141,7 +172,7 @@ class StationObservationManager:
         Add station time series data to the object.
 
         The `x`, and `y` coordinates must be such that
-        they allow extration of model data at the same coordinates.
+        they allow extraction of model data at the same coordinates.
 
         :arg station_names: list of station names
         :arg str variable: canonical variable name, e.g. 'elev'
@@ -158,14 +189,18 @@ class StationObservationManager:
         self.observation_y = y
 
     def set_model_field(self, function):
+        """
+        Set the model field that will be evaluated.
+        """
         self.model_observation_field = function
 
     def load_observation_data(self, observation_data_dir, station_names, variable):
         """
         Load observation data from disk.
 
-        This assumes that the observations were stored with
-        `TimeSeriesCallback2D` during the forward run.
+        Assumes that observation data were stored with
+        `TimeSeriesCallback2D` during the forward run. For generic case, use
+        `register_observation_data` instead.
         """
         file_list = [
             f'{observation_data_dir}/'
@@ -194,6 +229,9 @@ class StationObservationManager:
         self.construct_evaluator()
 
     def construct_evaluator(self):
+        """
+        Builds evaluators needed to compute the error functional.
+        """
         # Create 0D mesh for station evaluation
         xy = numpy.array((self.observation_x, self.observation_y)).T
         mesh0d = VertexOnlyMesh(self.mesh, xy)
@@ -230,6 +268,12 @@ class StationObservationManager:
         self.initialzed = True
 
     def eval_observation_at_time(self, t):
+        """
+        Evaluate observation time series at the given time.
+
+        :arg t: model simulation time
+        :returns: list of observation time series values at time `t`
+        """
         return [float(ip(t)) for ip in self.station_interpolators]
 
     def eval_cost_function(self, t):
@@ -254,8 +298,17 @@ class StationObservationManager:
 
     def dump_time_series(self):
         """
-        Obtain station time series from the last optimization iteration,
-        and store the data to disk.
+        Stores model time series to disk.
+
+        Obtains station time series from the last optimisation iteration,
+        and stores the data to disk.
+
+        The output files are have the format
+        `{odir}/diagnostic_timeseries_progress_{station_name}_{variable}.hdf5`
+
+        The file contains the simulation time in the `time` array, and the
+        station name and coordinates as attributes. The time series data is
+        stored as a 2D (n_iterations, n_time_steps) array.
         """
         assert self.station_names is not None
 
@@ -333,7 +386,7 @@ class ControlRegularizationManager:
     def __init__(self, function_list, gamma_list, J_scalar=None):
         """
         :arg function_list: list of control functions
-        :arg gamma_list: list of penalty paramenters
+        :arg gamma_list: list of penalty parameters
         :kwarg J_scalar: Penalty term scaling factor
         """
         self.J_scalar = J_scalar
