@@ -38,6 +38,8 @@ exclude_files = [
     'sediment_meander_2d/meander_hydro.py',
     'tidalfarm/tidalfarm.py',
     'tidal_barrage/plotting.py',
+    'channel_inversion/inverse_problem.py',
+    'channel_inversion/plot_elevation_progress.py',
 ]
 
 cwd = os.path.abspath(os.path.dirname(__file__))

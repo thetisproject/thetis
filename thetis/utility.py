@@ -14,6 +14,7 @@ from mpi4py import MPI  # NOQA
 from pyop2.profiling import timed_function, timed_region, timed_stage  # NOQA
 import numpy
 from functools import wraps
+from pyadjoint.tape import no_annotations
 
 from .field_defs import field_metadata
 from .log import *
@@ -552,6 +553,7 @@ def compute_elem_height(zcoord, output):
     return output
 
 
+@no_annotations
 @PETSc.Log.EventDecorator("thetis.get_horizontal_elem_size_2d")
 def get_horizontal_elem_size_2d(sol2d):
     """
@@ -761,7 +763,7 @@ def tensor_jump(v, n):
         (\mathbf{u}^- \mathbf{n}^-)
 
     This is the discrete equivalent of grad(u) as opposed to the
-    vectorial UFL jump operator :meth:`ufl.jump` which represents div(u).
+    vectorial UFL jump operator :math:`ufl.jump` which represents div(u).
     """
     return outer(v('+'), n('+')) + outer(v('-'), n('-'))
 
@@ -778,6 +780,31 @@ def compute_boundary_length(mesh2d):
         one_func = Function(p1).assign(1.0)
         boundary_len[i] = assemble(one_func * ds_restricted)
     return boundary_len
+
+
+def print_function_value_range(f, comm=COMM_WORLD, name=None, prefix=None,
+                               format='2.3g'):
+    """
+    Prints the min/max DOF values of a function.
+
+    .. code-block:: python
+
+        print_function_value_range(f, name='myfunc', prefix='Initial')
+
+    Prints `Initial myfunc 0.00 .. 0.00`.
+
+    :kwarg comm: MPI communicator to use for the reduction
+    :kwarg name: Optional function name. By default uses `f.name()`
+    :kwarg prefix: Optional prefix for the output string
+    :kwarg format: Value formatting string
+    """
+    f_min = comm.allreduce(f.dat.data.min(), MPI.MIN)
+    f_max = comm.allreduce(f.dat.data.max(), MPI.MAX)
+    bound_str_list = [f'{{:{format}}}'.format(v) for v in [f_min, f_max]]
+    if name is None:
+        name = f.name()
+    pre = prefix + ' ' if prefix is not None else ''
+    print_output(f'{pre}{name}: {bound_str_list[0]} .. {bound_str_list[1]}')
 
 
 @PETSc.Log.EventDecorator("thetis.select_and_move_detectors")
