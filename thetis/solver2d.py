@@ -389,6 +389,10 @@ class FlowSolver2d(FrozenClass):
         """
         if not hasattr(self.function_spaces, 'U_2d'):
             self.create_function_spaces()
+
+        if self.options.log_output and not self.options.no_exports:
+            set_log_directory(self.options.output_directory)
+
         # ----- fields
         self.fields.solution_2d = Function(self.function_spaces.V_2d, name='solution_2d')
         # correct treatment of the split 2d functions
@@ -582,12 +586,6 @@ class FlowSolver2d(FrozenClass):
         """
         if not hasattr(self, 'equations'):
             self.create_equations()
-
-        if self.options.log_output and not self.options.no_exports:
-            logfile = os.path.join(create_directory(self.options.output_directory), 'log')
-            filehandler = logging.logging.FileHandler(logfile, mode='w')
-            filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
-            output_logger.addHandler(filehandler)
 
         self.compute_mesh_stats()
         self.set_time_step()

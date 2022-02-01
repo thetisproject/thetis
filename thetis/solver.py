@@ -474,10 +474,7 @@ class FlowSolver(FrozenClass):
             self.create_function_spaces()
 
         if self.options.log_output and not self.options.no_exports:
-            logfile = os.path.join(create_directory(self.options.output_directory), 'log')
-            filehandler = logging.logging.FileHandler(logfile, mode='w')
-            filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
-            output_logger.addHandler(filehandler)
+            set_log_directory(self.options.output_directory)
 
         # mesh velocity etc fields must be in the same space as 3D coordinates
         coord_is_dg = element_continuity(self.mesh2d.coordinates.function_space().ufl_element()).horizontal == 'dg'
