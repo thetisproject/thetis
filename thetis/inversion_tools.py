@@ -105,11 +105,13 @@ class OptimisationProgress(object):
         djdm = [norm(f) for f in self.dJdm_list]
         self.J_progress.append(self.J)
         self.dJdm_progress.append(djdm)
-        numpy.save(f"{self.output_dir}/J_progress", self.J_progress)
-        numpy.save(f"{self.output_dir}/dJdm_progress", self.dJdm_progress)
-        print_output(f"line search {self.i:2d}: "
-                     f"J={self.J:.3e}, dJdm={djdm}, "
-                     f"grad_ev={self.nb_grad_evals}, duration {elapsed}")
+        comm = self.control_coeff_list[0].comm
+        if comm.rank == 0:
+            numpy.save(f'{self.output_dir}/J_progress', self.J_progress)
+            numpy.save(f'{self.output_dir}/dJdm_progress', self.dJdm_progress)
+        print_output(f'line search {self.i:2d}: '
+                     f'J={self.J:.3e}, dJdm={djdm}, '
+                     f'grad_ev={self.nb_grad_evals}, duration {elapsed}')
 
         # control output
         for j in range(len(self.control_coeff_list)):
@@ -125,7 +127,7 @@ class OptimisationProgress(object):
         # gradient output
         for f, o in zip(self.dJdm_list, self.outfiles_dJdm):
             # store gradient in vtk format
-            f.rename("Gradient")
+            f.rename('Gradient')
             o.write(f)
 
         self.i += 1
