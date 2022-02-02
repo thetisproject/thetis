@@ -900,21 +900,6 @@ class TidalBoundaryForcing(object):
         """If True, compute tidal currents as well."""
         return False
 
-    @abstractproperty
-    def elev_nc_file():
-        """Tidal elavation NetCDF file name."""
-        return None
-
-    @abstractproperty
-    def uv_nc_file():
-        """Tidal velocity NetCDF file name."""
-        return None
-
-    @abstractproperty
-    def grid_nc_file():
-        """Grid NetCDF file name."""
-        return None
-
     @PETSc.Log.EventDecorator("thetis.TidalBoundaryForcing.__init__")
     def __init__(self, elev_field, init_date, to_latlon, target_coordsys=None,
                  vect_rotator=None,
@@ -1041,17 +1026,56 @@ class TidalBoundaryForcing(object):
 
 
 class TPXOTidalBoundaryForcing(TidalBoundaryForcing):
-    """Tidal boundary interpolator for TPXO tidal model."""
-    elev_nc_file = 'h_tpxo9.v1.nc'
-    uv_nc_file = 'u_tpxo9.v1.nc'
-    grid_nc_file = 'grid_tpxo9.nc'
+    """
+    Interpolator for TPXO global tidal model data.
+
+    See the `TPXO website <https://www.tpxo.net/global/tpxo9-atlas>`_ for data
+    access. By default, this routine assumes the `tpxo9v5a` data set in NetCDF
+    format. Other versions can be used by setting correct `elev_file`,
+    `uv_file`, and `grid_file` arguments.
+    """
     coord_layout = 'lon,lat'
     compute_velocity = True
+
+    @PETSc.Log.EventDecorator("thetis.TPXOTidalBoundaryForcing.__init__")
+    def __init__(self, elev_field, init_date, to_latlon, target_coordsys=None,
+                 vect_rotator=None, uv_field=None, constituents=None,
+                 boundary_ids=None, data_dir=None, elev_file='h_tpxo9.v5a.nc',
+                 uv_file='u_tpxo9.v5a.nc', grid_file='gridtpxo9v5a.nc'):
+        """
+        :arg elev_field: Function where tidal elevation will be interpolated.
+        :arg init_date: Datetime object defining the simulation init time.
+        :arg to_latlon: Python function that converts local mesh coordinates to
+            latitude and longitude: 'lat, lon = to_latlon(x, y)'
+        :kwarg target_coordsys: Coordinate system in which the model grid is
+            defined. This is used to rotate vectors to local coordinates.
+        :kwarg vect_rotator: User-defined vector rotator function
+        :kwarg uv_field: Function where tidal transport will be interpolated.
+        :kwarg constituents: list of tidal constituents, e.g. ['M2', 'K1']
+        :kwarg boundary_ids: list of boundary_ids where tidal data will be
+            evaluated. If not defined, tides will be in evaluated in the entire
+            domain.
+        :kwarg data_dir: path to directory where tidal model netCDF files are
+            located.
+        :kwarg elev_file: TPXO tidal elevation file
+        :kwarg uv_file: TPXO transport/velocity file
+        :kwarg grid_file: TPXO grid file
+        """
+        self.compute_velocity = uv_field is not None
+        self.elev_nc_file = elev_file
+        self.uv_nc_file = uv_file
+        self.grid_nc_file = grid_file
+        super().__init__(
+            elev_field, init_date, to_latlon, target_coordsys=target_coordsys,
+            vect_rotator=vect_rotator, uv_field=uv_field,
+            constituents=constituents, boundary_ids=boundary_ids,
+            data_dir=data_dir
+        )
 
     @PETSc.Log.EventDecorator("thetis.TPXOTidalBoundaryForcing._create_readers")
     def _create_readers(self, ):
         """Create uptide netcdf reader objects."""
-        msg = 'File {:} not found, download it from \nftp://ftp.oce.orst.edu/dist/tides/Global/tpxo9_netcdf.tar.gz'
+        msg = 'File {:} not found.'
         f_grid = os.path.join(self.data_dir, self.grid_nc_file)
         assert os.path.exists(f_grid), msg.format(f_grid)
         f_elev = os.path.join(self.data_dir, self.elev_nc_file)
