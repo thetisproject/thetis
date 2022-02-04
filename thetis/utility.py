@@ -346,7 +346,7 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, z_stretch_fact=1.0,
                  z_stretch_func.dat(op2.READ, fs_2d.cell_node_map()),
                  idx(op2.READ),
                  min_depth_op2(op2.READ),
-                 iterate=op2.ALL)
+                 iteration_region=op2.ALL)
 
     mesh.coordinates.assign(new_coordinates)
 
@@ -548,7 +548,7 @@ def compute_elem_height(zcoord, output):
         kernel, fs_out.mesh().cell_set,
         output.dat(op2.WRITE, fs_out.cell_node_map()),
         zcoord.dat(op2.READ, fs_in.cell_node_map()),
-        iterate=iterate)
+        iteration_region=iterate)
 
     return output
 

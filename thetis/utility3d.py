@@ -458,7 +458,7 @@ class Mesh3DConsistencyCalculator(object):
                      self.output.dat(op2.WRITE, self.output.function_space().cell_node_map()),
                      self.z_coord.dat(op2.READ, self.z_coord.function_space().cell_node_map()),
                      self.idx(op2.READ),
-                     iterate=op2.ALL)
+                     iteration_region=op2.ALL)
         # compute global min/max
         r_min = self.output.dat.data.min()
         r_max = self.output.dat.data.max()
@@ -552,7 +552,7 @@ class ExpandFunctionTo3d(object):
                 self.output_3d.dat(op2.WRITE, self.fs_3d.cell_node_map()),
                 self.input_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
                 self.idx(op2.READ),
-                iterate=self.iter_domain)
+                iteration_region=self.iter_domain)
 
             if self.do_hdiv_scaling:
                 self.rt_scale_solver.solve()
@@ -699,7 +699,7 @@ class SubFunctionExtractor(object):
                          self.output_2d.dat(op2.WRITE, self.fs_2d.cell_node_map()),
                          self.input_3d.dat(op2.READ, self.fs_3d.cell_node_map()),
                          self.idx(op2.READ),
-                         iterate=self.iter_domain)
+                         iteration_region=self.iter_domain)
 
             if self.do_hdiv_scaling:
                 self.rt_scale_solver.solve()
@@ -842,7 +842,7 @@ class ALEMeshUpdater(object):
             self.w_mesh_surf_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
             self.fields.bathymetry_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
             self.idx(op2.READ),
-            iterate=op2.ALL
+            iteration_region=op2.ALL
         )
 
     @PETSc.Log.EventDecorator("thetis.ALEMeshUpdater.update_mesh_coordinates")
@@ -864,7 +864,7 @@ class ALEMeshUpdater(object):
             self.fields.elev_cg_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
             self.fields.bathymetry_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
             self.idx(op2.READ),
-            iterate=op2.ALL
+            iteration_region=op2.ALL
         )
 
         self.solver.mesh.coordinates.dat.data[:, 2] = self.fields.z_coord_3d.dat.data[:]

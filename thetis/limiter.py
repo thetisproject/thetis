@@ -170,14 +170,14 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
                          self.min_field.dat(op2.MIN, self.min_field.function_space().cell_node_map()),
                          field.dat(op2.READ, field.function_space().cell_node_map()),
                          bottom_idx(op2.READ),
-                         iterate=op2.ON_BOTTOM)
+                         iteration_region=op2.ON_BOTTOM)
 
             op2.par_loop(kernel, self.mesh.cell_set,
                          self.max_field.dat(op2.MAX, self.max_field.function_space().cell_node_map()),
                          self.min_field.dat(op2.MIN, self.min_field.function_space().cell_node_map()),
                          field.dat(op2.READ, field.function_space().cell_node_map()),
                          top_idx(op2.READ),
-                         iterate=op2.ON_TOP)
+                         iteration_region=op2.ON_TOP)
 
     @PETSc.Log.EventDecorator("thetis.VertexBasedP1DGLimiter.apply")
     def apply(self, field):
