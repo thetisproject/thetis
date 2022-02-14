@@ -16,6 +16,7 @@ def construct_solver(store_station_time_series=True, **model_options):
 
     if os.getenv('THETIS_REGRESSION_TEST') is not None:
         t_end = 5*t_export
+    pwd = os.path.abspath(os.path.dirname(__file__))
 
     # bathymetry
     P1_2d = get_functionspace(mesh2d, 'CG', 1)
@@ -32,7 +33,6 @@ def construct_solver(store_station_time_series=True, **model_options):
     manning_high = 1.5e-2
     manning_2d.interpolate(
         conditional(x < 60e3, manning_low, manning_high))
-    File('manning.pvd').write(manning_2d)
 
     # create solver
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
@@ -41,7 +41,7 @@ def construct_solver(store_station_time_series=True, **model_options):
     options.simulation_export_time = t_export
     options.simulation_end_time = t_end
     options.horizontal_velocity_scale = u_mag
-    options.output_directory = 'outputs_forward'
+    options.output_directory = f'{pwd}/outputs_forward'
     options.fields_to_export = ['uv_2d', 'elev_2d']
     options.swe_timestepper_type = 'CrankNicolson'
     if not hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
