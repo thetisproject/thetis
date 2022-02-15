@@ -4,6 +4,7 @@ import numpy
 import thetis.inversion_tools as inversion_tools
 from model_config import construct_solver
 import argparse
+import os
 
 # parse user input
 parser = argparse.ArgumentParser(
@@ -11,9 +12,10 @@ parser = argparse.ArgumentParser(
     # includes default values in help entries
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
-parser.add_argument('controls', nargs='+',
+parser.add_argument('-c', '--controls', nargs='+',
                     help='Control variable(s) to optimize',
-                    choices=['Bathymetry', 'Manning', 'InitialElev']
+                    choices=['Bathymetry', 'Manning', 'InitialElev'],
+                    default=['Bathymetry'],
                     )
 parser.add_argument('--no-consistency-test', action='store_true',
                     help='Skip consistency test')
@@ -23,10 +25,14 @@ args = parser.parse_args()
 controls = sorted(args.controls)
 do_consistency_test = not args.no_consistency_test
 do_taylor_test = not args.no_taylor_test
+no_exports = os.getenv('THETIS_REGRESSION_TEST') is not None
 
-
+pwd = os.path.abspath(os.path.dirname(__file__))
 solver_obj = construct_solver(
-    output_directory='outputs', store_station_time_series=False)
+    output_directory=f'{pwd}/outputs',
+    store_station_time_series=not no_exports,
+    no_exports=no_exports,
+)
 options = solver_obj.options
 mesh2d = solver_obj.mesh2d
 bathymetry_2d = solver_obj.fields.bathymetry_2d
@@ -38,7 +44,7 @@ options.output_directory += output_dir_suffix
 
 gamma_hessian_list = []
 control_bounds_list = []
-op = inversion_tools.OptimisationProgress(options.output_directory)
+op = inversion_tools.OptimisationProgress(options.output_directory, no_exports=no_exports)
 
 for control_name in controls:
     if control_name == 'Bathymetry':
@@ -73,7 +79,7 @@ dt_const = solver_obj.dt
 total_time_const = options.simulation_end_time
 J_scalar = dt_const/total_time_const
 
-observation_data_dir = 'outputs_forward'
+observation_data_dir = f'{pwd}/outputs_forward'
 variable = 'elev'
 station_names = [
     'stationA',
@@ -170,4 +176,5 @@ for oc, cc in zip(control_opt_list, op.control_coeff_list):
     name = cc.name()
     oc.rename(name)
     print_function_value_range(oc, prefix='Optimal')
-    File(f'{options.output_directory}/{name}_optimised.pvd').write(oc)
+    if not no_exports:
+        File(f'{options.output_directory}/{name}_optimised.pvd').write(oc)
