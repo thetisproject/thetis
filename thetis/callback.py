@@ -127,10 +127,10 @@ class DiagnosticHDF5(object):
 
         The HDF5 is updated immediately.
 
-        :arg time: time stamp of entry
-        :type time: float
         :arg variables: values of entry
         :type variables: tuple of float
+        :kwarg time: time stamp of entry
+        :type time: float
         :kwarg int index: If provided, defines the time index in the file
         """
         if self.comm.rank == 0:
@@ -161,7 +161,9 @@ class DiagnosticCallback(ABC):
                  export_to_hdf5=True,
                  append_to_log=True,
                  include_time=True,
-                 hdf5_dtype='d'):
+                 hdf5_dtype='d',
+                 start_time=None,
+                 end_time=None):
         """
         :arg solver_obj: Thetis solver object
         :kwarg str outputdir: Custom directory where hdf5 files will be stored.
@@ -176,12 +178,11 @@ class DiagnosticCallback(ABC):
         :kwarg bool include_time: whether to include time in the hdf5 file
         :kwarg hdf5_dtype: Precision to use in hdf5 output: `d` for double
             precision (default), and `f` for single precision
+        :kwarg start_time: Optional start time for callback evaluation
+        :kwarg end_time: Optional end time for callback evaluation
         """
         self.solver_obj = solver_obj
-        if outputdir is None:
-            self.outputdir = self.solver_obj.options.output_directory
-        else:
-            self.outputdir = outputdir
+        self.outputdir = outputdir or self.solver_obj.options.output_directory
         self.array_dim = array_dim
         self.attrs = attrs
         self.append_to_hdf5 = export_to_hdf5
@@ -190,6 +191,8 @@ class DiagnosticCallback(ABC):
         self.include_time = include_time
         self._create_new_file = True
         self._hdf5_initialized = False
+        self.start_time = start_time or -numpy.inf
+        self.end_time = end_time or numpy.inf
 
     def set_write_mode(self, mode):
         """
@@ -271,8 +274,10 @@ class DiagnosticCallback(ABC):
         """
         Evaluates callback and pushes values to log and hdf file (if enabled)
         """
-        values = self.__call__()
         time = self.solver_obj.simulation_time
+        if time < self.start_time or time > self.end_time:
+            return
+        values = self.__call__()
         if self.append_to_log:
             self.push_to_log(time, values)
         if self.append_to_hdf5:
@@ -604,7 +609,8 @@ class TimeSeriesCallback2D(DiagnosticCallback):
                  location_name, z=None,
                  outputdir=None, export_to_hdf5=True,
                  append_to_log=True,
-                 tolerance=1e-3, eval_func=None):
+                 tolerance=1e-3, eval_func=None,
+                 start_time=None, end_time=None):
         """
         :arg solver_obj: Thetis :class:`FlowSolver` object
         :arg fieldnames: List of fields to extract
@@ -618,6 +624,8 @@ class TimeSeriesCallback2D(DiagnosticCallback):
             format
         :kwarg bool append_to_log: If True, callback output messages will be
             printed in log
+        :kwarg start_time: Optional start time for timeseries extraction
+        :kwarg end_time: Optional end time for timeseries extraction
         """
         assert export_to_hdf5 is True
         self.fieldnames = fieldnames
@@ -639,7 +647,9 @@ class TimeSeriesCallback2D(DiagnosticCallback):
             array_dim=1,
             attrs=attrs,
             export_to_hdf5=export_to_hdf5,
-            append_to_log=append_to_log)
+            append_to_log=append_to_log,
+            start_time=start_time,
+            end_time=end_time)
         self.x = x
         self.y = y
         self.z = z
@@ -711,8 +721,8 @@ class TimeSeriesCallback3D(DiagnosticCallback):
     @PETSc.Log.EventDecorator("thetis.TimeSeriesCallback3D.__init__")
     def __init__(self, solver_obj, fieldnames, x, y, z,
                  location_name,
-                 outputdir=None, export_to_hdf5=True,
-                 append_to_log=True):
+                 outputdir=None, export_to_hdf5=True, append_to_log=True,
+                 start_time=None, end_time=None):
         """
         :arg solver_obj: Thetis :class:`FlowSolver` object
         :arg fieldnames: List of fields to extract
@@ -726,6 +736,8 @@ class TimeSeriesCallback3D(DiagnosticCallback):
             format
         :kwarg bool append_to_log: If True, callback output messages will be
             printed in log
+        :kwarg start_time: Optional start time for timeseries extraction
+        :kwarg end_time: Optional end time for timeseries extraction
         """
         assert export_to_hdf5 is True
         self.fieldnames = fieldnames
@@ -743,7 +755,9 @@ class TimeSeriesCallback3D(DiagnosticCallback):
             array_dim=1,
             attrs=attrs,
             export_to_hdf5=export_to_hdf5,
-            append_to_log=append_to_log)
+            append_to_log=append_to_log,
+            start_time=start_time,
+            end_time=end_time)
         self.x = x
         self.y = y
         self.z = z

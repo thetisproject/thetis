@@ -26,23 +26,25 @@ class OptimisationProgress(object):
     control_coeff_list = []
     control_list = []
 
-    def __init__(self, output_dir='outputs'):
+    def __init__(self, output_dir='outputs', no_exports=False):
         """
         :arg output_dir: model output directory
         """
         self.output_dir = output_dir
+        self.no_exports = no_exports
         self.outfiles_m = []
         self.outfiles_dJdm = []
         self.initialized = False
 
     def initialize(self):
-        create_directory(self.output_dir)
-        create_directory(self.output_dir + '/hdf5')
-        for i in range(len(self.control_coeff_list)):
-            self.outfiles_m.append(
-                fd.File(f'{self.output_dir}/control_progress_{i:02d}.pvd'))
-            self.outfiles_dJdm.append(
-                fd.File(f'{self.output_dir}/gradient_progress_{i:02d}.pvd'))
+        if not self.no_exports:
+            create_directory(self.output_dir)
+            create_directory(self.output_dir + '/hdf5')
+            for i in range(len(self.control_coeff_list)):
+                self.outfiles_m.append(
+                    fd.File(f'{self.output_dir}/control_progress_{i:02d}.pvd'))
+                self.outfiles_dJdm.append(
+                    fd.File(f'{self.output_dir}/gradient_progress_{i:02d}.pvd'))
         self.initialized = True
 
     def add_control(self, f):
@@ -106,29 +108,30 @@ class OptimisationProgress(object):
         self.J_progress.append(self.J)
         self.dJdm_progress.append(djdm)
         comm = self.control_coeff_list[0].comm
-        if comm.rank == 0:
+        if comm.rank == 0 and not self.no_exports:
             numpy.save(f'{self.output_dir}/J_progress', self.J_progress)
             numpy.save(f'{self.output_dir}/dJdm_progress', self.dJdm_progress)
         print_output(f'line search {self.i:2d}: '
                      f'J={self.J:.3e}, dJdm={djdm}, '
                      f'grad_ev={self.nb_grad_evals}, duration {elapsed}')
 
-        # control output
-        for j in range(len(self.control_coeff_list)):
-            m = self.m_list[j]
-            # vtk format
-            o = self.outfiles_m[j]
-            m.rename(self.control_coeff_list[j].name())
-            o.write(m)
-            # hdf5 format
-            h5_filename = f'{self.output_dir}/hdf5/control_{j:02d}_{self.i:04d}'
-            with fd.DumbCheckpoint(h5_filename, mode=fd.FILE_CREATE) as chk:
-                chk.store(m)
-        # gradient output
-        for f, o in zip(self.dJdm_list, self.outfiles_dJdm):
-            # store gradient in vtk format
-            f.rename('Gradient')
-            o.write(f)
+        if not self.no_exports:
+            # control output
+            for j in range(len(self.control_coeff_list)):
+                m = self.m_list[j]
+                # vtk format
+                o = self.outfiles_m[j]
+                m.rename(self.control_coeff_list[j].name())
+                o.write(m)
+                # hdf5 format
+                h5_filename = f'{self.output_dir}/hdf5/control_{j:02d}_{self.i:04d}'
+                with fd.DumbCheckpoint(h5_filename, mode=fd.FILE_CREATE) as chk:
+                    chk.store(m)
+            # gradient output
+            for f, o in zip(self.dJdm_list, self.outfiles_dJdm):
+                # store gradient in vtk format
+                f.rename('Gradient')
+                o.write(f)
 
         self.i += 1
         self.reset_counters()
@@ -169,7 +172,7 @@ class StationObservationManager:
         self.initialzed = False
 
     def register_observation_data(self, station_names, variable, time,
-                                  values, x, y):
+                                  values, x, y, start_times=None, end_times=None):
         """
         Add station time series data to the object.
 
@@ -182,13 +185,20 @@ class StationObservationManager:
         :arg list values: array of observations, one for each station
         :arg list x: list of station x coordinates
         :arg list y: list of station y coordinates
+        :kwarg list start_times: optional start times for the observation periods
+        :kwarg list end_times: optional end times for the observation periods
         """
         self.station_names = station_names
+        num_stations = len(station_names)
         self.variable = variable
         self.observation_time = time
         self.observation_values = values
         self.observation_x = x
         self.observation_y = y
+        start_times = start_times or -numpy.ones(num_stations)*numpy.inf
+        self.obs_start_times = numpy.array(start_times)
+        end_times = end_times or numpy.ones(num_stations)*numpy.inf
+        self.obs_end_times = numpy.array(end_times)
 
     def set_model_field(self, function):
         """
@@ -196,7 +206,8 @@ class StationObservationManager:
         """
         self.model_observation_field = function
 
-    def load_observation_data(self, observation_data_dir, station_names, variable):
+    def load_observation_data(self, observation_data_dir, station_names, variable,
+                              start_times=None, end_times=None):
         """
         Load observation data from disk.
 
@@ -226,9 +237,23 @@ class StationObservationManager:
         observation_x, observation_y = numpy.array(observation_coords).T
         self.register_observation_data(
             station_names, variable, observation_time,
-            observation_values, observation_x, observation_y
+            observation_values, observation_x, observation_y,
+            start_times=start_times, end_times=end_times,
         )
         self.construct_evaluator()
+
+    def update_stations_in_use(self, t):
+        """
+        Indicate which stations are in use at the current time.
+
+        An entry of unity indicates use, whereas zero indicates disuse.
+        """
+        in_use = fd.Function(self.fs_points_0d)
+        in_use.dat.data[:] = numpy.array(
+            numpy.bitwise_and(
+                self.obs_start_times <= t, t <= self.obs_end_times
+            ), dtype=float)
+        self.indicator_0d.assign(in_use)
 
     def construct_evaluator(self):
         """
@@ -240,6 +265,11 @@ class StationObservationManager:
         self.fs_points_0d = fd.FunctionSpace(mesh0d, 'DG', 0)
         self.obs_values_0d = fd.Function(self.fs_points_0d, name='observations')
         self.mod_values_0d = fd.Function(self.fs_points_0d, name='model values')
+        self.indicator_0d = fd.Function(self.fs_points_0d, name='station use indicator')
+        self.indicator_0d.assign(1.0)
+        interp_kw = {}
+        if numpy.isfinite(self.obs_start_times).any() or numpy.isfinite(self.obs_end_times).any():
+            interp_kw.update({'bounds_error': False, 'fill_value': 0.0})
 
         # Construct timeseries interpolator
         self.station_interpolators = []
@@ -262,7 +292,7 @@ class StationObservationManager:
                 f'{j} {i} {x} {x_mesh} {y} {y_mesh} {x-x_mesh} {y-y_mesh}'
             assert numpy.allclose([x, y], [x_mesh, y_mesh]), msg
             # create temporal interpolator
-            ip = interp1d(t, v)
+            ip = interp1d(t, v, **interp_kw)
             self.station_interpolators.append(ip)
 
         # expressions for cost function
@@ -276,6 +306,7 @@ class StationObservationManager:
         :arg t: model simulation time
         :returns: list of observation time series values at time `t`
         """
+        self.update_stations_in_use(t)
         return [float(ip(t)) for ip in self.station_interpolators]
 
     def eval_cost_function(self, t):
@@ -295,7 +326,7 @@ class StationObservationManager:
         # compute square error
         self.obs_values_0d.assign(obs_func)
         self.mod_values_0d.interpolate(self.model_observation_field, ad_block_tag='observation')
-        J_misfit = fd.assemble(self.J_scalar*self.misfit_expr**2*fd.dx)
+        J_misfit = fd.assemble(self.J_scalar*self.indicator_0d*self.misfit_expr**2*fd.dx)
         return J_misfit
 
     def dump_time_series(self):
