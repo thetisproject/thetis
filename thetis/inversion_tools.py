@@ -26,23 +26,25 @@ class OptimisationProgress(object):
     control_coeff_list = []
     control_list = []
 
-    def __init__(self, output_dir='outputs'):
+    def __init__(self, output_dir='outputs', no_exports=False):
         """
         :arg output_dir: model output directory
         """
         self.output_dir = output_dir
+        self.no_exports = no_exports
         self.outfiles_m = []
         self.outfiles_dJdm = []
         self.initialized = False
 
     def initialize(self):
-        create_directory(self.output_dir)
-        create_directory(self.output_dir + '/hdf5')
-        for i in range(len(self.control_coeff_list)):
-            self.outfiles_m.append(
-                fd.File(f'{self.output_dir}/control_progress_{i:02d}.pvd'))
-            self.outfiles_dJdm.append(
-                fd.File(f'{self.output_dir}/gradient_progress_{i:02d}.pvd'))
+        if not self.no_exports:
+            create_directory(self.output_dir)
+            create_directory(self.output_dir + '/hdf5')
+            for i in range(len(self.control_coeff_list)):
+                self.outfiles_m.append(
+                    fd.File(f'{self.output_dir}/control_progress_{i:02d}.pvd'))
+                self.outfiles_dJdm.append(
+                    fd.File(f'{self.output_dir}/gradient_progress_{i:02d}.pvd'))
         self.initialized = True
 
     def add_control(self, f):
@@ -106,29 +108,30 @@ class OptimisationProgress(object):
         self.J_progress.append(self.J)
         self.dJdm_progress.append(djdm)
         comm = self.control_coeff_list[0].comm
-        if comm.rank == 0:
+        if comm.rank == 0 and not self.no_exports:
             numpy.save(f'{self.output_dir}/J_progress', self.J_progress)
             numpy.save(f'{self.output_dir}/dJdm_progress', self.dJdm_progress)
         print_output(f'line search {self.i:2d}: '
                      f'J={self.J:.3e}, dJdm={djdm}, '
                      f'grad_ev={self.nb_grad_evals}, duration {elapsed}')
 
-        # control output
-        for j in range(len(self.control_coeff_list)):
-            m = self.m_list[j]
-            # vtk format
-            o = self.outfiles_m[j]
-            m.rename(self.control_coeff_list[j].name())
-            o.write(m)
-            # hdf5 format
-            h5_filename = f'{self.output_dir}/hdf5/control_{j:02d}_{self.i:04d}'
-            with fd.DumbCheckpoint(h5_filename, mode=fd.FILE_CREATE) as chk:
-                chk.store(m)
-        # gradient output
-        for f, o in zip(self.dJdm_list, self.outfiles_dJdm):
-            # store gradient in vtk format
-            f.rename('Gradient')
-            o.write(f)
+        if not self.no_exports:
+            # control output
+            for j in range(len(self.control_coeff_list)):
+                m = self.m_list[j]
+                # vtk format
+                o = self.outfiles_m[j]
+                m.rename(self.control_coeff_list[j].name())
+                o.write(m)
+                # hdf5 format
+                h5_filename = f'{self.output_dir}/hdf5/control_{j:02d}_{self.i:04d}'
+                with fd.DumbCheckpoint(h5_filename, mode=fd.FILE_CREATE) as chk:
+                    chk.store(m)
+            # gradient output
+            for f, o in zip(self.dJdm_list, self.outfiles_dJdm):
+                # store gradient in vtk format
+                f.rename('Gradient')
+                o.write(f)
 
         self.i += 1
         self.reset_counters()
