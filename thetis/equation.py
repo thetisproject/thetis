@@ -13,16 +13,17 @@ class Term(object):
     .. note::
         Sign convention: all terms are assumed to be on the right hand side of the equation: d(u)/dt = term.
     """
-    def __init__(self, function_space, test_function=None):
+    def __init__(self, function_space, test_function=None, trial_function=None):
         """
         :arg function_space: the :class:`FunctionSpace` the solution belongs to
         :kwarg test_function: custom :class:`TestFunction`.
+        :kwarg trial_function: custom :class:`TrialFunction`.
         """
         # define bunch of members needed to construct forms
         self.function_space = function_space
         self.mesh = self.function_space.mesh()
         self.test = test_function or TestFunction(self.function_space)
-        self.tri = TrialFunction(self.function_space)
+        self.tri = trial_function or TrialFunction(self.function_space)
         self.normal = FacetNormal(self.mesh)
         # TODO construct them here from mesh ?
         self.boundary_markers = sorted(function_space.mesh().exterior_facets.unique_markers)
