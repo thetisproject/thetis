@@ -104,15 +104,18 @@ class Equation(object):
         """
         return inner(solution, self.test) * dx
 
-    def add_term(self, term, label):
+    def add_term(self, term, label, suffix=None):
         """
         Adds a term in the equation
 
         :arg term: :class:`.Term` object to add_term
         :arg string label: Assign a label to the term. Valid labels are given by
             :attr:`.SUPPORTED_LABELS`.
+        :arg suffix: optional custom key suffix
         """
         key = term.__class__.__name__
+        if suffix is not None:
+            key = '_'.join([key, suffix])
         self.terms[key] = term
         self.label_term(key, label)
 
