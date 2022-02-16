@@ -1,18 +1,12 @@
 """
-Gray-Scott diffusion-reaction demo, taken from
-[Hundsdorf & Verwer 2003].
-
 This test case uses the same model as gray_scott.py.
 The only difference here is that the model is loaded
 from examples/reaction/reaction_models/gray-scott.yml
 rather than being specified within the Python script.
-
-[Hundsdorf & Vermer 2003] W. Hundsdorf & J.G. Verwer
-    (2003). "Numerical Solution of Time-Dependent
-    Advection-Diffusion-Reaction Equations", Springer.
 """
-import os
 from thetis import *
+import matplotlib.pyplot as plt
+import networkx as nx
 
 
 # Doubly periodic domain
@@ -26,6 +20,7 @@ bathymetry2d = Function(P1_2d).assign(1.0)
 # Setup solver object
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
 options = solver_obj.options
+options.output_directory = 'outputs_io'
 options.tracer_only = True
 options.tracer_element_family = 'cg'
 options.use_supg_tracer = False
@@ -60,10 +55,16 @@ solver_obj.assign_initial_conditions(a=tracer_a_init, b=tracer_b_init)
 
 solver_obj.create_timestepper()
 
-# Turn off exports and reduce time duration if regression testing
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    # Turn off exports and reduce time duration if regression testing
     options.no_exports = True
     sim_end_time = 500.0
+else:
+    # Plot the dependency graph
+    G = solver_obj.adr_model.dependency_graph
+    pos = nx.spring_layout(G)
+    nx.draw(G, pos, node_size=200, with_labels=True)
+    plt.savefig("dependency_graph.png", dpi=200, bbox_inches="tight")
 
 # Spin up timestep
 dt = 1.0e-04
