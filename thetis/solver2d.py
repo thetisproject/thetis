@@ -10,10 +10,10 @@ from . import coupled_timeintegrator_2d
 from . import tracer_eq_2d
 from . import sediment_eq_2d
 from . import exner_eq
+from . import reaction
 import weakref
 import time as time_mod
 from mpi4py import MPI
-import os
 from . import exporter
 from .field_defs import field_metadata
 from .options import ModelOptions2d
@@ -143,6 +143,7 @@ class FlowSolver2d(FrozenClass):
             field_metadata.pop('tracer_2d')
         self.solve_tracer = False
         self.keep_log = keep_log
+        self.adr_model = None
         self._field_preproc_funcs = {}
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.compute_time_step")
@@ -395,22 +396,23 @@ class FlowSolver2d(FrozenClass):
         :kwarg append_dimension: If `True`, the suffix `_2d` will be appended to the
             label of each species from the input file.
         """
-        if len(filename) < 5 or filename[:-4] != '.yml':
+        if not filename.endswith('.yml'):
             filename += '.yml'
         if input_directory is not None:
             filename = os.path.join(input_directory, filename)
         if not os.path.exists(filename):
             raise IOError(f"Tracer model .yml file {filename} does not exist.")
-        adr_model = read_tracer_from_yml(
-            filename, self.function_spaces.Q_2d, append_dimension=append_dimension)
-        for label in adr_model.keys():
-            name = adr_model[label]['function'].name() \
-                or label.capitalize().replace('_', ' ')
+        self.adr_model = reaction.read_tracer_from_yml(filename)
+        species = reaction.extract_species(self.adr_model,
+                                           self.function_spaces.Q_2d,
+                                           append_dimension=append_dimension)
+        for label, component in species.items():
+            name = component['function'].name() or label.capitalize().replace('_', ' ')
             fname = label.capitalize().replace('_', '')
             self.options.add_tracer_2d(label, name, fname,
-                                       function=adr_model[label]['function'],
-                                       source=adr_model[label]['reaction_terms'],
-                                       diffusivity=adr_model[label]['diffusivity'],
+                                       function=component['function'],
+                                       source=component['reaction_terms'],
+                                       diffusivity=component['diffusivity'],
                                        use_conservative_form=use_conservative_form)
 
     @unfrozen

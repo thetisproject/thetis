@@ -1,14 +1,20 @@
+"""
+Utilities for loading advection-diffusion-reaction configurations
+from dictionaries and YAML files.
+"""
+from .utility import OrderedDict
 import firedrake as fd
 import networkx as nx
 import sympy
-from sympy.parsing.sympy_parser import \
-    convert_xor, \
-    parse_expr, \
-    standard_transformations
+from sympy.parsing.sympy_parser import convert_xor, parse_expr, standard_transformations
 from sympy.utilities.lambdify import lambdify
+import yaml
 
 
-class ADR_Model:
+__all__ = ["ADR_Model", "read_tracer_from_yml", "extract_species"]
+
+
+class ADR_Model(object):
     """
     Data structure to store an ADR model specification.
 
@@ -29,8 +35,7 @@ class ADR_Model:
     """
 
     # convert_xor causes "x^2" to be parsed as "x**2"
-    transformations = (
-        standard_transformations + (convert_xor,))
+    transformations = standard_transformations + (convert_xor,)
 
     reserved_symbols = {
         "pi", "e",
@@ -97,12 +102,10 @@ class ADR_Model:
             self.constants[k] = float(v)
         for i, (k, v) in enumerate(model_dict["species"].items()):
             # Parse reaction and diffusion terms
-            reaction_term = parse_expr(
-                str(v["reaction"]),
-                transformations=ADR_Model.transformations)
-            diffusion_term = parse_expr(
-                str(v["diffusion"]),
-                transformations=ADR_Model.transformations)
+            assert isinstance(v["reaction"], str)
+            reaction_term = parse_expr(v["reaction"], transformations=self.transformations)
+            assert isinstance(v["diffusion"], str)
+            diffusion_term = parse_expr(v["diffusion"], transformations=self.transformations)
             # Check that all symbols in these terms are recognised
             self._check_all_symbols_recognised(reaction_term)
             self._check_all_symbols_recognised(diffusion_term)
@@ -178,26 +181,12 @@ class ADR_Model:
                     constant_value)
         return expression
 
-    def species_name(self, k):
-        return self.species[k]["name"]
-
-    def diffusion(self, k):
-        return self.species[k]["diffusion"]
-
-    def reaction_term(self, k):
-        return self.species[k]["reaction"]["expression"]
-
-    def reaction_args(self, k):
-        return self.species[k]["reaction"]["args"]
-
-    def reaction_function(self, k):
-        return self.species[k]["reaction"]["function"]
-
     def list_species_keys(self):
         return sorted(
             list(self.species_keys),
             key=lambda k: self.species[k]['index'])
 
+    @property
     def dependency_graph(self):
         """
         Creates a graph representing dependencies between species.
@@ -218,3 +207,94 @@ class ADR_Model:
                 if symbol_str in self.species_keys:
                     dependencies.add_edge(k, symbol_str)
         return dependencies
+
+
+def read_tracer_from_yml(filename, lambdify_modules=None):
+    r"""
+    Constructs and returns an :class:`ADR_Model` object from a YAML file.
+
+    The YAML file is essentially a dictionary, which defines species in
+    an ADR system. This must include the keys used to identify each species,
+    their full names, their diffusivities and their reaction terms. Any
+    hard-coded numeric values should be defined under
+    ``model_dict['constants']``, and the details of each species should be
+    defined under ``model_dict['species']``.
+
+    **Example**
+
+    .. code-block:: yaml
+
+        constants:
+          D1: 8.0e-5
+          D2: 4.0e-5
+          k1: 0.024
+          k2: 0.06
+
+        species:
+          a:
+            name: Tracer A
+            diffusion: D1
+            reaction: -a*b**2 + k1*(1-a)
+          b:
+            name: Tracer B
+            diffusion: D2
+            reaction: a*b^2 - (k1+k2)*b
+
+
+    :arg filename: Path to a YAML file containing constant values, tracer
+        diffusivities and reaction terms.
+    :kwarg lambdify_modules: A string or dictionary to be passed as the
+        `modules` parameter of `sympy.lambdify`.
+    """
+    model_dict = None
+    with open(filename, 'r') as f_in:
+        model_dict = yaml.safe_load(f_in)
+    return ADR_Model(model_dict, lambdify_modules=lambdify_modules)
+
+
+def extract_species(adr_model, function_space, key_order=None, append_dimension=False):
+    r"""
+    Extracts tracer species from an :class:`ADR_Model` instance and
+    constructs the appropriate :class:`Function` s and coefficients.
+
+    :arg adr_model: the :class:`ADR_Model` instance.
+    :arg function_space: The Firedrake :class:`FunctionSpace` in which the
+        :class:`Function` for each tracer will reside.
+    :kwarg key_order: List of species keys. If not `None`, this
+        determines the order in which species are added to the
+        :class:`OrderedDict` before it is returned.
+    :kwarg append_dimension: If `True`, a suffix will be appended to the
+        label of each species from `model_dict`. The form of the suffix is
+        `_Nd`, where `N` is the dimensionality of the spatial domain in
+        which `function_space` resides.
+    """
+    key_suffix = ""
+    if append_dimension:
+        key_suffix = f"_{function_space.mesh().topological_dimension()}d"
+
+    species = key_order
+    if species is None:
+        # Get tracer labels
+        species = adr_model.list_species_keys()
+
+    adr_dict = OrderedDict({s + key_suffix: {} for s in species})
+    # NOTE: the order they are added are the order we assume for now
+
+    # Create Functions and extract diffusion coefficients
+    for s in species:
+        adr_dict[s + key_suffix]["function"] = fd.Function(
+            function_space, name=adr_model.species[s]["name"])
+        adr_dict[s + key_suffix]["diffusivity"] = fd.Constant(
+            adr_model.species[s]["diffusion"])
+
+    # Reaction terms must be added in a separate loop, after all
+    # functions have been created.
+    for s in species:
+        f = adr_model.species[s]["reaction"]["function"]
+        args = [
+            adr_dict[s2 + key_suffix]["function"]
+            for s2 in adr_model.species[s]["reaction"]["args"]
+        ]
+        adr_dict[s + key_suffix]["reaction_terms"] = f(*args)
+
+    return adr_dict
