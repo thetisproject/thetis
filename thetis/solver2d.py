@@ -8,7 +8,6 @@ from . import rungekutta
 from . import implicitexplicit
 from . import coupled_timeintegrator_2d
 from . import tracer_eq_2d
-from . import conservative_tracer_eq_2d
 from . import sediment_eq_2d
 from . import exner_eq
 import weakref
@@ -396,11 +395,7 @@ class FlowSolver2d(FrozenClass):
             mode = "a" if self.keep_log else "w"
             set_log_directory(self.options.output_directory, mode=mode)
 
-        self.fields.solution_2d = Function(self.function_spaces.V_2d, name='solution_2d')
-        # correct treatment of the split 2d functions
-        uv_2d, elev_2d = self.fields.solution_2d.split()
-        self.fields.uv_2d = uv_2d
-        self.fields.elev_2d = elev_2d
+        # Add general fields
         self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
         get_horizontal_elem_size_2d(self.fields.h_elem_size_2d)
         self.set_wetting_and_drying_alpha()
@@ -408,6 +403,48 @@ class FlowSolver2d(FrozenClass):
                                      use_nonlinear_equations=self.options.use_nonlinear_equations,
                                      use_wetting_and_drying=self.options.use_wetting_and_drying,
                                      wetting_and_drying_alpha=self.options.wetting_and_drying_alpha)
+
+        # Add fields for shallow water modelling
+        self.fields.solution_2d = Function(self.function_spaces.V_2d, name='solution_2d')
+        uv_2d, elev_2d = self.fields.solution_2d.split()  # correct treatment of the split 2d functions
+        self.fields.uv_2d = uv_2d
+        self.fields.elev_2d = elev_2d
+
+        # Add tracer fields
+        self.solve_tracer = len(self.options.tracer_fields.keys()) > 0
+        for system, parent in self.options.tracer_fields.copy().items():
+            labels = system.split(',')
+            num_labels = len(labels)
+            if parent is None:
+                Q_2d = self.function_spaces.Q_2d
+                fs = Q_2d if num_labels == 1 else MixedFunctionSpace([Q_2d]*len(labels))
+                parent = Function(fs)
+            if num_labels > 1:
+                self.fields[system] = parent
+            self.options.tracer_fields[system] = parent
+            children = [parent] if num_labels == 1 else parent.split()
+            for label, function in zip(labels, children):
+                tracer = self.options.tracer[label]
+                function.rename(label)
+                self.add_new_field(function,
+                                   label,
+                                   tracer.metadata['name'],
+                                   tracer.metadata['filename'],
+                                   shortname=tracer.metadata['shortname'],
+                                   unit=tracer.metadata['unit'])
+
+        # Add suspended sediment field
+        if self.options.sediment_model_options.solve_suspended_sediment:
+            self.fields.sediment_2d = Function(self.function_spaces.Q_2d, name='sediment_2d')
+
+        # Add fields for non-hydrostatic mode
+        if self.options.nh_model_options.solve_nonhydrostatic_pressure:
+            q_degree = self.options.polynomial_degree
+            if self.options.nh_model_options.q_degree is not None:
+                q_degree = self.options.nh_model_options.q_degree
+            fs_q = get_functionspace(self.mesh2d, 'CG', q_degree)
+            self.fields.q_2d = Function(fs_q, name='q_2d')  # 2D non-hydrostatic pressure at bottom
+            self.fields.w_2d = Function(self.function_spaces.H_2d, name='w_2d')  # depth-averaged vertical velocity
 
     @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_equations")
@@ -417,8 +454,9 @@ class FlowSolver2d(FrozenClass):
         """
         if not hasattr(self.fields, 'uv_2d'):
             self.create_fields()
-
         self.equations = AttrDict()
+
+        # Shallow water equations for hydrodynamic modelling
         self.equations.sw = shallowwater_eq.ShallowWaterEquations(
             self.fields.solution_2d.function_space(),
             self.depth,
@@ -426,41 +464,29 @@ class FlowSolver2d(FrozenClass):
         )
         self.equations.sw.bnd_functions = self.bnd_functions['shallow_water']
         uv_2d, elev_2d = self.fields.solution_2d.split()
-        for label, tracer in self.options.tracer.items():
-            self.add_new_field(tracer.function or Function(self.function_spaces.Q_2d, name=label),
-                               label,
-                               tracer.metadata['name'],
-                               tracer.metadata['filename'],
-                               shortname=tracer.metadata['shortname'],
-                               unit=tracer.metadata['unit'])
-            if tracer.use_conservative_form:
-                self.equations[label] = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
-                    self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
-            else:
-                self.equations[label] = tracer_eq_2d.TracerEquation2D(
-                    self.function_spaces.Q_2d, self.depth, self.options, uv_2d)
-        self.solve_tracer = self.options.tracer != {}
-        if self.solve_tracer:
-            if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
-                self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
-            else:
-                self.tracer_limiter = None
 
+        # Passive tracer equations
+        for system, parent in self.options.tracer_fields.items():
+            self.equations[system] = tracer_eq_2d.TracerEquation2D(
+                system,
+                parent.function_space(),
+                self.depth,
+                self.options,
+                uv_2d,
+            )
+
+        # Equation for suspended sediment transport
         sediment_options = self.options.sediment_model_options
         if sediment_options.solve_suspended_sediment or sediment_options.solve_exner:
             sediment_model_class = self.options.sediment_model_options.sediment_model_class
             self.sediment_model = sediment_model_class(
                 self.options, self.mesh2d, uv_2d, elev_2d, self.depth)
         if sediment_options.solve_suspended_sediment:
-            self.fields.sediment_2d = Function(self.function_spaces.Q_2d, name='sediment_2d')
             self.equations.sediment = sediment_eq_2d.SedimentEquation2D(
                 self.function_spaces.Q_2d, self.depth, self.options, self.sediment_model,
                 conservative=sediment_options.use_sediment_conservative_form)
-            if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
-                self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
-            else:
-                self.tracer_limiter = None
 
+        # Exner equation for bedload transport
         if sediment_options.solve_exner:
             if element_continuity(self.fields.bathymetry_2d.function_space().ufl_element()).horizontal in ['cg']:
                 self.equations.exner = exner_eq.ExnerEquation(
@@ -469,19 +495,20 @@ class FlowSolver2d(FrozenClass):
             else:
                 raise NotImplementedError("Exner equation can currently only be implemented if the bathymetry is defined on a continuous space")
 
+        # Free surface equation for non-hydrostatic pressure
         if self.options.nh_model_options.solve_nonhydrostatic_pressure:
             print_output('Using non-hydrostatic pressure')
-            q_degree = self.options.polynomial_degree
-            if self.options.nh_model_options.q_degree is not None:
-                q_degree = self.options.nh_model_options.q_degree
-            fs_q = get_functionspace(self.mesh2d, 'CG', q_degree)
-            self.fields.q_2d = Function(fs_q, name='q_2d')  # 2D non-hydrostatic pressure at bottom
-            self.fields.w_2d = Function(self.function_spaces.H_2d, name='w_2d')  # depth-averaged vertical velocity
-            # free surface equation
             self.equations.fs = shallowwater_eq.FreeSurfaceEquation(
                 TestFunction(self.function_spaces.H_2d), self.function_spaces.H_2d, self.function_spaces.U_2d,
                 self.depth, self.options)
             self.equations.fs.bnd_functions = self.bnd_functions['shallow_water']
+
+        # Setup slope limiters
+        if self.solve_tracer or sediment_options.solve_suspended_sediment:
+            if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
+                self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
+            else:
+                self.tracer_limiter = None
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.get_swe_timestepper")
     def get_swe_timestepper(self, integrator):
@@ -517,7 +544,7 @@ class FlowSolver2d(FrozenClass):
                               self.options.swe_timestepper_options, bnd_conditions)
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.get_tracer_timestepper")
-    def get_tracer_timestepper(self, integrator, label):
+    def get_tracer_timestepper(self, integrator, system):
         """
         Gets tracer timestepper object with appropriate parameters
         """
@@ -525,18 +552,20 @@ class FlowSolver2d(FrozenClass):
         fields = {
             'elev_2d': elev,
             'uv_2d': uv,
-            'diffusivity_h': self.options.tracer[label].diffusivity,
-            'source': self.options.tracer[label].source,
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }
+        for label in system.split(','):
+            fields[f'diffusivity_h-{label}'] = self.options.tracer[label].diffusivity
+            fields[f'source-{label}'] = self.options.tracer[label].source
         bcs = {}
-        if label in self.bnd_functions:
-            bcs = self.bnd_functions[label]
-        elif label[:-3] in self.bnd_functions:
-            bcs = self.bnd_functions[label[:-3]]
-        # TODO: Different timestepper options for different tracers
-        return integrator(self.equations[label], self.fields[label], fields, self.dt,
+        if system in self.bnd_functions:
+            bcs = self.bnd_functions[system]
+        elif system[:-3] in self.bnd_functions:
+            # TODO: Is this safe for monolithic systems?
+            bcs = self.bnd_functions[system[:-3]]
+        # TODO: Different timestepper options for different systems
+        return integrator(self.equations[system], self.fields[system], fields, self.dt,
                           self.options.tracer_timestepper_options, bcs)
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.get_sediment_timestepper")
@@ -548,7 +577,7 @@ class FlowSolver2d(FrozenClass):
         fields = {
             'elev_2d': elev,
             'uv_2d': uv,
-            'diffusivity_h': self.options.sediment_model_options.horizontal_diffusivity,
+            'diffusivity_h-sediment_2d': self.options.sediment_model_options.horizontal_diffusivity,
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.sediment_model.get_advective_velocity_correction_factor(),
         }
