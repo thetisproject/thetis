@@ -48,7 +48,7 @@ for fpath in fpaths:
             time = h5file["time"][:].flatten() / 60.0
             vals = h5file["elev"][:].flatten()
         if len(vals) > 0:
-            vals -= vals[0]
+            vals -= vals[time >= time_obs[0]][0]
             ax.plot(time, vals, "r:", zorder=3, label="Initial guess", lw=1.5)
 
         ax.set_xlim([time_obs[0], time_obs[-1]])
