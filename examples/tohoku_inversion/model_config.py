@@ -109,9 +109,9 @@ def interpolate_bathymetry(bathymetry_2d, cap=30.0):
     # Interpolate at mesh vertices
     trans = pyproj.Transformer.from_crs(UTM_ZONE54.srs, LL.srs)
     interp = si.RectBivariateSpline(lat, lon, elev)
-    for i, xy in enumerate(mesh.coordinates.dat.data_ro_with_halos):
+    for i, xy in enumerate(mesh.coordinates.dat.data_ro):
         lon, lat = trans.transform(*xy)
-        bathymetry_2d.dat.data_with_halos[i] -= min(interp(lat, lon), -30)
+        bathymetry_2d.dat.data[i] -= min(interp(lat, lon), -30)
 
 
 def construct_solver(store_station_time_series=True, **model_options):
