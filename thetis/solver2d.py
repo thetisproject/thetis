@@ -11,6 +11,7 @@ from . import tracer_eq_2d
 from . import conservative_tracer_eq_2d
 from . import sediment_eq_2d
 from . import exner_eq
+from . import reaction
 import weakref
 import time as time_mod
 from mpi4py import MPI
@@ -141,6 +142,7 @@ class FlowSolver2d(FrozenClass):
         if 'tracer_2d' in field_metadata:
             field_metadata.pop('tracer_2d')
         self.solve_tracer = False
+        self.adr_model = None
         self._field_preproc_funcs = {}
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.compute_time_step")
@@ -380,6 +382,37 @@ class FlowSolver2d(FrozenClass):
         self.fields[label] = function
         if preproc_func is not None:
             self._field_preproc_funcs[label] = preproc_func
+
+    def load_tracers_2d(self, filename, input_directory=None,
+                        use_conservative_form=False, append_dimension=False):
+        """
+        Add 2D tracer fields to :attr:`tracer` based on
+        a .yml file encapsulating a tracer model.
+
+        :arg filename: the .yml file
+        :kwarg input_directory: file path to the .yml file
+        :kwarg use_conservative_form: should the tracer equation be solved in conservative form?
+        :kwarg append_dimension: If `True`, the suffix `_2d` will be appended to the
+            label of each species from the input file.
+        """
+        if not filename.endswith('.yml'):
+            filename += '.yml'
+        if input_directory is not None:
+            filename = os.path.join(input_directory, filename)
+        if not os.path.exists(filename):
+            raise IOError(f"Tracer model .yml file {filename} does not exist.")
+        self.adr_model = reaction.read_tracer_from_yml(filename)
+        species = reaction.extract_species(self.adr_model,
+                                           self.function_spaces.Q_2d,
+                                           append_dimension=append_dimension)
+        for label, component in species.items():
+            name = component['function'].name() or label.capitalize().replace('_', ' ')
+            fname = label.capitalize().replace('_', '')
+            self.options.add_tracer_2d(label, name, fname,
+                                       function=component['function'],
+                                       source=component['reaction_terms'],
+                                       diffusivity=component['diffusivity'],
+                                       use_conservative_form=use_conservative_form)
 
     @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_equations")

@@ -3,3 +3,6 @@ netCDF4
 pyproj
 uptide
 pytz
+networkx
+pyyaml
+sympy
