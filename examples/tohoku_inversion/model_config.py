@@ -1,11 +1,12 @@
 from thetis import *
 import netCDF4
+import numpy
 import os
 import pyproj
 import scipy.interpolate as si
 
 
-__all__ = ["stations", "initial_condition", "mask", "construct_solver"]
+__all__ = ["stations", "rect_gaussian", "initial_condition", "construct_solver"]
 
 
 stations = {
@@ -31,34 +32,132 @@ UTM_ZONE54 = pyproj.Proj(proj="utm", zone=54, datum="WGS84", units="m", errcheck
 LL = pyproj.Proj(proj="latlong", errcheck=True)
 
 
-def initial_condition(mesh2d, source_model="CG1"):
+def rect_gaussian(coords, extents):
+    """
+    UFL expression for a rectangular Gaussian.
+
+    :args coords: spatial coordinates
+    :args extents: extents in the coordinate directions
+    """
+    assert len(coords) == len(extents)
+    return exp(-(sum([(x / w) ** 2 for (x, w) in zip(coords, extents)])))
+
+
+def box(coords, extents):
+    """
+    UFL expression for a rectangular indicator.
+
+    :args coords: spatial coordinates
+    :args extents: extents in the coordinate directions
+    """
+    x, w = coords[0], extents[0]
+    expr = And(x > -w / 2, x < w / 2)
+    for x, w in zip(list(coords)[1:], list(extents)[1:]):
+        expr = And(expr, And(x > -w / 2, x < w / 2))
+    return conditional(expr, 1, 0)
+
+
+def basis_function(source_model, *args):
+    """
+    Get a UFL expression for a given source model.
+
+    :arg source_model: choose from 'radial', 'box'
+    :args coords: spatial coordinates
+    :args extents: extents in the coordinate directions
+    """
+    try:
+        return {"radial": rect_gaussian, "box": box}[source_model](
+            *args
+        )
+    except KeyError:
+        raise ValueError(f"Source model '{source_model}' not supported.")
+
+
+def initial_condition(mesh2d, source_model="CG1", initial_guess=None, **mask_kw):
     """
     Construct an initial condition :class:`Function` for the chosen
     source model.
 
     Choices:
-      - 'CGp': Piece-wise polynomial (order p) and continuous.
-      - 'DGp': Piece-wise polynomial (order p) and discontinuous.
+
+      - 'CGp':    Piece-wise polynomial (order p) and continuous.
+
+      - 'DGp':    Piece-wise polynomial (order p) and discontinuous.
+
+      - 'radial': Rectangular array of radial basis functions,
+                  represented in P1 space.
+
+      - 'box':    Rectangular array of piece-wise constant functions,
+                  represented in P1 space.
 
     :arg mesh2d: the underlying mesh
     :kwarg source_model: method for approximating the tsunami source
+    :kwarg initial_guess: list of :class:`Function` s for setting the
+        initial condition
+    :kwarg mask_kw: kwargs for the mask function
     """
-    x, y = SpatialCoordinate(mesh2d)
+    xy = SpatialCoordinate(mesh2d)
     x0, y0 = 700.0e03, 4200.0e03
-    X = as_vector([x - x0, y - y0])
-    w, l = 2 * 56.0e03, 2 * 24.0e03
-    h = 8.0
+    xy0 = Constant(as_vector([x0, y0]))
+    X = xy - xy0
     theta = 7 * pi / 12
     R = as_matrix([[cos(theta), -sin(theta)], [sin(theta), cos(theta)]])
-    xx, yy = dot(R, X)
+
     if source_model[:2] in ("CG", "DG"):
+        coord = dot(R, X)
         family = source_model[:2]
         degree = int(source_model[2:])
-        elev_init = Function(get_functionspace(mesh2d, family, degree))
-        elev_init.interpolate(h * exp(-((xx / w) ** 2 + (yy / l) ** 2)))
+        Pk = get_functionspace(mesh2d, family, degree)
+        elev_init = Function(Pk, name="Elevation")
+        mask2d = mask(mesh2d, **mask_kw)
+
+        # Setup controls
+        if initial_guess is None:
+            controls = [Function(Pk, name="Elevation")]
+            eps = 1.0e-03  # Small non-zero default
+            controls[0].interpolate(eps * mask2d)
+        else:
+            controls = initial_guess
+            assert len(controls) == 1
+            elev_init.assign(controls[0])
+
+        # Apply mask
+        elev_init.project(mask2d * controls[0])
     else:
-        raise ValueError(f"Source model '{source_model}' not supported.")
-    return elev_init
+        nx, ny = 13, 10
+        nb = nx * ny
+        P1 = get_functionspace(mesh2d, "CG", 1)
+        elev_init = Function(P1, name="Elevation")
+        basis_functions = [Function(P1, name=f"basis function {i}") for i in range(nb)]
+
+        # Setup controls
+        R0 = get_functionspace(mesh2d, "R", 0)
+        controls = [Function(R0, name=f"control {i}") for i in range(nb)]
+        if initial_guess is None:
+            eps = 1.0e-03  # Small non-zero default
+            for c in controls:
+                c.assign(eps)
+        else:
+            assert len(initial_guess) == len(controls)
+            for cin, cout in zip(initial_guess, controls):
+                cout.assign(cin)
+
+        # Interpolate basis functions
+        xyij = Constant(as_vector([0, 0]))
+        dx, dy = 560.0e03, 240.0e03
+        extent = w, l = 48.0e03, 24.0e03
+        X = numpy.linspace(-0.5 * dx, 0.5 * dx, nx)
+        Y = numpy.linspace(-0.5 * dy, 0.5 * dy, ny)
+        for j, y in enumerate(Y):
+            for i, x in enumerate(X):
+                phi = basis_functions[i + j * nx]
+                xyij.assign(numpy.array([x, y]))
+                coord = dot(R, xy - (xy0 + dot(transpose(R), xyij)))
+                phi.interpolate(basis_function(source_model, coord, extent))
+
+        # Interpolate initial condition
+        elev_init.interpolate(sum(c * bf for (c, bf) in zip(controls, basis_functions)))
+    return elev_init, controls
 
 
 def mask(mesh2d, shape="rectangle"):
@@ -67,23 +166,24 @@ def mask(mesh2d, shape="rectangle"):
     to only be non-zero within a particular region.
 
     :arg mesh2d: mesh defining the coordinate field
-    :kwarg shape: choose from 'rectangle' and 'circle'
+    :kwarg shape: choose from None, 'rectangle' and 'circle'
     """
+    if shape is None:
+        return Constant(1.0)
     x, y = SpatialCoordinate(mesh2d)
     x0, y0 = 700.0e03, 4200.0e03  # Earthquake epicentre in UTM coordinates
     X = as_vector([x - x0, y - y0])
-    P0_2d = get_functionspace(mesh2d, "DG", 0)
     if shape == "rectangle":
         w, l = 560.0e03, 240.0e03  # Width and length of rectangular region
         theta = 7 * pi / 12  # Angle of rotation
         R = as_matrix([[cos(theta), -sin(theta)], [sin(theta), cos(theta)]])
         xx, yy = dot(R, X)
         cond = And(And(xx > -w / 2, xx < w / 2), And(yy > -l / 2, yy < l / 2))
-        return interpolate(conditional(cond, 1, 0), P0_2d)
+        return conditional(cond, 1, 0)
     elif shape == "circle":
         r = 200.0e03
         xx, yy = X
-        return interpolate(conditional(xx**2 + yy**2 < r**2, 1, 0), P0_2d)
+        return conditional(xx**2 + yy**2 < r**2, 1, 0)
     else:
         raise ValueError(f"Mask shape '{shape}' not supported.")
 
@@ -125,8 +225,8 @@ def construct_solver(store_station_time_series=True, **model_options):
     u_mag = Constant(5.0)
     t_export = 60.0
     dt = 60.0
-    if os.getenv('THETIS_REGRESSION_TEST') is not None:
-        t_end = 5*t_export
+    if os.getenv("THETIS_REGRESSION_TEST") is not None:
+        t_end = 5 * t_export
 
     # Bathymetry
     P1_2d = get_functionspace(mesh2d, "CG", 1)

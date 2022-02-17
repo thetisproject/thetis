@@ -1,6 +1,6 @@
 all: invert plot
 
-MODELS	= DG0 CG1
+MODELS	= DG0 CG1 radial box
 
 invert:
 	for model in $(MODELS); do \
