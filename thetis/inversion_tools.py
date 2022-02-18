@@ -121,6 +121,10 @@ class OptimisationProgress(object):
                 numpy.save(f'{self.output_dir}/m_progress', self.m_progress)
             numpy.save(f'{self.output_dir}/J_progress', self.J_progress)
             numpy.save(f'{self.output_dir}/dJdm_progress', self.dJdm_progress)
+        if len(djdm) > 10:
+            djdm = f"[{numpy.min(djdm):.4e} .. {numpy.max(djdm):.4e}]"
+        else:
+            djdm = "[" + ", ".join([f"{dj:.4e}" for dj in djdm]) + "]"
         print_output(f'line search {self.i:2d}: '
                      f'J={self.J:.3e}, dJdm={djdm}, '
                      f'grad_ev={self.nb_grad_evals}, duration {elapsed}')
