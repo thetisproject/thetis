@@ -198,7 +198,7 @@ class StationObservationManager:
         # model time when cost function was evaluated
         self.simulation_time = []
         self.model_observation_field = None
-        self.initialzed = False
+        self.initialized = False
 
     def register_observation_data(self, station_names, variable, time,
                                   values, x, y, start_times=None, end_times=None):
@@ -342,7 +342,7 @@ class StationObservationManager:
 
         # expressions for cost function
         self.misfit_expr = self.obs_values_0d - self.mod_values_0d
-        self.initialzed = True
+        self.initialized = True
 
     def eval_observation_at_time(self, t):
         """
@@ -360,7 +360,7 @@ class StationObservationManager:
 
         Should be called at every export of the forward model.
         """
-        assert self.initialzed, 'Not initialized, call construct_evaluator first.'
+        assert self.initialized, 'Not initialized, call construct_evaluator first.'
         assert self.model_observation_field is not None, 'Model field not set.'
         self.simulation_time.append(t)
         # evaluate observations at simulation time and stash the result
