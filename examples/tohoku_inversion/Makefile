@@ -9,6 +9,7 @@ invert:
 
 plot:
 	python3 plot_elevation_progress.py
+	python3 plot_elevation_optimised.py
 	python3 plot_convergence.py
 
 clean:
