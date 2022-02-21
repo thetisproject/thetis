@@ -97,31 +97,14 @@ stationmanager.set_model_field(solver_obj.fields.elev_2d)
 reg_manager = inversion_tools.ControlRegularizationManager(
     op.control_coeff_list, gamma_hessian_list, J_scalar=J_scalar)
 
-
-def cost_function():
-    """
-    Compute square misfit between data and observations.
-    """
-    t = solver_obj.simulation_time
-
-    J_misfit = stationmanager.eval_cost_function(t)
-    op.J += J_misfit
-
-
-def gradient_eval_callback(j, djdm, m):
-    """
-    Stash optimisation state.
-    """
-    op.set_control_state(j, djdm, m)
-    op.nb_grad_evals += 1
-
-
-# compute regularization term
-op.J = reg_manager.eval_cost_function()
+# Extract the regularized cost function
+cost_function = inversion_tools.get_cost_function(
+    solver_obj, op, stationmanager, reg_manager=reg_manager,
+)
 
 # Solve and setup reduced functional
 solver_obj.iterate(export_func=cost_function)
-Jhat = ReducedFunctional(op.J, op.control_list, derivative_cb_post=gradient_eval_callback)
+Jhat = ReducedFunctional(op.J, op.control_list, **op.rf_kwargs)
 stop_annotating()
 
 # Consistency test
