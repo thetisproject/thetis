@@ -136,6 +136,21 @@ class OptimisationProgress(object):
         self.i += 1
         self.reset_counters()
 
+    @property
+    def rf_kwargs(self):
+        """
+        Default keyword arguments to pass to the
+        :class:`ReducedFunctional` class.
+        """
+        def gradient_eval_cb(j, djdm, m):
+            self.set_control_state(j, djdm, m)
+            self.nb_grad_evals += 1
+
+        params = {
+            'derivative_cb_post': gradient_eval_cb,
+        }
+        return params
+
 
 class StationObservationManager:
     """
