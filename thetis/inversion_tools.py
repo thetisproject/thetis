@@ -179,7 +179,7 @@ class StationObservationManager:
         The `x`, and `y` coordinates must be such that
         they allow extraction of model data at the same coordinates.
 
-        :arg station_names: list of station names
+        :arg list station_names: list of station names
         :arg str variable: canonical variable name, e.g. 'elev'
         :arg list time: array of time stamps, one for each station
         :arg list values: array of observations, one for each station
@@ -189,16 +189,14 @@ class StationObservationManager:
         :kwarg list end_times: optional end times for the observation periods
         """
         self.station_names = station_names
-        num_stations = len(station_names)
         self.variable = variable
         self.observation_time = time
         self.observation_values = values
         self.observation_x = x
         self.observation_y = y
-        start_times = start_times or -numpy.ones(num_stations)*numpy.inf
-        self.obs_start_times = numpy.array(start_times)
-        end_times = end_times or numpy.ones(num_stations)*numpy.inf
-        self.obs_end_times = numpy.array(end_times)
+        num_stations = len(station_names)
+        self._start_times = start_times or -numpy.ones(num_stations)*numpy.inf
+        self._end_times = end_times or numpy.ones(num_stations)*numpy.inf
 
     def set_model_field(self, function):
         """
@@ -214,6 +212,12 @@ class StationObservationManager:
         Assumes that observation data were stored with
         `TimeSeriesCallback2D` during the forward run. For generic case, use
         `register_observation_data` instead.
+
+        :arg str observation_data_dir: directory where observation data is stored
+        :arg list station_names: list of station names
+        :arg str variable: canonical variable name, e.g. 'elev'
+        :kwarg list start_times: optional start times for the observation periods
+        :kwarg list end_times: optional end times for the observation periods
         """
         file_list = [
             f'{observation_data_dir}/'
@@ -248,6 +252,8 @@ class StationObservationManager:
 
         An entry of unity indicates use, whereas zero indicates disuse.
         """
+        if not hasattr(self, 'obs_start_times'):
+            self.construct_evaluator()
         in_use = fd.Function(self.fs_points_0d)
         in_use.dat.data[:] = numpy.array(
             numpy.bitwise_and(
@@ -268,7 +274,7 @@ class StationObservationManager:
         self.indicator_0d = fd.Function(self.fs_points_0d, name='station use indicator')
         self.indicator_0d.assign(1.0)
         interp_kw = {}
-        if numpy.isfinite(self.obs_start_times).any() or numpy.isfinite(self.obs_end_times).any():
+        if numpy.isfinite(self._start_times).any() or numpy.isfinite(self._end_times).any():
             interp_kw.update({'bounds_error': False, 'fill_value': 0.0})
 
         # Construct timeseries interpolator
@@ -294,6 +300,14 @@ class StationObservationManager:
             # create temporal interpolator
             ip = interp1d(t, v, **interp_kw)
             self.station_interpolators.append(ip)
+
+        # Process start and end times for observations
+        self.obs_start_times = numpy.array([
+            self._start_times[i] for i in self.local_station_index
+        ])
+        self.obs_end_times = numpy.array([
+            self._end_times[i] for i in self.local_station_index
+        ])
 
         # expressions for cost function
         self.misfit_expr = self.obs_values_0d - self.mod_values_0d
