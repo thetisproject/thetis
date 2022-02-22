@@ -42,6 +42,7 @@ exclude_files = [
     'tohoku_inversion/plot_convergence.py',
     'tohoku_inversion/plot_elevation_initial_guess.py',
     'tohoku_inversion/plot_elevation_progress.py',
+    'tohoku_inversion/plot_optimised_source.py',
 ]
 
 cwd = os.path.abspath(os.path.dirname(__file__))

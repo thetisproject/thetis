@@ -52,6 +52,7 @@ else:
 op = inversion_tools.OptimisationProgress(
     options.output_directory,
     real=source_model[:2] not in ("CG", "DG"),
+    no_exports=options.no_exports,
 )
 for c in controls:
     op.add_control(c)
