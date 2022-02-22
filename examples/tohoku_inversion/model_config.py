@@ -211,7 +211,7 @@ def interpolate_bathymetry(bathymetry_2d, cap=30.0):
     interp = si.RectBivariateSpline(lat, lon, elev)
     for i, xy in enumerate(mesh.coordinates.dat.data_ro):
         lon, lat = trans.transform(*xy)
-        bathymetry_2d.dat.data[i] -= min(interp(lat, lon), -30)
+        bathymetry_2d.dat.data[i] -= min(interp(lat, lon), -cap)
 
 
 def construct_solver(store_station_time_series=True, **model_options):
