@@ -18,16 +18,20 @@ parser.add_argument("--maxiter", type=int, default=40)
 parser.add_argument("--ftol", type=float, default=1.0e-05)
 parser.add_argument("--no-consistency-test", action="store_true")
 parser.add_argument("--no-taylor-test", action="store_true")
+parser.add_argument("--suffix", type=str, default=None)
 args = parser.parse_args()
 source_model = args.source_model
 do_consistency_test = not args.no_consistency_test
 do_taylor_test = not args.no_taylor_test
-
+suffix = args.suffix
 
 # Setup PDE
 pwd = os.path.abspath(os.path.dirname(__file__))
+output_dir = f"{pwd}/outputs_elev-init-optimization_{source_model}"
+if suffix is not None:
+    output_dir = "_".join([output_dir, suffix])
 solver_obj = construct_solver(
-    output_directory=f"{pwd}/outputs_elev-init-optimization_{source_model}",
+    output_directory=output_dir,
     store_station_time_series=False,
     no_exports=os.getenv("THETIS_REGRESSION_TEST") is not None,
 )
