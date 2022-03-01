@@ -1,5 +1,6 @@
 import firedrake as fd
 from firedrake_adjoint import *
+from .solver2d import FlowSolver2d
 from .utility import create_directory, print_function_value_range
 from .utility import get_functionspace
 from .log import print_output
@@ -135,6 +136,21 @@ class OptimisationProgress(object):
 
         self.i += 1
         self.reset_counters()
+
+    @property
+    def rf_kwargs(self):
+        """
+        Default keyword arguments to pass to the
+        :class:`ReducedFunctional` class.
+        """
+        def gradient_eval_cb(j, djdm, m):
+            self.set_control_state(j, djdm, m)
+            self.nb_grad_evals += 1
+
+        params = {
+            'derivative_cb_post': gradient_eval_cb,
+        }
+        return params
 
 
 class StationObservationManager:
@@ -273,6 +289,8 @@ class StationObservationManager:
         self.mod_values_0d = fd.Function(self.fs_points_0d, name='model values')
         self.indicator_0d = fd.Function(self.fs_points_0d, name='station use indicator')
         self.indicator_0d.assign(1.0)
+        self.station_weight_0d = fd.Function(self.fs_points_0d, name='station-wise weighting')
+        self.station_weight_0d.assign(1.0)
         interp_kw = {}
         if numpy.isfinite(self._start_times).any() or numpy.isfinite(self._end_times).any():
             interp_kw.update({'bounds_error': False, 'fill_value': 0.0})
@@ -340,7 +358,7 @@ class StationObservationManager:
         # compute square error
         self.obs_values_0d.assign(obs_func)
         self.mod_values_0d.interpolate(self.model_observation_field, ad_block_tag='observation')
-        J_misfit = fd.assemble(self.J_scalar*self.indicator_0d*self.misfit_expr**2*fd.dx)
+        J_misfit = fd.assemble(self.J_scalar*self.indicator_0d*self.station_weight_0d*self.misfit_expr**2*fd.dx)
         return J_misfit
 
     def dump_time_series(self):
@@ -452,3 +470,52 @@ class ControlRegularizationManager:
                 u *= float(self.J_scalar)
             v += u
         return v
+
+
+def get_cost_function(solver_obj, op, stationmanager,
+                      reg_manager=None, weight_by_variance=False):
+    r"""
+    Get a sum of square errors cost function for the problem:
+
+  ..math::
+        J(u) = \sum_{i=1}^{n_{ts}} \sum_{j=1}^{n_{sta}} (u_j^{(i)} - u_{j,o}^{(i)})^2,
+
+    where :math:`u_{j,o}^{(i)}` and :math:`u_j^{(i)}` denote the
+    observed and computed values at timestep :math:`i`, and
+    :math:`n_{ts}` and :math:`n_{sta}` are the numbers of timesteps
+    and stations, respectively.
+
+    Regularization terms are included if a
+    :class:`RegularizationManager` instance is provided.
+
+    Note that the current value of the cost function is
+    stashed on the :class:`OptimisationProgress` object.
+
+    :arg solver_obj: the :class:`FlowSolver2d` instance
+    :arg op: the :class:`OptimisationProgress` instance
+    :arg stationmanager: the :class:`StationManager` instance
+    :kwarg reg_manager: the :class:`RegularizationManager` instance
+    :kwarg weight_by_variance: should the observation data be
+        weighted by the variance at each station?
+    """
+    assert isinstance(solver_obj, FlowSolver2d)
+    assert isinstance(op, OptimisationProgress)
+    assert isinstance(stationmanager, StationObservationManager)
+    if reg_manager is None:
+        op.J = 0
+    else:
+        assert isinstance(reg_manager, ControlRegularizationManager)
+        op.J = reg_manager.eval_cost_function()
+
+    if weight_by_variance:
+        var = fd.Function(stationmanager.fs_points_0d)
+        for i, j in enumerate(stationmanager.local_station_index):
+            var.dat.data[i] = numpy.var(stationmanager.observation_values[j])
+        stationmanager.station_weight_0d.assign(1/var)
+
+    def cost_fn():
+        t = solver_obj.simulation_time
+        J_misfit = stationmanager.eval_cost_function(t)
+        op.J += J_misfit
+
+    return cost_fn
