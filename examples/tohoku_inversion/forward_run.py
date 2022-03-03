@@ -10,24 +10,27 @@ parser = argparse.ArgumentParser(
     description="Tohoku tsunami propagation",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
-parser.add_argument("--source_model", type=str, default="CG1")
+parser.add_argument("-s", "--source-model", type=str, default="CG1")
+parser.add_argument("--suffix", type=str, default="")
 args = parser.parse_args()
 source_model = args.source_model
+suffix = args.suffix
 no_exports = os.getenv("THETIS_REGRESSION_TEST") is not None
 
 # Solve forward
 pwd = os.path.abspath(os.path.dirname(__file__))
+output_dir = f"{pwd}/outputs_forward_{source_model}"
+if suffix != "":
+    output_dir = "_".join([output_dir, suffix])
 solver_obj = construct_solver(
-    output_directory=f"{pwd}/outputs_forward_{source_model}",
+    output_directory=output_dir,
     store_station_time_series=not no_exports,
     no_exports=no_exports,
 )
 mesh2d = solver_obj.mesh2d
-elev_init = initial_condition(mesh2d, source_model=source_model)
-elev = Function(elev_init.function_space())
-elev.project(mask(mesh2d) * elev_init)
+elev_init, controls = initial_condition(mesh2d, source_model=source_model)
 print_output(f"Exporting to {solver_obj.options.output_directory}")
-solver_obj.assign_initial_conditions(elev=elev)
+solver_obj.assign_initial_conditions(elev=elev_init)
 tic = time_mod.perf_counter()
 solver_obj.iterate()
 toc = time_mod.perf_counter()

@@ -1,6 +1,6 @@
 all: invert plot
 
-MODELS	= DG0 CG1
+MODELS	= DG0 CG1 radial box
 
 invert:
 	for model in $(MODELS); do \
@@ -9,6 +9,7 @@ invert:
 
 plot:
 	python3 plot_elevation_progress.py
+	python3 plot_elevation_optimised.py
 	python3 plot_convergence.py
 
 clean:

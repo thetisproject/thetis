@@ -798,13 +798,16 @@ def print_function_value_range(f, comm=COMM_WORLD, name=None, prefix=None,
     :kwarg prefix: Optional prefix for the output string
     :kwarg format: Value formatting string
     """
-    f_min = comm.allreduce(f.dat.data.min(), MPI.MIN)
-    f_max = comm.allreduce(f.dat.data.max(), MPI.MAX)
-    bound_str_list = [f'{{:{format}}}'.format(v) for v in [f_min, f_max]]
     if name is None:
         name = f.name()
+    f_min = comm.allreduce(f.dat.data.min(), MPI.MIN)
+    f_max = comm.allreduce(f.dat.data.max(), MPI.MAX)
     pre = prefix + ' ' if prefix is not None else ''
-    print_output(f'{pre}{name}: {bound_str_list[0]} .. {bound_str_list[1]}')
+    bound_str_list = [f'{{:{format}}}'.format(v) for v in [f_min, f_max]]
+    if numpy.allclose(f_min, f_max):
+        print_output(f'{pre}{name}: {bound_str_list[0]}')
+    else:
+        print_output(f'{pre}{name}: {bound_str_list[0]} .. {bound_str_list[1]}')
 
 
 @PETSc.Log.EventDecorator("thetis.select_and_move_detectors")

@@ -19,6 +19,7 @@ class OptimisationProgress(object):
     J = 0  # cost function value (float)
     dJdm_list = None  # cost function gradient (Function)
     m_list = None  # control (Function)
+    m_progress = []
     J_progress = []
     dJdm_progress = []
     i = 0
@@ -27,12 +28,15 @@ class OptimisationProgress(object):
     control_coeff_list = []
     control_list = []
 
-    def __init__(self, output_dir='outputs', no_exports=False):
+    def __init__(self, output_dir='outputs', no_exports=False, real=False):
         """
-        :arg output_dir: model output directory
+        :kwarg output_dir: model output directory
+        :kwarg no_exports: toggle exports to vtu
+        :kwarg real: is the inversion in the Real space?
         """
         self.output_dir = output_dir
-        self.no_exports = no_exports
+        self.no_exports = no_exports or real
+        self.real = real
         self.outfiles_m = []
         self.outfiles_dJdm = []
         self.initialized = False
@@ -106,12 +110,21 @@ class OptimisationProgress(object):
 
         # cost function and gradient norm output
         djdm = [fd.norm(f) for f in self.dJdm_list]
+        if self.real:
+            controls = [m.dat.data[0] for m in self.m_list]
+            self.m_progress.append(controls)
         self.J_progress.append(self.J)
         self.dJdm_progress.append(djdm)
         comm = self.control_coeff_list[0].comm
-        if comm.rank == 0 and not self.no_exports:
+        if comm.rank == 0:
+            if self.real:
+                numpy.save(f'{self.output_dir}/m_progress', self.m_progress)
             numpy.save(f'{self.output_dir}/J_progress', self.J_progress)
             numpy.save(f'{self.output_dir}/dJdm_progress', self.dJdm_progress)
+        if len(djdm) > 10:
+            djdm = f"[{numpy.min(djdm):.4e} .. {numpy.max(djdm):.4e}]"
+        else:
+            djdm = "[" + ", ".join([f"{dj:.4e}" for dj in djdm]) + "]"
         print_output(f'line search {self.i:2d}: '
                      f'J={self.J:.3e}, dJdm={djdm}, '
                      f'grad_ev={self.nb_grad_evals}, duration {elapsed}')
@@ -185,7 +198,7 @@ class StationObservationManager:
         # model time when cost function was evaluated
         self.simulation_time = []
         self.model_observation_field = None
-        self.initialzed = False
+        self.initialized = False
 
     def register_observation_data(self, station_names, variable, time,
                                   values, x, y, start_times=None, end_times=None):
@@ -329,7 +342,7 @@ class StationObservationManager:
 
         # expressions for cost function
         self.misfit_expr = self.obs_values_0d - self.mod_values_0d
-        self.initialzed = True
+        self.initialized = True
 
     def eval_observation_at_time(self, t):
         """
@@ -347,7 +360,7 @@ class StationObservationManager:
 
         Should be called at every export of the forward model.
         """
-        assert self.initialzed, 'Not initialized, call construct_evaluator first.'
+        assert self.initialized, 'Not initialized, call construct_evaluator first.'
         assert self.model_observation_field is not None, 'Model field not set.'
         self.simulation_time.append(t)
         # evaluate observations at simulation time and stash the result

@@ -5,6 +5,7 @@ from model_config import *
 import argparse
 import numpy
 import os
+import sys
 
 
 # Parse user input
@@ -12,28 +13,30 @@ parser = argparse.ArgumentParser(
     description="Tohoku tsunami source inversion problem",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
-parser.add_argument("--source-model", type=str, default="CG1")
-parser.add_argument("--maxiter", type=int, default=100)
+parser.add_argument("-s", "--source-model", type=str, default="CG1")
+parser.add_argument("--maxiter", type=int, default=40)
 parser.add_argument("--ftol", type=float, default=1.0e-05)
 parser.add_argument("--no-consistency-test", action="store_true")
 parser.add_argument("--no-taylor-test", action="store_true")
+parser.add_argument("--suffix", type=str, default=None)
 args = parser.parse_args()
 source_model = args.source_model
 do_consistency_test = not args.no_consistency_test
 do_taylor_test = not args.no_taylor_test
-
+suffix = args.suffix
 
 # Setup PDE
 pwd = os.path.abspath(os.path.dirname(__file__))
+output_dir = f"{pwd}/outputs_elev-init-optimization_{source_model}"
+if suffix is not None:
+    output_dir = "_".join([output_dir, suffix])
 solver_obj = construct_solver(
-    output_directory=f"{pwd}/outputs_elev-init-optimization_{source_model}",
+    output_directory=output_dir,
     store_station_time_series=False,
     no_exports=os.getenv("THETIS_REGRESSION_TEST") is not None,
 )
 mesh2d = solver_obj.mesh2d
-elev_init = initial_condition(mesh2d, source_model=source_model)
-elev = Function(elev_init.function_space(), name="Elevation")
-elev.project(mask(mesh2d) * elev_init)
+elev_init, controls = initial_condition(mesh2d, source_model=source_model)
 options = solver_obj.options
 mesh2d = solver_obj.mesh2d
 bathymetry_2d = solver_obj.fields.bathymetry_2d
@@ -41,17 +44,22 @@ bathymetry_2d = solver_obj.fields.bathymetry_2d
 # Assign initial conditions
 if not options.no_exports:
     print_output(f"Exporting to {options.output_directory}")
-solver_obj.assign_initial_conditions(elev=elev)
+solver_obj.assign_initial_conditions(elev=elev_init)
 
 # Choose optimisation parameters
 control = "elev_init"
-control_bounds = [-numpy.inf, numpy.inf]
+nc = len(controls)
+if nc == 1:
+    control_bounds = [-numpy.inf, numpy.inf]
+else:
+    control_bounds = [[-numpy.inf] * nc, [numpy.inf] * nc]
 op = inversion_tools.OptimisationProgress(
     options.output_directory,
+    real=source_model[:2] not in ("CG", "DG"),
     no_exports=options.no_exports,
 )
-op.add_control(elev_init)
-gamma_hessian_list = [Constant(0.1)]
+for c in controls:
+    op.add_control(c)
 
 # Define the (appropriately scaled) cost function
 dt_const = Constant(solver_obj.dt)
@@ -75,11 +83,18 @@ stationmanager.load_observation_data(
     end_times=end_times,
 )
 stationmanager.set_model_field(solver_obj.fields.elev_2d)
-reg_manager = inversion_tools.ControlRegularizationManager(
-    op.control_coeff_list,
-    gamma_hessian_list,
-    J_scalar=J_scalar,
-)
+
+# Compute regularization term
+if source_model[:2] in ("CG", "DG"):
+    gamma_hessian_list = [Constant(0.1)]
+    reg_manager = inversion_tools.ControlRegularizationManager(
+        op.control_coeff_list,
+        gamma_hessian_list,
+        J_scalar=J_scalar,
+    )
+    op.J = reg_manager.eval_cost_function()
+else:
+    reg_manager = None
 
 # Extract the regularized cost function
 cost_function = inversion_tools.get_cost_function(
@@ -130,15 +145,26 @@ op.reset_counters()
 op.start_clock()
 J = float(Jhat(op.control_coeff_list))
 op.set_initial_state(J, Jhat.derivative(), op.control_coeff_list)
-control_opt = minimize(
+control_opt_list = minimize(
     Jhat,
     method=opt_method,
     bounds=control_bounds,
     callback=optimisation_callback,
     options=opt_options,
 )
-control_opt.rename(op.control_coeff_list[0].name())
-print_function_value_range(control_opt, prefix="Optimal")
-if not options.no_exports:
-    fname = f"{op.control_coeff_list[0].name()}_optimised.pvd"
-    File(f"{pwd}/{options.output_directory}/{fname}").write(control_opt)
+if options.no_exports:
+    sys.exit(0)
+if source_model[:2] in ("CG", "DG"):
+    cc = control_opt_list
+    if not isinstance(control_opt_list, Function):
+        cc = cc[0]
+    oc = op.control_coeff_list[0]
+    name = cc.name()
+    oc.rename(name)
+else:
+    oc = initial_condition(
+        mesh2d, source_model=source_model, controls=op.control_coeff_list
+    )[0]
+outfile = File(f"{options.output_directory}/elevation_optimised.pvd")
+print_function_value_range(oc, prefix="Optimal")
+outfile.write(oc)
