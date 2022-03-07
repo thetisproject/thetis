@@ -44,6 +44,12 @@ exclude_files = [
     'tohoku_inversion/plot_elevation_progress.py',
     'tohoku_inversion/plot_optimised_source.py',
     'tohoku_inversion/plot_elevation_optimised.py',
+    'north_sea/generate_mesh.py',
+    'north_sea/model_config.py',
+    'north_sea/plot_elevation.py',
+    'north_sea/plot_setup.py',
+    'north_sea/spinup.py',
+    'north_sea/run.py',
 ]
 
 cwd = os.path.abspath(os.path.dirname(__file__))
