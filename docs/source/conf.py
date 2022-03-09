@@ -19,6 +19,7 @@
 # import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
+import datetime
 
 
 # -- General configuration ------------------------------------------------
@@ -51,7 +52,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Thetis'
-copyright = u'2016-2021, Tuomas Kärnä et al.'
+copyright = u'2016-%d, Tuomas Kärnä et al.' % datetime.datetime.now().year
 author = u'Tuomas Kärnä et al.'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -167,7 +168,7 @@ texinfo_documents = [
 intersphinx_mapping = {
     'python': ('https://docs.python.org/2.7/', None),
     'ufl': ('https://fenics.readthedocs.io/projects/ufl/en/latest/', None),
-    'firedrake': ('http://firedrakeproject.org/', None),
+    'firedrake': ('https://firedrakeproject.org/', None),
 }
 
 autoclass_content = "both"
