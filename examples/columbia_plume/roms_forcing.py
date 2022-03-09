@@ -2,9 +2,12 @@
 Methods for reading ROMS model outputs
 """
 from thetis import *
-from atm_forcing import to_latlon
+import thetis.coordsys as coordsys
 from thetis.timezone import *
 from thetis.forcing import *
+
+# define model coordinate system
+COORDSYS = coordsys.UTM_ZONE10
 
 
 def test_time_search():
@@ -105,7 +108,7 @@ def test_interpolator():
                                    [salt, temp],
                                    ['salt', 'temp'],
                                    'forcings/liveocean/f2015.*/ocean_his_*.nc',
-                                   init_date, to_latlon)
+                                   init_date, COORDSYS)
     interp.set_fields(0.0)
     salt_fn = 'tmp/salt_roms.pvd'
     temp_fn = 'tmp/temp_roms.pvd'

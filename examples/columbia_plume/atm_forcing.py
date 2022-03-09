@@ -17,21 +17,6 @@ from thetis.utility import get_functionspace
 COORDSYS = coordsys.UTM_ZONE10
 
 
-def to_latlon(x, y, positive_lon=False):
-    """
-    Method to convert model coordinates to (lat, lon)
-    """
-    lon, lat = coordsys.convert_coords(COORDSYS,
-                                       coordsys.LL_WGS84, x, y)
-    if positive_lon:
-        if isinstance(lon, numpy.ndarray):
-            ix = lon < 0.0
-            lon[ix] += 360.
-        else:  # assume float
-            lon += 360.
-    return lat, lon
-
-
 def test():
     """
     Tests atmospheric model data interpolation.
@@ -66,8 +51,8 @@ def test():
     test_atm_file = 'forcings/atm/nam/nam_air.local.2006_05_01.nc'
 
     atm_interp = ATMInterpolator(p1, windstress_2d, atmpressure_2d,
-                                 to_latlon,
-                                 pattern, init_date, COORDSYS, verbose=True)
+                                 COORDSYS, pattern, init_date,
+                                 verbose=True)
 
     # create a naive interpolation for first file
     xy = SpatialCoordinate(p1.mesh())
@@ -76,7 +61,7 @@ def test():
 
     mesh_lonlat = []
     for node in range(len(fsx)):
-        lat, lon = to_latlon(fsx[node], fsy[node])
+        lat, lon = coordsys.to_latlon(COORDSYS, fsx[node], fsy[node])
         mesh_lonlat.append((lon, lat))
     mesh_lonlat = numpy.array(mesh_lonlat)
 
