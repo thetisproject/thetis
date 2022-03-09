@@ -6,21 +6,13 @@ Simple example of an atmospheric pressure interpolator:
 
 .. code-block:: python
 
-    def to_latlon(x, y, positive_lon=False):
-        # Converts mesh (x,y) points to coordinates used in the atm data
-        lon, lat = coordsys_spcs.spcs2lonlat(x, y)
-        if positive_lon and lon < 0.0:
-            lon += 360.
-        return lat, lon
-
-
     class WRFInterpolator(object):
         # Interpolates WRF atmospheric model data on 2D fields
         def __init__(self, function_space, atm_pressure_field, ncfile_pattern, init_date):
             self.atm_pressure_field = atm_pressure_field
 
             # object that interpolates forcing data from structured grid on the local mesh
-            self.grid_interpolator = NetCDFLatLonInterpolator2d(function_space, to_latlon)
+            self.grid_interpolator = NetCDFLatLonInterpolator2d(function_space, coord_system)
             # reader object that can read fields from netCDF files, applies spatial interpolation
             self.reader = NetCDFSpatialInterpolator(self.grid_interpolator, ['prmsl'])
             # object that can find previous/next time stamps in a collection of netCDF files
@@ -48,6 +40,7 @@ Usage:
 """
 import glob
 import os
+from .coordsys import to_latlon
 from .timezone import *
 from .log import *
 import scipy.spatial.qhull as qhull
@@ -340,11 +333,10 @@ class SpatialInterpolator():
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def __init__(self, function_space, to_latlon):
+    def __init__(self, function_space, coord_system):
         """
         :arg function_space: target Firedrake FunctionSpace
-        :arg to_latlon: Python function that converts local mesh coordinates to
-            latitude and longitude: 'lat, lon = to_latlon(x, y)'
+        :arg coord_system: the local mesh coordinate system
         """
         pass
 
@@ -363,12 +355,11 @@ class SpatialInterpolator2d(SpatialInterpolator):
     __metaclass__ = ABCMeta
 
     @PETSc.Log.EventDecorator("thetis.SpatialInterpolator2d.__init__")
-    def __init__(self, function_space, to_latlon, fill_mode=None,
+    def __init__(self, function_space, coord_system, fill_mode=None,
                  fill_value=numpy.nan):
         """
         :arg function_space: target Firedrake FunctionSpace
-        :arg to_latlon: Python function that converts local mesh coordinates to
-            latitude and longitude: 'lat, lon = to_latlon(x, y)'
+        :arg coord_system: the local mesh coordinate system
         :kwarg fill_mode: Determines how points outside the source grid will be
             treated. If 'nearest', value of the nearest source point will be
             used. Otherwise a constant fill value will be used (default).
@@ -391,7 +382,7 @@ class SpatialInterpolator2d(SpatialInterpolator):
             fsy = Function(function_space).interpolate(y).dat.data_with_halos
             coords = (fsx, fsy)
 
-        lat, lon = to_latlon(*coords)
+        lat, lon = to_latlon(coord_system, *coords)
         self.mesh_lonlat = numpy.array([lon, lat]).T
 
         self.fill_mode = fill_mode
@@ -451,7 +442,7 @@ class NetCDFLatLonInterpolator2d(SpatialInterpolator2d):
 
         fs = FunctionSpace(...)
         myfunc = Function(fs, ...)
-        ncinterp2d = NetCDFLatLonInterpolator2d(fs, to_latlon, nc_filename)
+        ncinterp2d = NetCDFLatLonInterpolator2d(fs, coord_system, nc_filename)
         val1, val2 = ncinterp2d.interpolate(nc_filename, ['var1', 'var2'], 10)
         myfunc.dat.data_with_halos[:] = val1 + val2
 

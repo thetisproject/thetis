@@ -106,3 +106,18 @@ class VectorCoordSysRotation(object):
         u = v_x * self.rotation_cos[f] - v_y * self.rotation_sin[f]
         v = v_x * self.rotation_sin[f] + v_y * self.rotation_cos[f]
         return u, v
+
+
+def to_latlon(coord_system, x, y, positive_lon=False):
+    """
+    Convert model coordinates to latitude-longitude coordinates.
+
+    :arg coord_system: the local mesh coordinate system
+    :arg x: x coordinate
+    :arg y: y coordinate
+    :kwarg positive_lon: should positive longitude be enforced?
+    """
+    lon, lat = convert_coords(coord_system, LL_WGS84, x, y)
+    if positive_lon:
+        lon = numpy.mod(lon, 360.0)
+    return lat, lon
