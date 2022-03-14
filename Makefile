@@ -8,4 +8,5 @@ lint:
 	@python -m flake8 scripts --filename=*
 	@echo "    Linting thetis examples"
 	@python -m flake8 examples
-
+	@echo "    Linting thetis demos"
+	@python -m flake8 demos

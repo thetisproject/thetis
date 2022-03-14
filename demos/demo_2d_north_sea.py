@@ -17,11 +17,8 @@ from thetis import *
 import thetis.coordsys as coordsys
 import thetis.forcing as forcing
 import csv
-import netCDF4
-import numpy
 import os
 import pyproj
-import scipy.interpolate as si
 
 sim_tz = timezone.pytz.utc
 UTM_ZONE30 = pyproj.Proj(proj="utm", zone=30, datum="WGS84", units="m", errcheck=True)

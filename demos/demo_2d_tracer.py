@@ -9,7 +9,7 @@
 # advection test case of :cite:`LeVeque:1996`. The domain is the unit
 # square :math:`\Omega=[0,1]^2` and the velocity corresponds to the
 # solid body rotation :math:`\vec{u} = (0.5 - y, x - 0.5)`.
-# 
+#
 # As usual, we start by importing Thetis. ::
 
 from thetis import *
@@ -83,7 +83,7 @@ options.use_limiter_for_tracers = False
 # In general, this would be a ``Function``, but here we just use a ``Constant``
 # value. ::
 
-solver_obj.bnd_functions['tracer_2d'] = {'on_boundary':  {'value': Constant(1.0)}}
+solver_obj.bnd_functions['tracer_2d'] = {'on_boundary': {'value': Constant(1.0)}}
 
 # The velocity field is set up using a simple analytic expression. ::
 
@@ -96,16 +96,18 @@ uv_init = interpolate(as_vector([0.5 - y, x - 0.5]), vP1_2d)
 # objects, while the analytic expressions appear in the last three lines. This
 # code is simply copied from the Firedrake version of the demo. ::
 
-bell_r0 = 0.15; bell_x0 = 0.25; bell_y0 = 0.5
-cone_r0 = 0.15; cone_x0 = 0.5; cone_y0 = 0.25
-cyl_r0 = 0.15; cyl_x0 = 0.5; cyl_y0 = 0.75
-slot_left = 0.475; slot_right = 0.525; slot_top = 0.85
+bell_r0, bell_x0, bell_y0 = 0.15, 0.25, 0.5
+cone_r0, cone_x0, cone_y0 = 0.15, 0.5, 0.25
+cyl_r0, cyl_x0, cyl_y0 = 0.15, 0.5, 0.75
+slot_left, slot_right, slot_top = 0.475, 0.525, 0.85
 
 bell = 0.25*(1+cos(pi*min_value(sqrt(pow(x-bell_x0, 2) + pow(y-bell_y0, 2))/bell_r0, 1.0)))
 cone = 1.0 - min_value(sqrt(pow(x-cone_x0, 2) + pow(y-cone_y0, 2))/cone_r0, 1.0)
-slot_cyl = conditional(sqrt(pow(x-cyl_x0, 2) + pow(y-cyl_y0, 2)) < cyl_r0,
-             conditional(And(And(x > slot_left, x < slot_right), y < slot_top),
-               0.0, 1.0), 0.0)
+slot_cyl = conditional(
+    sqrt(pow(x-cyl_x0, 2) + pow(y-cyl_y0, 2)) < cyl_r0,
+    conditional(And(And(x > slot_left, x < slot_right), y < slot_top), 0.0, 1.0),
+    0.0
+)
 
 # We then declare the inital condition, ``q_init``, to be the sum of these fields.
 # Furthermore, we add 1 to this, so that the initial field lies between 1 and 2,

@@ -1,12 +1,12 @@
 # 3D tidal channel demo
 # =====================
-# 
+#
 # .. highlight:: python
-# 
+#
 # This example demonstrates a 3D barotropic model in a tidal channel with sloping
 # bathymetry. We also add a constant, passive salinity tracer to demonstrate local
 # tracer conservation. This simulation uses the ALE moving mesh.
-# 
+#
 # We begin by defining the 2D mesh as before::
 
 from thetis import *
@@ -79,7 +79,7 @@ options.vertical_velocity_scale = Constant(w_max)
 # Next we define the boundary conditions. Note that in a 3D model there are
 # multiple coupled equations, and we need to set boundary conditions to all of
 # them.
-# 
+#
 # In this example we impose time dependent normal flux on both the deep (ocean)
 # and shallow (river) boundaries. We begin by creating python functions that
 # define the time dependent fluxes. Note that we use a linear ramp-up function on
@@ -102,6 +102,7 @@ def ocean_flux_func(t):
 
 def river_flux_func(t):
     return flux_river*min(t/t_ramp, 1.0)
+
 
 # We then define :py:class:`~.firedrake.constant.Constant` objects for the fluxes and
 # use them as boundary conditions for the 2D shallow water model::
@@ -137,10 +138,11 @@ solver_obj.bnd_functions['salt'] = {ocean_bnd_id: ocean_salt_3d,
 
 # As before, all boundaries where boundary conditions are not assigned are
 # assumed to be impermeable land boundaries.
-# 
+#
 # We now need to define the callback functions that update all time dependent
 # forcing fields. As the 2D and 3D modes may be treated separately in the time
 # integrator we create a different call back for the two modes::
+
 
 def update_forcings_2d(t_new):
     """Callback function that updates all time dependent forcing fields
@@ -154,9 +156,10 @@ def update_forcings_3d(t_new):
     for the 3D mode"""
     pass
 
+
 # Because the boundary conditions of the 3D equations do not depend on time, the
 # 3d callback function does nothing (it could be omitted).
-# 
+#
 # We then assign the constant salinity value as an initial condition::
 
 solver_obj.assign_initial_conditions(salt=salt_init3d)
@@ -168,9 +171,9 @@ solver_obj.iterate(update_forcings=update_forcings_2d,
 
 # As you run the simulation, Thetis prints out the normal simulation statistics
 # and also prints out the over/undershoots in the salinity field:
-# 
+#
 # .. code-block:: none
-# 
+#
 #         0     0 T=      0.00 eta norm:     0.0000 u norm:     0.0000  0.00
 #     salt_3d overshoot 0 0
 #         1     5 T=    900.00 eta norm:    15.1764 u norm:     0.0000  1.23
@@ -179,7 +182,7 @@ solver_obj.iterate(update_forcings=update_forcings_2d,
 #     salt_3d overshoot -3.13083e-11 3.42579e-11
 #         3    15 T=   2700.00 eta norm:   229.6974 u norm:     0.0000  0.35
 #     salt_3d overshoot -6.35199e-11 6.6346e-11
-# 
+#
 # Note that here the ``u norm`` is the norm of :math:`\mathbf{u}'`, i.e. the prognostic 3D
 # horizontal velocity field (3D velocity minus its vertical average).
 #
