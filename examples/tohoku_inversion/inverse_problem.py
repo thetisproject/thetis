@@ -13,7 +13,6 @@ parser = argparse.ArgumentParser(
     description="Tohoku tsunami source inversion problem",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
-parser.add_argument("-s", "--source-model", type=str, default="CG1")
 parser.add_argument(
     "-o",
     "--okada-parameters",
@@ -22,96 +21,93 @@ parser.add_argument(
     choices=["depth", "dip", "slip", "rake"],
     default=["depth", "dip", "slip", "rake"],
 )
-parser.add_argument("--maxiter", type=int, default=40)
-parser.add_argument("--ftol", type=float, default=1.0e-05)
-parser.add_argument("--no-consistency-test", action="store_true")
-parser.add_argument("--no-taylor-test", action="store_true")
-parser.add_argument("--suffix", type=str, default=None)
+parser.add_argument(
+    "--maxiter",
+    help="Maximum number of iterations for optimisation routine",
+    type=int,
+    default=100,
+)
+parser.add_argument(
+    "--ftol",
+    help="Convergence criterion for optimisation routine",
+    type=float,
+    default=1.0e-05,
+)
+parser.add_argument(
+    "--no-consistency-test",
+    help="Test the consistency of the cost function re-evaluation",
+    action="store_true",
+)
+parser.add_argument(
+    "--no-taylor-test",
+    help="Test the consistency of the computed gradients",
+    action="store_true",
+)
 args = parser.parse_args()
-source_model = args.source_model
 active_controls = args.okada_parameters
-if source_model == "okada" and len(active_controls) == 0:
+if len(active_controls) == 0:
     print_output("Nothing to do.")
     sys.exit(0)
 do_consistency_test = not args.no_consistency_test
 do_taylor_test = not args.no_taylor_test
-suffix = args.suffix
 
 # Setup initial condition
 pwd = os.path.abspath(os.path.dirname(__file__))
 mesh2d = Mesh(f"{pwd}/japan_sea.msh")
-elev_init, controls = initial_condition(
-    mesh2d, source_model=source_model, okada_parameters=active_controls,
-)
+elev_init, controls = initial_condition(mesh2d, okada_parameters=active_controls)
 
 # Setup PDE
-output_dir = f"{pwd}/outputs_elev-init-optimization_{source_model}"
-if suffix is not None:
-    output_dir = "_".join([output_dir, suffix])
-solver_obj = construct_solver(
-    elev_init,
-    output_directory=output_dir,
-    store_station_time_series=False,
-    no_exports=os.getenv("THETIS_REGRESSION_TEST") is not None,
-)
+output_dir = f"{pwd}/outputs_elev-init-optimization_okada"
+solver_obj = construct_solver(elev_init, output_directory=output_dir)
 options = solver_obj.options
 if not options.no_exports:
     print_output(f"Exporting to {options.output_directory}")
 
-# Setup controls
+# Set the bounds for the controls
 control = "elev_init"
 nc = len(controls)
-if source_model == "okada":
-    na = len(active_controls)
-    nb = nc // na
-    bounds = numpy.transpose([okada_bounds[c] for c in active_controls]).flatten()
-    control_bounds = numpy.kron(bounds, numpy.ones(nb)).reshape((2, na * nb))
-else:
-    control_bounds = [[-numpy.inf] * nc, [numpy.inf] * nc]
+na = len(active_controls)
+nb = nc // na
+bounds = numpy.transpose([okada_bounds[c] for c in active_controls]).flatten()
+control_bounds = numpy.kron(bounds, numpy.ones(nb)).reshape((2, na * nb))
 if nc == 1 and len(control_bounds[0]) == 1:
     control_bounds = [control_bounds[0][0], control_bounds[1][0]]
 
-# Set up observation and regularization managers
+# Set up a StationObservationManager, which handles the observation data
 observation_data_dir = f"{pwd}/observations"
 variable = "elev"
 stations = read_station_data()
 station_names = list(stations.keys())
-start_times = [dat["start"] for dat in stations.values()]
-end_times = [dat["end"] for dat in stations.values()]
-sta_manager = inversion_tools.StationObservationManager(
-    mesh2d, output_directory=options.output_directory
-)
+sta_manager = inversion_tools.StationObservationManager(mesh2d, output_directory=output_dir)
 sta_manager.load_observation_data(
     observation_data_dir,
     station_names,
     variable,
-    start_times=start_times,
-    end_times=end_times,
+    start_times=[dat["start"] for dat in stations.values()],
+    end_times=[dat["end"] for dat in stations.values()],
 )
 sta_manager.set_model_field(solver_obj.fields.elev_2d)
-
-# Set regularization parameter
-gamma_hessian_list = []
-if source_model[:2] in ("CG", "DG"):
-    gamma_hessian_list.append(Constant(0.1))
 
 # Define the scaling for the cost function so that J ~ O(1)
 J_scalar = Constant(solver_obj.dt / options.simulation_end_time)
 
-# Create inversion manager and add controls
+# Create an InversionManager and tell it what the controls are
 inv_manager = inversion_tools.InversionManager(
-    sta_manager, real=source_model[:2] not in ("CG", "DG"),
+    sta_manager, real=True, cost_function_scaling=J_scalar,
     output_dir=options.output_directory, no_exports=options.no_exports,
-    penalty_parameters=gamma_hessian_list, cost_function_scaling=J_scalar,
     test_consistency=do_consistency_test, test_gradient=do_taylor_test)
 for c in controls:
     inv_manager.add_control(c)
 
-# Extract the regularized cost function
+# Extract the cost function from the InversionManager
 cost_function = inv_manager.get_cost_function(solver_obj)
 
 # Solve and setup the reduced functional
 solver_obj.iterate(update_forcings=cost_function)
+
+# Tell the InversionManager to stop recording operations
+#   At this point it will do some testing for consistency of the
+#   cost function and its gradient
 inv_manager.stop_annotating()
 
 # Run inversion
@@ -121,26 +117,15 @@ opt_options = {
     "ftol": args.ftol,
     "disp": opt_verbose if mesh2d.comm.rank == 0 else -1,
 }
-if os.getenv("THETIS_REGRESSION_TEST") is not None:
-    opt_options["maxiter"] = 1
 control_opt_list = inv_manager.minimize(
     opt_method="L-BFGS-B", bounds=control_bounds, **opt_options)
 if options.no_exports:
     sys.exit(0)
-if source_model[:2] in ("CG", "DG"):
-    cc = control_opt_list
-    if not isinstance(control_opt_list, Function):
-        cc = cc[0]
-    oc = inv_manager.control_coeff_list[0]
-    name = cc.name()
-    oc.rename(name)
-else:
-    oc = initial_condition(
-        mesh2d,
-        source_model=source_model,
-        controls=inv_manager.control_coeff_list,
-        okada_parameters=active_controls,
-    )[0]
+oc = initial_condition(
+    mesh2d,
+    controls=inv_manager.control_coeff_list,
+    okada_parameters=active_controls,
+)[0]
 outfile = File(f"{options.output_directory}/elevation_optimised.pvd")
 print_function_value_range(oc, prefix="Optimal")
 outfile.write(oc)

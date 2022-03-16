@@ -7,10 +7,9 @@ import numpy
 
 # Parse user input
 parser = argparse.ArgumentParser(
-    description="Tohoku tsunami source inversion problem",
+    description="Plot optimised source for the Tohoku tsunami",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
-parser.add_argument("-s", "--source-model", type=str, default="CG1")
 parser.add_argument(
     "-o",
     "--okada-parameters",
@@ -23,34 +22,21 @@ parser.add_argument("--maxiter", type=int, default=40)
 parser.add_argument("--suffix", type=str, default=None)
 parser.add_argument("--plot-subfaults", action="store_true")
 args = parser.parse_args()
-source_model = args.source_model
 active_controls = args.okada_parameters
-maxiter = args.maxiter
-suffix = args.suffix
+if len(active_controls) == 0:
+    print_output("Nothing to do.")
+    sys.exit(0)
 
 # Load optimised controls
 print_output("Loading optimised controls")
 mesh2d = Mesh("japan_sea.msh")
-output_dir = f"outputs_elev-init-optimization_{source_model}"
-if suffix is not None:
-    output_dir = "_".join([output_dir, suffix])
-source_model = source_model.split("_")[0]
-if source_model[:2] in ("CG", "DG"):
-    family = source_model[:2]
-    degree = int(source_model[2:])
-    Pk = get_functionspace(mesh2d, family, degree)
-    elev = Function(Pk)
-    fname = f"{output_dir}/hdf5/control_00_{maxiter:02d}"
-    with DumbCheckpoint(fname, mode=FILE_READ) as chk:
-        chk.load(elev, name="Elevation")
-else:
-    c = numpy.load(f"{output_dir}/m_progress.npy")[-1]
-    elev = initial_condition(
-        mesh2d,
-        source_model=source_model,
-        initial_guess=c,
-        okada_parameters=active_controls,
-    )[0]
+output_dir = "outputs_elev-init-optimization_okada"
+c = numpy.load(f"{output_dir}/m_progress.npy")[-1]
+elev = initial_condition(
+    mesh2d,
+    initial_guess=c,
+    okada_parameters=active_controls,
+)[0]
 
 # Plot in vtu format
 print_output("Writing to vtu")
@@ -68,7 +54,7 @@ cb.set_label("Initial elevation (m)")
 axes.axis(False)
 
 # Annotate with subfault array
-if args.plot_subfaults and source_model[:2] not in ("CG", "DG"):
+if args.plot_subfaults:
     nx += 1  # Number of nodes parallel to fault
     ny += 1  # Number of nodes perpendicular to fault
     nn = nx * ny  # total number of nodes
@@ -90,4 +76,4 @@ if args.plot_subfaults and source_model[:2] not in ("CG", "DG"):
 axes.set_xlim([300e3, 1100e3])
 axes.set_ylim([3700e3, 4700e3])
 plt.tight_layout()
-plt.savefig(f"elevation_optimised_{source_model}.png", dpi=300)
+plt.savefig("elevation_optimised_okada.png", dpi=300)
