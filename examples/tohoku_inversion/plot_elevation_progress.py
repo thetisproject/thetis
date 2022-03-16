@@ -1,4 +1,4 @@
-from model_config import stations
+from model_config import read_station_data
 
 import glob
 import h5py
@@ -9,12 +9,13 @@ inv_dir = "outputs_elev-init-optimization"
 fpaths = glob.glob(f"{inv_dir}_*")
 if len(fpaths) == 0:
     raise ValueError("Nothing to plot!")
+stations = read_station_data().keys()
 for fpath in fpaths:
     fig = plt.figure(figsize=(40, 20))
     axes = fig.subplots(4, 4)
     source_model = fpath.split(inv_dir + "_")[-1]
 
-    for i, sta in enumerate(stations.keys()):
+    for i, sta in enumerate(stations):
 
         o = f"observations/diagnostic_timeseries_{sta}_elev.hdf5"
         with h5py.File(o, "r") as h5file:

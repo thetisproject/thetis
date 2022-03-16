@@ -14,6 +14,14 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
 parser.add_argument("-s", "--source-model", type=str, default="CG1")
+parser.add_argument(
+    "-o",
+    "--okada-parameters",
+    help="Okada parameters to invert for in the Okada model case",
+    nargs="+",
+    choices=["depth", "dip", "slip", "rake"],
+    default=["depth", "dip", "slip", "rake"],
+)
 parser.add_argument("--maxiter", type=int, default=40)
 parser.add_argument("--ftol", type=float, default=1.0e-05)
 parser.add_argument("--no-consistency-test", action="store_true")
@@ -21,6 +29,10 @@ parser.add_argument("--no-taylor-test", action="store_true")
 parser.add_argument("--suffix", type=str, default=None)
 args = parser.parse_args()
 source_model = args.source_model
+active_controls = args.okada_parameters
+if source_model == "okada" and len(active_controls) == 0:
+    print_output("Nothing to do.")
+    sys.exit(0)
 do_consistency_test = not args.no_consistency_test
 do_taylor_test = not args.no_taylor_test
 suffix = args.suffix
@@ -28,7 +40,9 @@ suffix = args.suffix
 # Setup initial condition
 pwd = os.path.abspath(os.path.dirname(__file__))
 mesh2d = Mesh(f"{pwd}/japan_sea.msh")
-elev_init, controls = initial_condition(mesh2d, source_model=source_model)
+elev_init, controls = initial_condition(
+    mesh2d, source_model=source_model, okada_parameters=active_controls,
+)
 
 # Setup PDE
 output_dir = f"{pwd}/outputs_elev-init-optimization_{source_model}"
@@ -47,17 +61,23 @@ if not options.no_exports:
 # Setup controls
 control = "elev_init"
 nc = len(controls)
-if nc == 1:
-    control_bounds = [-numpy.inf, numpy.inf]
+if source_model == "okada":
+    na = len(active_controls)
+    nb = nc // na
+    bounds = numpy.transpose([okada_bounds[c] for c in active_controls]).flatten()
+    control_bounds = numpy.kron(bounds, numpy.ones(nb)).reshape((2, na * nb))
 else:
     control_bounds = [[-numpy.inf] * nc, [numpy.inf] * nc]
+if nc == 1 and len(control_bounds[0]) == 1:
+    control_bounds = [control_bounds[0][0], control_bounds[1][0]]
 
 # Set up observation and regularization managers
 observation_data_dir = f"{pwd}/observations"
 variable = "elev"
+stations = read_station_data()
 station_names = list(stations.keys())
-start_times = [dat["interval"][0] for sta, dat in stations.items()]
-end_times = [dat["interval"][1] for sta, dat in stations.items()]
+start_times = [dat["start"] for dat in stations.values()]
+end_times = [dat["end"] for dat in stations.values()]
 sta_manager = inversion_tools.StationObservationManager(
     mesh2d, output_directory=options.output_directory
 )
@@ -116,7 +136,10 @@ if source_model[:2] in ("CG", "DG"):
     oc.rename(name)
 else:
     oc = initial_condition(
-        mesh2d, source_model=source_model, controls=inv_manager.control_coeff_list
+        mesh2d,
+        source_model=source_model,
+        controls=inv_manager.control_coeff_list,
+        okada_parameters=active_controls,
     )[0]
 outfile = File(f"{options.output_directory}/elevation_optimised.pvd")
 print_function_value_range(oc, prefix="Optimal")

@@ -1,4 +1,4 @@
-from model_options import stations
+from model_options import read_station_data
 
 import glob
 import h5py
@@ -12,7 +12,8 @@ if len(fpaths) == 0:
 
 fig = plt.figure(figsize=(40, 20))
 axes = fig.subplots(4, 4)
-for i, sta in enumerate(stations.keys()):
+stations = read_station_data().keys()
+for i, sta in enumerate(stations):
 
     o = f"observations/diagnostic_timeseries_{sta}_elev.hdf5"
     with h5py.File(o, "r") as h5file:

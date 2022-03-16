@@ -1,4 +1,4 @@
-from model_config import stations
+from model_config import read_station_data
 
 import glob
 import h5py
@@ -9,12 +9,13 @@ fwd_dir = "outputs_forward"
 fpaths = glob.glob(f"{fwd_dir}*")
 if len(fpaths) == 0:
     raise ValueError("Nothing to plot!")
+stations = read_station_data().keys()
 for fpath in fpaths:
     source_model = fpath.split(fwd_dir + "_")[-1]
     fig = plt.figure(figsize=(40, 20))
     axes = fig.subplots(4, 4)
 
-    for i, sta in enumerate(stations.keys()):
+    for i, sta in enumerate(stations):
         ax = axes[i // 4, i % 4]
         ax.set_title(sta)
 
