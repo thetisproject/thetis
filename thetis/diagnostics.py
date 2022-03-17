@@ -5,7 +5,8 @@ from .utility import *
 from .configuration import *
 from abc import ABCMeta, abstractmethod
 
-__all__ = ["VorticityCalculator2D", "HessianRecoverer2D", "KineticEnergyCalculator"]
+__all__ = ["VorticityCalculator2D", "HessianRecoverer2D", "KineticEnergyCalculator",
+           "ShallowWaterDualWeightedResidual2D", "TracerDualWeightedResidual2D"]
 
 
 class DiagnosticCalculator(FrozenHasTraits):
@@ -222,3 +223,112 @@ class KineticEnergyCalculator(DiagnosticCalculator):
         else:
             assert hasattr(self, 'interpolator')
             self.interpolator.interpolate()
+
+
+class DualWeightedResidual2D(DiagnosticCalculator):
+    r"""
+    Class for computing contributions to dual weighted residual (DWR)
+    error indicators.
+
+    Suppose we have a weak formulation
+
+    .. math::
+        F(u_h; v) = 0,\quad\forall v\in V,
+
+    where :math:`F(u_h;\cdot)` is the weak residual of the forward PDE
+    and :math:`u_h` is its weak solution. The DWR is obtained by
+    replacing the test function :math:`v` with the (exact) adjoint
+    solution :math:`u^*`.
+
+    In practice, we do not have the exact adjoint solution, so it is
+    common practice to approximate it in some enriched finite element
+    space.
+    """
+    __metaclass__ = ABCMeta
+    error = None
+
+    @unfrozen
+    @PETSc.Log.EventDecorator("thetis.DualWeightedResidual.__init__")
+    def __init__(self, solver_obj, dual):
+        """
+        :arg solver_obj: :class:`FlowSolver2d` instance
+        :arg dual: a :class:`Function` that approximates the true adjoint solution,
+            which will replace the test function
+        """
+        mesh2d = solver_obj.mesh2d
+        if mesh2d.topological_dimension() != 2:
+            dim = mesh2d.topological_dimension()
+            raise ValueError(f"Expected a mesh of dimension 2, not {dim}")
+        if mesh2d != dual.ufl_domain():
+            raise ValueError(f"Mismatching meshes ({mesh2d} vs {func.ufl_domain()})")
+        self.F = replace(self.form, {TestFunction(self.space): dual})
+
+    @abstractmethod
+    def form(self):
+        pass
+
+    @abstractmethod
+    def space(self):
+        pass
+
+    @PETSc.Log.EventDecorator("thetis.DualWeightedResidual.solve")
+    def solve(self):
+        self.error = form2indicator(self.F)
+
+
+class ShallowWaterDualWeightedResidual2D(DualWeightedResidual2D):
+    """
+    Class for computing dual weighted residual contributions
+    for the shallow water equations.
+    """
+
+    def __init__(self, solver_obj, dual):
+        """
+        :arg solver_obj: :class:`FlowSolver2d` instance
+        :arg dual: a :class:`Function` that approximates the true adjoint solution,
+            which will replace the test function
+        """
+        self.solver_obj = solver_obj
+        options = solver_obj.options
+        if options.swe_timestepper_type not in ("SteadyState", "CrankNicolson"):
+            typ = options.swe_timestepper_type
+            raise NotImplementedError(f"Error indication not yet supported for {typ}")
+        super().__init__(solver_obj, dual)
+
+    @property
+    def form(self):
+        ts = self.solver_obj.timestepper
+        return ts.F if not hasattr(ts, "timesteppers") else ts.timesteppers.swe2d.F
+
+    @property
+    def space(self):
+        return self.solver_obj.function_spaces.V_2d
+
+
+class TracerDualWeightedResidual2D(DualWeightedResidual2D):
+    """
+    Class for computing dual weighted residual contributions
+    for 2D tracer transport problems.
+    """
+
+    def __init__(self, solver_obj, dual, label="tracer_2d"):
+        """
+        :arg solver_obj: :class:`FlowSolver2d` instance
+        :arg dual: a :class:`Function` that approximates the true adjoint solution,
+            which will replace the test function
+        """
+        self.solver_obj = solver_obj
+        self.label = label
+        options = solver_obj.options
+        if options.tracer_timestepper_type not in ("SteadyState", "CrankNicolson"):
+            typ = options.tracer_timestepper_type
+            raise NotImplementedError(f"Error indication not yet supported for {typ}")
+        super().__init__(solver_obj, dual)
+
+    @property
+    def form(self):
+        return self.solver_obj.timestepper.timesteppers[self.label].F
+
+    @property
+    def space(self):
+        return self.solver_obj.function_spaces.Q_2d
