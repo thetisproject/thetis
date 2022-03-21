@@ -32,6 +32,7 @@ Further details for the test case can be found in [1].
     of Cambridge, New York (1992).
 """
 from thetis import *
+import thetis.diagnostics as diagnostics
 import pytest
 
 
@@ -72,7 +73,7 @@ class PointDischargeParameters(object):
     use a Gaussian approximation with a small radius. The small radius has
     been calibrated against the analytical solution. See [2] for details.
     """
-    def __init__(self, offset, tracer_family):
+    def __init__(self, offset, tracer_element_family):
         self.offset = offset
 
         # Physical parameters
@@ -84,7 +85,7 @@ class PointDischargeParameters(object):
 
         # Parametrisation of point source
         self.source_x, self.source_y = 2.0, 5.0
-        self.source_r = 0.05606298 if tracer_family == 'dg' else 0.05606388
+        self.source_r = 0.05606298 if tracer_element_family == 'dg' else 0.05606388
         self.source_value = 100.0
 
         # Specification of receiver region
@@ -132,9 +133,12 @@ class PointDischargeParameters(object):
         scaling = 1.0 if numpy.allclose(area, 0.0) else area_analytical/area
         return self.ball(mesh, scaling=scaling)
 
-    def quantity_of_interest(self, sol):
+    def quantity_of_interest_form(self, sol):
         kernel = self.quantity_of_interest_kernel(sol.function_space().mesh())
-        return assemble(inner(kernel, sol)*dx(degree=12))
+        return inner(kernel, sol)*dx(degree=12)
+
+    def quantity_of_interest(self, sol):
+        return assemble(self.quantity_of_interest_form(sol))
 
     def analytical_quantity_of_interest(self, mesh):
         """
@@ -154,8 +158,7 @@ class PointDischargeParameters(object):
         return assemble(kernel*sol*dx(degree=12))
 
 
-def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg',
-                 no_exports=False):
+def solve_tracer(mesh2d, offset, hydrodynamics=False, solve_adjoint=False, **model_options):
     """
     Solve the `Point Discharge with Diffusion' steady-state tracer transport
     test case from [1]. This problem has a source term, which involves a
@@ -167,17 +170,16 @@ def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg',
     circular 'receiver' regions. The 'aligned' receiver is directly downstream
     in the flow and the 'offset' receiver is shifted in the positive y-direction.
 
-    :arg n: mesh resolution level.
+    :arg mesh2d: mesh upon which to solve the tracer transport problem.
     :arg offset: toggle between aligned and offset source/receiver.
     :kwarg hydrodynamics: solve shallow water equations?
-    :kwarg tracer_family: element family for tracers, either 'dg' or 'cg'
-    :kwarg no_exports: do not store model outputs to disk
+    :kwarg solve_adjoint: solve the adjoint problem as well as the forward one?
     """
-    mesh2d = RectangleMesh(100*2**n, 20*2**n, 50, 10)
     P1_2d = FunctionSpace(mesh2d, "CG", 1)
 
     # Set up parameter class
-    params = PointDischargeParameters(offset, tracer_family)
+    tracer_element_family = model_options.get("tracer_element_family", "cg")
+    params = PointDischargeParameters(offset, tracer_element_family)
     source = params.source(P1_2d)
 
     # Solve tracer transport problem
@@ -185,7 +187,7 @@ def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg',
     options = solver_obj.options
     options.swe_timestepper_type = 'SteadyState'
     options.tracer_timestepper_type = 'SteadyState'
-    options.tracer_element_family = tracer_family
+    options.tracer_element_family = tracer_element_family
     options.timestep = 20.0
     options.simulation_end_time = 18.0
     options.simulation_export_time = 18.0
@@ -194,7 +196,6 @@ def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg',
     options.tracer_timestepper_options.solver_parameters['pc_factor_mat_solver_type'] = 'mumps'
     options.tracer_timestepper_options.solver_parameters['snes_monitor'] = None
     options.fields_to_export = ['tracer_2d', 'uv_2d', 'elev_2d']
-    options.no_exports = no_exports
 
     # Hydrodynamics
     options.element_family = 'dg-dg'
@@ -209,10 +210,11 @@ def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg',
     options.horizontal_velocity_scale = Constant(1.0)
     options.horizontal_diffusivity_scale = Constant(0.0)
     options.tracer_only = not hydrodynamics
-    options.use_supg_tracer = tracer_family == 'cg'
-    options.use_lax_friedrichs_tracer = tracer_family == 'dg'
+    options.use_supg_tracer = tracer_element_family == 'cg'
+    options.use_lax_friedrichs_tracer = tracer_element_family == 'dg'
     options.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
-    options.use_limiter_for_tracers = tracer_family == 'dg'
+    options.use_limiter_for_tracers = tracer_element_family == 'dg'
+    options.update(model_options)
 
     # Initial and boundary conditions
     solver_obj.bnd_functions = params.boundary_conditions
@@ -221,7 +223,20 @@ def solve_tracer(n, offset, hydrodynamics=False, tracer_family='dg',
 
     # Solve
     solver_obj.iterate()
-    return solver_obj.fields.tracer_2d
+    c_2d = solver_obj.fields.tracer_2d
+    if not solve_adjoint:
+        return c_2d
+
+    # Solve adjoint problem
+    J = params.quantity_of_interest_form(c_2d)
+    F = solver_obj.timestepper.timesteppers["tracer_2d"].F
+    Q_2d = solver_obj.function_spaces.Q_2d
+    adj_sol = Function(Q_2d)
+    dFdc = derivative(F, c_2d, TrialFunction(Q_2d))
+    dFdc_transpose = adjoint(dFdc)
+    dJdc = derivative(J, c_2d, TestFunction(Q_2d))
+    solve(dFdc_transpose == dJdc, adj_sol)
+    return solver_obj, adj_sol
 
 
 def run_convergence(offset, num_levels=3, plot=False, **kwargs):
@@ -235,12 +250,13 @@ def run_convergence(offset, num_levels=3, plot=False, **kwargs):
     """
     J = []
     dof_count = []
-    tracer_family = kwargs.get('tracer_family')
-    params = PointDischargeParameters(offset, tracer_family)
+    tracer_element_family = kwargs.get('tracer_element_family')
+    params = PointDischargeParameters(offset, tracer_element_family)
 
     # Run model on a sequence of uniform meshes and compute QoI error
-    for refinement_level in range(num_levels):
-        sol = solve_tracer(refinement_level, offset, **kwargs)
+    for n in range(num_levels):
+        mesh2d = RectangleMesh(100*2**n, 20*2**n, 50, 10)
+        sol = solve_tracer(mesh2d, offset, **kwargs)
         J.append(params.quantity_of_interest(sol))
         dof_count.append(sol.function_space().dof_count)
     J_analytical = params.analytical_quantity_of_interest(sol.function_space().mesh())
@@ -255,7 +271,7 @@ def run_convergence(offset, num_levels=3, plot=False, **kwargs):
         axes.set_ylabel("QoI error")
         axes.grid(True)
         alignment = 'offset' if offset else 'aligned'
-        fname = "steady_state_convergence_{:s}_{:s}.png".format(alignment, tracer_family)
+        fname = f"steady_state_convergence_{alignment}_{tracer_element_family}.png"
         plot_dir = create_directory(os.path.join(os.path.dirname(__file__), 'outputs'))
         plt.savefig(os.path.join(plot_dir, fname))
 
@@ -263,7 +279,45 @@ def run_convergence(offset, num_levels=3, plot=False, **kwargs):
     delta_y = numpy.log10(relative_error[-1]) - numpy.log10(relative_error[0])
     delta_x = numpy.log10(dof_count[-1]) - numpy.log10(dof_count[0])
     rate = abs(delta_y/delta_x)
-    assert rate > 0.9, "Sublinear convergence rate {:.4f}".format(rate)
+    assert rate > 0.9, f"Sublinear convergence rate {rate:.4f}"
+
+
+def estimate_error(mesh, offset, **model_options):
+    model_options["solve_adjoint"] = True
+
+    # Create a two level mesh hierarchy
+    mesh0, mesh1 = MeshHierarchy(mesh, 1)
+    tm = TransferManager()
+
+    # Solve both forward and adjoint on both meshes
+    solver_obj, a0 = solve_tracer(mesh0, offset, **model_options)
+    f0 = solver_obj.fields.tracer_2d
+    P0 = solver_obj.function_spaces.P0_2d
+    solver_obj, a1 = solve_tracer(mesh1, offset, **model_options)
+
+    # Approximate adjoint error
+    Q1 = solver_obj.function_spaces.Q_2d
+    a0plg = Function(Q1)
+    tm.prolong(a0, a0plg)
+    a1err = Function(Q1).assign(a1 - a0plg)
+
+    # Compute dual weighted residual
+    ei = diagnostics.TracerDualWeightedResidual2D(solver_obj, a1err)
+    ei.solve()
+
+    # Project down to base space
+    error = Function(P0, name="Error indicator")
+    error.project(ei.error)
+    error.interpolate(abs(error))
+
+    # Plot
+    if not model_options.get("no_exports", False):
+        File("outputs/forward.pvd").write(f0)
+        a0.rename("Adjoint solution")
+        File("outputs/adjoint.pvd").write(a0)
+        File("outputs/error.pvd").write(error)
+
+    return f0, a0, error
 
 
 # ---------------------------
@@ -275,19 +329,38 @@ def family(request):
     return request.param
 
 
-@pytest.fixture(params=[False, True])
-def hydrodynamics(request):
-    return request.param
-
-
-@pytest.fixture(params=[False, True])
+@pytest.fixture(params=[False, True], ids=["aligned", "offset"])
 def offset(request):
     return request.param
 
 
-def test_convergence(hydrodynamics, offset, family):
-    run_convergence(offset, hydrodynamics=hydrodynamics, tracer_family=family,
+def test_hydrodynamics(offset, family):
+    """
+    Test that we can solve the coupled system
+    on a coarse mesh.
+    """
+    mesh2d = RectangleMesh(100, 20, 50, 10)
+    solve_tracer(mesh2d, offset, tracer_element_family=family,
+                 no_exports=True)
+
+
+def test_convergence(offset, family):
+    """
+    Test that the quantity of interest converges
+    linearly with uniform mesh refinement.
+    """
+    run_convergence(offset, tracer_element_family=family,
                     no_exports=True)
+
+
+def test_dwr(offset, family):
+    """
+    Test that we can successfully compute dual
+    weighted residual contributions.
+    """
+    mesh2d = RectangleMesh(100, 20, 50, 10)
+    estimate_error(mesh2d, offset, tracer_element_family=family,
+                   no_exports=True)
 
 
 # ---------------------------
@@ -295,4 +368,6 @@ def test_convergence(hydrodynamics, offset, family):
 # ---------------------------
 
 if __name__ == "__main__":
-    run_convergence(False, num_levels=4, plot=True, hydrodynamics=False, tracer_family='cg')
+    n = 0
+    mesh2d = RectangleMesh(100*2**n, 20*2**n, 50, 10)
+    estimate_error(mesh2d, True, tracer_element_family="cg", no_exports=False)
