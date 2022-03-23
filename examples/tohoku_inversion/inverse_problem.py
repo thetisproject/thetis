@@ -25,26 +25,24 @@ do_consistency_test = not args.no_consistency_test
 do_taylor_test = not args.no_taylor_test
 suffix = args.suffix
 
-# Setup PDE
+# Setup initial condition
 pwd = os.path.abspath(os.path.dirname(__file__))
+mesh2d = Mesh(f"{pwd}/japan_sea.msh")
+elev_init, controls = initial_condition(mesh2d, source_model=source_model)
+
+# Setup PDE
 output_dir = f"{pwd}/outputs_elev-init-optimization_{source_model}"
 if suffix is not None:
     output_dir = "_".join([output_dir, suffix])
 solver_obj = construct_solver(
+    elev_init,
     output_directory=output_dir,
     store_station_time_series=False,
     no_exports=os.getenv("THETIS_REGRESSION_TEST") is not None,
 )
-mesh2d = solver_obj.mesh2d
-elev_init, controls = initial_condition(mesh2d, source_model=source_model)
 options = solver_obj.options
-mesh2d = solver_obj.mesh2d
-bathymetry_2d = solver_obj.fields.bathymetry_2d
-
-# Assign initial conditions
 if not options.no_exports:
     print_output(f"Exporting to {options.output_directory}")
-solver_obj.assign_initial_conditions(elev=elev_init)
 
 # Choose optimisation parameters
 control = "elev_init"
