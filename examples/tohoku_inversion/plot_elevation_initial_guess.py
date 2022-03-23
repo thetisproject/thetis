@@ -1,28 +1,9 @@
+from model_config import stations
+
 import glob
 import h5py
 import matplotlib.pyplot as plt
 
-
-station_names = [
-    "801",
-    "802",
-    "803",
-    "804",
-    "806",
-    "807",
-    "P02",
-    "P06",
-    "KPG1",
-    "KPG2",
-    "MPG1",
-    "MPG2",
-    "21401",
-    "21413",
-    "21418",
-    "21419",
-]
-
-nplots = len(station_names)
 
 fwd_dir = "outputs_forward"
 fpaths = glob.glob(f"{fwd_dir}*")
@@ -33,7 +14,7 @@ for fpath in fpaths:
     fig = plt.figure(figsize=(40, 20))
     axes = fig.subplots(4, 4)
 
-    for i, sta in enumerate(station_names):
+    for i, sta in enumerate(stations.keys()):
         ax = axes[i // 4, i % 4]
         ax.set_title(sta)
 

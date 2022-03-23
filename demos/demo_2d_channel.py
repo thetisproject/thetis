@@ -1,12 +1,12 @@
 # 2D channel example
 # ==================
-# 
+#
 # .. highlight:: python
-# 
+#
 # This example demonstrates a depth-averaged 2D simulation in a closed
 # rectangular domain, where the flow is forced by an initial pertubation in the
 # water elevation field.
-# 
+#
 # We begin by importing Thetis and creating a rectangular mesh with :py:func:`~.firedrake.utility_meshes.RectangleMesh`.
 # The domain is 40 km long and 2 km wide.
 # We generate 25 elements in the along-channel direction and 2 in the
@@ -29,11 +29,11 @@ depth = 20.0
 bathymetry_2d.assign(depth)
 
 # .. note::
-# 
+#
 #     See
 #     `Firedrake manual <http://firedrakeproject.org/variational-problems.html>`_
 #     for more information on mesh generation, functions and function spaces.
-# 
+#
 # We are now ready to create a 2D solver object, and set some options::
 
 # total duration in seconds
@@ -49,7 +49,7 @@ options.simulation_end_time = t_end
 # Here we simply define the total duration of the run, and the
 # export interval. See :py:class:`~.ModelOptions` for more information about the
 # available options.
-# 
+#
 # Next we define the used time integrator for the shallow water
 # equations and set the time step::
 
@@ -58,7 +58,7 @@ options.timestep = 50.0
 
 # Because Crank-Nicolson is an uncondionally stable method, we can set
 # the time step freely.
-# 
+#
 # We then define the initial condition for elevation. We begin by creating a
 # function (in the same linear continous function space)::
 
@@ -89,20 +89,20 @@ solver_obj.assign_initial_conditions(elev=elev_init)
 solver_obj.iterate()
 
 # While the model is running, Thetis prints some statistics on the command line:
-# 
+#
 # .. code-block:: none
-# 
+#
 #     0     0 T=      0.00 eta norm:  6251.2574 u norm:     0.0000  0.00
 #     1     2 T=    100.00 eta norm:  5905.0262 u norm:  1398.1128  0.76
 #     2     4 T=    200.00 eta norm:  5193.5227 u norm:  2377.8512  0.03
 #     3     6 T=    300.00 eta norm:  4656.5334 u norm:  2856.5165  0.03
 #     ...
-# 
+#
 # The first column is the export index, the second one the number of executed
 # time steps, followed by the simulation time. ``eta norm`` and ``u norm`` are
 # the L2 norms of the elevation and depth averaged velocity fields, respectively.
 # The last column stands for the (approximate) wall-clock time between exports.
-# 
+#
 # The simulation terminates once the end time is reached.
 # See :doc:`outputs and visualization <../outputs_and_visu>` page on how to
 # visualize the results.

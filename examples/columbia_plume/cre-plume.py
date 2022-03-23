@@ -29,6 +29,7 @@ The forcing data are loaded from subdirectories:
 
 """
 from thetis import *
+import thetis.coordsys as coordsys
 from bathymetry import *
 from tidal_forcing import TPXOTidalBoundaryForcing
 from ncom_forcing import NCOMInterpolator
@@ -37,21 +38,6 @@ comm = COMM_WORLD
 
 # define model coordinate system
 COORDSYS = coordsys.UTM_ZONE10
-
-
-def to_latlon(x, y, positive_lon=False):
-    """
-    Method to convert model coordinates to (lat, lon)
-    """
-    lon, lat = coordsys.convert_coords(COORDSYS,
-                                       coordsys.LL_WGS84, x, y)
-    if positive_lon:
-        if isinstance(lon, numpy.ndarray):
-            ix = lon < 0.0
-            lon[ix] += 360.
-        else:  # assume float
-            lon += 360.
-    return lat, lon
 
 
 rho0 = 1000.0
@@ -203,8 +189,7 @@ copy_wind_stress_to_3d = ExpandFunctionTo3d(wind_stress_2d, wind_stress_3d)
 atm_pattern = 'forcings/atm/nam/nam_air.local.{year}_*_*.nc'.format(year=init_date.year)
 atm_interp = ATMInterpolator(
     solver_obj.function_spaces.P1_2d,
-    wind_stress_2d, atm_pressure_2d, to_latlon, atm_pattern, init_date,
-    COORDSYS)
+    wind_stress_2d, atm_pressure_2d, COORDSYS, atm_pattern, init_date)
 atm_interp.set_fields(0.0)
 
 solver_obj.create_fields()
@@ -228,9 +213,9 @@ oce_bnd_interp = NCOMInterpolator(
     [salt_bnd_3d, temp_bnd_3d, uvel_bnd_3d, vvel_bnd_3d, elev_bnd_2d],
     ['Salinity', 'Temperature', 'U_Velocity', 'V_Velocity', 'Surface_Elevation'],
     ['s3d', 't3d', 'u3d', 'v3d', 'ssh'],
-    to_latlon, 'forcings/ncom',
+    COORDSYS, 'forcings/ncom',
     '{year:04d}/{fieldstr:}/{fieldstr:}.glb8_2f_{year:04d}{month:02d}{day:02d}00.nc',
-    init_date, COORDSYS
+    init_date,
 )
 
 
@@ -255,7 +240,7 @@ tide_uv_expr_2d = elev_ramp*UV_tide_2d/depth_2d
 tide_uv_expr_3d = elev_ramp*UV_tide_3d/depth_3d
 
 tide_bnd_interp = TPXOTidalBoundaryForcing(
-    elev_tide_2d, init_date, to_latlon, COORDSYS,
+    elev_tide_2d, init_date, COORDSYS,
     uv_field=UV_tide_2d, data_dir='forcings',
     boundary_ids=[north_bnd_id, west_bnd_id, south_bnd_id])
 

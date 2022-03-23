@@ -2,10 +2,12 @@
 Methods for reading NCOM ocean model outputs
 """
 from thetis import *
-from atm_forcing import to_latlon, COORDSYS
 from thetis.timezone import *
 from thetis.forcing import *
 from thetis.utility import get_functionspace
+
+# define model coordinate system
+COORDSYS = coordsys.UTM_ZONE10
 
 
 def test_time_search():
@@ -109,9 +111,9 @@ def test_interpolator():
         p1_2d, p1, [salt, temp, uvel, vvel, elev],
         ['Salinity', 'Temperature', 'U_Velocity', 'V_Velocity', 'Surface_Elevation'],
         ['s3d', 't3d', 'u3d', 'v3d', 'ssh'],
-        to_latlon, 'forcings/ncom',
+        COORDSYS, 'forcings/ncom',
         '{year:04d}/{fieldstr:}/{fieldstr:}.glb8_2f_{year:04d}{month:02d}{day:02d}00.nc',
-        init_date, COORDSYS, verbose=True
+        init_date, verbose=True
     )
     interp.set_fields(0.0)
     salt_fn = 'tmp/salt.pvd'

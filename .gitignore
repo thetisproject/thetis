@@ -58,9 +58,20 @@ target/
 
 # Paraview outputs
 *.vtu
+*.pvd
 *.pvtu
+
+# Checkpoints and outputs
+*.ipynb_checkpoints/
+outputs*
+plots/
 
 /docs/source/teamgrid.rst
 /docs/source/thetis.rst
 /docs/source/field_list.rst
+/docs/source/eos_options.rst
+/docs/source/model_options_2d.rst
+/docs/source/model_options_3d.rst
+/docs/source/sediment_model_options.rst
+/docs/source/turbulence_options.rst
 /docs/source/demos/

@@ -2,7 +2,7 @@
 Generic methods for converting data between different spatial coordinate systems.
 Uses pyproj library.
 """
-
+import firedrake as fd
 import pyproj
 import numpy
 
@@ -106,3 +106,39 @@ class VectorCoordSysRotation(object):
         u = v_x * self.rotation_cos[f] - v_y * self.rotation_sin[f]
         v = v_x * self.rotation_sin[f] + v_y * self.rotation_cos[f]
         return u, v
+
+
+def to_latlon(coord_system, x, y, positive_lon=False):
+    """
+    Convert model coordinates to latitude-longitude coordinates.
+
+    :arg coord_system: the local mesh coordinate system
+    :arg x: x coordinate
+    :arg y: y coordinate
+    :kwarg positive_lon: should positive longitude be enforced?
+    """
+    lon, lat = convert_coords(coord_system, LL_WGS84, x, y)
+    if positive_lon:
+        lon = numpy.mod(lon, 360.0)
+    return lat, lon
+
+
+def get_lonlat_function(mesh2d, coord_system):
+    """
+    Construct a :class:`Function` holding the mesh coordinates in
+    longitude-latitude coordinates.
+
+    :arg mesh2d: the 2D mesh
+    :arg coord_system: the coordinate system of the mesh
+    """
+    dim = mesh2d.topological_dimension()
+    if dim != 2:
+        raise ValueError(f"Expected a mesh of dimension 2, not {dim}")
+    trans = pyproj.Transformer.from_crs(coord_system.srs, LL_WGS84.srs)
+    x = mesh2d.coordinates.dat.data_ro[:, 0]
+    y = mesh2d.coordinates.dat.data_ro[:, 1]
+    lon, lat = trans.transform(x, y)
+    lonlat = fd.Function(mesh2d.coordinates.function_space())
+    lonlat.dat.data[:, 0] = lon
+    lonlat.dat.data[:, 1] = lat
+    return lonlat

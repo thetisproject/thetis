@@ -24,6 +24,7 @@ source/demos: copy_demos
 copy_demos:
 	install -d source/demos
 	cp ../demos/*.py source/demos
+	cp ../demos/figures/*.png source/demos
 	cp ../demos/demo_references.bib source/demos
 	for file in source/demos/*.py; do ${VIRTUAL_ENV}/src/firedrake/pylit/pylit.py -c $$file; mv $$file.txt $$file.rst; done
 	install -d $(BUILDDIR)/html/demos

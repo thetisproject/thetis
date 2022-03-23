@@ -188,11 +188,12 @@ def mask(mesh2d, shape="rectangle"):
         raise ValueError(f"Mask shape '{shape}' not supported.")
 
 
-def interpolate_bathymetry(bathymetry_2d, cap=30.0):
+def interpolate_bathymetry(bathymetry_2d, dataset="etopo1", cap=30.0):
     """
-    Interpolate a bathymetry field from the ETOPO1 data set.
+    Interpolate a bathymetry field from some data set.
 
     :arg bathymetry_2d: :class:`Function` to store the data in
+    :kwarg dataset: the data set name, which defines the NetCDF file name
     :kwarg cap: minimum value to cap the bathymetry at in the shallows
     """
     if cap <= 0.0:
@@ -201,7 +202,7 @@ def interpolate_bathymetry(bathymetry_2d, cap=30.0):
 
     # Read data from file
     pwd = os.path.abspath(os.path.dirname(__file__))
-    with netCDF4.Dataset(f"{pwd}/etopo1.nc", "r") as nc:
+    with netCDF4.Dataset(f"{pwd}/{dataset}.nc", "r") as nc:
         lon = nc.variables["lon"][:]
         lat = nc.variables["lat"][:]
         elev = nc.variables["Band1"][:, :]
@@ -219,7 +220,8 @@ def construct_solver(store_station_time_series=True, **model_options):
     Construct a *linear* shallow water equation solver for tsunami
     propagation modelling.
     """
-    mesh2d = Mesh(f"{os.path.abspath(os.path.dirname(__file__))}/japan_sea.msh")
+    pwd = os.path.abspath(os.path.dirname(__file__))
+    mesh2d = Mesh(f"{pwd}/japan_sea.msh")
 
     t_end = 2 * 3600.0
     u_mag = Constant(5.0)
@@ -231,7 +233,8 @@ def construct_solver(store_station_time_series=True, **model_options):
     # Bathymetry
     P1_2d = get_functionspace(mesh2d, "CG", 1)
     bathymetry_2d = Function(P1_2d, name="Bathymetry")
-    interpolate_bathymetry(bathymetry_2d)
+    with DumbCheckpoint(f"{pwd}/japan_sea_bathymetry", mode=FILE_READ) as h5:
+        h5.load(bathymetry_2d)
 
     # Create solver
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)

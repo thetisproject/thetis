@@ -1,8 +1,11 @@
 from thetis import *
-from atm_forcing import to_latlon, COORDSYS
+import thetis.coordsys as coordsys
 from thetis.timezone import *
 from thetis.forcing import *
 from thetis.utility import get_functionspace
+
+# define model coordinate system
+COORDSYS = coordsys.UTM_ZONE10
 
 
 def test():
@@ -18,7 +21,7 @@ def test():
     # tide_cls = FES2004TidalBoundaryForcing
     tide_cls = TPXOTidalBoundaryForcing
     tbnd = tide_cls(
-        elev_field, init_date, to_latlon, COORDSYS,
+        elev_field, init_date, COORDSYS,
         uv_field=uv_field,
         data_dir='forcings',
         constituents=['M2', 'K1'],

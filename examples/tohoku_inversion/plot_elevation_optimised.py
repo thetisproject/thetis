@@ -1,28 +1,9 @@
+from model_options import stations
+
 import glob
 import h5py
 import matplotlib.pyplot as plt
 
-
-station_names = [
-    "801",
-    "802",
-    "803",
-    "804",
-    "806",
-    "807",
-    "P02",
-    "P06",
-    "KPG1",
-    "KPG2",
-    "MPG1",
-    "MPG2",
-    "21401",
-    "21413",
-    "21418",
-    "21419",
-]
-
-nplots = len(station_names)
 
 inv_dir = "outputs_elev-init-optimization"
 fpaths = glob.glob(f"{inv_dir}_*")
@@ -31,7 +12,7 @@ if len(fpaths) == 0:
 
 fig = plt.figure(figsize=(40, 20))
 axes = fig.subplots(4, 4)
-for i, sta in enumerate(station_names):
+for i, sta in enumerate(stations.keys()):
 
     o = f"observations/diagnostic_timeseries_{sta}_elev.hdf5"
     with h5py.File(o, "r") as h5file:
