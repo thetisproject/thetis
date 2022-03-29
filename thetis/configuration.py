@@ -1,7 +1,7 @@
 """
 Utility function and extensions to traitlets used for specifying Thetis options
 """
-from ipython_genutils.text import indent, dedent
+from textwrap import indent, dedent
 from traitlets.config.configurable import Configurable
 from traitlets import *
 from firedrake import Constant, Function
