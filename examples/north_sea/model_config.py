@@ -44,7 +44,7 @@ def interpolate_bathymetry(bathymetry_2d, dataset="etopo1", cap=10.0):
     if cap <= 0.0:
         raise NotImplementedError(
             "Bathymetry cap must be positive because"
-            "wetting and drying is not enabled in this example"
+            " wetting and drying is not enabled in this example"
         )
     mesh = bathymetry_2d.function_space().mesh()
 
