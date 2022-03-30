@@ -215,13 +215,12 @@ def interpolate_bathymetry(bathymetry_2d, dataset="etopo1", cap=30.0):
         bathymetry_2d.dat.data[i] -= min(interp(lat, lon), -cap)
 
 
-def construct_solver(store_station_time_series=True, **model_options):
+def construct_solver(elev_init, store_station_time_series=True, **model_options):
     """
     Construct a *linear* shallow water equation solver for tsunami
     propagation modelling.
     """
-    pwd = os.path.abspath(os.path.dirname(__file__))
-    mesh2d = Mesh(f"{pwd}/japan_sea.msh")
+    mesh2d = elev_init.function_space().mesh()
 
     t_end = 2 * 3600.0
     u_mag = Constant(5.0)
@@ -233,8 +232,10 @@ def construct_solver(store_station_time_series=True, **model_options):
     # Bathymetry
     P1_2d = get_functionspace(mesh2d, "CG", 1)
     bathymetry_2d = Function(P1_2d, name="Bathymetry")
+    pwd = os.path.abspath(os.path.dirname(__file__))
     with DumbCheckpoint(f"{pwd}/japan_sea_bathymetry", mode=FILE_READ) as h5:
         h5.load(bathymetry_2d)
+    bathymetry_2d.interpolate(bathymetry_2d - elev_init)
 
     # Create solver
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
@@ -282,4 +283,7 @@ def construct_solver(store_station_time_series=True, **model_options):
         200: {"un": zero},
         300: {"un": zero},
     }
+
+    # Set initial condition
+    solver_obj.assign_initial_conditions(elev=elev_init)
     return solver_obj
