@@ -79,7 +79,7 @@ class FlowSolver(FrozenClass):
     @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver.__init__")
     def __init__(self, mesh2d, bathymetry_2d, n_layers,
-                 options=None, extrude_options=None):
+                 options=None, extrude_options=None, keep_log=False):
         """
         :arg mesh2d: :class:`Mesh` object of the 2D mesh
         :arg bathymetry_2d: Bathymetry of the domain. Bathymetry stands for
@@ -90,6 +90,7 @@ class FlowSolver(FrozenClass):
         :kwarg options: Model options (optional). Model options can also be
             changed directly via the :attr:`.options` class property.
         :type options: :class:`.ModelOptions3d` instance
+        :kwarg bool keep_log: append to an existing log file, or overwrite it?
         """
         self._initialized = False
 
@@ -156,6 +157,7 @@ class FlowSolver(FrozenClass):
         """Do export initial state. False if continuing a simulation"""
 
         self._simulation_continued = False
+        self.keep_log = keep_log
         self._field_preproc_funcs = {}
 
     def compute_dx_factor(self):
@@ -474,7 +476,8 @@ class FlowSolver(FrozenClass):
             self.create_function_spaces()
 
         if self.options.log_output and not self.options.no_exports:
-            set_log_directory(self.options.output_directory)
+            mode = "a" if self.keep_log else "w"
+            set_log_directory(self.options.output_directory, mode=mode)
 
         # mesh velocity etc fields must be in the same space as 3D coordinates
         coord_is_dg = element_continuity(self.mesh2d.coordinates.function_space().ufl_element()).horizontal == 'dg'
@@ -652,7 +655,8 @@ class FlowSolver(FrozenClass):
 
         if self.options.log_output and not self.options.no_exports:
             logfile = os.path.join(create_directory(self.options.output_directory), 'log')
-            filehandler = logging.logging.FileHandler(logfile, mode='w')
+            mode = "a" if self.keep_log else "w"
+            filehandler = logging.logging.FileHandler(logfile, mode=mode)
             filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
             output_logger.addHandler(filehandler)
 

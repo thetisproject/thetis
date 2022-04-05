@@ -77,7 +77,7 @@ class FlowSolver2d(FrozenClass):
     """
     @unfrozen
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.__init__")
-    def __init__(self, mesh2d, bathymetry_2d, options=None):
+    def __init__(self, mesh2d, bathymetry_2d, options=None, keep_log=False):
         """
         :arg mesh2d: :class:`Mesh` object of the 2D mesh
         :arg bathymetry_2d: Bathymetry of the domain. Bathymetry stands for
@@ -86,6 +86,7 @@ class FlowSolver2d(FrozenClass):
         :kwarg options: Model options (optional). Model options can also be
             changed directly via the :attr:`.options` class property.
         :type options: :class:`.ModelOptions2d` instance
+        :kwarg bool keep_log: append to an existing log file, or overwrite it?
         """
         self._initialized = False
         self.mesh2d = mesh2d
@@ -141,6 +142,7 @@ class FlowSolver2d(FrozenClass):
         if 'tracer_2d' in field_metadata:
             field_metadata.pop('tracer_2d')
         self.solve_tracer = False
+        self.keep_log = keep_log
         self._field_preproc_funcs = {}
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.compute_time_step")
@@ -391,7 +393,8 @@ class FlowSolver2d(FrozenClass):
             self.create_function_spaces()
 
         if self.options.log_output and not self.options.no_exports:
-            set_log_directory(self.options.output_directory)
+            mode = "a" if self.keep_log else "w"
+            set_log_directory(self.options.output_directory, mode=mode)
 
         self.fields.solution_2d = Function(self.function_spaces.V_2d, name='solution_2d')
         # correct treatment of the split 2d functions
