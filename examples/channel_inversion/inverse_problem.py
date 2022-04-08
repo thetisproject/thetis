@@ -27,6 +27,7 @@ do_consistency_test = not args.no_consistency_test
 do_taylor_test = not args.no_taylor_test
 no_exports = os.getenv('THETIS_REGRESSION_TEST') is not None
 
+# Create the solver object
 pwd = os.path.abspath(os.path.dirname(__file__))
 solver_obj = construct_solver(
     output_directory=f'{pwd}/outputs',
@@ -39,28 +40,25 @@ bathymetry_2d = solver_obj.fields.bathymetry_2d
 manning_2d = solver_obj.fields.manning_2d
 elev_init_2d = solver_obj.fields.elev_init_2d
 
+# Set output directory
 output_dir_suffix = '_' + '-'.join(controls) + '-opt'
 options.output_directory += output_dir_suffix
 
+# Setup controls and regularization parameters
 gamma_hessian_list = []
 control_bounds_list = []
-op = inversion_tools.OptimisationProgress(options.output_directory, no_exports=no_exports)
-
 for control_name in controls:
     if control_name == 'Bathymetry':
         bathymetry_2d.assign(5.0)
         bounds = [1.0, 50.]
-        op.add_control(bathymetry_2d)
         gamma_hessian = Constant(1e-3)  # regularization parameter
     elif control_name == 'Manning':
         manning_2d.assign(1.0e-03)
         bounds = [1e-4, 1e-1]
-        op.add_control(manning_2d)
         gamma_hessian = Constant(1.0)
     elif control_name == 'InitialElev':
         elev_init_2d.assign(0.5)
         bounds = [-10., 10.]
-        op.add_control(elev_init_2d)
         gamma_hessian = Constant(0.1)
     else:
         raise ValueError(f'Unsupported control variable {control_name}')
@@ -70,15 +68,11 @@ for control_name in controls:
 # reshape to [[lo1, lo2, ...], [hi1, hi2, ...]]
 control_bounds = numpy.array(control_bounds_list).T
 
+# Assign initial conditions
 print_output('Exporting to ' + options.output_directory)
 solver_obj.assign_initial_conditions(elev=elev_init_2d, uv=Constant((1e-5, 0)))
 
-# define the cost function
-# scale cost function so that J ~ O(1)
-dt_const = solver_obj.dt
-total_time_const = options.simulation_end_time
-J_scalar = dt_const/total_time_const
-
+# Create station manager
 observation_data_dir = f'{pwd}/outputs_forward'
 variable = 'elev'
 station_names = [
@@ -88,53 +82,35 @@ station_names = [
     'stationD',
     'stationE',
 ]
-stationmanager = inversion_tools.StationObservationManager(
-    mesh2d, J_scalar=J_scalar, output_directory=options.output_directory)
-stationmanager.load_observation_data(observation_data_dir, station_names, variable)
-stationmanager.set_model_field(solver_obj.fields.elev_2d)
+sta_manager = inversion_tools.StationObservationManager(
+    mesh2d, output_directory=options.output_directory)
+sta_manager.load_observation_data(observation_data_dir, station_names, variable)
+sta_manager.set_model_field(solver_obj.fields.elev_2d)
 
-# regularization for each control field
-reg_manager = inversion_tools.ControlRegularizationManager(
-    op.control_coeff_list, gamma_hessian_list, J_scalar=J_scalar)
+# Define the scaling for the cost function so that J ~ O(1)
+J_scalar = Constant(solver_obj.dt / options.simulation_end_time)
+
+# Create inversion manager and add controls
+inv_manager = inversion_tools.InversionManager(
+    sta_manager, output_dir=options.output_directory, no_exports=no_exports,
+    penalty_parameters=gamma_hessian_list, cost_function_scaling=J_scalar,
+    test_consistency=do_consistency_test, test_gradient=do_taylor_test)
+for control_name in controls:
+    if control_name == 'Bathymetry':
+        inv_manager.add_control(bathymetry_2d)
+    elif control_name == 'Manning':
+        inv_manager.add_control(manning_2d)
+    elif control_name == 'InitialElev':
+        inv_manager.add_control(elev_init_2d)
 
 # Extract the regularized cost function
-cost_function = inversion_tools.get_cost_function(
-    solver_obj, op, stationmanager, reg_manager=reg_manager,
-)
+cost_function = inv_manager.get_cost_function(solver_obj)
 
 # Solve and setup reduced functional
-solver_obj.iterate(export_func=cost_function)
-Jhat = ReducedFunctional(op.J, op.control_list, **op.rf_kwargs)
-stop_annotating()
-
-# Consistency test
-if do_consistency_test:
-    print_output('Running consistency test')
-    J = Jhat(op.control_coeff_list)
-    assert numpy.isclose(J, op.J)
-    print_output('Consistency test passed!')
-
-# Taylor test
-if do_taylor_test:
-    func_list = []
-    for f in op.control_coeff_list:
-        dc = Function(f.function_space()).assign(f)
-        func_list.append(dc)
-    minconv = taylor_test(Jhat, op.control_coeff_list, func_list)
-    assert minconv > 1.9
-    print_output('Taylor test passed!')
-
-
-def optimization_callback(m):
-    """
-    Stash optimisation progress after successful line search.
-    """
-    op.update_progress()
-    stationmanager.dump_time_series()
-
+solver_obj.iterate(update_forcings=cost_function)
+inv_manager.stop_annotating()
 
 # Run inversion
-opt_method = 'L-BFGS-B'
 opt_verbose = -1  # scipy diagnostics -1, 0, 1, 99, 100, 101
 opt_options = {
     'maxiter': 6,  # NOTE increase to run iteration longer
@@ -143,19 +119,11 @@ opt_options = {
 }
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
     opt_options['maxiter'] = 1
-
-print_output(f'Running {opt_method} optimization')
-op.reset_counters()
-op.start_clock()
-J = float(Jhat(op.control_coeff_list))
-op.set_initial_state(J, Jhat.derivative(), op.control_coeff_list)
-stationmanager.dump_time_series()
-control_opt_list = minimize(
-    Jhat, method=opt_method, bounds=control_bounds,
-    callback=optimization_callback, options=opt_options)
+control_opt_list = inv_manager.minimize(
+    opt_method='L-BFGS-B', bounds=control_bounds, **opt_options)
 if isinstance(control_opt_list, Function):
     control_opt_list = [control_opt_list]
-for oc, cc in zip(control_opt_list, op.control_coeff_list):
+for oc, cc in zip(control_opt_list, inv_manager.control_coeff_list):
     name = cc.name()
     oc.rename(name)
     print_function_value_range(oc, prefix='Optimal')

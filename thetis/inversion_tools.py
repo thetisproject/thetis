@@ -1,8 +1,8 @@
 import firedrake as fd
 from firedrake_adjoint import *
+from .configuration import FrozenHasTraits
 from .solver2d import FlowSolver2d
-from .utility import create_directory, print_function_value_range
-from .utility import get_functionspace
+from .utility import create_directory, print_function_value_range, get_functionspace, unfrozen
 from .log import print_output
 from .diagnostics import HessianRecoverer2D
 import numpy
@@ -12,12 +12,13 @@ import time as time_mod
 import os
 
 
-class InversionManager(object):
+class InversionManager(FrozenHasTraits):
     """
     Class for handling inversion problems and stashing
     the progress of the associated optimization routines.
     """
 
+    @unfrozen
     def __init__(self, sta_manager, output_dir='outputs', no_exports=False, real=False,
                  penalty_parameters=[], cost_function_scaling=None,
                  test_consistency=True, test_gradient=True):
@@ -67,6 +68,8 @@ class InversionManager(object):
 
     def initialize(self):
         if not self.no_exports:
+            if self.real:
+                raise ValueError("Exports are not supported in Real mode.")
             create_directory(self.output_dir)
             create_directory(self.output_dir + '/hdf5')
             for i in range(len(self.control_coeff_list)):
