@@ -1,8 +1,8 @@
 import firedrake as fd
 from firedrake_adjoint import *
+from .configuration import FrozenHasTraits
 from .solver2d import FlowSolver2d
-from .utility import create_directory, print_function_value_range
-from .utility import get_functionspace
+from .utility import create_directory, print_function_value_range, get_functionspace, unfrozen
 from .log import print_output
 from .diagnostics import HessianRecoverer2D
 import numpy
@@ -12,37 +12,64 @@ import time as time_mod
 import os
 
 
-class OptimisationProgress(object):
+class InversionManager(FrozenHasTraits):
     """
-    Class for stashing progress of the optimisation routine.
+    Class for handling inversion problems and stashing
+    the progress of the associated optimization routines.
     """
-    J = 0  # cost function value (float)
-    dJdm_list = None  # cost function gradient (Function)
-    m_list = None  # control (Function)
-    m_progress = []
-    J_progress = []
-    dJdm_progress = []
-    i = 0
-    tic = None
-    nb_grad_evals = 0
-    control_coeff_list = []
-    control_list = []
 
-    def __init__(self, output_dir='outputs', no_exports=False, real=False):
+    @unfrozen
+    def __init__(self, sta_manager, output_dir='outputs', no_exports=False, real=False,
+                 penalty_parameters=[], cost_function_scaling=None,
+                 test_consistency=True, test_gradient=True):
         """
+        :arg sta_manager: the :class:`StationManager` instance
         :kwarg output_dir: model output directory
         :kwarg no_exports: toggle exports to vtu
         :kwarg real: is the inversion in the Real space?
+        :kwarg penalty_parameters: a list of penalty parameters to pass
+            to the :class:`ControlRegularizationManager`
+        :kwarg cost_function_scaling: global scaling for the cost function.
+            As rule of thumb, it's good to scale the functional to J < 1.
+        :kwarg test_consistency: toggle testing the correctness with
+            which the :class:`ReducedFunctional` can recompute values
+        :kwarg test_gradient: toggle testing the correctness with
+            which the :class:`ReducedFunctional` can recompute gradients
         """
+        assert isinstance(sta_manager, StationObservationManager)
+        self.sta_manager = sta_manager
+        self.reg_manager = None
         self.output_dir = output_dir
         self.no_exports = no_exports or real
         self.real = real
+        self.penalty_parameters = penalty_parameters
+        self.cost_function_scaling = cost_function_scaling or fd.Constant(1.0)
+        self.sta_manager.cost_function_scaling.assign(cost_function_scaling)
+        self.test_consistency = test_consistency
+        self.test_gradient = test_gradient
         self.outfiles_m = []
         self.outfiles_dJdm = []
         self.initialized = False
 
+        self.J = 0  # cost function value (float)
+        self.J_reg = 0  # regularization term value (float)
+        self.dJdm_list = None  # cost function gradient (Function)
+        self.m_list = None  # control (Function)
+        self.Jhat = None
+        self.m_progress = []
+        self.J_progress = []
+        self.J_reg_progress = []
+        self.dJdm_progress = []
+        self.i = 0
+        self.tic = None
+        self.nb_grad_evals = 0
+        self.control_coeff_list = []
+        self.control_list = []
+
     def initialize(self):
         if not self.no_exports:
+            if self.real:
+                raise ValueError("Exports are not supported in Real mode.")
             create_directory(self.output_dir)
             create_directory(self.output_dir + '/hdf5')
             for i in range(len(self.control_coeff_list)):
@@ -56,7 +83,7 @@ class OptimisationProgress(object):
         """
         Add a control field.
 
-        Can be called multiple times in case of multiparameter optimisation.
+        Can be called multiple times in case of multiparameter optimization.
 
         :arg f: Function or Constant to be used as a control variable.
         """
@@ -68,7 +95,7 @@ class OptimisationProgress(object):
 
     def set_control_state(self, j, djdm_list, m_list):
         """
-        Stores optimisation state.
+        Stores optimization state.
 
         To call whenever variables are updated.
 
@@ -93,7 +120,7 @@ class OptimisationProgress(object):
 
     def update_progress(self):
         """
-        Updates optimisation progress and stores variables to disk.
+        Updates optimization progress and stores variables to disk.
 
         To call after successful line searches.
         """
@@ -165,6 +192,126 @@ class OptimisationProgress(object):
         }
         return params
 
+    def get_cost_function(self, solver_obj, weight_by_variance=False):
+        r"""
+        Get a sum of square errors cost function for the problem:
+
+      ..math::
+            J(u) = \sum_{i=1}^{n_{ts}} \sum_{j=1}^{n_{sta}} (u_j^{(i)} - u_{j,o}^{(i)})^2,
+
+        where :math:`u_{j,o}^{(i)}` and :math:`u_j^{(i)}` denote the
+        observed and computed values at timestep :math:`i`, and
+        :math:`n_{ts}` and :math:`n_{sta}` are the numbers of timesteps
+        and stations, respectively.
+
+        Regularization terms are included if a
+        :class:`RegularizationManager` instance is provided.
+
+        :arg solver_obj: the :class:`FlowSolver2d` instance
+        :kwarg weight_by_variance: should the observation data be
+            weighted by the variance at each station?
+        """
+        assert isinstance(solver_obj, FlowSolver2d)
+        if len(self.penalty_parameters) > 0:
+            self.reg_manager = ControlRegularizationManager(
+                self.control_coeff_list, self.penalty_parameters, self.cost_function_scaling)
+        self.J = 0
+        if self.reg_manager is not None:
+            self.J += self.reg_manager.eval_cost_function()
+
+        if weight_by_variance:
+            var = fd.Function(self.sta_manager.fs_points_0d)
+            for i, j in enumerate(self.sta_manager.local_station_index):
+                var.dat.data[i] = numpy.var(self.sta_manager.observation_values[j])
+            self.sta_manager.station_weight_0d.assign(1/var)
+
+        def cost_fn(t):
+            J_misfit = self.sta_manager.eval_cost_function(t)
+            self.J += J_misfit
+
+        return cost_fn
+
+    @property
+    def reduced_functional(self):
+        """
+        Create a Pyadjoint :class:`ReducedFunctional` for the optimization.
+        """
+        if self.Jhat is None:
+            self.Jhat = ReducedFunctional(self.J, self.control_list, **self.rf_kwargs)
+        return self.Jhat
+
+    def stop_annotating(self):
+        """
+        Stop recording operations for the adjoint solver.
+
+        This method should be called after the :meth:`iterate`
+        method of :class:`FlowSolver2d`.
+        """
+        assert self.reduced_functional is not None
+        if self.test_consistency:
+            self.consistency_test()
+        if self.test_gradient:
+            self.taylor_test()
+        pause_annotation()
+
+    def get_optimization_callback(self):
+        """
+        Get a callback for stashing optimization progress
+        after successful line search.
+        """
+
+        def optimization_callback(m):
+            self.update_progress()
+            self.sta_manager.dump_time_series()
+
+        return optimization_callback
+
+    def minimize(self, opt_method="BFGS", bounds=None, **opt_options):
+        """
+        Minimize the reduced functional using a given optimization routine.
+
+        :kwarg opt_method: the optimization routine
+        :kwarg bounds: a list of bounds to pass to the optimization routine
+        :kwarg opt_options: other optimization parameters to pass
+        """
+        print_output(f'Running {opt_method} optimization')
+        self.reset_counters()
+        self.start_clock()
+        J = float(self.reduced_functional(self.control_coeff_list))
+        self.set_initial_state(J, self.reduced_functional.derivative(), self.control_coeff_list)
+        self.sta_manager.dump_time_series()
+        return minimize(
+            self.reduced_functional, method=opt_method, bounds=bounds,
+            callback=self.get_optimization_callback(), options=opt_options)
+
+    def consistency_test(self):
+        """
+        Test that :attr:`reduced_functional` can correctly recompute the
+        objective value, assuming that none of the controls have changed
+        since it was created.
+        """
+        print_output("Running consistency test")
+        J = self.reduced_functional(self.control_coeff_list)
+        if not numpy.isclose(J, self.J):
+            raise ValueError(f"Consistency test failed (expected {self.J}, got {J})")
+        print_output("Consistency test passed!")
+
+    def taylor_test(self):
+        """
+        Run a Taylor test to check that the :attr:`reduced_functional` can
+        correctly compute consistent gradients.
+
+        Note that the Taylor test is applied on the current control values.
+        """
+        func_list = []
+        for f in self.control_coeff_list:
+            dc = f.copy(deepcopy=True)
+            func_list.append(dc)
+        minconv = taylor_test(self.reduced_functional, self.control_coeff_list, func_list)
+        if minconv < 1.9:
+            raise ValueError("Taylor test failed")  # NOTE: Pyadjoint already prints the testing
+        print_output("Taylor test passed!")
+
 
 class StationObservationManager:
     """
@@ -177,23 +324,21 @@ class StationObservationManager:
     interpolates the observations time series to the model time, computes the
     error functional, and also stores the model's time series data to disk.
     """
-    def __init__(self, mesh, J_scalar=None, output_directory='outputs'):
+    def __init__(self, mesh, output_directory='outputs'):
         """
         :arg mesh: the 2D mesh object.
-        :kwarg J_scalar: Optional factor to scale the error functional. As a
-            rule of thumb, it's good to scale the functional to J < 1.
         :kwarg output_directory: directory where model time series are stored.
         """
         self.mesh = mesh
         on_sphere = self.mesh.geometric_dimension() == 3
         if on_sphere:
             raise NotImplementedError('Sphere meshes are not supported yet.')
-        self.J_scalar = J_scalar if J_scalar else fd.Constant(1.0)
+        self.cost_function_scaling = fd.Constant(1.0)
         self.output_directory = output_directory
         create_directory(self.output_directory)
         # keep observation time series in memory
         self.obs_func_list = []
-        # keep model time series in memory during optimisation progress
+        # keep model time series in memory during optimization progress
         self.station_value_progress = []
         # model time when cost function was evaluated
         self.simulation_time = []
@@ -371,14 +516,15 @@ class StationObservationManager:
         # compute square error
         self.obs_values_0d.assign(obs_func)
         self.mod_values_0d.interpolate(self.model_observation_field, ad_block_tag='observation')
-        J_misfit = fd.assemble(self.J_scalar*self.indicator_0d*self.station_weight_0d*self.misfit_expr**2*fd.dx)
+        s = self.cost_function_scaling * self.indicator_0d * self.station_weight_0d
+        J_misfit = fd.assemble(s * self.misfit_expr ** 2 * fd.dx)
         return J_misfit
 
     def dump_time_series(self):
         """
         Stores model time series to disk.
 
-        Obtains station time series from the last optimisation iteration,
+        Obtains station time series from the last optimization iteration,
         and stores the data to disk.
 
         The output files are have the format
@@ -483,52 +629,3 @@ class ControlRegularizationManager:
                 u *= float(self.J_scalar)
             v += u
         return v
-
-
-def get_cost_function(solver_obj, op, stationmanager,
-                      reg_manager=None, weight_by_variance=False):
-    r"""
-    Get a sum of square errors cost function for the problem:
-
-  ..math::
-        J(u) = \sum_{i=1}^{n_{ts}} \sum_{j=1}^{n_{sta}} (u_j^{(i)} - u_{j,o}^{(i)})^2,
-
-    where :math:`u_{j,o}^{(i)}` and :math:`u_j^{(i)}` denote the
-    observed and computed values at timestep :math:`i`, and
-    :math:`n_{ts}` and :math:`n_{sta}` are the numbers of timesteps
-    and stations, respectively.
-
-    Regularization terms are included if a
-    :class:`RegularizationManager` instance is provided.
-
-    Note that the current value of the cost function is
-    stashed on the :class:`OptimisationProgress` object.
-
-    :arg solver_obj: the :class:`FlowSolver2d` instance
-    :arg op: the :class:`OptimisationProgress` instance
-    :arg stationmanager: the :class:`StationManager` instance
-    :kwarg reg_manager: the :class:`RegularizationManager` instance
-    :kwarg weight_by_variance: should the observation data be
-        weighted by the variance at each station?
-    """
-    assert isinstance(solver_obj, FlowSolver2d)
-    assert isinstance(op, OptimisationProgress)
-    assert isinstance(stationmanager, StationObservationManager)
-    if reg_manager is None:
-        op.J = 0
-    else:
-        assert isinstance(reg_manager, ControlRegularizationManager)
-        op.J = reg_manager.eval_cost_function()
-
-    if weight_by_variance:
-        var = fd.Function(stationmanager.fs_points_0d)
-        for i, j in enumerate(stationmanager.local_station_index):
-            var.dat.data[i] = numpy.var(stationmanager.observation_values[j])
-        stationmanager.station_weight_0d.assign(1/var)
-
-    def cost_fn():
-        t = solver_obj.simulation_time
-        J_misfit = stationmanager.eval_cost_function(t)
-        op.J += J_misfit
-
-    return cost_fn
