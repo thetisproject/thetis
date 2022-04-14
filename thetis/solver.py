@@ -19,6 +19,7 @@ from . import callback
 from .log import *
 from collections import OrderedDict
 import numpy
+import datetime
 
 
 class FlowSolver(FrozenClass):
@@ -1083,13 +1084,19 @@ class FlowSolver(FrozenClass):
 
         :arg float cputime: Measured CPU time
         """
+        if self.options.simulation_initial_date is not None:
+            now = self.options.simulation_initial_date + datetime.timedelta(seconds=self.simulation_time)
+            time_str = f'{now:%Y-%m-%dT%H:%M:%S%Z}'
+        else:
+            time_str = f'T={self.simulation_time:10.2f}'
+
         norm_h = norm(self.fields.elev_2d)
         norm_u = norm(self.fields.uv_3d)
 
-        line = ('{iexp:5d} {i:5d} T={t:10.2f} '
+        line = ('{iexp:5d} {i:5d} {t} '
                 'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
         print_output(line.format(iexp=self.i_export, i=self.iteration,
-                                 t=self.simulation_time, e=norm_h,
+                                 t=time_str, e=norm_h,
                                  u=norm_u, cpu=cputime))
         sys.stdout.flush()
 
@@ -1206,6 +1213,21 @@ class FlowSolver(FrozenClass):
                 for k in self.callbacks[m]:
                     self.callbacks[m][k].set_write_mode('append')
 
+        initial_simulation_time = self.simulation_time
+        internal_iteration = 0
+
+        init_date = self.options.simulation_initial_date
+        end_date = self.options.simulation_end_date
+        if (init_date is not None and end_date is not None):
+            now = init_date + datetime.timedelta(initial_simulation_time)
+            assert end_date > now, f'Simulation end date must be greater than initial time {now}'
+            print_output(f'Running simulation from {now:%Y-%m-%dT%H:%M:%S%Z} to {end_date:%Y-%m-%dT%H:%M:%S%Z}')
+            duration = (end_date - now).total_seconds()
+            if self.options.simulation_end_time is not None:
+                warning('Both simulation_end_date and simulation_end_time have been set, ignoring simulation_end_time.')
+            self.options.simulation_end_time = duration
+        assert self.options.simulation_end_time is not None, 'simulation_end_time must be set'
+
         # initial export
         self.print_state(0.0)
         if self.export_initial_state:
@@ -1214,9 +1236,6 @@ class FlowSolver(FrozenClass):
                 export_func()
             if 'vtk' in self.exporters:
                 self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
-
-        initial_simulation_time = self.simulation_time
-        internal_iteration = 0
 
         while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
 
