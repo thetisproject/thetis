@@ -5,7 +5,7 @@ from textwrap import indent, dedent
 from traitlets.config.configurable import Configurable
 from traitlets import *
 from firedrake import Constant, Function
-
+import datetime
 import ufl
 
 from abc import ABCMeta, abstractproperty
@@ -201,6 +201,16 @@ class FiredrakeVectorExpression(TraitType):
         if isinstance(self.default_value, Function):
             return 'Function'
         return 'UFL vector expression'
+
+
+class DatetimeTraitlet(TraitType):
+    default_value = None
+    info_text = 'a timezone-aware datetime object'
+
+    def validate(self, obj, value):
+        if isinstance(value, datetime.datetime) and value.tzinfo is not None:
+            return value
+        self.error(obj, value)
 
 
 class PETScSolverParameters(Dict):
