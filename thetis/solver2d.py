@@ -21,6 +21,7 @@ from .log import *
 from collections import OrderedDict
 import thetis.limiter as limiter
 import numpy
+import datetime
 
 
 class FlowSolver2d(FrozenClass):
@@ -840,26 +841,32 @@ class FlowSolver2d(FrozenClass):
 
         :arg float cputime: Measured CPU time
         """
+        if self.options.simulation_initial_date is not None:
+            now = self.options.simulation_initial_date + datetime.timedelta(seconds=self.simulation_time)
+            time_str = f'{now:%Y-%m-%dT%H:%M:%S%Z}'
+        else:
+            time_str = f'T={self.simulation_time:10.2f}'
+
         if self.options.tracer_only:
             for label in self.options.tracer:
                 norm_q = norm(self.fields[label])
 
-                line = ('{iexp:5d} {i:5d} T={t:10.2f} '
+                line = ('{iexp:5d} {i:5d} {t} '
                         '{label:16s}: {q:10.4f} {cpu:5.2f}')
 
                 norm_label = label if len(label) < 3 or label[-3:] != '_2d' else label[:-3]
                 print_output(line.format(iexp=self.i_export, i=self.iteration,
-                                         t=self.simulation_time,
+                                         t=time_str,
                                          label=norm_label + ' norm',
                                          q=norm_q, cpu=cputime))
         else:
             norm_h = norm(self.fields.solution_2d.split()[1])
             norm_u = norm(self.fields.solution_2d.split()[0])
 
-            line = ('{iexp:5d} {i:5d} T={t:10.2f} '
+            line = ('{iexp:5d} {i:5d} {t} '
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
             print_output(line.format(iexp=self.i_export, i=self.iteration,
-                                     t=self.simulation_time, e=norm_h,
+                                     t=time_str, e=norm_h,
                                      u=norm_u, cpu=cputime))
         sys.stdout.flush()
 
@@ -878,7 +885,6 @@ class FlowSolver2d(FrozenClass):
         :kwarg export_func: User-defined function (with no arguments) that will
             be called on every export.
         """
-        # TODO I think export function is obsolete as callbacks are in place
         if not self._initialized:
             self.initialize()
 
@@ -935,6 +941,21 @@ class FlowSolver2d(FrozenClass):
                                                  append_to_log=True)
             self.add_callback(c, eval_interval='export')
 
+        initial_simulation_time = self.simulation_time
+        internal_iteration = 0
+
+        init_date = self.options.simulation_initial_date
+        end_date = self.options.simulation_end_date
+        if (init_date is not None and end_date is not None):
+            now = init_date + datetime.timedelta(initial_simulation_time)
+            assert end_date > now, f'Simulation end date must be greater than initial time {now}'
+            print_output(f'Running simulation from {now:%Y-%m-%dT%H:%M:%S%Z} to {end_date:%Y-%m-%dT%H:%M:%S%Z}')
+            duration = (end_date - now).total_seconds()
+            if self.options.simulation_end_time is not None:
+                warning('Both simulation_end_date and simulation_end_time have been set, ignoring simulation_end_time.')
+            self.options.simulation_end_time = duration
+        assert self.options.simulation_end_time is not None, 'simulation_end_time must be set'
+
         # initial export
         self.print_state(0.0)
         if self.export_initial_state:
@@ -943,9 +964,6 @@ class FlowSolver2d(FrozenClass):
                 export_func()
             if 'vtk' in self.exporters and isinstance(self.fields.bathymetry_2d, Function):
                 self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
-
-        initial_simulation_time = self.simulation_time
-        internal_iteration = 0
 
         while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
             self.timestepper.advance(self.simulation_time, update_forcings)
