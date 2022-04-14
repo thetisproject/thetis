@@ -4,13 +4,12 @@ import thetis.forcing as forcing
 import csv
 import netCDF4
 import os
-import pyproj
 import scipy.interpolate as si
-
+import numpy
 
 # Setup zones
 sim_tz = timezone.pytz.utc
-UTM_ZONE30 = pyproj.Proj(proj="utm", zone=30, datum="WGS84", units="m", errcheck=True)
+coord_system = coordsys.UTMCoordinateSystem(utm_zone=30)
 
 
 def read_station_data():
@@ -58,10 +57,9 @@ def interpolate_bathymetry(bathymetry_2d, dataset="etopo1", cap=10.0):
         )
 
     # Interpolate at mesh vertices
-    trans = pyproj.Transformer.from_crs(UTM_ZONE30.srs, coordsys.LL_WGS84.srs)
-    for i, xy in enumerate(mesh.coordinates.dat.data_ro):
-        lon, lat = trans.transform(*xy)
-        bathymetry_2d.dat.data[i] -= min(interp(lat, lon), -cap)
+    lonlat_func = coord_system.get_mesh_lonlat_function(mesh)
+    lon, lat = lonlat_func.dat.data_ro.T
+    bathymetry_2d.dat.data[:] = numpy.maximum(-interp(lat, lon), cap)
 
 
 def construct_solver(spinup=False, store_station_time_series=True, **model_options):
@@ -78,10 +76,7 @@ def construct_solver(spinup=False, store_station_time_series=True, **model_optio
 
     # Setup mesh and lonlat coords
     mesh2d = Mesh("north_sea.msh")
-    trans = pyproj.Transformer.from_crs(UTM_ZONE30.srs, coordsys.LL_WGS84.srs)
-    lonlat = Function(mesh2d.coordinates.function_space())
-    for i, xy in enumerate(mesh2d.coordinates.dat.data_ro):
-        lonlat.dat.data[i] = trans.transform(*xy)
+    lonlat = coord_system.get_mesh_lonlat_function(mesh2d)
     lon, lat = lonlat
 
     # Setup bathymetry
@@ -143,10 +138,9 @@ def construct_solver(spinup=False, store_station_time_series=True, **model_optio
 
     # Set up gauges
     if store_station_time_series:
-        trans = pyproj.Transformer.from_crs(coordsys.LL_WGS84.srs, UTM_ZONE30.srs)
         for name, data in read_station_data().items():
             sta_lat, sta_lon = data["latlon"]
-            sta_x, sta_y = trans.transform(sta_lon, sta_lat)
+            sta_x, sta_y = coord_system.to_xy(sta_lon, sta_lat)
             cb = TimeSeriesCallback2D(
                 solver_obj,
                 ["elev_2d"],
@@ -166,7 +160,7 @@ def construct_solver(spinup=False, store_station_time_series=True, **model_optio
     tbnd = forcing.TPXOTidalBoundaryForcing(
         elev_tide_2d,
         start_date,
-        UTM_ZONE30,
+        coord_system,
         data_dir=data_dir,
         constituents=forcing_constituents,
         boundary_ids=[100],

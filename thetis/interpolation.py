@@ -40,7 +40,6 @@ Usage:
 """
 import glob
 import os
-from .coordsys import to_latlon
 from .timezone import *
 from .log import *
 import scipy.spatial.qhull as qhull
@@ -326,6 +325,7 @@ def _get_subset_nodes(grid_x, grid_y, target_x, target_y):
     return nodes, ind_x, ind_y
 
 
+# TODO can I just inherit from ABC instead?
 class SpatialInterpolator():
     """
     Abstract base class for spatial interpolators that read data from disk
@@ -336,7 +336,7 @@ class SpatialInterpolator():
     def __init__(self, function_space, coord_system):
         """
         :arg function_space: target Firedrake FunctionSpace
-        :arg coord_system: the local mesh coordinate system
+        :arg coord_system: :class:`CoordinateSystem` object
         """
         pass
 
@@ -359,7 +359,7 @@ class SpatialInterpolator2d(SpatialInterpolator):
                  fill_value=numpy.nan):
         """
         :arg function_space: target Firedrake FunctionSpace
-        :arg coord_system: the local mesh coordinate system
+        :arg coord_system: :class:`CoordinateSystem` object
         :kwarg fill_mode: Determines how points outside the source grid will be
             treated. If 'nearest', value of the nearest source point will be
             used. Otherwise a constant fill value will be used (default).
@@ -382,7 +382,7 @@ class SpatialInterpolator2d(SpatialInterpolator):
             fsy = Function(function_space).interpolate(y).dat.data_with_halos
             coords = (fsx, fsy)
 
-        lat, lon = to_latlon(coord_system, *coords)
+        lon, lat = coord_system.to_lonlat(coord_system, *coords)
         self.mesh_lonlat = numpy.array([lon, lat]).T
 
         self.fill_mode = fill_mode
