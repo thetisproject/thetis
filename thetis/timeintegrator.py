@@ -2,22 +2,21 @@
 Generic time integration schemes to advance equations in time.
 """
 from .utility import *
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 import numpy
+from pyop2.profiling import timed_region, timed_stage
 
 CFL_UNCONDITIONALLY_STABLE = numpy.inf
 # CFL coefficient for unconditionally stable methods
 
 
-class TimeIntegratorBase(object):
+class TimeIntegratorBase(ABC):
     """
     Abstract class that defines the API for all time integrators
 
     Both :class:`TimeIntegrator` and :class:`CoupledTimeIntegrator` inherit
     from this class.
     """
-    __metaclass__ = ABCMeta
-
     @abstractmethod
     def advance(self, t, update_forcings=None):
         """

@@ -4,7 +4,7 @@ Slope limiters for discontinuous fields
 from .utility import *
 from firedrake import VertexBasedLimiter
 import ufl
-from pyop2.profiling import timed_region, timed_function, timed_stage  # NOQA
+from pyop2.profiling import timed_stage
 import numpy
 
 

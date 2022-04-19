@@ -11,7 +11,7 @@ import netCDF4
 import thetis.physical_constants as physical_constants
 import uptide
 import uptide.tidal_netcdf
-from abc import ABCMeta, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod, abstractproperty
 import os
 import numpy
 
@@ -868,9 +868,8 @@ class GenericInterpolator2D(object):
             self.fields[i].dat.data_with_halos[:] = vals[i]
 
 
-class TidalBoundaryForcing(object):
+class TidalBoundaryForcing(ABC):
     """Base class for tidal boundary interpolators."""
-    __metaclass__ = ABCMeta
 
     @abstractproperty
     def coord_layout():

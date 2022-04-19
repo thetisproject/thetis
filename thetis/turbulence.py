@@ -145,6 +145,8 @@ from .stability_functions import *
 from .log import *
 from .options import GLSModelOptions, PacanowskiPhilanderModelOptions
 import numpy
+from abc import ABC, abstractmethod
+from pyop2.profiling import timed_stage
 
 
 def set_func_min_val(f, minval):
@@ -317,7 +319,7 @@ class BuoyFrequencySolver(object):
                                + (1.0 - gamma)*self.n2)
 
 
-class TurbulenceModel(object):
+class TurbulenceModel(ABC):
     """Base class for all vertical turbulence models"""
 
     @abstractmethod

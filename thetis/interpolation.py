@@ -44,7 +44,7 @@ from .timezone import *
 from .log import *
 import scipy.spatial.qhull as qhull
 import netCDF4
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from firedrake import *
 from firedrake.petsc import PETSc
 import re
@@ -325,13 +325,10 @@ def _get_subset_nodes(grid_x, grid_y, target_x, target_y):
     return nodes, ind_x, ind_y
 
 
-# TODO can I just inherit from ABC instead?
-class SpatialInterpolator():
+class SpatialInterpolator(ABC):
     """
     Abstract base class for spatial interpolators that read data from disk
     """
-    __metaclass__ = ABCMeta
-
     @abstractmethod
     def __init__(self, function_space, coord_system):
         """
@@ -348,12 +345,10 @@ class SpatialInterpolator():
         pass
 
 
-class SpatialInterpolator2d(SpatialInterpolator):
+class SpatialInterpolator2d(SpatialInterpolator, ABC):
     """
     Abstract spatial interpolator class that can interpolate onto a 2D Function
     """
-    __metaclass__ = ABCMeta
-
     @PETSc.Log.EventDecorator("thetis.SpatialInterpolator2d.__init__")
     def __init__(self, function_space, coord_system, fill_mode=None,
                  fill_value=numpy.nan):

@@ -5,7 +5,7 @@ from .utility import *
 from . import timeintegrator
 from .log import *
 from . import rungekutta
-from abc import ABCMeta, abstractproperty
+from abc import ABC, abstractproperty
 import numpy
 
 
@@ -127,13 +127,11 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
             self._update_stabilization_params()
 
 
-class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
+class CoupledTimeIntegrator(CoupledTimeIntegratorBase, ABC):
     """
     Base class of mode-split time integrators that use 2D, 3D and implicit 3D
     time integrators.
     """
-    __metaclass__ = ABCMeta
-
     @abstractproperty
     def integrator_2d(self):
         """time integrator for 2D equations"""

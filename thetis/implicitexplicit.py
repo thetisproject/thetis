@@ -5,7 +5,7 @@ Implicit-explicit time integrators
 from .rungekutta import *
 
 
-class IMEXGeneric(TimeIntegrator):
+class IMEXGeneric(TimeIntegrator, ABC):
     """
     Generic implementation of Runge-Kutta Implicit-Explicit schemes
 
@@ -17,8 +17,6 @@ class IMEXGeneric(TimeIntegrator):
     solver. In case of non-linear terms proper linearization must defined in the
     equation using the two solution functions (solution, solution_old)
     """
-    __metaclass__ = ABCMeta
-
     @abstractproperty
     def dirk_class(self):
         """Implicit DIRK class"""

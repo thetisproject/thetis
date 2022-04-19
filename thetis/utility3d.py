@@ -2,6 +2,7 @@
 Utility solvers and calculators for 3D hydrostatic ocean model
 """
 from .utility import *
+from abc import ABC, abstractmethod
 import numpy
 
 
@@ -993,11 +994,10 @@ class SmagorinskyViscosity(object):
         self.output.dat.data[ix] = self.max_val.dat.data[ix]
 
 
-class EquationOfState(object):
+class EquationOfState(ABC):
     """
     Base class of all equation of state objects
     """
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def compute_rho(self, s, th, p, rho0=0.0):
