@@ -235,9 +235,8 @@ class PairedEnum(Enum):
         return result + super(PairedEnum, self).info()
 
 
-class OptionsBase(object):
+class OptionsBase:
     """Abstract base class for all options classes"""
-
     __metaclass__ = ABCMeta
 
     @abstractproperty

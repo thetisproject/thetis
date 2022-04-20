@@ -4,15 +4,13 @@ Time integrators for solving coupled shallow water equations with one tracer or 
 from .utility import *
 from . import timeintegrator
 from .log import *
-from abc import ABCMeta
+from abc import ABC
 
 
-class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
+class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase, ABC):
     """
     Base class of time integrator for coupled shallow water and tracer/sediment equations and exner equation
     """
-    __metaclass__ = ABCMeta
-
     def swe_integrator(self):
         """time integrator for the shallow water equations"""
         pass

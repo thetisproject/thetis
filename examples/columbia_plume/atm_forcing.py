@@ -14,7 +14,7 @@ from thetis.forcing import *
 from thetis.utility import get_functionspace
 
 # define model coordinate system
-COORDSYS = coordsys.UTM_ZONE10
+coord_system = coordsys.UTMCoordinateSystem(utm_zone=10)
 
 
 def test():
@@ -51,7 +51,7 @@ def test():
     test_atm_file = 'forcings/atm/nam/nam_air.local.2006_05_01.nc'
 
     atm_interp = ATMInterpolator(p1, windstress_2d, atmpressure_2d,
-                                 COORDSYS, pattern, init_date,
+                                 coord_system, pattern, init_date,
                                  verbose=True)
 
     # create a naive interpolation for first file
@@ -61,7 +61,7 @@ def test():
 
     mesh_lonlat = []
     for node in range(len(fsx)):
-        lat, lon = coordsys.to_latlon(COORDSYS, fsx[node], fsy[node])
+        lon, lat = coord_system.to_lonlat(fsx[node], fsy[node])
         mesh_lonlat.append((lon, lat))
     mesh_lonlat = numpy.array(mesh_lonlat)
 
@@ -76,7 +76,7 @@ def test():
     uwind = scipy.interpolate.griddata(grid_lonlat, grid_uwind, mesh_lonlat, method='linear')
     grid_vwind = ncfile['vwind'][itime, :, :].ravel()
     vwind = scipy.interpolate.griddata(grid_lonlat, grid_vwind, mesh_lonlat, method='linear')
-    vrot = coordsys.VectorCoordSysRotation(coordsys.LL_WGS84, COORDSYS, mesh_lonlat[:, 0], mesh_lonlat[:, 1])
+    vrot = coord_system.get_vector_rotator(mesh_lonlat[:, 0], mesh_lonlat[:, 1])
     uwind, vwind = vrot(uwind, vwind)
     u_stress, v_stress = compute_wind_stress(uwind, vwind)
 

@@ -3,7 +3,7 @@ Classes for computing diagnostics.
 """
 from .utility import *
 from .configuration import *
-
+from abc import ABCMeta, abstractmethod
 
 __all__ = ["VorticityCalculator2D", "HessianRecoverer2D", "KineticEnergyCalculator"]
 

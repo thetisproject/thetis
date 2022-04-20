@@ -5,7 +5,7 @@ The abstract class :class:`~.AbstractRKScheme` defines the Runge-Kutta
 coefficients, and can be used to implement generic time integrators.
 """
 from .timeintegrator import *
-from abc import ABCMeta, abstractproperty, abstractmethod
+from abc import ABC, abstractproperty, abstractmethod
 import operator
 import numpy
 
@@ -87,7 +87,7 @@ def butcher_to_shuosher_form(a, b):
     return alpha, beta
 
 
-class AbstractRKScheme(object):
+class AbstractRKScheme(ABC):
     """
     Abstract class for defining Runge-Kutta schemes.
 
@@ -96,8 +96,6 @@ class AbstractRKScheme(object):
 
     Currently only explicit or diagonally implicit schemes are supported.
     """
-    __metaclass__ = ABCMeta
-
     @abstractproperty
     def a(self):
         """Runge-Kutta matrix :math:`a_{i,j}` of the Butcher tableau"""
@@ -410,10 +408,8 @@ class ESDIRKTrapezoidAbstract(AbstractRKScheme):
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
 
-class RungeKuttaTimeIntegrator(TimeIntegrator):
+class RungeKuttaTimeIntegrator(TimeIntegrator, ABC):
     """Abstract base class for all Runge-Kutta time integrators"""
-    __metaclass__ = ABCMeta
-
     @abstractmethod
     def get_final_solution(self, additive=False):
         """

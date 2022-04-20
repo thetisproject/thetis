@@ -3,15 +3,13 @@ Utility functions and classes for 2D and 3D ocean models
 """
 import os
 import sys
-from abc import ABCMeta, abstractmethod  # NOQA
 from collections import OrderedDict, namedtuple  # NOQA
 
-import coffee.base as ast  # NOQA
 import ufl  # NOQA
 from firedrake import *
 from firedrake.petsc import PETSc
 from mpi4py import MPI  # NOQA
-from pyop2.profiling import timed_function, timed_region, timed_stage  # NOQA
+from pyop2.profiling import timed_stage  # NOQA
 import numpy
 from functools import wraps
 from pyadjoint.tape import no_annotations

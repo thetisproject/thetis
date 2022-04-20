@@ -6,13 +6,12 @@ from firedrake.petsc import PETSc
 import scipy.spatial.qhull as qhull
 import thetis.timezone as timezone
 import thetis.interpolation as interpolation
-import thetis.coordsys as coordsys
 from .log import *
 import netCDF4
 import thetis.physical_constants as physical_constants
 import uptide
 import uptide.tidal_netcdf
-from abc import ABCMeta, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod, abstractproperty
 import os
 import numpy
 
@@ -134,7 +133,7 @@ class ATMInterpolator(object):
             wind stress will be stored.
         :arg atm_pressure_field: A 2D scalar :class:`Function` where the output
             atmospheric pressure will be stored.
-        :arg coord_system: the local mesh coordinate system
+        :arg coord_system: :class:`CoordinateSystem` object
         :arg ncfile_pattern: A file name pattern for reading the atmospheric
             model output files. E.g. 'forcings/nam_air.local.2006_*.nc'
         :arg init_date: A :class:`datetime` object that indicates the start
@@ -166,8 +165,7 @@ class ATMInterpolator(object):
         lon = self.grid_interpolator.mesh_lonlat[:, 0]
         lat = self.grid_interpolator.mesh_lonlat[:, 1]
         if vect_rotator is None:
-            self.vect_rotator = coordsys.VectorCoordSysRotation(
-                coordsys.LL_WGS84, coord_system, lon, lat)
+            self.vect_rotator = coord_system.get_vector_rotator(lon, lat)
         else:
             self.vect_rotator = vect_rotator
 
@@ -204,7 +202,7 @@ class SpatialInterpolatorNCOMBase(interpolation.SpatialInterpolator):
         """
         :arg function_space: Target (scalar) :class:`FunctionSpace` object onto
             which data will be interpolated.
-        :arg coord_system: the local mesh coordinate system
+        :arg coord_system: :class:`CoordinateSystem` object
         :arg grid_path: File path where the NCOM model grid files
             ('model_lat.nc', 'model_lon.nc', 'model_zm.nc') are located.
         """
@@ -295,7 +293,7 @@ class SpatialInterpolatorNCOM3d(SpatialInterpolatorNCOMBase):
         """
         :arg function_space: Target (scalar) :class:`FunctionSpace` object onto
             which data will be interpolated.
-        :arg coord_system: the local mesh coordinate system
+        :arg coord_system: :class:`CoordinateSystem` object
         :arg grid_path: File path where the NCOM model grid files
             ('model_lat.nc', 'model_lon.nc', 'model_zm.nc') are located.
         """
@@ -311,8 +309,8 @@ class SpatialInterpolatorNCOM3d(SpatialInterpolatorNCOMBase):
         self.function_space.restore_work_function(tmp_func)
 
         self.latlonz_array = numpy.zeros_like(xyz_array)
-        lat, lon = coordsys.to_latlon(
-            coord_system, xyz_array[:, 0], xyz_array[:, 1], positive_lon=True
+        lon, lat = coord_system.to_lonlat(
+            xyz_array[:, 0], xyz_array[:, 1], positive_lon=True
         )
         self.latlonz_array[:, 0] = lat
         self.latlonz_array[:, 1] = lon
@@ -385,7 +383,7 @@ class SpatialInterpolatorNCOM2d(SpatialInterpolatorNCOMBase):
         """
         :arg function_space: Target (scalar) :class:`FunctionSpace` object onto
             which data will be interpolated.
-        :arg coord_system: the local mesh coordinate system
+        :arg coord_system: :class:`CoordinateSystem` object
         :arg grid_path: File path where the NCOM model grid files
             ('model_lat.nc', 'model_lon.nc', 'model_zm.nc') are located.
         """
@@ -400,8 +398,8 @@ class SpatialInterpolatorNCOM2d(SpatialInterpolatorNCOMBase):
         self.function_space.restore_work_function(tmp_func)
 
         self.latlonz_array = numpy.zeros_like(xy_array)
-        lat, lon = coordsys.to_latlon(
-            coord_system, xy_array[:, 0], xy_array[:, 1], positive_lon=True
+        lon, lat = coord_system.to_lonlat(
+            xy_array[:, 0], xy_array[:, 1], positive_lon=True
         )
         self.latlonz_array[:, 0] = lat
         self.latlonz_array[:, 1] = lon
@@ -481,7 +479,7 @@ class NCOMInterpolator(object):
             ['Salinity', 'Temperature'].
         :arg field_fnstr: List of variables in netCDF file names. E.g.
             ['s3d', 't3d'].
-        :arg coord_system: the local mesh coordinate system
+        :arg coord_system: :class:`CoordinateSystem` object
         :arg basedir: Root dir where NCOM files are stored.
             E.g. '/forcings/ncom'.
         :arg file_pattern: A file name pattern for reading the NCOM output
@@ -524,8 +522,7 @@ class NCOMInterpolator(object):
             self.scalar_field_names.remove('V_Velocity')
             lat = self.grid_interpolator_3d.latlonz_array[:, 0]
             lon = self.grid_interpolator_3d.latlonz_array[:, 1]
-            self.vect_rotator = coordsys.VectorCoordSysRotation(
-                coordsys.LL_WGS84, coord_system, lon, lat)
+            self.vect_rotator = coord_system.get_vector_rotator(lon, lat)
 
     @PETSc.Log.EventDecorator("thetis.NCOMInterpolator.set_fields")
     def set_fields(self, time):
@@ -554,7 +551,7 @@ class SpatialInterpolatorROMS3d(interpolation.SpatialInterpolator):
     def __init__(self, function_space, coord_system):
         """
         :arg function_space: target Firedrake FunctionSpace
-        :arg coord_system: the local mesh coordinate system
+        :arg coord_system: :class:`CoordinateSystem` object
         """
         self.function_space = function_space
 
@@ -568,8 +565,8 @@ class SpatialInterpolatorROMS3d(interpolation.SpatialInterpolator):
         self.function_space.restore_work_function(tmp_func)
 
         self.latlonz_array = numpy.zeros_like(xyz_array)
-        lat, lon = coordsys.to_latlon(
-            coord_system, xyz_array[:, 0], xyz_array[:, 1]
+        lon, lat = coord_system.to_lonlat(
+            xyz_array[:, 0], xyz_array[:, 1]
         )
         self.latlonz_array[:, 0] = lat
         self.latlonz_array[:, 1] = lon
@@ -844,8 +841,7 @@ class GenericInterpolator2D(object):
             lon = self.grid_interpolator.mesh_lonlat[:, 0]
             lat = self.grid_interpolator.mesh_lonlat[:, 1]
             if vector_rotator is None:
-                self.vect_rotator = coordsys.VectorCoordSysRotation(
-                    coordsys.LL_WGS84, coord_system, lon, lat)
+                self.vect_rotator = coord_system.get_vector_rotator(lon, lat)
             else:
                 self.vect_rotator = vector_rotator
 
@@ -872,9 +868,8 @@ class GenericInterpolator2D(object):
             self.fields[i].dat.data_with_halos[:] = vals[i]
 
 
-class TidalBoundaryForcing(object):
+class TidalBoundaryForcing(ABC):
     """Base class for tidal boundary interpolators."""
-    __metaclass__ = ABCMeta
 
     @abstractproperty
     def coord_layout():
@@ -897,7 +892,7 @@ class TidalBoundaryForcing(object):
         """
         :arg elev_field: Function where tidal elevation will be interpolated.
         :arg init_date: Datetime object defining the simulation init time.
-        :arg coord_system: the local mesh coordinate system
+        :arg coord_system: :class:`CoordinateSystem` object
         :kwarg vect_rotator: User-defined vector rotator function
         :kwarg uv_field: Function where tidal transport will be interpolated.
         :kwarg constituents: list of tidal constituents, e.g. ['M2', 'K1']
@@ -944,7 +939,7 @@ class TidalBoundaryForcing(object):
             fsy = Function(function_space).interpolate(y).dat.data_with_halos
             coords = (fsx, fsy)
 
-        lat, lon = coordsys.to_latlon(coord_system, *coords, positive_lon=True)
+        lon, lat = coord_system.to_lonlat(*coords, positive_lon=True)
         self.latlon = numpy.array([lat, lon]).T
 
         if not self._empty_set:
@@ -964,8 +959,7 @@ class TidalBoundaryForcing(object):
                 lat = self.latlon[:, 0]
                 lon = self.latlon[:, 1]
                 if vect_rotator is None:
-                    self.vect_rotator = coordsys.VectorCoordSysRotation(
-                        coordsys.LL_WGS84, coord_system, lon, lat)
+                    self.vect_rotator = coord_system.get_vector_rotator(lon, lat)
                 else:
                     self.vect_rotator = vect_rotator
 
@@ -1029,7 +1023,7 @@ class TPXOTidalBoundaryForcing(TidalBoundaryForcing):
         """
         :arg elev_field: Function where tidal elevation will be interpolated.
         :arg init_date: Datetime object defining the simulation init time.
-        :arg coord_system: the local mesh coordinate system
+        :arg coord_system: :class:`CoordinateSystem` object
         :kwarg vect_rotator: User-defined vector rotator function
         :kwarg uv_field: Function where tidal transport will be interpolated.
         :kwarg constituents: list of tidal constituents, e.g. ['M2', 'K1']
