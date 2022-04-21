@@ -835,39 +835,54 @@ class FlowSolver2d(FrozenClass):
         for e in self.exporters.values():
             e.set_next_export_ix(self.i_export + offset)
 
-    def print_state(self, cputime):
+    def print_state(self, cputime, print_header=False):
         """
         Print a summary of the model state on stdout
 
-        :arg float cputime: Measured CPU time
+        :arg float cputime: Measured CPU time in seconds
+        :kwarg print_header: Whether to print column header first
         """
+        # list of entries to print: (header, value, format)
+        entries = [
+            ('exp', self.i_export, '5d'),
+            ('iter', self.iteration, '5d'),
+        ]
+        # generate simulation time string
         if self.options.simulation_initial_date is not None:
             now = self.options.simulation_initial_date + datetime.timedelta(seconds=self.simulation_time)
-            time_str = f'{now:%Y-%m-%dT%H:%M:%S%Z}'
+            date_str = f'{now:%Y-%m-%d}'.rjust(11)
+            time_str = f'{now:%H:%M:%S}'.rjust(9)
+            entries += [
+                ('date', date_str, '11s'),
+                ('time', time_str, '9s'),
+            ]
         else:
-            time_str = f'T={self.simulation_time:10.2f}'
-
+            time_str = f'{self.simulation_time:.2f}'.rjust(15)
+            entries += [
+                ('time', time_str, '15s'),
+            ]
         if self.options.tracer_only:
             for label in self.options.tracer:
                 norm_q = norm(self.fields[label])
-
-                line = ('{iexp:5d} {i:5d} {t} '
-                        '{label:16s}: {q:10.4f} {cpu:5.2f}')
-
-                norm_label = label if len(label) < 3 or label[-3:] != '_2d' else label[:-3]
-                print_output(line.format(iexp=self.i_export, i=self.iteration,
-                                         t=time_str,
-                                         label=norm_label + ' norm',
-                                         q=norm_q, cpu=cputime))
+                e = (label, norm_q, '10.4f')
+                entries.append(e)
         else:
             norm_h = norm(self.fields.solution_2d.split()[1])
             norm_u = norm(self.fields.solution_2d.split()[0])
+            entries += [
+                ('eta norm', norm_h, '14.4f'),
+                ('u norm', norm_u, '14.4f'),
+            ]
+        entries.append(('Tcpu', cputime, '6.2f'))
 
-            line = ('{iexp:5d} {i:5d} {t} '
-                    'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
-            print_output(line.format(iexp=self.i_export, i=self.iteration,
-                                     t=time_str, e=norm_h,
-                                     u=norm_u, cpu=cputime))
+        if print_header:
+            # generate header
+            header = ' '.join([e[0].rjust(len(f'{e[1]:{e[2]}}')) for e in entries])
+            print_output(header)
+
+        # generate line
+        line = ' '.join([f'{e[1]:{e[2]}}' for e in entries])
+        print_output(line)
         sys.stdout.flush()
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.iterate")
@@ -949,15 +964,19 @@ class FlowSolver2d(FrozenClass):
         if (init_date is not None and end_date is not None):
             now = init_date + datetime.timedelta(initial_simulation_time)
             assert end_date > now, f'Simulation end date must be greater than initial time {now}'
-            print_output(f'Running simulation from {now:%Y-%m-%dT%H:%M:%S%Z} to {end_date:%Y-%m-%dT%H:%M:%S%Z}')
-            duration = (end_date - now).total_seconds()
+            print_output(
+                f'Running simulation\n'
+                f' from {now:%Y-%m-%d %H:%M:%S %Z}\n'
+                f' to   {end_date:%Y-%m-%d %H:%M:%S %Z}'
+            )
+            end_time = (end_date - now).total_seconds() + initial_simulation_time
             if self.options.simulation_end_time is not None:
                 warning('Both simulation_end_date and simulation_end_time have been set, ignoring simulation_end_time.')
-            self.options.simulation_end_time = duration
+            self.options.simulation_end_time = end_time
         assert self.options.simulation_end_time is not None, 'simulation_end_time must be set'
 
         # initial export
-        self.print_state(0.0)
+        self.print_state(0.0, print_header=True)
         if self.export_initial_state:
             self.export()
             if export_func is not None:
