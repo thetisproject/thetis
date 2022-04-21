@@ -15,8 +15,7 @@ where :math:`S` is :math:`q` for conservative and :math:`T` for non-conservative
 velocities, and :math:`\mu_h` denotes horizontal diffusivity.
 """
 from .equation import Equation
-from .tracer_eq_2d import HorizontalDiffusionTerm, HorizontalAdvectionTerm, TracerTerm
-from .conservative_tracer_eq_2d import ConservativeHorizontalAdvectionTerm
+from .tracer_eq_2d import HorizontalDiffusionTerm, HorizontalAdvectionTerm, ConservativeHorizontalAdvectionTerm, TracerTerm
 
 __all__ = [
     'SedimentEquation2D',
@@ -39,7 +38,7 @@ class SedimentTerm(TracerTerm):
         :arg options: :class`ModelOptions2d` containing parameters
         :kwarg bool conservative: whether to use conservative tracer
         """
-        super(SedimentTerm, self).__init__(function_space, depth, options)
+        super(SedimentTerm, self).__init__(0, 'sediment_2d', function_space, depth, options)
         self.sediment_model = sediment_model
         self.conservative = conservative
 

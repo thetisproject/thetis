@@ -875,6 +875,7 @@ class ModelOptions2d(CommonModelOptions):
 
     def __init__(self, *args, **kwargs):
         self.tracer = OrderedDict()
+        self.tracer_fields = OrderedDict()
         super().__init__(*args, **kwargs)
 
     def add_tracer_2d(self, label, name, filename, shortname=None, unit='-', **kwargs):
@@ -900,6 +901,7 @@ class ModelOptions2d(CommonModelOptions):
         assert isinstance(unit, str)
         assert label not in self.tracer, f"Field '{label}' already exists."
         assert ' ' not in label, "Labels cannot contain spaces"
+        assert ',' not in label, "Labels cannot contain commas"
         assert ' ' not in filename, "Filenames cannot contain spaces"
         self.tracer[label] = TracerFieldOptions()
         self.tracer[label].metadata = {
@@ -912,6 +914,38 @@ class ModelOptions2d(CommonModelOptions):
         self.tracer[label].source = kwargs.get('source')
         self.tracer[label].diffusivity = kwargs.get('diffusivity')
         self.tracer[label].use_conservative_form = kwargs.get('use_conservative_form', False)
+        if not kwargs.get('mixed', False):
+            self.tracer_fields[label] = self.tracer[label].function
+
+    def add_tracer_system_2d(self, labels, names, filenames, shortnames=None, units=None, function=None, **kwargs):
+        """
+        Add multiple 2D tracer fields to :attr:`tracer` at once.
+
+        The equations associated with these fields will be solved as a mixed system.
+
+        :arg labels: a list of field labels used internally by Thetis
+        :arg names: a list of human readable names for the tracer fields
+        :arg filenames: a list of file names for outputs
+        :kwarg shortnames: a list of short versions of the names
+        :kwarg units: a list of units for fields
+        :kwarg function: :class:`Function` to use for the mixed tracer
+        :kwargs: other parameters passed to :meth:`add_tracer_2d`
+        """
+        N = len(labels)
+        shortnames = shortnames or names
+        units = units or ['-']*N
+        assert len(names) == len(filenames) == len(shortnames) == len(units) == N
+        if kwargs == {}:
+            kwargs = {label: {} for label in labels}
+        assert set(kwargs.keys()).issubset(set(labels))
+        for label in labels:
+            kwargs[label]['mixed'] = True
+        self.tracer_fields[','.join(labels)] = function
+        if function is not None:
+            for label, child in zip(labels, function.split()):
+                kwargs[label]['function'] = child
+        for label, name, filename, shortname, unit in zip(labels, names, filenames, shortnames, units):
+            self.add_tracer_2d(label, name, filename, shortname=shortname, unit=unit, **kwargs[label])
 
     def set_timestepper_type(self, timestepper_type, **kwargs):
         """
