@@ -19,6 +19,7 @@ from . import callback
 from .log import *
 from collections import OrderedDict
 import numpy
+import datetime
 
 
 class FlowSolver(FrozenClass):
@@ -1077,20 +1078,49 @@ class FlowSolver(FrozenClass):
         for e in self.exporters.values():
             e.set_next_export_ix(self.i_export + offset)
 
-    def print_state(self, cputime):
+    def print_state(self, cputime, print_header=False):
         """
         Print a summary of the model state on stdout
 
-        :arg float cputime: Measured CPU time
+        :arg float cputime: Measured CPU time in seconds
+        :kwarg print_header: Whether to print column header first
         """
+        entries = [
+            ('exp', self.i_export, '5d'),
+            ('iter', self.iteration, '5d'),
+        ]
+        # generate simulation time string
+        if self.options.simulation_initial_date is not None:
+            now = self.options.simulation_initial_date + datetime.timedelta(seconds=self.simulation_time)
+            date_str = f'{now:%Y-%m-%d}'.rjust(11)
+            time_str = f'{now:%H:%M:%S}'.rjust(9)
+            entries += [
+                ('date', date_str, '11s'),
+                ('time', time_str, '9s'),
+            ]
+        else:
+            time_str = f'{self.simulation_time:.2f}'.rjust(15)
+            entries += [
+                ('time', time_str, '15s'),
+            ]
+
         norm_h = norm(self.fields.elev_2d)
         norm_u = norm(self.fields.uv_3d)
+        # list of entries to print: (header, value, format)
+        entries += [
+            ('eta norm', norm_h, '14.4f'),
+            ('u norm', norm_u, '14.4f'),
+            ('Tcpu', cputime, '6.2f'),
+        ]
 
-        line = ('{iexp:5d} {i:5d} T={t:10.2f} '
-                'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
-        print_output(line.format(iexp=self.i_export, i=self.iteration,
-                                 t=self.simulation_time, e=norm_h,
-                                 u=norm_u, cpu=cputime))
+        if print_header:
+            # generate header
+            header = ' '.join([e[0].rjust(len(f'{e[1]:{e[2]}}')) for e in entries])
+            print_output(header)
+
+        # generate line
+        line = ' '.join([f'{e[1]:{e[2]}}' for e in entries])
+        print_output(line)
         sys.stdout.flush()
 
     def _print_field(self, field):
@@ -1206,17 +1236,33 @@ class FlowSolver(FrozenClass):
                 for k in self.callbacks[m]:
                     self.callbacks[m][k].set_write_mode('append')
 
+        initial_simulation_time = self.simulation_time
+        internal_iteration = 0
+
+        init_date = self.options.simulation_initial_date
+        end_date = self.options.simulation_end_date
+        if (init_date is not None and end_date is not None):
+            now = init_date + datetime.timedelta(initial_simulation_time)
+            assert end_date > now, f'Simulation end date must be greater than initial time {now}'
+            print_output(
+                f'Running simulation\n'
+                f' from {now:%Y-%m-%d %H:%M:%S %Z}\n'
+                f' to   {end_date:%Y-%m-%d %H:%M:%S %Z}'
+            )
+            end_time = (end_date - now).total_seconds() + initial_simulation_time
+            if self.options.simulation_end_time is not None:
+                warning('Both simulation_end_date and simulation_end_time have been set, ignoring simulation_end_time.')
+            self.options.simulation_end_time = end_time
+        assert self.options.simulation_end_time is not None, 'simulation_end_time must be set'
+
         # initial export
-        self.print_state(0.0)
+        self.print_state(0.0, print_header=True)
         if self.export_initial_state:
             self.export()
             if export_func is not None:
                 export_func()
             if 'vtk' in self.exporters:
                 self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
-
-        initial_simulation_time = self.simulation_time
-        internal_iteration = 0
 
         while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
 

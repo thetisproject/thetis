@@ -99,8 +99,6 @@ def construct_solver(spinup=False, store_station_time_series=True, **model_optio
     default_end_date = datetime.datetime(2022, 1, 2, tzinfo=sim_tz)
     start_date = model_options.pop("start_date", default_start_date)
     end_date = model_options.pop("end_date", default_end_date)
-    print_output(f"Simulation start date: {start_date}")
-    print_output(f"Simulation end date:   {end_date}")
     dt = 3600.0
     t_export = 3600.0
     t_end = (end_date - start_date).total_seconds()
@@ -116,8 +114,9 @@ def construct_solver(spinup=False, store_station_time_series=True, **model_optio
     options.manning_drag_coefficient = manning_2d
     options.horizontal_velocity_scale = Constant(1.5)
     options.use_lax_friedrichs_velocity = True
+    options.simulation_initial_date = start_date
+    options.simulation_end_date = end_date
     options.simulation_export_time = t_export
-    options.simulation_end_time = t_end
     options.swe_timestepper_type = "DIRK22"
     options.swe_timestepper_options.use_semi_implicit_linearization = True
     options.timestep = dt

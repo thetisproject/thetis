@@ -18,10 +18,9 @@ import thetis.coordsys as coordsys
 import thetis.forcing as forcing
 import csv
 import os
-import pyproj
 
 sim_tz = timezone.pytz.utc
-UTM_ZONE30 = pyproj.Proj(proj="utm", zone=30, datum="WGS84", units="m", errcheck=True)
+coord_system = coordsys.UTMCoordinateSystem(utm_zone=30)
 
 # Having imported all the relevant packages, the first thing we need is a mesh of the
 # domain of interest. This part is skipped for the purposes of this demo, but details
@@ -43,7 +42,8 @@ UTM_ZONE30 = pyproj.Proj(proj="utm", zone=30, datum="WGS84", units="m", errcheck
 # We set up the (UTM) mesh and calculate its longitude-latitude coordinates as follows:
 
 mesh2d = Mesh("north_sea.msh")
-lonlat = coordsys.get_lonlat_function(mesh2d, UTM_ZONE30)
+lonlat = coord_system.get_mesh_lonlat_function(mesh2d)
+lon, lat = lonlat
 
 # With the mesh, we can now move on to set up fields defined upon it. For the
 # bathymetry data, we use the
@@ -97,7 +97,7 @@ manning_2d.assign(3.0e-02)
 
 omega = 7.292e-05
 coriolis_2d = Function(P1_2d, name="Coriolis forcing")
-coriolis_2d.interpolate(2 * omega * sin(lonlat[1] * pi / 180.0))
+coriolis_2d.interpolate(2 * omega * sin(lat * pi / 180.0))
 
 # We also need to choose a time window of interest and discretise it appropriately.
 # We arbitrarily choose the simulation to start at 00:00 UTC on 15th January 2022
@@ -109,7 +109,6 @@ start_date = datetime.datetime(2022, 1, 15, tzinfo=sim_tz)
 end_date = datetime.datetime(2022, 1, 18, tzinfo=sim_tz)
 dt = 3600.0
 t_export = 3600.0
-t_end = (end_date - start_date).total_seconds()
 
 # We are now in a position where we can create the Thetis solver object and pass it
 # all of the above parameters. We choose the implicit time integration scheme DIRK22
@@ -125,7 +124,8 @@ options.manning_drag_coefficient = manning_2d
 options.horizontal_velocity_scale = Constant(1.5)
 options.use_lax_friedrichs_velocity = True
 options.simulation_export_time = t_export
-options.simulation_end_time = t_end
+options.simulation_initial_date = start_date
+options.simulation_end_date = end_date
 options.swe_timestepper_type = "DIRK22"
 options.swe_timestepper_options.use_semi_implicit_linearization = True
 options.timestep = dt
@@ -138,9 +138,8 @@ solver_obj.create_equations()
 # object, the field names to be evaluated, the UTM coordinates and finally the
 # name of each tide gauge.
 
-trans = pyproj.Transformer.from_crs(coordsys.LL_WGS84.srs, UTM_ZONE30.srs)
 for name, (sta_lat, sta_lon) in read_station_data().items():
-    sta_x, sta_y = trans.transform(sta_lon, sta_lat)
+    sta_x, sta_y = coord_system.to_xy(sta_lon, sta_lat)
     cb = TimeSeriesCallback2D(
         solver_obj,
         ["elev_2d"],
@@ -173,7 +172,7 @@ elev_tide_2d = Function(P1_2d, name="Tidal elevation")
 tbnd = forcing.TPXOTidalBoundaryForcing(
     elev_tide_2d,
     start_date,
-    UTM_ZONE30,
+    coord_system,
     data_dir=data_dir,
     constituents=forcing_constituents,
     boundary_ids=[100],

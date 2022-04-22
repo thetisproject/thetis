@@ -1,14 +1,10 @@
-from model_config import read_station_data, sim_tz
-
-import datetime
+from model_config import read_station_data
 import h5py
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import netCDF4
 import numpy
-
-
-start_date = datetime.datetime(2022, 1, 15, tzinfo=sim_tz)
-dates = [(start_date + datetime.timedelta(days=x)).strftime("%d/%m") for x in range(4)]
+import cftime
 
 fig = plt.figure(figsize=(30, 10))
 axes = fig.subplots(ncols=4, nrows=2)
@@ -28,21 +24,23 @@ for i, (sta, data) in enumerate(read_station_data().items()):
     else:
         o = f"observations/{region}_TS_TG_{sta}_202201.nc"
     with netCDF4.Dataset(o, "r") as nc:
-        time_obs = nc.variables["TIME"][:]
+        time_raw = nc.variables["TIME"][:]
+        time_units = nc.variables["TIME"].getncattr('units')
+        time_obs = cftime.num2pydate(time_raw, time_units)
         vals_obs = nc.variables["SLEV"][:]
 
     # Load the simulation data
     f = f"outputs/diagnostic_timeseries_{sta}_elev.hdf5"
     with h5py.File(f, "r") as h5file:
-        time = h5file["time"][:].flatten() / (24 * 3600.0)
+        time_raw = h5file["time"][:].flatten()
+        time_units = h5file["time"].attrs['units']
+        time = cftime.num2pydate(time_raw, time_units)
         vals = h5file["elev"][:].flatten()
 
-    # Trim the observation data to the time window of interest
-    time_obs -= time_obs[0] + start_date.day
-    vals_obs = vals_obs[time[0] <= time_obs]
-    time_obs = time_obs[time[0] <= time_obs]
-    vals_obs = vals_obs[time_obs <= time[-1]]
-    time_obs = time_obs[time_obs <= time[-1]]
+    # Trim the observation data to the model time window
+    filter_ix = (time_obs >= time[0]) * (time_obs <= time[-1])
+    time_obs = time_obs[filter_ix]
+    vals_obs = vals_obs[filter_ix]
 
     # Subtract the average in each case
     vals_obs -= numpy.mean(vals_obs)
@@ -51,8 +49,9 @@ for i, (sta, data) in enumerate(read_station_data().items()):
     # Plot on the same axes
     ax.plot(time_obs, vals_obs, "k-", zorder=3, label="Observation", lw=1.5)
     ax.plot(time, vals, "r:", zorder=3, label="Simulation", lw=1.5)
-    ax.set_xticks(list(range(len(dates))))
-    ax.set_xticklabels(dates)
+    ax.xaxis.set_major_locator(mdates.DayLocator())
+    ax.xaxis.set_minor_locator(mdates.HourLocator(interval=3))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %d"))
     ax.set_xlim([time[0], time[-1]])
     if i // 4 == 1:
         ax.set_xlabel("Date")

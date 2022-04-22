@@ -573,6 +573,12 @@ class CommonModelOptions(FrozenConfigurable):
         1.0, help="Factor to scale the 2d time step OBSOLETE").tag(config=True)  # TODO OBSOLETE
     cfl_3d = PositiveFloat(
         1.0, help="Factor to scale the 2d time step OBSOLETE").tag(config=True)  # TODO OBSOLETE
+    simulation_initial_date = DatetimeTraitlet(
+        default_value=None, allow_none=True,
+        help="Model initialization date. Corresponds to zero in simulation time.").tag(config=True)
+    simulation_end_date = DatetimeTraitlet(
+        default_value=None, allow_none=True,
+        help="Simulation end date").tag(config=True)
     simulation_export_time = PositiveFloat(
         100.0, help="""
         Export interval in seconds
@@ -581,7 +587,7 @@ class CommonModelOptions(FrozenConfigurable):
         diagnostics will be computed
         """).tag(config=True)
     simulation_end_time = PositiveFloat(
-        1000.0, help="Simulation duration in seconds").tag(config=True)
+        None, allow_none=True, help="Simulation duration in seconds").tag(config=True)
     horizontal_velocity_scale = FiredrakeConstantTraitlet(
         Constant(0.1), help="""
         Maximum horizontal velocity magnitude

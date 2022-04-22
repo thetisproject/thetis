@@ -65,18 +65,22 @@ class DiagnosticHDF5(object):
     """
     @PETSc.Log.EventDecorator("thetis.DiagnosticHDF5.__init__")
     def __init__(self, filename, varnames, array_dim=1, attrs=None,
-                 comm=COMM_WORLD, new_file=True, dtype='d',
-                 include_time=True):
+                 var_attrs=None, comm=COMM_WORLD, new_file=True,
+                 dtype='d', include_time=True):
         """
         :arg str filename: Full filename of the HDF5 file.
         :arg varnames: List of variable names that the diagnostic callback
             provides
         :kwarg array_dim: Dimension of the output array.
             Can be a tuple for multi-dimensional output. Use "1" for scalars.
-        :kwarg dict attrs: Additional attributes to be saved in the hdf5 file.
+        :kwarg dict attrs: Global attributes to be saved in the hdf5 file.
+        :kwarg dict var_attrs: nested dict of variable specific attributes,
+             e.g. {'time': {'units': 'seconds since 1950-01-01'}}
         :kwarg comm: MPI communicator
         :kwarg bool new_file: Define whether to create a new hdf5 file or
             append to an existing one (if any)
+        :kwarg dtype: array datatype
+        :kwarg include_time: whether to include time array in the file
         """
         self.comm = comm
         self.filename = filename
@@ -88,8 +92,10 @@ class DiagnosticHDF5(object):
             # create empty file with correct datasets
             with h5py.File(filename, 'w') as hdf5file:
                 if include_time:
-                    hdf5file.create_dataset('time', (0, 1),
-                                            maxshape=(None, 1), dtype=dtype)
+                    ds = hdf5file.create_dataset(
+                        'time', (0, 1), maxshape=(None, 1), dtype=dtype)
+                    if var_attrs is not None and 'time' in var_attrs:
+                        ds.attrs.update(var_attrs['time'])
                 dim_list = array_dim
                 if isinstance(dim_list, tuple):
                     dim_list = list(dim_list)
@@ -98,8 +104,10 @@ class DiagnosticHDF5(object):
                 shape = tuple([0] + dim_list)
                 max_shape = tuple([None] + dim_list)
                 for var in self.varnames:
-                    hdf5file.create_dataset(var, shape,
-                                            maxshape=max_shape, dtype=dtype)
+                    ds = hdf5file.create_dataset(
+                        var, shape, maxshape=max_shape, dtype=dtype)
+                    if var_attrs is not None and var in var_attrs:
+                        ds.attrs.update(var_attrs[var])
                 if attrs is not None:
                     hdf5file.attrs.update(attrs)
 
@@ -170,7 +178,7 @@ class DiagnosticCallback(ABC):
             By default solver's output directory is used.
         :kwarg array_dim: Dimension of the output array.
             Can be a tuple for multi-dimensional output. Use "1" for scalars.
-        :kwarg dict attrs: Additional attributes to be saved in the hdf5 file.
+        :kwarg dict attrs: Global attributes to be saved in the hdf5 file.
         :kwarg bool export_to_hdf5: If True, diagnostics will be stored in hdf5
             format
         :kwarg bool append_to_log: If True, callback output messages will be
@@ -181,10 +189,13 @@ class DiagnosticCallback(ABC):
         :kwarg start_time: Optional start time for callback evaluation
         :kwarg end_time: Optional end time for callback evaluation
         """
+        if attrs is None:
+            attrs = {}
         self.solver_obj = solver_obj
         self.outputdir = outputdir or self.solver_obj.options.output_directory
         self.array_dim = array_dim
         self.attrs = attrs
+        self.var_attrs = {}
         self.append_to_hdf5 = export_to_hdf5
         self.append_to_log = append_to_log
         self.hdf5_dtype = hdf5_dtype
@@ -193,6 +204,11 @@ class DiagnosticCallback(ABC):
         self._hdf5_initialized = False
         self.start_time = start_time or -numpy.inf
         self.end_time = end_time or numpy.inf
+
+        init_date = self.solver_obj.options.simulation_initial_date
+        if init_date is not None and include_time:
+            time_units = 'seconds since ' + init_date.isoformat()
+            self.var_attrs['time'] = {'units': time_units}
 
     def set_write_mode(self, mode):
         """
@@ -216,6 +232,7 @@ class DiagnosticCallback(ABC):
                                                array_dim=self.array_dim,
                                                new_file=self._create_new_file,
                                                attrs=self.attrs,
+                                               var_attrs=self.var_attrs,
                                                comm=comm, dtype=self.hdf5_dtype,
                                                include_time=self.include_time)
         self._hdf5_initialized = True
