@@ -1,7 +1,8 @@
 """
 Utility function and extensions to traitlets used for specifying Thetis options
 """
-from textwrap import indent, dedent
+import textwrap
+from textwrap import dedent
 from traitlets.config.configurable import Configurable
 from traitlets import *
 from firedrake import Constant, Function
@@ -9,6 +10,10 @@ import datetime
 import ufl
 
 from abc import ABCMeta, abstractproperty
+
+
+def indent(s, nspaces):
+    return textwrap.indent(s, ' ' * nspaces)
 
 
 def rst_all_options(cls, nspace=0, prefix=None):
