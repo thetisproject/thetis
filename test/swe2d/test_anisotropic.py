@@ -76,14 +76,18 @@ def run(solve_adjoint=False, mesh=None, **model_options):
     solver_obj.create_equations()
 
     # recover Hessian
-    if 'hessian_2d' in field_metadata:
-        field_metadata.pop('hessian_2d')
-    P1t_2d = get_functionspace(mesh2d, 'CG', 1, tensor=True)
-    hessian_2d = Function(P1t_2d)
-    u_2d = solver_obj.fields.uv_2d[0]
-    hessian_calculator = thetis.diagnostics.HessianRecoverer2D(u_2d, hessian_2d)
-    solver_obj.add_new_field(hessian_2d, 'hessian_2d', 'Hessian of x-velocity', 'Hessian2d',
-                             preproc_func=hessian_calculator)
+    if not solve_adjoint:
+        if 'hessian_2d' in field_metadata:
+            field_metadata.pop('hessian_2d')
+        P1t_2d = get_functionspace(mesh2d, 'CG', 1, tensor=True)
+        hessian_2d = Function(P1t_2d)
+        u_2d = solver_obj.fields.uv_2d[0]
+        hessian_calculator = thetis.diagnostics.HessianRecoverer2D(u_2d, hessian_2d)
+        solver_obj.add_new_field(hessian_2d,
+                                 'hessian_2d',
+                                 'Hessian of x-velocity',
+                                 'Hessian2d',
+                                 preproc_func=hessian_calculator)
 
     # apply boundary conditions
     solver_obj.bnd_functions['shallow_water'] = {
