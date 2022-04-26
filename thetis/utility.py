@@ -1050,3 +1050,58 @@ class DepthIntegratedPoissonSolver(object):
         # update vertical velocity w_2d
         if solve_w:
             self.solver_w.solve()
+
+
+@PETSc.Log.EventDecorator("thetis.form2indicator")
+def form2indicator(F):
+    r"""
+    Deduce the cell-wise contributions to a functional.
+
+    Given a UFL form `F` that does not contain test or trial functions,
+    multiply each of its terms by a :math:`\mathbb P0` test function and
+    assemble, so that we deduce its contributions from each cell.
+
+    Modified code based on
+    https://github.com/pyroteus/pyroteus/blob/main/pyroteus/error_estimation.py
+
+    :arg F: the UFL form
+    """
+    if len(F.arguments()) > 0:
+        raise ValueError("Input form cannot contain test or trial functions")
+    mesh = F.ufl_domain()
+    P0 = FunctionSpace(mesh, "DG", 0)
+    p0test = TestFunction(P0)
+    indicator = Function(P0)
+
+    # Contributions from surface integrals
+    flux_terms = 0
+    integrals = F.integrals_by_type("exterior_facet")
+    if len(integrals) > 0:
+        for integral in integrals:
+            tag = integral.subdomain_id()
+            flux_terms += p0test * integral.integrand() * ds(tag)
+    integrals = F.integrals_by_type("interior_facet")
+    if len(integrals) > 0:
+        for integral in integrals:
+            tag = integral.subdomain_id()
+            flux_terms += p0test("+") * integral.integrand() * dS(tag)
+            flux_terms += p0test("-") * integral.integrand() * dS(tag)
+    if flux_terms != 0:
+        mass_term = TrialFunction(P0) * p0test * dx
+        sp = {
+            "snes_type": "ksponly",
+            "ksp_type": "preonly",
+            "pc_type": "jacobi",
+        }
+        solve(mass_term == flux_terms, indicator, solver_parameters=sp)
+
+    # Contributions from volume integrals
+    cell_terms = 0
+    integrals = F.integrals_by_type("cell")
+    if len(integrals) > 0:
+        for integral in integrals:
+            tag = integral.subdomain_id()
+            cell_terms += p0test * integral.integrand() * dx(tag)
+    indicator += assemble(cell_terms)
+
+    return indicator
