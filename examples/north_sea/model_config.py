@@ -123,6 +123,11 @@ def construct_solver(spinup=False, store_station_time_series=True, **model_optio
     options.fields_to_export = ["elev_2d", "uv_2d"]
     options.fields_to_export_hdf5 = []
 
+    # Add the Manning coefficient as a field
+    solver_obj.add_new_field(manning_2d, 'manning_2d',
+                             manning_2d.name(),
+                             'Manning2d', unit='s m-1/3')
+
     # The mesh is quite coarse, so it is reasonable to solve the underlying
     # linear systems by applying a full LU decomposition as a preconditioner
     options.swe_timestepper_options.solver_parameters = {
