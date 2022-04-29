@@ -16,17 +16,24 @@ resulting from this process is used in this test. The mesh is anisotropic in the
     pp.1053--1063 (2020), DOI: 10.1007/s42452-020-2745-9, URL: https://rdcu.be/b35wZ.
 """
 from thetis import *
+import thetis.diagnostics as diagnostics
 from petsc4py import PETSc
 import pytest
 import os
 
 
-def run(**model_options):
-
-    # load an anisotropic mesh from file
+def load_mesh():
+    """
+    Load an anisotropic mesh from file.
+    """
     plex = PETSc.DMPlex().create()
-    plex.createFromFile(os.path.join(os.path.dirname(__file__), 'anisotropic_plex.h5'))
-    mesh2d = Mesh(plex)
+    pwd = os.path.dirname(__file__)
+    plex.createFromFile(os.path.join(pwd, "anisotropic_plex.h5"))
+    return Mesh(plex)
+
+
+def run(solve_adjoint=False, mesh=None, **model_options):
+    mesh2d = mesh or load_mesh()
     P1_2d = FunctionSpace(mesh2d, "CG", 1)
 
     # physics
@@ -69,14 +76,18 @@ def run(**model_options):
     solver_obj.create_equations()
 
     # recover Hessian
-    if 'hessian_2d' in field_metadata:
-        field_metadata.pop('hessian_2d')
-    P1t_2d = get_functionspace(mesh2d, 'CG', 1, tensor=True)
-    hessian_2d = Function(P1t_2d)
-    u_2d = solver_obj.fields.uv_2d[0]
-    hessian_calculator = thetis.diagnostics.HessianRecoverer2D(u_2d, hessian_2d)
-    solver_obj.add_new_field(hessian_2d, 'hessian_2d', 'Hessian of x-velocity', 'Hessian2d',
-                             preproc_func=hessian_calculator)
+    if not solve_adjoint:
+        if 'hessian_2d' in field_metadata:
+            field_metadata.pop('hessian_2d')
+        P1t_2d = get_functionspace(mesh2d, 'CG', 1, tensor=True)
+        hessian_2d = Function(P1t_2d)
+        u_2d = solver_obj.fields.uv_2d[0]
+        hessian_calculator = thetis.diagnostics.HessianRecoverer2D(u_2d, hessian_2d)
+        solver_obj.add_new_field(hessian_2d,
+                                 'hessian_2d',
+                                 'Hessian of x-velocity',
+                                 'Hessian2d',
+                                 preproc_func=hessian_calculator)
 
     # apply boundary conditions
     solver_obj.bnd_functions['shallow_water'] = {
@@ -122,13 +133,71 @@ def run(**model_options):
     farm_options = TidalTurbineFarmOptions()
     farm_options.turbine_density = bump(solver_obj.function_spaces.P1DG_2d, locs, scale=scaling)
     farm_options.turbine_options.diameter = D
-    farm_options.turbine_options.thrust_coefficient = thrust_coefficient*correction
+    C_T = thrust_coefficient * correction
+    farm_options.turbine_options.thrust_coefficient = C_T
     solver_obj.options.tidal_turbine_farms['everywhere'] = farm_options
 
     # apply initial guess of inflow velocity, solve and return number of nonlinear solver iterations
     solver_obj.assign_initial_conditions(uv=inflow_velocity)
     solver_obj.iterate()
-    return solver_obj.timestepper.solver.snes.getIterationNumber()
+    if not solve_adjoint:
+        return solver_obj.timestepper.solver.snes.getIterationNumber()
+
+    # quantity of interest: power output
+    q_2d = solver_obj.fields.solution_2d
+    uv_2d, elev_2d = split(q_2d)
+    C_D = 0.5 * C_T * A * farm_options.turbine_density
+    J = C_D * dot(uv_2d, uv_2d) ** 1.5 * dx
+
+    # solve adjoint problem
+    F = solver_obj.timestepper.F
+    V_2d = solver_obj.function_spaces.V_2d
+    adj_sol = Function(V_2d)
+    dFdq = derivative(F, q_2d, TrialFunction(V_2d))
+    dFdq_transpose = adjoint(dFdq)
+    dJdq = derivative(J, q_2d, TestFunction(V_2d))
+    solve(dFdq_transpose == dJdq, adj_sol)
+    return solver_obj, adj_sol
+
+
+def estimate_error(mesh, **model_options):
+    model_options["solve_adjoint"] = True
+
+    # Create a two level mesh hierarchy
+    mesh0, mesh1 = MeshHierarchy(mesh, 1)
+    tm = TransferManager()
+
+    # Solve both forward and adjoint on both meshes
+    solver_obj, a0 = run(mesh=mesh0, **model_options)
+    f0 = solver_obj.fields.solution_2d
+    P0 = solver_obj.function_spaces.P0_2d
+    solver_obj, a1 = run(mesh=mesh1, **model_options)
+
+    # Approximate adjoint error
+    V1 = solver_obj.function_spaces.V_2d
+    a0plg = Function(V1)
+    tm.prolong(a0, a0plg)
+    a1err = Function(V1).assign(a1 - a0plg)
+
+    # Compute dual weighted residual
+    ei = diagnostics.ShallowWaterDualWeightedResidual2D(solver_obj, a1err)
+    ei.solve()
+
+    # Project down to base space
+    error = Function(P0, name="Error indicator")
+    error.project(ei.error)
+    error.interpolate(abs(error))
+
+    # Plot
+    if not model_options.get("no_exports", False):
+        File("outputs/forward.pvd").write(*f0.split())
+        a0u, a0eta = a0.split()
+        a0u.rename("uv_2d (adjoint)")
+        a0eta.rename("elev_2d (adjoint)")
+        File("outputs/adjoint.pvd").write(a0u, a0eta)
+        File("outputs/error.pvd").write(error)
+
+    return f0, a0, error
 
 
 # ---------------------------
@@ -141,11 +210,19 @@ def family(request):
 
 
 def test_sipg(family):
-    options = {'element_family': family}
-    snes_it = run(**options)
+    snes_it = run(element_family=family)
     expected = 3
     msg = f'snes iterations exceed expected: {snes_it} > {expected}'
     assert snes_it <= expected, msg
+
+
+def test_dwr(family):
+    n = 5
+    mesh = RectangleMesh(12 * n, 5 * n, 1200, 500)
+    # NOTE: Building a MeshHierarchy on a mesh loaded
+    #       from a DMPlex stored as HDF5 appears to
+    #       be broken.
+    estimate_error(mesh, element_family=family, no_exports=True)
 
 # ---------------------------
 # run individual setup for debugging
@@ -153,4 +230,6 @@ def test_sipg(family):
 
 
 if __name__ == '__main__':
-    print_output(f"Converged in {run(no_exports=False, element_family='rt-dg')} iterations")
+    n = 5
+    mesh = RectangleMesh(12 * n, 5 * n, 1200, 500)
+    estimate_error(mesh, element_family="dg-cg")
