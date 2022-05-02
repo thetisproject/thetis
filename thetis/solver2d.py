@@ -778,7 +778,8 @@ class FlowSolver2d(FrozenClass):
             e.export()
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.load_state")
-    def load_state(self, i_export, outputdir=None, t=None, iteration=None):
+    def load_state(self, i_export, outputdir=None, t=None, iteration=None,
+                   legacy_mode=False):
         """
         Loads simulation state from hdf5 outputs.
 
@@ -797,6 +798,7 @@ class FlowSolver2d(FrozenClass):
         :kwarg float t: simulation time. Overrides the time stamp stored in the
             hdf5 files.
         :kwarg int iteration: Overrides the iteration count in the hdf5 files.
+        :kwarg bool legacy_mode: Load legacy `DumbCheckpoint` files.
         """
         if not self._initialized:
             self.initialize()
@@ -810,6 +812,7 @@ class FlowSolver2d(FrozenClass):
                                    self.fields,
                                    field_metadata,
                                    export_type='hdf5',
+                                   legacy_mode=legacy_mode,
                                    verbose=self.options.verbose > 0)
         e.exporters['uv_2d'].load(i_export, self.fields.uv_2d)
         e.exporters['elev_2d'].load(i_export, self.fields.elev_2d)

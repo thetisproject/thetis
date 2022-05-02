@@ -242,6 +242,7 @@ class ExportManager(object):
     """
     def __init__(self, outputdir, fields_to_export, functions, field_metadata,
                  export_type='vtk', next_export_ix=0, verbose=False,
+                 legacy_mode=False,
                  preproc_funcs={}):
         """
         :arg string outputdir: directory where files are stored
@@ -253,6 +254,7 @@ class ExportManager(object):
         :kwarg str export_type: export format, either 'vtk' or 'hdf5'
         :kwarg int next_export_ix: index for next export (default 0)
         :kwarg bool verbose: print debug info to stdout
+        :kwarg bool legacy_mode: use legacy `DumbCheckpoint` hdf5 format
         """
         self.outputdir = outputdir
         self.fields_to_export = fields_to_export
@@ -268,11 +270,13 @@ class ExportManager(object):
             field = self.functions.get(key)
             if field is not None and isinstance(field, Function):
                 self.add_export(key, field, export_type,
+                                legacy_mode=legacy_mode,
                                 next_export_ix=next_export_ix)
 
     def add_export(self, fieldname, function,
                    export_type='vtk', next_export_ix=0, outputdir=None,
-                   shortname=None, filename=None, preproc_func=None):
+                   shortname=None, filename=None, legacy_mode=False,
+                   preproc_func=None):
         """
         Adds a new field exporter in the manager.
 
@@ -287,6 +291,7 @@ class ExportManager(object):
         :kwarg string outputdir: optional directory where files are stored
         :kwarg string shortname: override shortname defined in field_metadata
         :kwarg string filename: override filename defined in field_metadata
+        :kwarg bool legacy_mode: use legacy `DumbCheckpoint` hdf5 format
         :kwarg preproc_func: optional funtion that will be called prior to
             exporting. E.g. for computing diagnostic fields.
         """
@@ -313,6 +318,7 @@ class ExportManager(object):
             elif export_type.lower() == 'hdf5':
                 self.exporters[fieldname] = HDF5Exporter(native_space,
                                                          outputdir, filename,
+                                                         legacy_mode=legacy_mode,
                                                          next_export_ix=next_export_ix)
 
     def set_next_export_ix(self, next_export_ix):
