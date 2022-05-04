@@ -5,6 +5,7 @@ from .solver2d import FlowSolver2d
 from .utility import create_directory, print_function_value_range, get_functionspace, unfrozen
 from .log import print_output
 from .diagnostics import HessianRecoverer2D
+from .exporter import HDF5Exporter
 import numpy
 import h5py
 from scipy.interpolate import interp1d
@@ -49,6 +50,7 @@ class InversionManager(FrozenHasTraits):
         self.test_gradient = test_gradient
         self.outfiles_m = []
         self.outfiles_dJdm = []
+        self.control_exporters = []
         self.initialized = False
 
         self.J = 0  # cost function value (float)
@@ -89,6 +91,12 @@ class InversionManager(FrozenHasTraits):
         """
         self.control_coeff_list.append(f)
         self.control_list.append(Control(f))
+        if isinstance(f, fd.Function):
+            j = len(self.control_coeff_list) - 1
+            prefix = f'control_{j:02d}'
+            self.control_exporters.append(
+                HDF5Exporter(f.function_space(), self.output_dir + '/hdf5', prefix)
+            )
 
     def reset_counters(self):
         self.nb_grad_evals = 0
@@ -165,9 +173,8 @@ class InversionManager(FrozenHasTraits):
                 m.rename(self.control_coeff_list[j].name())
                 o.write(m)
                 # hdf5 format
-                h5_filename = f'{self.output_dir}/hdf5/control_{j:02d}_{self.i:04d}'
-                with fd.DumbCheckpoint(h5_filename, mode=fd.FILE_CREATE) as chk:
-                    chk.store(m)
+                e = self.control_exporters[j]
+                e.export(m)
             # gradient output
             for f, o in zip(self.dJdm_list, self.outfiles_dJdm):
                 # store gradient in vtk format
