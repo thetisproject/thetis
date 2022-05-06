@@ -10,7 +10,7 @@ parser = argparse.ArgumentParser(
     description="Tohoku tsunami propagation",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
-parser.add_argument("-s", "--source-model", type=str, default="CG1")
+parser.add_argument("-s", "--source-model", type=str, default="okada")
 parser.add_argument("--suffix", type=str, default="")
 parser.add_argument("--load", action="store_true")
 args = parser.parse_args()

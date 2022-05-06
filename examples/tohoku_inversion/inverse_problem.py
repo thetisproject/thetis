@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(
     description="Tohoku tsunami source inversion problem",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
-parser.add_argument("-s", "--source-model", type=str, default="CG1")
+parser.add_argument("-s", "--source-model", type=str, default="okada")
 parser.add_argument(
     "-o",
     "--okada-parameters",
