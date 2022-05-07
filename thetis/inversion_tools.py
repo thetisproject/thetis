@@ -223,7 +223,10 @@ class InversionManager(FrozenHasTraits):
         assert isinstance(solver_obj, FlowSolver2d)
         if len(self.penalty_parameters) > 0:
             self.reg_manager = ControlRegularizationManager(
-                self.control_coeff_list, self.penalty_parameters, self.cost_function_scaling)
+                self.control_coeff_list,
+                self.penalty_parameters,
+                self.cost_function_scaling,
+                RSpaceRegularizationCalculator if self.real else HessianRegularizationCalculator)
         self.J = 0
         if self.reg_manager is not None:
             self.J += self.reg_manager.eval_cost_function()
