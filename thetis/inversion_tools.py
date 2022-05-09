@@ -57,12 +57,14 @@ class InversionManager(FrozenHasTraits):
 
         self.J = 0  # cost function value (float)
         self.J_reg = 0  # regularization term value (float)
+        self.J_misfit = 0  # misfit term value (float)
         self.dJdm_list = None  # cost function gradient (Function)
         self.m_list = None  # control (Function)
         self.Jhat = None
         self.m_progress = []
         self.J_progress = []
         self.J_reg_progress = []
+        self.J_misfit_progress = []
         self.dJdm_progress = []
         self.i = 0
         self.tic = None
@@ -117,6 +119,12 @@ class InversionManager(FrozenHasTraits):
         self.dJdm_list = djdm_list
         self.m_list = m_list
 
+        tape = get_working_tape()
+        reg_blocks = tape.get_blocks(tag="reg_eval")
+        self.J_reg = sum([b.get_outputs()[0].saved_output for b in reg_blocks])
+        misfit_blocks = tape.get_blocks(tag="misfit_eval")
+        self.J_misfit = sum([b.get_outputs()[0].saved_output for b in misfit_blocks])
+
     def start_clock(self):
         self.tic = time_mod.perf_counter()
 
@@ -151,12 +159,16 @@ class InversionManager(FrozenHasTraits):
             controls = [m.dat.data[0] for m in self.m_list]
             self.m_progress.append(controls)
         self.J_progress.append(self.J)
+        self.J_reg_progress.append(self.J_reg)
+        self.J_misfit_progress.append(self.J_misfit)
         self.dJdm_progress.append(djdm)
         comm = self.control_coeff_list[0].comm
         if comm.rank == 0 and not self.no_exports:
             if self.real:
                 numpy.save(f'{self.output_dir}/m_progress', self.m_progress)
             numpy.save(f'{self.output_dir}/J_progress', self.J_progress)
+            numpy.save(f'{self.output_dir}/J_reg_progress', self.J_reg_progress)
+            numpy.save(f'{self.output_dir}/J_misfit_progress', self.J_misfit_progress)
             numpy.save(f'{self.output_dir}/dJdm_progress', self.dJdm_progress)
         if len(djdm) > 10:
             djdm = f"[{numpy.min(djdm):.4e} .. {numpy.max(djdm):.4e}]"
@@ -227,9 +239,11 @@ class InversionManager(FrozenHasTraits):
                 self.penalty_parameters,
                 self.cost_function_scaling,
                 RSpaceRegularizationCalculator if self.real else HessianRegularizationCalculator)
-        self.J = 0
+        self.J_reg = 0
+        self.J_misfit = 0
         if self.reg_manager is not None:
-            self.J += self.reg_manager.eval_cost_function()
+            self.J_reg = self.reg_manager.eval_cost_function()
+        self.J = self.J_reg
 
         if weight_by_variance:
             var = fd.Function(self.sta_manager.fs_points_0d)
@@ -238,8 +252,9 @@ class InversionManager(FrozenHasTraits):
             self.sta_manager.station_weight_0d.assign(1/var)
 
         def cost_fn(t):
-            J_misfit = self.sta_manager.eval_cost_function(t)
-            self.J += J_misfit
+            misfit = self.sta_manager.eval_cost_function(t)
+            self.J_misfit += misfit
+            self.J += misfit
 
         return cost_fn
 
@@ -530,8 +545,8 @@ class StationObservationManager:
         self.obs_values_0d.assign(obs_func)
         self.mod_values_0d.interpolate(self.model_observation_field, ad_block_tag='observation')
         s = self.cost_function_scaling * self.indicator_0d * self.station_weight_0d
-        J_misfit = fd.assemble(s * self.misfit_expr ** 2 * fd.dx)
-        return J_misfit
+        self.J_misfit = fd.assemble(s * self.misfit_expr ** 2 * fd.dx, ad_block_tag='misfit_eval')
+        return self.J_misfit
 
     def dump_time_series(self):
         """
