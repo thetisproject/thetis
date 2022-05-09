@@ -601,7 +601,7 @@ class RegularizationCalculator(abc.ABC):
 class HessianRegularizationCalculator(RegularizationCalculator):
     r"""
     Computes the following regularization term for a cost function
-    involving a control `Function` :math:`f`:
+    involving a control :class:`Function` :math:`f`:
 
     .. math::
         J = \gamma \| (\Delta x)^2 H(f) \|^2,
@@ -665,25 +665,21 @@ class ControlRegularizationManager:
     """
     Handles regularization of multiple control fields
     """
-    def __init__(self, function_list, gamma_list, J_scalar=None):
+    def __init__(self, function_list, gamma_list, penalty_term_scaling=None,
+                 calculator=HessianRegularizationCalculator):
         """
         :arg function_list: list of control functions
         :arg gamma_list: list of penalty parameters
-        :kwarg J_scalar: Penalty term scaling factor
+        :kwarg penalty_term_scaling: Penalty term scaling factor
+        :kwarg calculator: class used for obtaining regularization
         """
-        self.J_scalar = J_scalar
         self.reg_calculators = []
         assert len(function_list) == len(gamma_list), \
             'Number of control functions and parameters must match'
-        for f, g in zip(function_list, gamma_list):
-            r = ControlRegularizationCalculator(f, g)
-            self.reg_calculators.append(r)
+        self.reg_calculators = [
+            calculator(f, g, scaling=penalty_term_scaling)
+            for f, g in zip(function_list, gamma_list)
+        ]
 
     def eval_cost_function(self):
-        v = 0
-        for r in self.reg_calculators:
-            u = r.eval_cost_function()
-            if self.J_scalar is not None:
-                u *= float(self.J_scalar)
-            v += u
-        return v
+        return sum([r.eval_cost_function() for r in self.reg_calculators])
