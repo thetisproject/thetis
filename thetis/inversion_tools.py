@@ -597,46 +597,39 @@ class RegularizationCalculator(abc.ABC):
         return fd.assemble(expr, ad_block_tag="reg_eval")
 
 
-class ControlRegularizationCalculator:
+class HessianRegularizationCalculator(RegularizationCalculator):
     r"""
-    Computes regularization cost function for a control `Function`.
+    Computes the following regularization term for a cost function
+    involving a control `Function` :math:`f`:
 
     .. math::
-        J = \gamma | H(f) |^2
+        J = \gamma \| (\Delta x)^2 H(f) \|^2,
 
-    where :math:`H` is the Hessian of field math:`f`:.
+    where :math:`H` is the Hessian of field :math:`f`.
     """
-    def __init__(self, function, gamma_hessian):
+    def __init__(self, function, gamma, scaling=1.0):
         """
-        :arg function: Control `Function`
-        :arg gamma_Hessian: Hessian penalty coefficient
+        :arg function: Control :class:`Function`
+        :arg gamma: Hessian penalty coefficient
         """
-        self.function = function
-        self.gamma_hessian = gamma_hessian
+        super().__init__(function, scaling=scaling)
         # solvers to evaluate the gradient of the control
-        mesh = function.function_space().mesh()
-        P1v_2d = get_functionspace(mesh, 'CG', 1, vector=True)
-        P1t_2d = get_functionspace(mesh, 'CG', 1, tensor=True)
-        name = function.name()
-        gradient_2d = fd.Function(P1v_2d, name=f'{name} gradient')
-        hessian_2d = fd.Function(P1t_2d, name=f'{name} hessian')
+        P1v_2d = get_functionspace(self.mesh, "CG", 1, vector=True)
+        P1t_2d = get_functionspace(self.mesh, "CG", 1, tensor=True)
+        gradient_2d = fd.Function(P1v_2d, name=f"{self.name} gradient")
+        hessian_2d = fd.Function(P1t_2d, name=f"{self.name} hessian")
         self.hessian_calculator = HessianRecoverer2D(
             function, hessian_2d, gradient_2d)
 
-        h = fd.CellSize(mesh)
+        h = fd.CellSize(self.mesh)
         # regularization expression |hessian|^2
         # NOTE this is normalized by the mesh element size
         # d^2 u/dx^2 * dx^2 ~ du^2
-        self.regularization_hess_expr = gamma_hessian * fd.inner(hessian_2d, hessian_2d)*h**4
-        # calculate mesh area (to scale the cost function)
-        self.mesh_area = fd.assemble(fd.Constant(1.0, domain=mesh)*fd.dx)
+        self.regularization_expr = gamma * fd.inner(hessian_2d, hessian_2d) * h**4
 
     def eval_cost_function(self):
         self.hessian_calculator.solve()
-        J_regularization = fd.assemble(
-            self.regularization_hess_expr / self.mesh_area * fd.dx
-        )
-        return J_regularization
+        return super().eval_cost_function()
 
 
 class ControlRegularizationManager:
