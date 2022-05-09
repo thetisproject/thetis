@@ -1,5 +1,6 @@
 import firedrake as fd
 from firedrake_adjoint import *
+import ufl
 from .configuration import FrozenHasTraits
 from .solver2d import FlowSolver2d
 from .utility import create_directory, print_function_value_range, get_functionspace, unfrozen
@@ -630,6 +631,34 @@ class HessianRegularizationCalculator(RegularizationCalculator):
     def eval_cost_function(self):
         self.hessian_calculator.solve()
         return super().eval_cost_function()
+
+
+class RSpaceRegularizationCalculator(RegularizationCalculator):
+    r"""
+    Computes the following regularization term for a cost function
+    involving a control :class:`Function` :math:`f` from an R-space:
+
+    .. math::
+        J = \gamma (f - f_0)^2,
+
+    where :math:`f_0` is a prior, taken to be the initial value of
+    :math:`f`.
+    """
+    def __init__(self, function, gamma, eps=1.0e-03, scaling=1.0):
+        """
+        :arg function: Control :class:`Function`
+        :arg gamma: penalty coefficient
+        :kwarg eps: tolerance for normalising by near-zero priors
+        """
+        super().__init__(function, scaling=scaling)
+        R = function.function_space()
+        if R.ufl_element().family() != "Real":
+            raise ValueError("function must live in R-space")
+        prior = fd.Function(R, name=f"{self.name} prior")
+        prior.assign(function, annotate=False)  # Set the prior to the initial value
+        self.regularization_expr = gamma * (function - prior) ** 2 / ufl.max_value(abs(prior), eps)
+        # NOTE: If the prior is small then dividing by prior**2 puts too much emphasis
+        #       on the regularization. Therefore, we divide by abs(prior) instead.
 
 
 class ControlRegularizationManager:
