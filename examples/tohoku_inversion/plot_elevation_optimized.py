@@ -1,4 +1,4 @@
-from model_options import read_station_data
+from model_config import read_station_data
 
 import glob
 import h5py
