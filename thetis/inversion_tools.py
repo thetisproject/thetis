@@ -6,6 +6,7 @@ from .utility import create_directory, print_function_value_range, get_functions
 from .log import print_output
 from .diagnostics import HessianRecoverer2D
 from .exporter import HDF5Exporter
+import abc
 import numpy
 import h5py
 from scipy.interpolate import interp1d
@@ -568,6 +569,32 @@ class StationObservationManager:
                     'location_name': name,
                 }
                 hdf5file.attrs.update(attrs)
+
+
+class RegularizationCalculator(abc.ABC):
+    """
+    Base class for computing regularization terms.
+
+    A derived class should set :attr:`regularization_expr` in
+    :meth:`__init__`. Whenever the cost function is evaluated,
+    the ratio of this expression and the total mesh area will
+    be added.
+    """
+    @abc.abstractmethod
+    def __init__(self, function, scaling=1.0):
+        """
+        :arg function: Control :class:`Function`
+        """
+        self.scaling = scaling
+        self.regularization_expr = 0
+        self.mesh = function.function_space().mesh()
+        # calculate mesh area (to scale the cost function)
+        self.mesh_area = fd.assemble(fd.Constant(1.0, domain=self.mesh) * fd.dx)
+        self.name = function.name()
+
+    def eval_cost_function(self):
+        expr = self.scaling * self.regularization_expr / self.mesh_area * fd.dx
+        return fd.assemble(expr, ad_block_tag="reg_eval")
 
 
 class ControlRegularizationCalculator:
