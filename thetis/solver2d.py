@@ -778,26 +778,49 @@ class FlowSolver2d(FrozenClass):
             e.export()
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.load_state")
-    def load_state(self, i_export, outputdir=None, t=None, iteration=None,
-                   legacy_mode=False):
+    def load_state(self, i_stored, outputdir=None, t=None, iteration=None,
+                   i_export=None, legacy_mode=False):
         """
         Loads simulation state from hdf5 outputs.
 
-        This replaces :meth:`.assign_initial_conditions` in model initilization.
+        Replaces :meth:`.assign_initial_conditions` in model initialization.
 
-        This assumes that model setup is kept the same (e.g. time step) and
-        all pronostic state variables are exported in hdf5 format. The required
-        state variables are: elev_2d, uv_2d
+        For example, continue simulation from export 40,
 
-        Currently hdf5 field import only works for the same number of MPI
-        processes.
+        .. code-block:: python
 
-        :arg int i_export: export index to load
+            solver_obj.load_state(40)
+
+        Continue simulation from another output directory,
+
+        .. code-block:: python
+
+            solver_obj.load_state(40, outputdir='outputs_spinup')
+
+        Continue simulation from another output directory and reset the
+        counters,
+
+        .. code-block:: python
+
+            solver_obj.load_state(40, outputdir='outputs_spinup',
+                iteration=0, t=0, i_export=0)
+
+        Model state can be loaded if all prognostic state variables have been
+        stored in hdf5 format. For the hydrodynamics the required state
+        variables are: `elev_2d`, and `uv_2d`.
+
+        Simulation time and iteration can be recovered automatically provided
+        that the model setup is the same (e.g. time step and export_time).
+
+        :arg int i_stored: export index to load
         :kwarg string outputdir: (optional) directory where files are read from.
             By default ``options.output_directory``.
-        :kwarg float t: simulation time. Overrides the time stamp stored in the
-            hdf5 files.
-        :kwarg int iteration: Overrides the iteration count in the hdf5 files.
+        :kwarg float t: simulation time. Overrides the time stamp inferred from
+            model options.
+        :kwarg int iteration: Overrides the iteration count inferred from model
+            options.
+        :kwarg int i_export: Set initial export index for the present run. By
+            default, `i_stored` is used.
         :kwarg bool legacy_mode: Load legacy `DumbCheckpoint` files.
         """
         if not self._initialized:
@@ -814,11 +837,13 @@ class FlowSolver2d(FrozenClass):
                                    export_type='hdf5',
                                    legacy_mode=legacy_mode,
                                    verbose=self.options.verbose > 0)
-        e.exporters['uv_2d'].load(i_export, self.fields.uv_2d)
-        e.exporters['elev_2d'].load(i_export, self.fields.elev_2d)
+        e.exporters['uv_2d'].load(i_stored, self.fields.uv_2d)
+        e.exporters['elev_2d'].load(i_stored, self.fields.elev_2d)
         self.assign_initial_conditions()
 
         # time stepper bookkeeping for export time step
+        if i_export is None:
+            i_export = i_stored
         self.i_export = i_export
         self.next_export_t = self.i_export*self.options.simulation_export_time
         if iteration is None:
