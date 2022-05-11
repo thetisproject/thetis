@@ -7,8 +7,9 @@ solver_obj, start_time, update_forcings = construct_solver(
     start_date=datetime.datetime(2022, 1, 15, tzinfo=sim_tz),
     end_date=datetime.datetime(2022, 1, 18, tzinfo=sim_tz),
 )
-print_output(f"Exporting to {solver_obj.options.output_directory}")
-solver_obj.load_state(14, outputdir="outputs_spinup", t=0, iteration=0)
+solver_obj.load_state(
+    14, outputdir="outputs_spinup", t=0, iteration=0, i_export=0
+)
 update_forcings(0.0)
 tic = time_mod.perf_counter()
 solver_obj.iterate(update_forcings=update_forcings)

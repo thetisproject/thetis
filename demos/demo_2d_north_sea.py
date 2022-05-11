@@ -63,8 +63,10 @@ lon, lat = lonlat
 
 P1_2d = get_functionspace(mesh2d, "CG", 1)
 bathymetry_2d = Function(P1_2d, name="Bathymetry")
-with DumbCheckpoint("north_sea_bathymetry", mode=FILE_READ) as h5:
-    h5.load(bathymetry_2d)
+with CheckpointFile("north_sea_bathymetry.h5", "r") as f:
+    m = f.load_mesh("firedrake_default")
+    g = f.load_function(m, "Bathymetry")
+    bathymetry_2d.assign(g)
 
 # The resulting bathymetry field is plotted below.
 #
