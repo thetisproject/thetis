@@ -11,10 +11,7 @@ For more details of the test case set-up see
 [1] Clare et al. (2020). Hydro-morphodynamics 2D modelling using a discontinuous Galerkin discretisation.
     Computers & Geosciences, 104658. https://doi.org/10.1016/j.cageo.2020.104658
 """
-
 from thetis import *
-
-import time
 
 # define mesh
 lx = 16
@@ -40,24 +37,22 @@ trench = conditional(le(x, 5), depth_riv, conditional(le(x, 6.5), (1/1.5)*depth_
                      conditional(le(x, 9.5), depth_trench, conditional(le(x, 11), -(1/1.5)*depth_diff*(x-11) + depth_riv, depth_riv))))
 bathymetry_2d.interpolate(-trench)
 
-
 # simulate initial hydrodynamics
 # define initial elevation
 elev_init = Function(P1_2d).interpolate(Constant(0.4))
 uv_init = as_vector((0.51, 0.0))
 
 # choose directory to output results
-ts = time.time()
-st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
-outputdir = 'outputs' + st
-
+outputdir = 'outputs_hydro'
 print_output('Exporting to '+outputdir)
-
+no_exports = False
 t_end = 500
+
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
     # run as tests, not sufficient for proper spin up
     # but we simply want a run-through-without-error test
     t_end = 50
+    no_exports = True
 
 # export interval in seconds
 t_export = numpy.round(t_end/40, 0)
@@ -72,10 +67,11 @@ options = solver_obj.options
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
 options.output_directory = outputdir
-
+options.no_exports = no_exports
 options.check_volume_conservation_2d = True
 
 options.fields_to_export = ['uv_2d', 'elev_2d']
+options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
 options.use_lax_friedrichs_tracer = False
 
 # using nikuradse friction
@@ -91,12 +87,10 @@ if not hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
     options.timestep = 0.25
 
 # set boundary conditions
-
 left_bnd_id = 1
 right_bnd_id = 2
 
 swe_bnd = {}
-
 swe_bnd[left_bnd_id] = {'flux': Constant(-0.22)}
 swe_bnd[right_bnd_id] = {'elev': Constant(0.397)}
 
@@ -106,16 +100,3 @@ solver_obj.assign_initial_conditions(uv=uv_init, elev=elev_init)
 
 # run model
 solver_obj.iterate()
-
-uv, elev = solver_obj.fields.solution_2d.split()
-
-checkpoint_dir = "hydrodynamics_trench"
-
-if not os.path.exists(checkpoint_dir):
-    os.makedirs(checkpoint_dir)
-chk = DumbCheckpoint(checkpoint_dir + "/velocity", mode=FILE_CREATE)
-chk.store(uv, name="velocity")
-chk.close()
-chk = DumbCheckpoint(checkpoint_dir + "/elevation", mode=FILE_CREATE)
-chk.store(elev, name="elevation")
-chk.close()
