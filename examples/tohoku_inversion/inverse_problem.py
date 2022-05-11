@@ -38,7 +38,7 @@ solver_obj = construct_solver(
     elev_init,
     output_directory=output_dir,
     store_station_time_series=False,
-    no_exports=os.getenv("THETIS_REGRESSION_TEST") is not None,
+    no_exports=True,
 )
 options = solver_obj.options
 if not options.no_exports:
@@ -79,9 +79,10 @@ if source_model[:2] in ("CG", "DG"):
 J_scalar = Constant(solver_obj.dt / options.simulation_end_time)
 
 # Create inversion manager and add controls
+no_exports = os.getenv("THETIS_REGRESSION_TEST") is not None
 inv_manager = inversion_tools.InversionManager(
     sta_manager, real=source_model[:2] not in ("CG", "DG"),
-    output_dir=options.output_directory, no_exports=options.no_exports,
+    output_dir=options.output_directory, no_exports=no_exports,
     penalty_parameters=gamma_hessian_list, cost_function_scaling=J_scalar,
     test_consistency=do_consistency_test, test_gradient=do_taylor_test)
 for c in controls:

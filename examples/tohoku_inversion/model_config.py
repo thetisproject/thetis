@@ -233,8 +233,10 @@ def construct_solver(elev_init, store_station_time_series=True, **model_options)
     P1_2d = get_functionspace(mesh2d, "CG", 1)
     bathymetry_2d = Function(P1_2d, name="Bathymetry")
     pwd = os.path.abspath(os.path.dirname(__file__))
-    with DumbCheckpoint(f"{pwd}/japan_sea_bathymetry", mode=FILE_READ) as h5:
-        h5.load(bathymetry_2d)
+    with CheckpointFile(f"{pwd}/japan_sea_bathymetry.h5", "r") as f:
+        m = f.load_mesh("firedrake_default")
+        g = f.load_function(m, "Bathymetry")
+        bathymetry_2d.assign(g)
     bathymetry_2d.interpolate(bathymetry_2d - elev_init)
 
     # Create solver
