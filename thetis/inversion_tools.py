@@ -5,6 +5,7 @@ from .solver2d import FlowSolver2d
 from .utility import create_directory, print_function_value_range, get_functionspace, unfrozen
 from .log import print_output
 from .diagnostics import HessianRecoverer2D
+from .exporter import HDF5Exporter
 import numpy
 import h5py
 from scipy.interpolate import interp1d
@@ -25,7 +26,7 @@ class InversionManager(FrozenHasTraits):
         """
         :arg sta_manager: the :class:`StationManager` instance
         :kwarg output_dir: model output directory
-        :kwarg no_exports: toggle exports to vtu
+        :kwarg no_exports: if True, nothing will be written to disk
         :kwarg real: is the inversion in the Real space?
         :kwarg penalty_parameters: a list of penalty parameters to pass
             to the :class:`ControlRegularizationManager`
@@ -49,6 +50,7 @@ class InversionManager(FrozenHasTraits):
         self.test_gradient = test_gradient
         self.outfiles_m = []
         self.outfiles_dJdm = []
+        self.control_exporters = []
         self.initialized = False
 
         self.J = 0  # cost function value (float)
@@ -89,6 +91,12 @@ class InversionManager(FrozenHasTraits):
         """
         self.control_coeff_list.append(f)
         self.control_list.append(Control(f))
+        if isinstance(f, fd.Function) and not self.no_exports:
+            j = len(self.control_coeff_list) - 1
+            prefix = f'control_{j:02d}'
+            self.control_exporters.append(
+                HDF5Exporter(f.function_space(), self.output_dir + '/hdf5', prefix)
+            )
 
     def reset_counters(self):
         self.nb_grad_evals = 0
@@ -143,7 +151,7 @@ class InversionManager(FrozenHasTraits):
         self.J_progress.append(self.J)
         self.dJdm_progress.append(djdm)
         comm = self.control_coeff_list[0].comm
-        if comm.rank == 0:
+        if comm.rank == 0 and not self.no_exports:
             if self.real:
                 numpy.save(f'{self.output_dir}/m_progress', self.m_progress)
             numpy.save(f'{self.output_dir}/J_progress', self.J_progress)
@@ -165,9 +173,8 @@ class InversionManager(FrozenHasTraits):
                 m.rename(self.control_coeff_list[j].name())
                 o.write(m)
                 # hdf5 format
-                h5_filename = f'{self.output_dir}/hdf5/control_{j:02d}_{self.i:04d}'
-                with fd.DumbCheckpoint(h5_filename, mode=fd.FILE_CREATE) as chk:
-                    chk.store(m)
+                e = self.control_exporters[j]
+                e.export(m)
             # gradient output
             for f, o in zip(self.dJdm_list, self.outfiles_dJdm):
                 # store gradient in vtk format
@@ -262,7 +269,8 @@ class InversionManager(FrozenHasTraits):
 
         def optimization_callback(m):
             self.update_progress()
-            self.sta_manager.dump_time_series()
+            if not self.no_exports:
+                self.sta_manager.dump_time_series()
 
         return optimization_callback
 
@@ -279,7 +287,8 @@ class InversionManager(FrozenHasTraits):
         self.start_clock()
         J = float(self.reduced_functional(self.control_coeff_list))
         self.set_initial_state(J, self.reduced_functional.derivative(), self.control_coeff_list)
-        self.sta_manager.dump_time_series()
+        if not self.no_exports:
+            self.sta_manager.dump_time_series()
         return minimize(
             self.reduced_functional, method=opt_method, bounds=bounds,
             callback=self.get_optimization_callback(), options=opt_options)
@@ -335,7 +344,6 @@ class StationObservationManager:
             raise NotImplementedError('Sphere meshes are not supported yet.')
         self.cost_function_scaling = fd.Constant(1.0)
         self.output_directory = output_directory
-        create_directory(self.output_directory)
         # keep observation time series in memory
         self.obs_func_list = []
         # keep model time series in memory during optimization progress
@@ -536,6 +544,7 @@ class StationObservationManager:
         """
         assert self.station_names is not None
 
+        create_directory(self.output_directory)
         tape = get_working_tape()
         blocks = tape.get_blocks(tag='observation')
         ts_data = [b.get_outputs()[0].saved_output.dat.data for b in blocks]

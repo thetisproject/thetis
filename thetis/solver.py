@@ -996,26 +996,50 @@ class FlowSolver(FrozenClass):
         self.fields.uv_3d -= self.fields.uv_dav_3d
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver.load_state")
-    def load_state(self, i_export, outputdir=None, t=None, iteration=None):
+    def load_state(self, i_stored, outputdir=None, t=None, iteration=None,
+                   i_export=None, legacy_mode=False):
         """
         Loads simulation state from hdf5 outputs.
 
-        This replaces :meth:`.assign_initial_conditions` in model initilization.
+        Replaces :meth:`.assign_initial_conditions` in model initialization.
 
-        This assumes that model setup is kept the same (e.g. time step) and
-        all pronostic state variables are exported in hdf5 format.  The required
-        state variables are: elev_2d, uv_2d, uv_3d, salt_3d, temp_3d, tke_3d,
-        psi_3d
+        For example, continue simulation from export 40,
 
-        Currently hdf5 field import only works for the same number of MPI
-        processes.
+        .. code-block:: python
 
-        :arg int i_export: export index to load
+            solver_obj.load_state(40)
+
+        Continue simulation from another output directory,
+
+        .. code-block:: python
+
+            solver_obj.load_state(40, outputdir='outputs_spinup')
+
+        Continue simulation from another output directory and reset the
+        counters,
+
+        .. code-block:: python
+
+            solver_obj.load_state(40, outputdir='outputs_spinup',
+                iteration=0, t=0, i_export=0)
+
+        Model state can be loaded if all prognostic state variables have been
+        stored in hdf5 format. Required state variables are: `elev_2d`,
+        `uv_2d`, `uv_3d`, `salt_3d`, `temp_3d`, `tke_3d`, and `psi_3d`.
+
+        Simulation time and iteration can be recovered automatically provided
+        that the model setup is the same (e.g. time step and export_time).
+
+        :arg int i_stored: export index to load
         :kwarg string outputdir: (optional) directory where files are read from.
             By default ``options.output_directory``.
-        :kwarg float t: simulation time. Overrides the time stamp stored in the
-            hdf5 files.
-        :kwarg int iteration: Overrides the iteration count in the hdf5 files.
+        :kwarg float t: simulation time. Overrides the time stamp inferred from
+            model options.
+        :kwarg int iteration: Overrides the iteration count inferred from model
+            options.
+        :kwarg int i_export: Set initial export index for the present run. By
+            default, `i_stored` is used.
+        :kwarg bool legacy_mode: Load legacy `DumbCheckpoint` files.
         """
         if not self._initialized:
             self.initialize()
@@ -1031,26 +1055,27 @@ class FlowSolver(FrozenClass):
                                    self.fields,
                                    field_metadata,
                                    export_type='hdf5',
+                                   legacy_mode=legacy_mode,
                                    verbose=self.options.verbose > 0)
-        e.exporters['uv_2d'].load(i_export, self.fields.uv_2d)
-        e.exporters['elev_2d'].load(i_export, self.fields.elev_2d)
-        e.exporters['uv_3d'].load(i_export, self.fields.uv_3d)
+        e.exporters['uv_2d'].load(i_stored, self.fields.uv_2d)
+        e.exporters['elev_2d'].load(i_stored, self.fields.elev_2d)
+        e.exporters['uv_3d'].load(i_stored, self.fields.uv_3d)
         # NOTE remove mean from uv_3d
         self.timestepper._remove_depth_average_from_uv_3d()
         salt = temp = tke = psi = None
         if self.options.solve_salinity:
             salt = self.fields.salt_3d
-            e.exporters['salt_3d'].load(i_export, salt)
+            e.exporters['salt_3d'].load(i_stored, salt)
         if self.options.solve_temperature:
             temp = self.fields.temp_3d
-            e.exporters['temp_3d'].load(i_export, temp)
+            e.exporters['temp_3d'].load(i_stored, temp)
         if self.options.use_turbulence:
             if 'tke_3d' in self.fields:
                 tke = self.fields.tke_3d
-                e.exporters['tke_3d'].load(i_export, tke)
+                e.exporters['tke_3d'].load(i_stored, tke)
             if 'psi_3d' in self.fields:
                 psi = self.fields.psi_3d
-                e.exporters['psi_3d'].load(i_export, psi)
+                e.exporters['psi_3d'].load(i_stored, psi)
         self.assign_initial_conditions(elev=self.fields.elev_2d,
                                        uv_2d=self.fields.uv_2d,
                                        uv_3d=self.fields.uv_3d,
@@ -1059,6 +1084,8 @@ class FlowSolver(FrozenClass):
                                        )
 
         # time stepper bookkeeping for export time step
+        if i_export is None:
+            i_export = i_stored
         self.i_export = i_export
         self.next_export_t = self.i_export*self.options.simulation_export_time
         if iteration is None:

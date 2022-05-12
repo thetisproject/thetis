@@ -26,13 +26,17 @@ elev_init = Function(P1_2d).interpolate(0.0544 - bathymetry_2d)
 uv_init = Function(vectorP1_2d).interpolate(as_vector((0.001, 0.001)))
 
 # choose directory to output results
-outputdir = 'outputs'
+outputdir = 'outputs_hydro'
 print_output('Exporting to '+outputdir)
+no_exports = False
 t_end = 200
+
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
     # run as tests, not sufficient for proper spin up
     # but we simply want a run-through-without-error test
     t_end = 25
+    no_exports = True
+
 # export interval in seconds
 t_export = numpy.round(t_end/40, 0)
 # define parameters
@@ -47,6 +51,8 @@ options.simulation_end_time = t_end
 options.output_directory = outputdir
 options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
+options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
+options.no_exports = no_exports
 options.use_lax_friedrichs_tracer = False
 # using nikuradse friction
 options.nikuradse_bed_roughness = ksp
@@ -70,15 +76,3 @@ solver_obj.assign_initial_conditions(uv=uv_init, elev=elev_init)
 
 # run model
 solver_obj.iterate()
-
-# store hydrodynamics for next simulation
-uv, elev = solver_obj.fields.solution_2d.split()
-checkpoint_dir = "hydrodynamics_meander"
-if not os.path.exists(checkpoint_dir):
-    os.makedirs(checkpoint_dir)
-with DumbCheckpoint(checkpoint_dir + '/velocity', mode=FILE_CREATE) as chk:
-    chk.store(uv, name="velocity")
-    chk.close()
-with DumbCheckpoint(checkpoint_dir + "/elevation", mode=FILE_CREATE) as chk:
-    chk.store(elev, name="elevation")
-    chk.close()

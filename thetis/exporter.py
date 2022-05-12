@@ -134,7 +134,7 @@ class HDF5Exporter(ExporterBase):
     """
     @PETSc.Log.EventDecorator("thetis.HDF5Exporter.__init__")
     def __init__(self, function_space, outputdir, filename_prefix,
-                 next_export_ix=0, verbose=False):
+                 next_export_ix=0, legacy_mode=False, verbose=False):
         """
         Create exporter object for given function.
 
@@ -144,11 +144,13 @@ class HDF5Exporter(ExporterBase):
         :arg string filename_prefix: prefix of output filename. Filename is
             prefix_nnnnn.h5 where nnnnn is the export number.
         :kwarg int next_export_ix: index for next export (default 0)
+        :kwarg bool legacy_mode: use legacy DumbCheckpoint format
         :kwarg bool verbose: print debug info to stdout
         """
         super(HDF5Exporter, self).__init__(filename_prefix, outputdir,
                                            next_export_ix, verbose)
         self.function_space = function_space
+        self.dumb_checkpoint = legacy_mode
 
     def gen_filename(self, iexport):
         """
@@ -157,6 +159,8 @@ class HDF5Exporter(ExporterBase):
         :arg int iexport: export index >= 0
         """
         filename = '{0:s}_{1:05d}'.format(self.filename, iexport)
+        if not self.dumb_checkpoint:
+            filename += '.h5'
         return os.path.join(self.outputdir, filename)
 
     def export_as_index(self, iexport, function):
@@ -171,8 +175,14 @@ class HDF5Exporter(ExporterBase):
         filename = self.gen_filename(iexport)
         if self.verbose:
             print_output('saving {:} state to {:}'.format(function.name(), filename))
-        with DumbCheckpoint(filename, mode=FILE_CREATE, comm=function.comm) as f:
-            f.store(function)
+        if self.dumb_checkpoint:
+            with DumbCheckpoint(filename, mode=FILE_CREATE, comm=function.comm) as f:
+                f.store(function)
+        else:
+            with CheckpointFile(filename, 'w') as f:
+                mesh = function.function_space().mesh()
+                f.save_mesh(mesh)
+                f.save_function(function)
         self.next_export_ix = iexport + 1
 
     @PETSc.Log.EventDecorator("thetis.HDF5Exporter.export")
@@ -199,8 +209,19 @@ class HDF5Exporter(ExporterBase):
         filename = self.gen_filename(iexport)
         if self.verbose:
             print_output('loading {:} state from {:}'.format(function.name(), filename))
-        with DumbCheckpoint(filename, mode=FILE_READ, comm=function.comm) as f:
-            f.load(function)
+        if self.dumb_checkpoint:
+            with DumbCheckpoint(filename, mode=FILE_READ, comm=function.comm) as f:
+                f.load(function)
+        else:
+            with CheckpointFile(filename, 'r') as f:
+                if not f._get_mesh_name_topology_name_map():
+                    raise IOError(f'File "{filename}" does not contain mesh topology, try loading it with the legacy DumbCheckpoint option?')
+                mesh_name = function.function_space().mesh().name
+                if mesh_name is None:
+                    mesh_name = 'firedrake_default'
+                mesh = f.load_mesh(mesh_name)
+                g = f.load_function(mesh, function.name())
+                function.assign(g)
 
 
 class ExportManager(object):
@@ -221,6 +242,7 @@ class ExportManager(object):
     """
     def __init__(self, outputdir, fields_to_export, functions, field_metadata,
                  export_type='vtk', next_export_ix=0, verbose=False,
+                 legacy_mode=False,
                  preproc_funcs={}):
         """
         :arg string outputdir: directory where files are stored
@@ -232,6 +254,7 @@ class ExportManager(object):
         :kwarg str export_type: export format, either 'vtk' or 'hdf5'
         :kwarg int next_export_ix: index for next export (default 0)
         :kwarg bool verbose: print debug info to stdout
+        :kwarg bool legacy_mode: use legacy `DumbCheckpoint` hdf5 format
         """
         self.outputdir = outputdir
         self.fields_to_export = fields_to_export
@@ -247,11 +270,13 @@ class ExportManager(object):
             field = self.functions.get(key)
             if field is not None and isinstance(field, Function):
                 self.add_export(key, field, export_type,
+                                legacy_mode=legacy_mode,
                                 next_export_ix=next_export_ix)
 
     def add_export(self, fieldname, function,
                    export_type='vtk', next_export_ix=0, outputdir=None,
-                   shortname=None, filename=None, preproc_func=None):
+                   shortname=None, filename=None, legacy_mode=False,
+                   preproc_func=None):
         """
         Adds a new field exporter in the manager.
 
@@ -266,6 +291,7 @@ class ExportManager(object):
         :kwarg string outputdir: optional directory where files are stored
         :kwarg string shortname: override shortname defined in field_metadata
         :kwarg string filename: override filename defined in field_metadata
+        :kwarg bool legacy_mode: use legacy `DumbCheckpoint` hdf5 format
         :kwarg preproc_func: optional funtion that will be called prior to
             exporting. E.g. for computing diagnostic fields.
         """
@@ -292,6 +318,7 @@ class ExportManager(object):
             elif export_type.lower() == 'hdf5':
                 self.exporters[fieldname] = HDF5Exporter(native_space,
                                                          outputdir, filename,
+                                                         legacy_mode=legacy_mode,
                                                          next_export_ix=next_export_ix)
 
     def set_next_export_ix(self, next_export_ix):

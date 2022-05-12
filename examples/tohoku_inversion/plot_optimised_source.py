@@ -20,13 +20,10 @@ mesh2d = Mesh("japan_sea.msh")
 output_directory = f"outputs_elev-init-optimization_{source_model}"
 source_model = source_model.split("_")[0]
 if source_model[:2] in ("CG", "DG"):
-    family = source_model[:2]
-    degree = int(source_model[2:])
-    Pk = get_functionspace(mesh2d, family, degree)
-    elev = Function(Pk)
-    fname = f"{output_directory}/hdf5/control_00_{maxiter:02d}"
-    with DumbCheckpoint(fname, mode=FILE_READ) as chk:
-        chk.load(elev, name="Elevation")
+    fname = f"{output_directory}/hdf5/control_00_{maxiter:02d}.h5"
+    with CheckpointFile(fname, "r") as chk:
+        m = chk.load_mesh("firedrake_default")
+        elev = chk.load_function(m, "elev_2d")
 else:
     c = numpy.load(f"{output_directory}/m_progress.npy")[-1]
     elev = initial_condition(mesh2d, source_model=source_model, initial_guess=c)[0]

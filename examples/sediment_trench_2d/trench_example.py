@@ -12,9 +12,7 @@ For more details, see
 [1] Clare et al. (2020). Hydro-morphodynamics 2D modelling using a discontinuous Galerkin discretisation.
     Computers & Geosciences, 104658. https://doi.org/10.1016/j.cageo.2020.104658
 """
-
 from thetis import *
-
 import matplotlib.pyplot as plt
 
 conservative = False
@@ -32,8 +30,6 @@ x, y = SpatialCoordinate(mesh2d)
 
 # define function spaces
 V = FunctionSpace(mesh2d, "CG", 1)
-DG_2d = FunctionSpace(mesh2d, "DG", 1)
-vector_dg = VectorFunctionSpace(mesh2d, "DG", 1)
 
 # define underlying bathymetry
 bathymetry_2d = Function(V, name='bathymetry_2d')
@@ -48,7 +44,6 @@ bathymetry_2d.interpolate(-trench)
 
 # choose directory to output results
 outputdir = 'outputs'
-
 print_output('Exporting to '+outputdir)
 
 morfac = 100
@@ -59,21 +54,7 @@ diffusivity = 0.15
 viscosity_hydro = Constant(1e-6)
 
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
-    # the example is being run as a test
-    # run the spin-up by importing it
-    import trench_hydro  # NOQA
     end_time = 3600.
-
-# initialise velocity and elevation
-chk = DumbCheckpoint("hydrodynamics_trench/elevation", mode=FILE_READ)
-elev = Function(DG_2d, name="elevation")
-chk.load(elev)
-chk.close()
-
-chk = DumbCheckpoint('hydrodynamics_trench/velocity', mode=FILE_READ)
-uv = Function(vector_dg, name="velocity")
-chk.load(uv)
-chk.close()
 
 # set up solver
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
@@ -133,12 +114,10 @@ if options.sediment_model_options.solve_suspended_sediment:
         left_bnd_id: {'flux': Constant(-0.22), 'equilibrium': None},
         right_bnd_id: {'elev': Constant(0.397)}}
 
-    # set initial conditions
-    solver_obj.assign_initial_conditions(uv=uv, elev=elev)
-
-else:
-    # set initial conditions
-    solver_obj.assign_initial_conditions(uv=uv, elev=elev)
+# initialise velocity and elevation
+solver_obj.load_state(
+    41, outputdir='outputs_hydro', iteration=0, t=0, i_export=0
+)
 
 # run model
 solver_obj.iterate()

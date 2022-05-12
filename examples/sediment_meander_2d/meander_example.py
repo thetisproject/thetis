@@ -38,6 +38,7 @@ vector_dg = VectorFunctionSpace(mesh2d, 'DG', 1)
 
 # choose directory to output results
 outputdir = 'outputs'
+print_output('Exporting to '+outputdir)
 
 morfac = 50
 dt = 2
@@ -45,20 +46,7 @@ end_time = 5*3600
 viscosity_hydro = Constant(5*10**(-2))
 
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
-    # the example is being run as a test
-    # run the spin-up by importing it
-    import meander_hydro  # NOQA
     end_time = 1800.
-
-# initialise velocity and elevation
-with DumbCheckpoint("hydrodynamics_meander/elevation", mode=FILE_READ) as chk:
-    elev = Function(DG_2d, name="elevation")
-    chk.load(elev)
-    chk.close()
-with DumbCheckpoint('hydrodynamics_meander/velocity', mode=FILE_READ) as chk:
-    uv = Function(vector_dg, name="velocity")
-    chk.load(uv)
-    chk.close()
 
 # set up solver
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
@@ -108,8 +96,11 @@ swe_bnd[3] = {'un': Constant(0.0)}
 swe_bnd[left_bnd_id] = {'flux': flux_constant}
 swe_bnd[right_bnd_id] = {'elev': elev_constant}
 solver_obj.bnd_functions['shallow_water'] = swe_bnd
-# set initial conditions
-solver_obj.assign_initial_conditions(uv=uv, elev=elev)
+
+# initialise velocity and elevation
+solver_obj.load_state(
+    40, outputdir='outputs_hydro', iteration=0, t=0, i_export=0
+)
 
 # run model
 solver_obj.iterate(update_forcings=update_forcings_bnd)

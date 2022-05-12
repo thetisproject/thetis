@@ -15,7 +15,6 @@ solver_obj, start_time, update_forcings = construct_solver(
 )
 output_dir = solver_obj.options.output_directory
 mesh2d = solver_obj.mesh2d
-print_output(f"Exporting to {output_dir}")
 solver_obj.assign_initial_conditions()
 update_forcings(0.0)
 

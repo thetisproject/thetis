@@ -27,12 +27,17 @@ do_consistency_test = not args.no_consistency_test
 do_taylor_test = not args.no_taylor_test
 no_exports = os.getenv('THETIS_REGRESSION_TEST') is not None
 
-# Create the solver object
+# Set output directory
 pwd = os.path.abspath(os.path.dirname(__file__))
+output_dir = f'{pwd}/outputs_new_' + '-'.join(controls) + '-opt'
+
+# Create the solver object
+# NOTE We disable all exports here as they would only be active during
+# the initial forward run
 solver_obj = construct_solver(
-    output_directory=f'{pwd}/outputs',
-    store_station_time_series=not no_exports,
-    no_exports=no_exports,
+    output_directory=output_dir,
+    store_station_time_series=False,
+    no_exports=True,
 )
 options = solver_obj.options
 mesh2d = solver_obj.mesh2d
@@ -40,9 +45,6 @@ bathymetry_2d = solver_obj.fields.bathymetry_2d
 manning_2d = solver_obj.fields.manning_2d
 elev_init_2d = solver_obj.fields.elev_init_2d
 
-# Set output directory
-output_dir_suffix = '_' + '-'.join(controls) + '-opt'
-options.output_directory += output_dir_suffix
 
 # Setup controls and regularization parameters
 gamma_hessian_list = []
