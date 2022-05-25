@@ -1,11 +1,13 @@
 import firedrake as fd
 from firedrake_adjoint import *
+import ufl
 from .configuration import FrozenHasTraits
 from .solver2d import FlowSolver2d
 from .utility import create_directory, print_function_value_range, get_functionspace, unfrozen
 from .log import print_output
 from .diagnostics import HessianRecoverer2D
 from .exporter import HDF5Exporter
+import abc
 import numpy
 import h5py
 from scipy.interpolate import interp1d
@@ -55,12 +57,14 @@ class InversionManager(FrozenHasTraits):
 
         self.J = 0  # cost function value (float)
         self.J_reg = 0  # regularization term value (float)
+        self.J_misfit = 0  # misfit term value (float)
         self.dJdm_list = None  # cost function gradient (Function)
         self.m_list = None  # control (Function)
         self.Jhat = None
         self.m_progress = []
         self.J_progress = []
         self.J_reg_progress = []
+        self.J_misfit_progress = []
         self.dJdm_progress = []
         self.i = 0
         self.tic = None
@@ -115,6 +119,12 @@ class InversionManager(FrozenHasTraits):
         self.dJdm_list = djdm_list
         self.m_list = m_list
 
+        tape = get_working_tape()
+        reg_blocks = tape.get_blocks(tag="reg_eval")
+        self.J_reg = sum([b.get_outputs()[0].saved_output for b in reg_blocks])
+        misfit_blocks = tape.get_blocks(tag="misfit_eval")
+        self.J_misfit = sum([b.get_outputs()[0].saved_output for b in misfit_blocks])
+
     def start_clock(self):
         self.tic = time_mod.perf_counter()
 
@@ -149,12 +159,16 @@ class InversionManager(FrozenHasTraits):
             controls = [m.dat.data[0] for m in self.m_list]
             self.m_progress.append(controls)
         self.J_progress.append(self.J)
+        self.J_reg_progress.append(self.J_reg)
+        self.J_misfit_progress.append(self.J_misfit)
         self.dJdm_progress.append(djdm)
         comm = self.control_coeff_list[0].comm
         if comm.rank == 0 and not self.no_exports:
             if self.real:
                 numpy.save(f'{self.output_dir}/m_progress', self.m_progress)
             numpy.save(f'{self.output_dir}/J_progress', self.J_progress)
+            numpy.save(f'{self.output_dir}/J_reg_progress', self.J_reg_progress)
+            numpy.save(f'{self.output_dir}/J_misfit_progress', self.J_misfit_progress)
             numpy.save(f'{self.output_dir}/dJdm_progress', self.dJdm_progress)
         if len(djdm) > 10:
             djdm = f"[{numpy.min(djdm):.4e} .. {numpy.max(djdm):.4e}]"
@@ -221,10 +235,15 @@ class InversionManager(FrozenHasTraits):
         assert isinstance(solver_obj, FlowSolver2d)
         if len(self.penalty_parameters) > 0:
             self.reg_manager = ControlRegularizationManager(
-                self.control_coeff_list, self.penalty_parameters, self.cost_function_scaling)
-        self.J = 0
+                self.control_coeff_list,
+                self.penalty_parameters,
+                self.cost_function_scaling,
+                RSpaceRegularizationCalculator if self.real else HessianRegularizationCalculator)
+        self.J_reg = 0
+        self.J_misfit = 0
         if self.reg_manager is not None:
-            self.J += self.reg_manager.eval_cost_function()
+            self.J_reg = self.reg_manager.eval_cost_function()
+        self.J = self.J_reg
 
         if weight_by_variance:
             var = fd.Function(self.sta_manager.fs_points_0d)
@@ -233,8 +252,9 @@ class InversionManager(FrozenHasTraits):
             self.sta_manager.station_weight_0d.assign(1/var)
 
         def cost_fn(t):
-            J_misfit = self.sta_manager.eval_cost_function(t)
-            self.J += J_misfit
+            misfit = self.sta_manager.eval_cost_function(t)
+            self.J_misfit += misfit
+            self.J += misfit
 
         return cost_fn
 
@@ -525,8 +545,8 @@ class StationObservationManager:
         self.obs_values_0d.assign(obs_func)
         self.mod_values_0d.interpolate(self.model_observation_field, ad_block_tag='observation')
         s = self.cost_function_scaling * self.indicator_0d * self.station_weight_0d
-        J_misfit = fd.assemble(s * self.misfit_expr ** 2 * fd.dx)
-        return J_misfit
+        self.J_misfit = fd.assemble(s * self.misfit_expr ** 2 * fd.dx, ad_block_tag='misfit_eval')
+        return self.J_misfit
 
     def dump_time_series(self):
         """
@@ -570,71 +590,114 @@ class StationObservationManager:
                 hdf5file.attrs.update(attrs)
 
 
-class ControlRegularizationCalculator:
+class RegularizationCalculator(abc.ABC):
+    """
+    Base class for computing regularization terms.
+
+    A derived class should set :attr:`regularization_expr` in
+    :meth:`__init__`. Whenever the cost function is evaluated,
+    the ratio of this expression and the total mesh area will
+    be added.
+    """
+    @abc.abstractmethod
+    def __init__(self, function, scaling=1.0):
+        """
+        :arg function: Control :class:`Function`
+        """
+        self.scaling = scaling
+        self.regularization_expr = 0
+        self.mesh = function.function_space().mesh()
+        # calculate mesh area (to scale the cost function)
+        self.mesh_area = fd.assemble(fd.Constant(1.0, domain=self.mesh) * fd.dx)
+        self.name = function.name()
+
+    def eval_cost_function(self):
+        expr = self.scaling * self.regularization_expr / self.mesh_area * fd.dx
+        return fd.assemble(expr, ad_block_tag="reg_eval")
+
+
+class HessianRegularizationCalculator(RegularizationCalculator):
     r"""
-    Computes regularization cost function for a control `Function`.
+    Computes the following regularization term for a cost function
+    involving a control :class:`Function` :math:`f`:
 
     .. math::
-        J = \gamma | H(f) |^2
+        J = \gamma \| (\Delta x)^2 H(f) \|^2,
 
-    where :math:`H` is the Hessian of field math:`f`:.
+    where :math:`H` is the Hessian of field :math:`f`.
     """
-    def __init__(self, function, gamma_hessian):
+    def __init__(self, function, gamma, scaling=1.0):
         """
-        :arg function: Control `Function`
-        :arg gamma_Hessian: Hessian penalty coefficient
+        :arg function: Control :class:`Function`
+        :arg gamma: Hessian penalty coefficient
         """
-        self.function = function
-        self.gamma_hessian = gamma_hessian
+        super().__init__(function, scaling=scaling)
         # solvers to evaluate the gradient of the control
-        mesh = function.function_space().mesh()
-        P1v_2d = get_functionspace(mesh, 'CG', 1, vector=True)
-        P1t_2d = get_functionspace(mesh, 'CG', 1, tensor=True)
-        name = function.name()
-        gradient_2d = fd.Function(P1v_2d, name=f'{name} gradient')
-        hessian_2d = fd.Function(P1t_2d, name=f'{name} hessian')
+        P1v_2d = get_functionspace(self.mesh, "CG", 1, vector=True)
+        P1t_2d = get_functionspace(self.mesh, "CG", 1, tensor=True)
+        gradient_2d = fd.Function(P1v_2d, name=f"{self.name} gradient")
+        hessian_2d = fd.Function(P1t_2d, name=f"{self.name} hessian")
         self.hessian_calculator = HessianRecoverer2D(
             function, hessian_2d, gradient_2d)
 
-        h = fd.CellSize(mesh)
+        h = fd.CellSize(self.mesh)
         # regularization expression |hessian|^2
         # NOTE this is normalized by the mesh element size
         # d^2 u/dx^2 * dx^2 ~ du^2
-        self.regularization_hess_expr = gamma_hessian * fd.inner(hessian_2d, hessian_2d)*h**4
-        # calculate mesh area (to scale the cost function)
-        self.mesh_area = fd.assemble(fd.Constant(1.0, domain=mesh)*fd.dx)
+        self.regularization_expr = gamma * fd.inner(hessian_2d, hessian_2d) * h**4
 
     def eval_cost_function(self):
         self.hessian_calculator.solve()
-        J_regularization = fd.assemble(
-            self.regularization_hess_expr / self.mesh_area * fd.dx
-        )
-        return J_regularization
+        return super().eval_cost_function()
+
+
+class RSpaceRegularizationCalculator(RegularizationCalculator):
+    r"""
+    Computes the following regularization term for a cost function
+    involving a control :class:`Function` :math:`f` from an R-space:
+
+    .. math::
+        J = \gamma (f - f_0)^2,
+
+    where :math:`f_0` is a prior, taken to be the initial value of
+    :math:`f`.
+    """
+    def __init__(self, function, gamma, eps=1.0e-03, scaling=1.0):
+        """
+        :arg function: Control :class:`Function`
+        :arg gamma: penalty coefficient
+        :kwarg eps: tolerance for normalising by near-zero priors
+        """
+        super().__init__(function, scaling=scaling)
+        R = function.function_space()
+        if R.ufl_element().family() != "Real":
+            raise ValueError("function must live in R-space")
+        prior = fd.Function(R, name=f"{self.name} prior")
+        prior.assign(function, annotate=False)  # Set the prior to the initial value
+        self.regularization_expr = gamma * (function - prior) ** 2 / ufl.max_value(abs(prior), eps)
+        # NOTE: If the prior is small then dividing by prior**2 puts too much emphasis
+        #       on the regularization. Therefore, we divide by abs(prior) instead.
 
 
 class ControlRegularizationManager:
     """
     Handles regularization of multiple control fields
     """
-    def __init__(self, function_list, gamma_list, J_scalar=None):
+    def __init__(self, function_list, gamma_list, penalty_term_scaling=None,
+                 calculator=HessianRegularizationCalculator):
         """
         :arg function_list: list of control functions
         :arg gamma_list: list of penalty parameters
-        :kwarg J_scalar: Penalty term scaling factor
+        :kwarg penalty_term_scaling: Penalty term scaling factor
+        :kwarg calculator: class used for obtaining regularization
         """
-        self.J_scalar = J_scalar
         self.reg_calculators = []
         assert len(function_list) == len(gamma_list), \
             'Number of control functions and parameters must match'
-        for f, g in zip(function_list, gamma_list):
-            r = ControlRegularizationCalculator(f, g)
-            self.reg_calculators.append(r)
+        self.reg_calculators = [
+            calculator(f, g, scaling=penalty_term_scaling)
+            for f, g in zip(function_list, gamma_list)
+        ]
 
     def eval_cost_function(self):
-        v = 0
-        for r in self.reg_calculators:
-            u = r.eval_cost_function()
-            if self.J_scalar is not None:
-                u *= float(self.J_scalar)
-            v += u
-        return v
+        return sum([r.eval_cost_function() for r in self.reg_calculators])

@@ -10,25 +10,35 @@ parser = argparse.ArgumentParser(
     description="Tohoku tsunami propagation",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
-parser.add_argument("-s", "--source-model", type=str, default="CG1")
+parser.add_argument("-s", "--source-model", type=str, default="okada")
 parser.add_argument("--suffix", type=str, default="")
+parser.add_argument("--load", action="store_true")
 args = parser.parse_args()
 source_model = args.source_model
 suffix = args.suffix
 no_exports = os.getenv("THETIS_REGRESSION_TEST") is not None
+pwd = os.path.abspath(os.path.dirname(__file__))
+input_dir = f"{pwd}/outputs_elev-init-optimization_{source_model}"
+output_dir = f"{pwd}/outputs_forward_{source_model}"
+if suffix != "":
+    input_dir = "_".join([input_dir, suffix])
+    output_dir = "_".join([output_dir, suffix])
 
 # Setup initial condition
 pwd = os.path.abspath(os.path.dirname(__file__))
 mesh2d = Mesh(f"{pwd}/japan_sea.msh")
-elev_init, controls = initial_condition(mesh2d, source_model=source_model)
+initial_guess = None
+if args.load:
+    print_output(f"Loading controls from {input_dir}")
+    if source_model in ("box", "radial", "okada"):
+        initial_guess = f"{input_dir}/m_progress.npy"
+    else:
+        initial_guess = f"{input_dir}/hdf5/control_00_{maxiter:02d}"
+source = get_source(mesh2d, source_model, initial_guess=initial_guess)
 
 # Solve forward
-pwd = os.path.abspath(os.path.dirname(__file__))
-output_dir = f"{pwd}/outputs_forward_{source_model}"
-if suffix != "":
-    output_dir = "_".join([output_dir, suffix])
 solver_obj = construct_solver(
-    elev_init,
+    source.elev_init,
     output_directory=output_dir,
     store_station_time_series=not no_exports,
     no_exports=no_exports,
