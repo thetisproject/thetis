@@ -658,10 +658,14 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         self.variable_names = field_short_names
         self.name += '_' + self.location_name
         self.name += '_' + field_str
+        fields = [solver_obj.fields[f] for f in self.fieldnames]
+        dims = [field.dof_dset.dim for field in fields]
+        if not numpy.allclose(dims, dims[0]):
+            raise NotImplementedError("Cannot export fields with different shapes")
         super(TimeSeriesCallback2D, self).__init__(
             solver_obj,
             outputdir=outputdir,
-            array_dim=1,
+            array_dim=dims[0],
             attrs=attrs,
             export_to_hdf5=export_to_hdf5,
             append_to_log=append_to_log,
@@ -766,10 +770,14 @@ class TimeSeriesCallback3D(DiagnosticCallback):
         self.variable_names = field_short_names
         self.name += '_' + self.location_name
         self.name += '_' + field_str
+        fields = [solver_obj.fields[f] for f in self.fieldnames]
+        dims = [field.dof_dset.dim for field in fields]
+        if not numpy.allclose(dims, dims[0]):
+            raise NotImplementedError("Cannot export fields with different shapes")
         super(TimeSeriesCallback3D, self).__init__(
             solver_obj,
             outputdir=outputdir,
-            array_dim=1,
+            array_dim=dims[0],
             attrs=attrs,
             export_to_hdf5=export_to_hdf5,
             append_to_log=append_to_log,
