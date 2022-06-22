@@ -3,3 +3,4 @@ netCDF4
 pyproj
 uptide
 pytz
+traitlets
