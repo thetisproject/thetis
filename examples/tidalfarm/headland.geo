@@ -38,10 +38,15 @@ Line(103) = {2, res+10};
 Line Loop(104) = {100, -103, -102, -101};
 
 // Generate site nodes
-Point(1000) = {site_x_start, site_y_start, 0, element_size};
-Extrude{site_x, 0, 0} { Point{1000}; Layers{site_x/element_size}; }
-Extrude{0, site_y, 0} { Line{105}; Layers{site_y/element_size}; }
-Line Loop(110) = {106, -108, -105, 107};
+Point(111) = {site_x_start, site_y_start, 0, element_size};
+Point(112) = {site_x_end, site_y_start, 0, element_size};
+Point(113) = {site_x_end, site_y_end, 0, element_size};
+Point(114) = {site_x_start, site_y_end, 0, element_size};
+Line(105) = {111, 112};
+Line(106) = {112, 113};
+Line(107) = {113, 114};
+Line(108) = {114, 111};
+Line Loop(110) = {105, 106, 107, 108};
 Plane Surface(111) = {104, 110};
 Plane Surface(112) = {110};
 Physical Line(1) = {101};
