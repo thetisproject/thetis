@@ -93,7 +93,7 @@ def linearly_interpolate_table(x_list, y_list, y_final, x):
     below_x1 = ((x_list[1]-x)*y_list[0] + (x-x_list[0])*y_list[1])/(y_list[1]-y_list[0])
     # above x1, interpolate from rest of the table, or take final value:
     if len(x_list) > 2:
-        above_x1 = linearly_interpolate(x_list[1:], y_list[1:], y_final, x)
+        above_x1 = linearly_interpolate_table(x_list[1:], y_list[1:], y_final, x)
     else:
         above_x1 = y_final
 
