@@ -62,7 +62,7 @@ def test_steady_state_channel(do_export=False):
     area = lx*ly
     l2norm = errornorm(eta_ana, eta)/math.sqrt(area)
     print_output(l2norm)
-    assert(l2norm < 1e-2)
+    assert l2norm < 1e-2
     print_output("PASSED")
 
 

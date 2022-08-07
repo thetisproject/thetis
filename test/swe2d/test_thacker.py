@@ -85,4 +85,4 @@ def test_thacker(stepper, n, dt, max_err):
     # compute L2 error
     l2_err = errornorm(correct, eta)/l_mesh
     print_output('elev L2 error {:.12f}'.format(l2_err))
-    assert(l2_err < max_err)
+    assert l2_err < max_err
