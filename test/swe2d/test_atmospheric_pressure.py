@@ -90,6 +90,6 @@ def test_pressure_forcing(element_family, timestepper):
 
     eta_errs = numpy.array(eta_errs)
     expected_order = order + 1
-    assert(all(eta_errs[:-1]/eta_errs[1:] > 2.**expected_order*0.75))
-    assert(eta_errs[0]/eta_errs[-1] > (2.**expected_order)**(len(eta_errs)-1)*0.75)
+    assert all(eta_errs[:-1]/eta_errs[1:] > 2.**expected_order*0.75)
+    assert eta_errs[0]/eta_errs[-1] > (2.**expected_order)**(len(eta_errs)-1)*0.75
     print_output("PASSED")
