@@ -94,7 +94,7 @@ def test_standing_wave_channel(timesteps, max_rel_err, timestepper, tmpdir, do_e
     area = lx*ly
     rel_err = errornorm(elev_init, eta)/math.sqrt(area)
     print_output(rel_err)
-    assert(rel_err < max_rel_err)
+    assert rel_err < max_rel_err
     print_output("PASSED")
 
     with h5py.File(str(tmpdir) + '/diagnostic_set1.hdf5', 'r') as df:

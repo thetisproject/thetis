@@ -102,7 +102,7 @@ def test_nh_standing_wave(timesteps, max_rel_err, timestepper, tmpdir,
     anal_field = elev_amp*cos(2*pi*x[0]/lx)*cos(math.sqrt(2*pi*g_grav/lx*tanh(2*pi*depth/lx))*t_end)
     rel_err = errornorm(anal_field, solver_obj.fields.elev_2d)/math.sqrt(lx*ly)
     print_output(rel_err)
-    assert(rel_err < max_rel_err)
+    assert rel_err < max_rel_err
     print_output("PASSED")
 
     with h5py.File(str(tmpdir) + '/diagnostic_gauges.hdf5', 'r') as df:
