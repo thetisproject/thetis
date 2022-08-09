@@ -11,6 +11,11 @@ Also see `instructions for citing Firedrake <https://firedrakeproject.org/citing
 2022
 ----
 
+Mawson, E.E., Lee, K.C., Hill, J.:
+Sea level rise and the Great Barrier Reef: the future implications on reef tidal dynamics.
+*Journal of Geophysical Research: Oceans*, 127:e2021JC017823, 
+doi:`10.1029/2021JC017823 <https://doi.org/10.1029/2021JC017823>`_, 2022.
+
 Wallwork, J. G., Barral, N., Ham, D. A., Piggott, M. D.:
 Goal-Oriented Error Estimation and Mesh Adaptation for Tracer Transport Modelling. *Computer-Aided Design*, 145:103187,
 doi:`10.1016/j.cad.2021.103187 <https://doi.org/10.1016/j.cad.2021.103187>`_, 2022.
