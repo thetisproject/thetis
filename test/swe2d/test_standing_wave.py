@@ -49,7 +49,7 @@ def test_standing_wave_channel(timesteps, max_rel_err, timestepper, tmpdir, do_e
     solver_obj.options.output_directory = str(tmpdir)
 
     if timestepper == 'CrankNicolson':
-        solver_obj.options.element_family = 'dg-dg'
+        solver_obj.options.element_family = 'mini'
         # Crank Nicolson stops being 2nd order if we linearise
         # (this is not the case for PressureProjectionPicard, as we do 2 Picard iterations)
         solver_obj.options.swe_timestepper_options.use_semi_implicit_linearization = False

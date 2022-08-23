@@ -567,7 +567,7 @@ class CommonModelOptions(FrozenConfigurable):
     nh_model_options = Instance(NonhydrostaticModelOptions, args=()).tag(config=True)
     polynomial_degree = NonNegativeInteger(1, help='Polynomial degree of elements').tag(config=True)
     element_family = Enum(
-        ['dg-dg', 'rt-dg', 'bdm-dg', 'dg-cg'],
+        ['dg-dg', 'rt-dg', 'bdm-dg', 'dg-cg', 'mini'],
         default_value='dg-dg',
         help="""Finite element family
 

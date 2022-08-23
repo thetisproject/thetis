@@ -340,6 +340,9 @@ class FlowSolver2d(FrozenClass):
         elif self.options.element_family == 'dg-dg':
             self.function_spaces.U_2d = get_functionspace(self.mesh2d, DG, self.options.polynomial_degree, name='U_2d', vector=True)
             self.function_spaces.H_2d = get_functionspace(self.mesh2d, DG, self.options.polynomial_degree, name='H_2d')
+        elif self.options.element_family == 'mini':
+            self.function_spaces.U_2d = get_functionspace(self.mesh2d, 'CG', self.options.polynomial_degree, name='U_2d', vector=True, bubble=self.options.polynomial_degree+2)
+            self.function_spaces.H_2d = get_functionspace(self.mesh2d, 'CG', self.options.polynomial_degree, name='H_2d')
         else:
             raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d])

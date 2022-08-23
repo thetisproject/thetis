@@ -36,6 +36,11 @@ def setup7(x, lx, ly, h0, f0, nu0, g):
                         3: {'elev': None, 'flux_lower': None},
                         4: {'un_upper': None},
                         }
+    out['bnd_funcs'] = {1: {'elev': None, 'uv': None},
+            2: {'uv': None},
+            3: {'elev': None, 'uv': None},
+            4: {'uv': None},
+            }
     return out
 
 
@@ -101,7 +106,7 @@ def setup9(x, lx, ly, h0, f0, nu0, g):
     return out
 
 
-def run(setup, refinement, order, do_export=True, options=None,
+def run(name, setup, refinement, order, do_export=True, options=None,
         solver_parameters=None):
     """Run single test and return L2 error"""
     print_output('--- running {:} refinement {:}'.format(setup.__name__, refinement))
@@ -129,7 +134,7 @@ def run(setup, refinement, order, do_export=True, options=None,
     sdict = setup(x, lx, ly, depth, f0, nu0, g)
 
     # outputs
-    outputdir = 'outputs'
+    outputdir = 'outputs' + name
 
     # bathymetry
     p1_2d = get_functionspace(mesh2d, 'CG', 1)
@@ -256,12 +261,12 @@ def run(setup, refinement, order, do_export=True, options=None,
     return elev_l2_err, uv_l2_err
 
 
-def run_convergence(setup, ref_list, order, do_export=False, save_plot=False,
+def run_convergence(name, setup, ref_list, order, do_export=True, save_plot=False,
                     options=None, solver_parameters=None):
     """Runs test for a list of refinements and computes error convergence rate"""
     l2_err = []
     for r in ref_list:
-        l2_err.append(run(setup, r, order, do_export=do_export,
+        l2_err.append(run(name+str(r), setup, r, order, do_export=do_export,
                           options=options, solver_parameters=solver_parameters))
     x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
     y_log = numpy.log10(numpy.array(l2_err))
@@ -285,7 +290,7 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False,
             yy = intercept + slope*xx
             # plot line
             ax.plot(xx, yy, linestyle='--', linewidth=0.5, color='k')
-            ax.text(xx[2*n/3], yy[2*n/3], '{:4.2f}'.format(slope),
+            ax.text(xx[2*n//3], yy[2*n//3], '{:4.2f}'.format(slope),
                     verticalalignment='top',
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
@@ -293,7 +298,7 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False,
             ax.set_title(field_str)
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
             order_str = 'o{:}'.format(order)
-            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str])
+            imgfile = '_'.join(['convergence', name, field_str, ref_str, order_str])
             imgfile += '.png'
             img_dir = create_directory('plots')
             imgfile = os.path.join(img_dir, imgfile)
@@ -325,7 +330,7 @@ def setup(request):
     return request.param
 
 
-@pytest.fixture(params=['rt-dg', 'dg-dg', 'dg-cg', 'bdm-dg'])
+@pytest.fixture(params=['rt-dg', 'dg-dg', 'dg-cg', 'bdm-dg', 'mini'])
 def element_family(request):
     return request.param
 
@@ -335,12 +340,12 @@ def timestepper_type(request):
     return request.param
 
 
-def test_steady_state_basin_convergence(setup, element_family, timestepper_type):
+def test_steady_state_basin_convergence(request, setup, element_family, timestepper_type):
     sp = {'ksp_type': 'preonly', 'pc_type': 'lu', 'snes_monitor': None,
           'mat_type': 'aij'}
     options = {
         'element_family': element_family,
         'swe_timestepper_type': timestepper_type
     }
-    run_convergence(setup, [1, 2, 4, 6], 1, options=options,
-                    solver_parameters=sp, save_plot=False)
+    run_convergence(request.node.name, setup, [1, 2, 4, 6], 1, options=options,
+                    solver_parameters=sp, save_plot=True)

@@ -3,7 +3,7 @@ import math
 import pytest
 
 
-@pytest.fixture(params=['rt-dg', 'dg-dg', 'dg-cg', 'bdm-dg'])
+@pytest.fixture(params=['mini', 'rt-dg', 'dg-dg', 'dg-cg', 'bdm-dg'])
 def element_family(request):
     return request.param
 
