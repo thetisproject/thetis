@@ -97,15 +97,15 @@ def construct_solver(spinup=False, store_station_time_series=True, **model_optio
     coriolis_2d.interpolate(2 * omega * sin(lat * pi / 180.0))
 
     # Setup temporal discretisation
-    default_start_date = datetime.datetime(2022, 1, 1, tzinfo=sim_tz)
-    default_end_date = datetime.datetime(2022, 1, 2, tzinfo=sim_tz)
+    default_start_date = datetime.datetime(2022, 1, 1, 0, 0, tzinfo=sim_tz)
+    default_end_date = datetime.datetime(2022, 1, 2, 0, 0, tzinfo=sim_tz)
     start_date = model_options.pop("start_date", default_start_date)
     end_date = model_options.pop("end_date", default_end_date)
     dt = 3600.0
     t_export = 3600.0
     t_end = (end_date - start_date).total_seconds()
     if os.getenv("THETIS_REGRESSION_TEST") is not None:
-        t_end = 5 * t_export
+        end_date = datetime.datetime(2022, 1, 1, 0, 5, tzinfo=sim_tz)
 
     # Create solver
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
