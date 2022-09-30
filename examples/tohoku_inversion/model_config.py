@@ -9,7 +9,8 @@ import os
 import scipy.interpolate as si
 
 
-# Setup UTM zone
+# Setup zones
+sim_tz = timezone.pytz.timezone("Japan")
 coord_system = coordsys.UTMCoordinateSystem(utm_zone=54)
 
 # Earthquake epicentre in longitude-latitude coordinates
@@ -117,12 +118,19 @@ def construct_solver(elev_init, store_station_time_series=True, **model_options)
     """
     mesh2d = elev_init.function_space().mesh()
 
-    t_end = 2 * 3600.0
+    # Setup temporal discretisation
     u_mag = Constant(5.0)
+    default_start_date = datetime.datetime(2011, 3, 11, 14, 46, tzinfo=sim_tz)
+    default_end_date = datetime.datetime(2011, 3, 11, 16, 46, tzinfo=sim_tz)
     t_export = 60.0
     dt = 60.0
     if os.getenv("THETIS_REGRESSION_TEST") is not None:
-        t_end = 5 * t_export
+        model_options["simulation_initial_date"] = default_start_date
+        model_options["simulation_end_date"] = datetime.datetime(2011, 3, 11, 14, 51, tzinfo=sim_tz)
+    if "simulation_initial_date" not in model_options:
+        model_options["simulation_initial_date"] = default_start_date
+    if "simulation_end_date" not in model_options:
+        model_options["simulation_end_date"] = default_end_date
 
     # Bathymetry
     P1_2d = get_functionspace(mesh2d, "CG", 1)
@@ -141,7 +149,6 @@ def construct_solver(elev_init, store_station_time_series=True, **model_options)
     options.element_family = "dg-dg"
     options.simulation_export_time = t_export
     options.fields_to_export = ["elev_2d"]
-    options.simulation_end_time = t_end
     options.horizontal_velocity_scale = u_mag
     options.swe_timestepper_type = "CrankNicolson"
     if not hasattr(options.swe_timestepper_options, "use_automatic_timestep"):
