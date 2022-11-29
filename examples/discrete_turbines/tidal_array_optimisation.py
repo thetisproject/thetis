@@ -12,9 +12,11 @@ Test 3: Taylor test
 # parameters, and also derive the adjoint-based gradient of a specified input
 # (the functional) with respect to a specified input (the control)
 from thetis import *
+# this import automatically starts the annotation:
 from firedrake_adjoint import *
 from pyadjoint import minimize
 import numpy
+import random
 op2.init(log_level=INFO)
 
 #Comment for testing forward model
@@ -29,7 +31,7 @@ else:
     test_gradient = False
     optimise = True
 '''
-test_gradient = False
+test_gradient = True
 optimise = True
 
 ### set up the Thetis solver obj as usual ###
@@ -61,17 +63,17 @@ options.simulation_end_time = t_end
 options.output_directory = 'outputs'
 options.check_volume_conservation_2d = True
 options.element_family = 'dg-cg'
-options.timestepper_type = 'CrankNicolson'
-options.timestepper_options.implicitness_theta = 1.0
+options.swe_timestepper_type = 'CrankNicolson'
+options.swe_timestepper_options.implicitness_theta = 1.0
 # using direct solver as PressurePicard does not work with dolfin-adjoint (due to .split() not being annotated correctly)
-options.timestepper_options.solver_parameters = {'snes_monitor': None,
+options.swe_timestepper_options.solver_parameters = {'snes_monitor': None,
                                                  'snes_rtol': 1e-9,
                                                  'ksp_type': 'preonly',
                                                  'pc_type': 'lu',
                                                  'pc_factor_mat_solver_type': 'mumps',
                                                  'mat_type': 'aij'
                                                  }
-options.horizontal_viscosity =h_viscosity
+options.horizontal_viscosity = h_viscosity
 options.quadratic_drag_coefficient = Constant(0.0025)
 
 # assign boundary conditions
@@ -128,29 +130,39 @@ solver_obj.iterate(update_forcings=update_forcings)
 power_output= sum(cb.integrated_power)
 interest_functional = power_output
 
+print_output("Functional in forward model {}".format(interest_functional))
+
 # specifies the control we want to vary in the optimisation
+# this needs to be a flat list of controls corresponding to the x and y coordinates
+# of the turbines
 c = [Control(x) for xy in farm_options.turbine_coordinates for x in xy]
 
+# interpolate the turbine density (a sum of Gaussian bump functions representing the turbines)
+# to a P1 CG function. This is not used here, but will be used in the UserExportOptimisationCallback
+# below to output the farm layouts as a series of vtus
+turbine_density = Function(solver_obj.function_spaces.P1_2d, name='turbine_density')
+turbine_density.interpolate(solver_obj.tidal_farms[0].turbine_density)
+
 # a number of callbacks to provide output during the optimisation iterations:
-# - ControlsExportOptimisationCallback export the turbine_friction values (the control)
-#            to outputs/control_turbine_friction.pvd. This can also be used to checkpoint
-#            the optimisation by using the export_type='hdf5' option.
-# - DerivativesExportOptimisationCallback export the derivative of the functional wrt
-#            the control as computed by the adjoint to outputs/derivative_turbine_friction.pvd
+# - ConstantControlOptimisationCallback - outputs the control values to
+#    the log and hdf5 files (can be controled by append_to_log and export_to_hdf5 keyword arguments)
+# - DerivativesExportOptimisationCallback - outputs the derivatives of the functional
+#    with respect to the control values (here the x,y coordinates of the turbines) as calculated by the adjoint
 # - UserExportOptimisationCallback can be used to output any further functions used in the
 #            forward model. Note that only function states that contribute to the functional are
 #            guaranteed to be updated when the model is replayed for different control values.
-# - FunctionalOptimisationCallback simply writes out the (scaled) functional values
-# - the TurbineOptimsationCallback outputs the average power, cost and profit (for each
-#            farm if multiple are defined)
+# - FunctionalOptimisationCallback simply writes out the functional values to log and hdf5
+#
+# finally, the OptimisationCallbackList combines multiple optimisation callbacks in one
 callback_list = optimisation.OptimisationCallbackList([
-    #optimisation.ControlsExportOptimisationCallback(solver_obj),
-    #optimisation.DerivativesExportOptimisationCallback(solver_obj),
-    optimisation.UserExportOptimisationCallback(solver_obj, [solver_obj.fields.turbine_density_2d, solver_obj.fields.uv_2d]),
+    optimisation.ConstantControlOptimisationCallback(solver_obj, array_dim=len(c)),
+    optimisation.DerivativeConstantControlOptimisationCallback(solver_obj, array_dim=len(c)),
+    optimisation.UserExportOptimisationCallback(solver_obj, [turbine_density, solver_obj.fields.uv_2d]),
     optimisation.FunctionalOptimisationCallback(solver_obj),
     #turbines.TurbineOptimisationCallback(solver_obj, cb),
 ])
 
+# here we define some additional callbacks just to clearly indicate in the log what the model is doing:
 # callbacks to indicate start of forward and adjoint runs in log
 def eval_cb_pre(controls):
     print_output("FORWARD RUN:")
@@ -163,11 +175,15 @@ def derivative_cb_pre(controls):
 # this reduces the functional J(u, m) to a function purely of the control m:
 # rf(m) = J(u(m), m) where the velocities u(m) of the entire simulation
 # are computed by replaying the forward model for any provided turbine coordinates m
+# with rf.derivative() we can also compute the derivative with respect to the controls
+# which is done through the automated adjoint
+# Through the eval_cb_pre/post and derivative_cb_post arguments we can specify callbacks
+# that are called at the beginning (_pre) and after (_post) the evaluation of the forward model (eval)
+# and the derivative/adjoint model respectively
+# NOTE, that we use -interest_functional so that we can *minimize* this reduced functional
+# to maximize the power output
 rf = ReducedFunctional(-interest_functional, c, derivative_cb_post=callback_list,
         eval_cb_pre=eval_cb_pre, derivative_cb_pre=derivative_cb_pre)
-
-
-print(interest_functional)
 
 if test_gradient:
     # whenever the forward model is changed - for example different terms in the equation,
@@ -177,12 +193,15 @@ if test_gradient:
     # Using the standard Taylor series, we should have (for a sufficiently smooth problem):
     #   rf(td0+h*dtd) - rf(td0) - < drf/dtd(rf0), h dtd> = O(h^2)
 
-    # we choose a random point in the control space, i.e. a randomized turbine density with
-    # values between 0 and 1 and choose a random direction dtd to vary it in
+    # we choose the same starting layout but with a small perturbation
+    eps = 1e-3
+    m0 = [Constant(float(x) + random.uniform(-eps, eps)) for xy in farm_options.turbine_coordinates for x in xy]
+
+    # the perturbation over which we test the Taylor approximation
+    # (the taylor test below starts with a 1/100th of that, followed by a series of halvings
+    h0 = [Constant(random.uniform(-1, 1)) for xy in farm_options.turbine_coordinates for x in xy]
 
     # this tests whether the above Taylor series residual indeed converges to zero at 2nd order in h as h->0
-    m0 = [Constant(950), Constant(320), Constant(1080), Constant(300)]
-    h0 = [Constant(10.), Constant(10.), Constant(10.), Constant(10.)]
     minconv = taylor_test(rf, m0, h0)
     print_output("Order of convergence with taylor test (should be 2) = {}".format(minconv))
 
