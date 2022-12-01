@@ -261,7 +261,7 @@ class ShearFrequencySolver(object):
                 gamma = self.relaxation if not init_solve else 1.0
                 mu_comp[i_comp].assign(gamma*self.mu_tmp
                                        + (1.0 - gamma)*mu_comp[i_comp])
-                self.m2 += mu_comp[i_comp]*mu_comp[i_comp]
+                self.m2.interpolate(self.m2 + mu_comp[i_comp]*mu_comp[i_comp])
             # crop small/negative values
             set_func_min_val(self.m2, self.minval)
 
