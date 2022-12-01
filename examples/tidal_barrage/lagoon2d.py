@@ -9,6 +9,7 @@ Angeloudis A, Kramer SC, Avdis A & Piggott MD, Optimising tidal range power plan
 Applied Energy,212,680-690, 212, https://doi.org/10.1016/j.apenergy.2017.12.052
 """
 from thetis import *
+import math
 
 # modules.tools contains the LagoonCallback that is called during the simulation
 from modules.tools import *
@@ -91,7 +92,7 @@ solver_obj.add_callback(cb_lagoon, 'timestep')
 
 
 def update_forcings(t_new,):
-    tidal_elev.assign(Constant(tanh((t_new)/(4*3600.)) * amplitude * sin(omega * t_new)))
+    tidal_elev.assign(math.tanh((t_new)/(4*3600.)) * sin(omega * t_new) * amplitude)
 
 
 # Solve the system

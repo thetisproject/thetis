@@ -541,7 +541,7 @@ class GenericLengthScaleModel(TurbulenceModel):
             set_func_min_val(self.psi, o.psi_min)
 
             # udpate epsilon
-            self.epsilon.assign(cmu0**(3.0 + p/n)*self.k**(3.0/2.0 + m/n)*self.psi**(-1.0/n))
+            self.epsilon.interpolate(cmu0**(3.0 + p/n)*self.k**(3.0/2.0 + m/n)*self.psi**(-1.0/n))
             if o.limit_eps:
                 # impose Galperin limit on eps
                 eps_min = cmu0**3.0/(numpy.sqrt(2)*galp_clim)*numpy.sqrt(n2_pos)*k_arr
@@ -550,7 +550,7 @@ class GenericLengthScaleModel(TurbulenceModel):
             set_func_min_val(self.epsilon, o.eps_min)
 
             # update L
-            self.l.assign(cmu0**3.0 * self.k**(3.0/2.0) / self.epsilon)
+            self.l.interpolate(cmu0**3.0 * self.k**(3.0/2.0) / self.epsilon)
             if o.limit_len_min:
                 set_func_min_val(self.l, o.len_min)
             if o.limit_len:
