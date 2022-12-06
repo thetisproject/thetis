@@ -107,7 +107,7 @@ def interpolate_bathymetry(bathymetry_2d, dataset="etopo1", cap=30.0):
     # Interpolate at mesh vertices
     lonlat_func = coord_system.get_mesh_lonlat_function(mesh)
     lon, lat = lonlat_func.dat.data_ro.T
-    bathymetry_2d.dat.data[:] = numpy.maximum(-interp(lat, lon), cap)
+    bathymetry_2d.dat.data[:] = numpy.maximum(-interp(lat, lon, grid=False), cap)
 
 
 def construct_solver(elev_init, store_station_time_series=True, **model_options):
