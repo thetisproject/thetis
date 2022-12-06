@@ -1,6 +1,6 @@
 from subprocess import check_call
-
 import pytest
+
 
 def pytest_runtest_teardown(item, nextitem):
     """Clear Thetis caches after running a test"""
