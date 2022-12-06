@@ -39,7 +39,8 @@ suffix = args.suffix
 
 # Setup initial condition
 pwd = os.path.abspath(os.path.dirname(__file__))
-mesh2d = Mesh(f"{pwd}/japan_sea.msh")
+with CheckpointFile(f"{pwd}/japan_sea_bathymetry.h5", "r") as f:
+    mesh2d = f.load_mesh("firedrake_default")
 source = get_source(mesh2d, source_model)
 if source_model == "okada":
     source.subfault_variables = args.okada_parameters
