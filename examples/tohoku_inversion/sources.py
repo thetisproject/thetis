@@ -105,20 +105,23 @@ class FiniteElementTsunamiSource(TsunamiSource):
         help="Shape of mask function").tag(config=True)
 
     @utility.unfrozen
-    def __init__(self, mesh2d, element=None, initial_guess=None):
+    def __init__(self, mesh2d, coord_system, element=None, initial_guess=None):
         """
         :arg mesh2d: mesh upon which to define the source
+        :arg coord_system: :class:`CoordinateSystem` instance
         :kwarg element: :class:`FiniteElement` with which to define the source
         :kwarg initial_guess: :class:`Function` or filename to use for the
             initial guess
         """
-        super().__init__(mesh2d, element=element)
+        super().__init__(mesh2d, coord_system, element=element)
         self.initial_guess = initial_guess
 
+    @utility.unfrozen
     def generate(self):
         mask = self.mask
         self._controls = [fd.Function(self.function_space, name="Elevation")]
         if self.initial_guess is None:
+            eps = 1.0e-03
             self._controls[0].interpolate(eps * mask)
         elif isinstance(self.initial_guess, str):
             with CheckpointFile(self.initial_guess, "r") as chk:

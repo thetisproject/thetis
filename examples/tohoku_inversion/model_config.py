@@ -77,7 +77,7 @@ def get_source(mesh2d, source_model, initial_guess=None):
             raise ValueError(f"Element family {family} not supported for source inversion")
         degree = int(source_model[2:])
         element = FiniteElement(family, mesh2d.ufl_cell(), degree)
-        return FiniteElementTsunamiSource(mesh2d, element, initial_guess=initial_guess)
+        return FiniteElementTsunamiSource(mesh2d, coord_system, element, initial_guess=initial_guess)
 
 
 def interpolate_bathymetry(bathymetry_2d, dataset="etopo1", cap=30.0):
