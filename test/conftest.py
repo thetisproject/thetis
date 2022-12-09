@@ -1,4 +1,5 @@
 from subprocess import check_call
+import pytest
 
 
 def pytest_runtest_teardown(item, nextitem):
@@ -55,7 +56,9 @@ def pytest_configure(config):
         "parallel(nprocs): mark test to run in parallel on nprocs processors")
 
 
-def pytest_runtest_setup(item):
+@pytest.fixture(autouse=True)
+def old_pytest_runtest_setup(request):
+    item = request.node
     """
     Special setup for parallel tests.
 
@@ -79,7 +82,7 @@ def pytest_runtest_setup(item):
         else:
             # Blow away function arg in "master" process, to ensure
             # this test isn't run on only one process.
-            item.obj = lambda *args, **kwargs: True
+            item.obj = lambda *args, **kwargs: None
 
 
 def pytest_runtest_call(item):

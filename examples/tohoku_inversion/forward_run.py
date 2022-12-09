@@ -26,7 +26,8 @@ if suffix != "":
 
 # Setup initial condition
 pwd = os.path.abspath(os.path.dirname(__file__))
-mesh2d = Mesh(f"{pwd}/japan_sea.msh")
+with CheckpointFile(f"{pwd}/japan_sea_bathymetry.h5", "r") as f:
+    mesh2d = f.load_mesh("firedrake_default")
 initial_guess = None
 if args.load:
     print_output(f"Loading controls from {input_dir}")

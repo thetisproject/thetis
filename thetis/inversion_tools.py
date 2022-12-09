@@ -249,7 +249,7 @@ class InversionManager(FrozenHasTraits):
             var = fd.Function(self.sta_manager.fs_points_0d)
             for i, j in enumerate(self.sta_manager.local_station_index):
                 var.dat.data[i] = numpy.var(self.sta_manager.observation_values[j])
-            self.sta_manager.station_weight_0d.assign(1/var)
+            self.sta_manager.station_weight_0d.interpolate(1/var)
 
         def cost_fn(t):
             misfit = self.sta_manager.eval_cost_function(t)

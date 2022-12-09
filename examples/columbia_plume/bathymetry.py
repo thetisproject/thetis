@@ -150,6 +150,6 @@ def get_boundary_relaxation_field(mask_func, bnd_id, dist_scale,
     # remove negative values
     mask_func.dat.data[mask_func.dat.data < 0.0] = 0.0
     if scalar is not None:
-        mask_func.assign(mask_func*scalar)
+        mask_func.interpolate(mask_func*scalar)
 
     return mask_func
