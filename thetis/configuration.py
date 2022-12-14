@@ -362,6 +362,7 @@ def attach_paired_options(name, name_trait, value_trait):
         value_trait.class_init(cls, name_trait.paired_name)
         obs_handler.class_init(cls, "_%s_observer" % name)
         def_handler.class_init(cls, "_%s_default" % name_trait.paired_name)
+        cls.setup_class(cls.__dict__)
 
         return cls
     return update_class
