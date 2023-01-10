@@ -1,5 +1,6 @@
 import firedrake as fd
-from thetis.configuration import *
+import traitlets
+from thetis.configuration import BoundedFloat, PositiveInteger, FrozenConfigurable, PositiveFloat
 import thetis.utility as utility
 import ufl
 from okada import OkadaParameters, okada
@@ -99,7 +100,7 @@ class FiniteElementTsunamiSource(TsunamiSource):
     Generate a tsunami source condition in a finite element space.
     """
 
-    mask_shape = Enum(
+    mask_shape = traitlets.Enum(
         ["rectangle", "circle"],
         default_value="rectangle", allow_none=True,
         help="Shape of mask function").tag(config=True)
@@ -124,7 +125,7 @@ class FiniteElementTsunamiSource(TsunamiSource):
             eps = 1.0e-03
             self._controls[0].interpolate(eps * mask)
         elif isinstance(self.initial_guess, str):
-            with CheckpointFile(self.initial_guess, "r") as chk:
+            with fd.CheckpointFile(self.initial_guess, "r") as chk:
                 mesh_name = self.mesh2d.name
                 if mesh_name is None:
                     mesh_name = "firedrake_default"
@@ -159,7 +160,7 @@ class FiniteElementTsunamiSource(TsunamiSource):
             r = self.fault_width
             return ufl.conditional(x ** 2 + y ** 2 < r ** 2, 1, 0)
         else:
-            raise ValueError(f"Mask shape '{shape}' not supported")
+            raise ValueError(f"Mask shape '{self.mask_shape}' not supported")
 
     @property
     def control_bounds(self):
