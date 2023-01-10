@@ -2,9 +2,9 @@
 Utility function and extensions to traitlets used for specifying Thetis options
 """
 import textwrap
+import traitlets
 from textwrap import dedent
 from traitlets.config.configurable import Configurable
-from traitlets import *
 from firedrake import Constant, Function
 import datetime
 import ufl
@@ -72,7 +72,7 @@ def rst_all_options(cls, nspace=0, prefix=None):
     return "\n".join(lines)
 
 
-class PositiveInteger(Integer):
+class PositiveInteger(traitlets.Integer):
     def info(self):
         return u'a positive integer'
 
@@ -82,7 +82,7 @@ class PositiveInteger(Integer):
         return proposal
 
 
-class PositiveFloat(Float):
+class PositiveFloat(traitlets.Float):
     def info(self):
         return u'a positive float'
 
@@ -92,7 +92,7 @@ class PositiveFloat(Float):
         return proposal
 
 
-class NonNegativeInteger(Integer):
+class NonNegativeInteger(traitlets.Integer):
     def info(self):
         return u'a non-negative integer'
 
@@ -102,7 +102,7 @@ class NonNegativeInteger(Integer):
         return proposal
 
 
-class NonNegativeFloat(Float):
+class NonNegativeFloat(traitlets.Float):
     def info(self):
         return u'a non-negative float'
 
@@ -112,8 +112,8 @@ class NonNegativeFloat(Float):
         return proposal
 
 
-class BoundedInteger(Integer):
-    def __init__(self, default_value=Undefined, bounds=None, **kwargs):
+class BoundedInteger(traitlets.Integer):
+    def __init__(self, default_value=traitlets.Undefined, bounds=None, **kwargs):
         super(BoundedInteger, self).__init__(default_value, **kwargs)
         self.minval = bounds[0]
         self.maxval = bounds[1]
@@ -128,8 +128,8 @@ class BoundedInteger(Integer):
         return proposal
 
 
-class BoundedFloat(Float):
-    def __init__(self, default_value=Undefined, bounds=None, **kwargs):
+class BoundedFloat(traitlets.Float):
+    def __init__(self, default_value=traitlets.Undefined, bounds=None, **kwargs):
         self.minval = bounds[0]
         self.maxval = bounds[1]
         super(BoundedFloat, self).__init__(default_value, **kwargs)
@@ -144,7 +144,7 @@ class BoundedFloat(Float):
         return proposal
 
 
-class FiredrakeConstantTraitlet(TraitType):
+class FiredrakeConstantTraitlet(traitlets.TraitType):
     default_value = None
     info_text = 'a Firedrake Constant'
 
@@ -157,7 +157,7 @@ class FiredrakeConstantTraitlet(TraitType):
         return 'Constant({:})'.format(float(self.default_value))
 
 
-class FiredrakeCoefficient(TraitType):
+class FiredrakeCoefficient(traitlets.TraitType):
     default_value = None
     info_text = 'a Firedrake Constant or Function'
 
@@ -172,7 +172,7 @@ class FiredrakeCoefficient(TraitType):
         return 'Function'
 
 
-class FiredrakeScalarExpression(TraitType):
+class FiredrakeScalarExpression(traitlets.TraitType):
     default_value = None
     info_text = 'a scalar UFL expression'
 
@@ -190,7 +190,7 @@ class FiredrakeScalarExpression(TraitType):
         return 'UFL scalar expression'
 
 
-class FiredrakeVectorExpression(TraitType):
+class FiredrakeVectorExpression(traitlets.TraitType):
     default_value = None
     info_text = 'a vector UFL expression'
 
@@ -208,7 +208,7 @@ class FiredrakeVectorExpression(TraitType):
         return 'UFL vector expression'
 
 
-class DatetimeTraitlet(TraitType):
+class DatetimeTraitlet(traitlets.TraitType):
     default_value = None
     info_text = 'a timezone-aware datetime object'
 
@@ -218,7 +218,7 @@ class DatetimeTraitlet(TraitType):
         self.error(obj, value)
 
 
-class PETScSolverParameters(Dict):
+class PETScSolverParameters(traitlets.Dict):
     """PETSc solver options dictionary"""
     info_text = 'a PETSc solver options dictionary'
 
@@ -228,7 +228,7 @@ class PETScSolverParameters(Dict):
         self.error(obj, value)
 
 
-class PairedEnum(Enum):
+class PairedEnum(traitlets.Enum):
     """A enum whose value must be in a given sequence.
 
     This enum controls a slaved option, with default values provided here.
@@ -239,7 +239,7 @@ class PairedEnum(Enum):
     :arg paired_name: trait name this enum is paired with.
     :arg default_value: default value.
     """
-    def __init__(self, values, paired_name, default_value=Undefined, **kwargs):
+    def __init__(self, values, paired_name, default_value=traitlets.Undefined, **kwargs):
         self.paired_defaults = dict(values)
         self.paired_name = paired_name
         values, _ = zip(*values)
@@ -269,7 +269,7 @@ class OptionsBase:
         if isinstance(options, dict):
             params_dict = options
         else:
-            assert isinstance(options, HasTraits), 'options must be a dict or HasTraits object'
+            assert isinstance(options, traitlets.HasTraits), 'options must be a dict or HasTraits object'
             params_dict = options._trait_values
         for key in params_dict:
             self.__setattr__(key, params_dict[key])
@@ -286,12 +286,12 @@ class OptionsBase:
 # HasTraits and Configurable (and all their subclasses) have MetaHasTraits as their metaclass
 # to subclass from HasTraits and another class with ABCMeta as its metaclass, we need a combined
 # meta class that sub(meta)classes from ABCMeta and MetaHasTraits
-class ABCMetaHasTraits(ABCMeta, MetaHasTraits):
+class ABCMetaHasTraits(ABCMeta, traitlets.MetaHasTraits):
     """Combined metaclass of ABCMeta and MetaHasTraits"""
     pass
 
 
-class FrozenHasTraits(OptionsBase, HasTraits):
+class FrozenHasTraits(OptionsBase, traitlets.HasTraits):
     __metaclass__ = ABCMetaHasTraits
     """
     A HasTraits class that only allows adding new attributes in the class
@@ -347,8 +347,8 @@ def attach_paired_options(name, name_trait, value_trait):
         if hasattr(name_trait, 'default_value') and name_trait.default_value is not None:
             return name_trait.paired_defaults[name_trait.default_value]()
 
-    obs_handler = observe(name, type="change")
-    def_handler = default(name_trait.paired_name)
+    obs_handler = traitlets.observe(name, type="change")
+    def_handler = traitlets.default(name_trait.paired_name)
 
     def update_class(cls):
         "Programmatically update the class"

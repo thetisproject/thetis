@@ -5,6 +5,7 @@ All options are type-checked and they are stored in traitlets Configurable
 objects.
 """
 from .configuration import *
+from traitlets import Integer, Float, TraitType, Dict, Enum, Unicode, Bool, Instance, List, Type
 from firedrake import Constant
 from .sediment_model import SedimentModel
 from collections import OrderedDict
