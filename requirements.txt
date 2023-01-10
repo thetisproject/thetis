@@ -3,4 +3,4 @@ netCDF4
 pyproj
 uptide
 pytz
-traitlets
+traitlets==5.6.0
