@@ -377,7 +377,7 @@ class SpatialInterpolator2d(SpatialInterpolator, ABC):
             fsy = Function(function_space).interpolate(y).dat.data_with_halos
             coords = (fsx, fsy)
 
-        lon, lat = coord_system.to_lonlat(coord_system, *coords)
+        lon, lat = coord_system.to_lonlat(*coords)
         self.mesh_lonlat = numpy.array([lon, lat]).T
 
         self.fill_mode = fill_mode
