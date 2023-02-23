@@ -19,7 +19,7 @@ import numpy
 import random
 op2.init(log_level=INFO)
 
-#Comment for testing forward model
+# Comment for testing forward model
 '''
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
     # when run as a pytest test, only run 5 timesteps
@@ -34,25 +34,24 @@ else:
 test_gradient = True
 optimise = True
 
-### set up the Thetis solver obj as usual ###
+# ---- set up the Thetis solver obj as usual ---- #
 mesh2d = Mesh('headland3.msh')
 
 tidal_amplitude = 5.
 tidal_period = 12.42*60*60
 timestep = 100.
 t_end = 5*timestep
-#t_end = tidal_period
+# t_end = tidal_period
 
-#set up depth
+# set up depth
 H = 40
 
-#set viscosity bumps at in-flow boundaries.
+# set viscosity bumps at in-flow boundaries.
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 x = SpatialCoordinate(mesh2d)
-h_viscosity = Function(P1_2d).interpolate(conditional(le(x[0], 50), 50.1-x[0], conditional(ge(x[0],1950),x[0]-1949.9,0.1)))
+h_viscosity = Function(P1_2d).interpolate(conditional(le(x[0], 50), 50.1-x[0],
+                                                      conditional(ge(x[0], 1950), x[0]-1949.9, 0.1)))
 File('outputs/viscosity.pvd').write(h_viscosity)
-
-
 
 # create solver and set options
 solver_obj = solver2d.FlowSolver2d(mesh2d, Constant(H))
@@ -65,14 +64,14 @@ options.check_volume_conservation_2d = True
 options.element_family = 'dg-cg'
 options.swe_timestepper_type = 'CrankNicolson'
 options.swe_timestepper_options.implicitness_theta = 1.0
-# using direct solver as PressurePicard does not work with dolfin-adjoint (due to .split() not being annotated correctly)
+# using direct solver as PressurePicard doesn't work with dolfin-adjoint (due to .split() not being annotated correctly)
 options.swe_timestepper_options.solver_parameters = {'snes_monitor': None,
-                                                 'snes_rtol': 1e-9,
-                                                 'ksp_type': 'preonly',
-                                                 'pc_type': 'lu',
-                                                 'pc_factor_mat_solver_type': 'mumps',
-                                                 'mat_type': 'aij'
-                                                 }
+                                                     'snes_rtol': 1e-9,
+                                                     'ksp_type': 'preonly',
+                                                     'pc_type': 'lu',
+                                                     'pc_factor_mat_solver_type': 'mumps',
+                                                     'mat_type': 'aij'
+                                                     }
 options.horizontal_viscosity = h_viscosity
 options.quadratic_drag_coefficient = Constant(0.0025)
 
@@ -96,6 +95,7 @@ x = SpatialCoordinate(mesh2d)
 g = 9.81
 omega = 2 * pi / tidal_period
 
+
 def update_forcings(t):
     print_output("Updating tidal elevation at t = {}".format(t))
     tidal_elev.project(tidal_amplitude*sin(omega*t + omega/pow(g*H, 0.5)*x[0]))
@@ -109,12 +109,14 @@ farm_options.turbine_options.diameter = 20
 farm_options.upwind_correction = False
 
 # a list contains the coordinates of all turbines
-farm_options.turbine_coordinates = [[Constant(x), Constant(y)] for x in numpy.arange(940, 1061, 60) for y in numpy.arange(260, 341, 40)]
+farm_options.turbine_coordinates = [[Constant(x), Constant(y)]
+                                    for x in numpy.arange(940, 1061, 60)
+                                    for y in numpy.arange(260, 341, 40)]
 
-#add turbines to SW_equations
+# add turbines to SW_equations
 options.discrete_tidal_turbine_farms[2] = farm_options
 
-#set initial condition
+# set initial condition
 solver_obj.assign_initial_conditions(elev=tidal_elev, uv=(as_vector((x[1]/1e5, 0.0))))
 
 # Operation of tidal turbine farm through a callback
@@ -126,8 +128,8 @@ solver_obj.add_callback(cb, 'timestep')
 solver_obj.iterate(update_forcings=update_forcings)
 
 
-###set up interest functional and control###
-power_output= sum(cb.integrated_power)
+# ---- set up interest functional and control ---- #
+power_output = sum(cb.integrated_power)
 interest_functional = power_output
 
 print_output("Functional in forward model {}".format(interest_functional))
@@ -159,8 +161,9 @@ callback_list = optimisation.OptimisationCallbackList([
     optimisation.DerivativeConstantControlOptimisationCallback(solver_obj, array_dim=len(c)),
     optimisation.UserExportOptimisationCallback(solver_obj, [turbine_density, solver_obj.fields.uv_2d]),
     optimisation.FunctionalOptimisationCallback(solver_obj),
-    #turbines.TurbineOptimisationCallback(solver_obj, cb),
+    # turbines.TurbineOptimisationCallback(solver_obj, cb),
 ])
+
 
 # here we define some additional callbacks just to clearly indicate in the log what the model is doing:
 # callbacks to indicate start of forward and adjoint runs in log
@@ -168,9 +171,11 @@ def eval_cb_pre(controls):
     print_output("FORWARD RUN:")
     print_output("positions: {}".format([float(c) for c in controls]))
 
+
 def derivative_cb_pre(controls):
     print_output("ADJOINT RUN:")
     print_output("positions: {}".format([float(c) for c in controls]))
+
 
 # this reduces the functional J(u, m) to a function purely of the control m:
 # rf(m) = J(u(m), m) where the velocities u(m) of the entire simulation
@@ -183,7 +188,7 @@ def derivative_cb_pre(controls):
 # NOTE, that we use -interest_functional so that we can *minimize* this reduced functional
 # to maximize the power output
 rf = ReducedFunctional(-interest_functional, c, derivative_cb_post=callback_list,
-        eval_cb_pre=eval_cb_pre, derivative_cb_pre=derivative_cb_pre)
+                       eval_cb_pre=eval_cb_pre, derivative_cb_pre=derivative_cb_pre)
 
 if test_gradient:
     # whenever the forward model is changed - for example different terms in the equation,
@@ -216,5 +221,5 @@ if optimise:
     # options, such as maxiter and pgtol can be passed on.
     mdc = turbines.MinimumDistanceConstraints(farm_options.turbine_coordinates, 40.)
     td_opt = minimize(rf, method='SLSQP', constraints=mdc,
-            options={'maxiter': 100, 'pgtol': 1e-3, 'iprint': 1000})
+                      options={'maxiter': 100, 'pgtol': 1e-3, 'iprint': 1000})
     File('optimal_density.pvd').write(farm_options.turbine_density)
