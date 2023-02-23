@@ -5,14 +5,15 @@ from thetis import *
 # this import automatically starts the annotation:
 from firedrake_adjoint import *
 from pyadjoint import minimize
-import numpy
+# import numpy
+
 op2.init(log_level=INFO)
 
 test_gradient = False
 optimise = True
 
-### set up the Thetis solver obj as usual ###
-#mesh2d = Mesh('earth_orkney_converted.msh')
+# ---- set up the Thetis solver obj as usual ---- #
+# mesh2d = Mesh('earth_orkney_converted.msh')
 mesh2d = Mesh('coarse.msh')
 
 # choose a depth
@@ -33,7 +34,7 @@ options.check_volume_conservation_2d = True
 options.element_family = 'dg-cg'
 options.timestepper_type = 'SteadyState'
 # for steady state we use a direct solve (preonly+lu) in combination with a Newton snes solver
-# (this is partly the default, just switching on mumps here (TODO: which should probaly be added to defaults?)
+# (this is partly the default, just switching on mumps here (TODO: which should probably be added to defaults?)
 #  and a snes monitor that displays the residual of the Newton iteration)
 options.timestepper_options.solver_parameters = {'snes_monitor': None,
                                                  'snes_rtol': 1e-5,
@@ -57,11 +58,11 @@ coasts_tag = 3
 
 inflow_x = 8400.
 inflow_y = -1390.
-inflow_norm = (inflow_x**2 + inflow_y**2)**0.5
-inflow_direction = [inflow_x/inflow_norm, inflow_y/inflow_norm]
+inflow_norm = (inflow_x ** 2 + inflow_y ** 2) ** 0.5
+inflow_direction = [inflow_x / inflow_norm, inflow_y / inflow_norm]
 
 u_inflow = 2.0
-inflow_bc = {'uv': Constant((inflow_direction[0]*u_inflow, inflow_direction[1]*u_inflow))}
+inflow_bc = {'uv': Constant((inflow_direction[0] * u_inflow, inflow_direction[1] * u_inflow))}
 outflow_bc = {'elev': 0.}
 freeslip_bc = {'un': 0.}
 
@@ -74,7 +75,7 @@ solver_obj.bnd_functions['shallow_water'] = {
 # initialise discrete turbine farm characteristics
 farm_options = DiscreteTidalTurbineFarmOptions()
 farm_options.turbine_type = 'constant'
-farm_options.turbine_options.thrust_coefficient = 21./pi/0.5*1.45561
+farm_options.turbine_options.thrust_coefficient = 21. / pi / 0.5 * 1.45561
 farm_options.turbine_options.diameter = 20
 # TODO: check, does this impact optimisation?
 farm_options.upwind_correction = False
@@ -83,12 +84,12 @@ site_x = 2000.
 site_y = 1000.
 site_x_start = 1.03068e+07
 site_y_start = 6.52276e+06 - site_y
-r = farm_options.turbine_options.diameter/2.
+r = farm_options.turbine_options.diameter / 2.
 
 # a list contains the coordinates of all turbines
 farm_options.turbine_coordinates = [[Constant(x), Constant(y)]
-        for x in np.linspace(site_x_start + r, site_x_start + site_x - r, 16)
-        for y in np.linspace(site_y_start + r, site_y_start + site_y -r, 8)]
+                                    for x in np.linspace(site_x_start + r, site_x_start + site_x - r, 16)
+                                    for y in np.linspace(site_y_start + r, site_y_start + site_y - r, 8)]
 
 # apply these turbine farm settings to subdomain 2
 # this means that the mesh needs to have a Physical Surface id of 2 (see mesh.geo file)
@@ -113,9 +114,8 @@ solver_obj.add_callback(cb, 'timestep')
 # run forward model
 solver_obj.iterate()
 
-
 # set up interest functional and control
-power_output= sum(cb.integrated_power)
+power_output = sum(cb.integrated_power)
 interest_functional = power_output
 
 print_output("Functional in forward model {}".format(interest_functional))
@@ -149,15 +149,18 @@ callback_list = optimisation.OptimisationCallbackList([
     optimisation.FunctionalOptimisationCallback(solver_obj),
 ])
 
+
 # here we define some additional callbacks just to clearly indicate in the log what the model is doing:
 # callbacks to indicate start of forward and adjoint runs in log
 def eval_cb_pre(controls):
     print_output("FORWARD RUN:")
     print_output("positions: {}".format([float(c) for c in controls]))
 
+
 def derivative_cb_pre(controls):
     print_output("ADJOINT RUN:")
     print_output("positions: {}".format([float(c) for c in controls]))
+
 
 # this reduces the functional J(u, m) to a function purely of the control m:
 # rf(m) = J(u(m), m) where the velocities u(m) of the entire simulation
@@ -170,7 +173,7 @@ def derivative_cb_pre(controls):
 # NOTE, that we use -interest_functional so that we can *minimize* this reduced functional
 # to maximize the power output
 rf = ReducedFunctional(-interest_functional, c, derivative_cb_post=callback_list,
-        eval_cb_pre=eval_cb_pre, derivative_cb_pre=derivative_cb_pre)
+                       eval_cb_pre=eval_cb_pre, derivative_cb_pre=derivative_cb_pre)
 
 if test_gradient:
     # whenever the forward model is changed - for example different terms in the equation,
@@ -202,14 +205,15 @@ if optimise:
     # - first we don't want the turbines to leave the specified (high resolution)
     #   farm area. Since this area is rectangular we can specify this through
     #   simple box constraints: lb < c < ub
-    lb = np.array([[site_x_start+r, site_y_start+r] for _ in farm_options.turbine_coordinates]).flatten()
-    ub = np.array([[site_x_start+site_x-r, site_y_start+site_y-r] for _ in farm_options.turbine_coordinates]).flatten()
+    lb = np.array([[site_x_start + r, site_y_start + r] for _ in farm_options.turbine_coordinates]).flatten()
+    ub = np.array(
+        [[site_x_start + site_x - r, site_y_start + site_y - r] for _ in farm_options.turbine_coordinates]).flatten()
 
     # - secondly, we don't want the turbines to be placed arbitrary close. This is enforced
     #   through more general constraints of the form h(m)>0 where here
     #   we use h(m) = [dist((x1,y1) to (x2,y2))**2 - min_dist**2 for any combination of turbines]
     #   the MinimumDistanceConstraints implements this constraint (and its derivative), here
-    #   with a minimum distantce min_dist=25
+    #   with a minimum distance min_dist=25
     mdc = turbines.MinimumDistanceConstraints(farm_options.turbine_coordinates, 30.)
 
     # finally, the optimisation call. Here, we can't use the default (L-BFGS-B) which only handles
@@ -217,4 +221,4 @@ if optimise:
     # see https://docs.scipy.org/doc/scipy/reference/optimize.minimize-slsqp.html
     # for further options
     td_opt = minimize(rf, method='SLSQP', constraints=mdc, bounds=[lb, ub],
-            options={'maxiter': 300, 'ftol': 1e-06})
+                      options={'maxiter': 300, 'ftol': 1e-06})

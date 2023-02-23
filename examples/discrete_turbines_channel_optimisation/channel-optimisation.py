@@ -12,7 +12,7 @@ op2.init(log_level=INFO)
 test_gradient = False
 optimise = True
 
-### set up the Thetis solver obj as usual ###
+# ---- set up the Thetis solver obj as usual ---- #
 mesh2d = Mesh('mesh.msh')
 
 # choose a depth
@@ -82,8 +82,9 @@ r = farm_options.turbine_options.diameter/2.
 
 # a list contains the coordinates of all turbines: regular, non-staggered 4 x 2 layout
 farm_options.turbine_coordinates = [[Constant(x+cos(y)), Constant(y+numpy.sin(x))]
-        for x in np.linspace(site_x_start + 4*r, site_x_start + site_x - 4*r, 4)
-        for y in np.linspace(site_y_start + 0.5*site_y-2*r, site_y_start + 0.5*site_y + 2*r, 2)]
+                                    for x in np.linspace(site_x_start + 4*r, site_x_start + site_x - 4*r, 4)
+                                    for y in np.linspace(site_y_start + 0.5*site_y-2*r,
+                                                         site_y_start + 0.5*site_y+2*r, 2)]
 
 # apply these turbine farm settings to subdomain 2
 # this means that the mesh needs to have a Physical Surface id of 2 (see mesh.geo file)
@@ -110,7 +111,7 @@ solver_obj.iterate()
 
 
 # set up interest functional and control
-power_output= sum(cb.integrated_power)
+power_output = sum(cb.integrated_power)
 interest_functional = power_output
 
 print_output("Functional in forward model {}".format(interest_functional))
@@ -144,15 +145,18 @@ callback_list = optimisation.OptimisationCallbackList([
     optimisation.FunctionalOptimisationCallback(solver_obj),
 ])
 
+
 # here we define some additional callbacks just to clearly indicate in the log what the model is doing:
 # callbacks to indicate start of forward and adjoint runs in log
 def eval_cb_pre(controls):
     print_output("FORWARD RUN:")
     print_output("positions: {}".format([float(c) for c in controls]))
 
+
 def derivative_cb_pre(controls):
     print_output("ADJOINT RUN:")
     print_output("positions: {}".format([float(c) for c in controls]))
+
 
 # this reduces the functional J(u, m) to a function purely of the control m:
 # rf(m) = J(u(m), m) where the velocities u(m) of the entire simulation
@@ -165,7 +169,7 @@ def derivative_cb_pre(controls):
 # NOTE, that we use -interest_functional so that we can *minimize* this reduced functional
 # to maximize the power output
 rf = ReducedFunctional(-interest_functional, c, derivative_cb_post=callback_list,
-        eval_cb_pre=eval_cb_pre, derivative_cb_pre=derivative_cb_pre)
+                       eval_cb_pre=eval_cb_pre, derivative_cb_pre=derivative_cb_pre)
 
 if test_gradient:
     # whenever the forward model is changed - for example different terms in the equation,
@@ -212,4 +216,4 @@ if optimise:
     # see https://docs.scipy.org/doc/scipy/reference/optimize.minimize-slsqp.html
     # for further options
     td_opt = minimize(rf, method='SLSQP', constraints=mdc, bounds=[lb, ub],
-            options={'maxiter': 300, 'ftol': 1e-06})
+                      options={'maxiter': 300, 'ftol': 1e-06})

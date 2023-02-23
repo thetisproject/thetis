@@ -457,8 +457,8 @@ class FlowSolver2d(FrozenClass):
         if not hasattr(self.fields, 'uv_2d'):
             self.create_fields()
         self.equations = AttrDict()
-		
-		# ---- tidal farms, if any
+
+        # tidal farms, if any
         if len(self.options.tidal_turbine_farms) + len(self.options.discrete_tidal_turbine_farms) > 0:
             self.tidal_farms = []
             p = self.function_spaces.U_2d.ufl_element().degree()

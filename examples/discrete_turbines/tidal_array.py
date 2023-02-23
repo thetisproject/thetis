@@ -1,4 +1,5 @@
 from thetis import *
+import numpy as np
 
 outputdir = 'outputs_2'
 mesh2d = Mesh('tidal_mesh.msh')
@@ -14,12 +15,21 @@ bathymetry_2d = Function(P1_2d, name='Bathymetry')
 turbine_density = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_density').assign(0.0)
 
 # Initialise Discrete turbine farm characteristics
-farm_options = DiscreteTidalTurbineFarmOptions()
-farm_options.turbine_density = turbine_density
-farm_options.thrust_coefficient = Function(FunctionSpace(mesh2d, "CG", 1), name='thrust_coefficient').assign(0.6)
-farm_options.power_coefficient = Function(FunctionSpace(mesh2d, "CG", 1), name='power_coefficient').assign(0.0)
-farm_options.turbine_drag = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_drag_coefficient').assign(0.0)
+# farm_options = DiscreteTidalTurbineFarmOptions()
+# farm_options.turbine_density = turbine_density
+# farm_options.thrust_coefficient = Function(FunctionSpace(mesh2d, "CG", 1), name='thrust_coefficient').assign(0.6)
+# farm_options.turbine_options.thrust_coefficient
+# farm_options.power_coefficient = Function(FunctionSpace(mesh2d, "CG", 1), name='power_coefficient').assign(0.0)
+# farm_options.turbine_drag = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_drag_coefficient').assign(0.0)
 # farm_options.upwind_correction = False
+turbine_density = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_density').assign(0.0)
+farm_options = DiscreteTidalTurbineFarmOptions()
+farm_options.turbine_type = 'table'
+farm_options.turbine_options.thrust_coefficients = np.load('thrusts_AR1500.npy').tolist()
+farm_options.turbine_options.thrust_speeds = np.load('speeds_AR1500.npy').tolist()  # in m/s
+farm_options.turbine_options.diameter = 18  # in metres
+farm_options.turbine_density = turbine_density
+farm_options.turbine_coordinates = np.load(os.path.join(os.path.dirname(__file__), "Turbine_coords.npy")).tolist()
 
 # Add viscosity sponge (depending on condition)
 x = SpatialCoordinate(mesh2d)
@@ -35,15 +45,15 @@ options.output_directory = outputdir
 options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.quadratic_drag_coefficient = Constant(0.0025)
-options.timestepper_type = 'CrankNicolson'
+options.swe_timestepper_type = 'CrankNicolson'
 options.horizontal_viscosity = h_viscosity
 options.use_wetting_and_drying = True
 options.wetting_and_drying_alpha = Constant(0.5)
 options.discrete_tidal_turbine_farms[1] = farm_options
-if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
+if not hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
     options.timestep = 50.0
 
-options.timestepper_options.solver_parameters = {
+options.swe_timestepper_options.solver_parameters = {
     'snes_type': 'newtonls',
     'snes_rtol': 1e-3,
     'snes_linesearch_type': 'bt',
@@ -64,17 +74,21 @@ elev_init = Function(P1_2d)
 elev_init.assign(0.0)
 
 #  Addition of turbines in the domain
-turbine = ThrustTurbine(diameter=20, swept_diameter=20)
-farm_options.turbine_options = turbine
+# turbine = ThrustTurbine(diameter=20, swept_diameter=20)
+# farm_options.turbine_options = turbine
 # read the turbines coordinates from file in the same dir as this script:
-turbine_coordinates = np.load(os.path.join(os.path.dirname(__file__), "Turbine_coords.npy"))
-turbine_farm = DiscreteTidalfarm(solver_obj, turbine, turbine_coordinates, farm_options.turbine_density, 1)
+# turbine_coordinates = np.load(os.path.join(os.path.dirname(__file__), "Turbine_coords.npy"))
+# turbine_farm = DiscreteTidalfarm(solver_obj, turbine, turbine_coordinates, farm_options.turbine_density, 1)
 
 solver_obj.assign_initial_conditions(elev=elev_init, uv=(as_vector((1e-3, 0.0))))
 
 # Operation of tidal turbine farm through a callback
-cb = DiscreteTurbineOperation(solver_obj, 1, farm_options, support_structure={"C_sup": 0.6, "A_sup": 10 * 3.5})
-solver_obj.add_callback(cb, 'timestep')
+# cb = DiscreteTurbineOperation(solver_obj, 1, farm_options, support_structure={"C_sup": 0.6, "A_sup": 10 * 3.5})
+# solver_obj.add_callback(cb, 'timestep')
+cb_turbines = turbines.TurbineFunctionalCallback(solver_obj)
+solver_obj.add_callback(cb_turbines, 'timestep')
+
+solver_obj.assign_initial_conditions(elev=elev_init, uv=(as_vector((1e-3, 0.0))))
 
 
 def update_forcings(t_new):
