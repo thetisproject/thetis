@@ -5,7 +5,7 @@ from thetis import *
 # this import automatically starts the annotation:
 from firedrake_adjoint import *
 from pyadjoint import minimize
-import numpy
+import numpy as np
 import random
 op2.init(log_level=INFO)
 
@@ -13,6 +13,8 @@ test_gradient = False
 optimise = True
 
 # ---- set up the Thetis solver obj as usual ---- #
+if not os.path.exists('mesh.msh'):
+    os.system('gmsh -2  mesh.geo -o mesh.msh')
 mesh2d = Mesh('mesh.msh')
 
 # choose a depth
@@ -31,11 +33,11 @@ options.simulation_end_time = 0.5
 options.output_directory = 'outputs'
 options.check_volume_conservation_2d = True
 options.element_family = 'dg-cg'
-options.timestepper_type = 'SteadyState'
+options.swe_timestepper_type = 'SteadyState'
 # for steady state we use a direct solve (preonly+lu) in combination with a Newton snes solver
 # (this is partly the default, just switching on mumps here (TODO: which should probaly be added to defaults?)
 #  and a snes monitor that displays the residual of the Newton iteration)
-options.timestepper_options.solver_parameters = {'snes_monitor': None,
+options.swe_timestepper_options.solver_parameters = {'snes_monitor': None,
                                                  'snes_rtol': 1e-12,
                                                  'ksp_type': 'preonly',
                                                  'pc_type': 'lu',
@@ -45,8 +47,8 @@ options.timestepper_options.solver_parameters = {'snes_monitor': None,
 options.horizontal_viscosity = h_viscosity
 
 # TODO: check do I still need these:
-options.use_automatic_sipg_parameter = False
-options.sipg_parameter = Constant(100.)
+# options.use_automatic_sipg_parameter = False
+# options.sipg_parameter = Constant(100.)
 
 options.quadratic_drag_coefficient = Constant(0.0025)
 
