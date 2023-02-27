@@ -1,7 +1,11 @@
 from thetis import *
-import numpy as np
 
-outputdir = 'outputs_2'
+# Set output directory, load mesh, set simulation export and end times
+outputdir = 'outputs'
+
+# To play with a headland case, create the mesh file using the commented out command below and use gmsh to check the
+# PhysIDs of the inflows and outflows
+# os.system('gmsh -2  headland3.geo -o headland3.msh')
 mesh2d = Mesh('tidal_mesh.msh')
 print_output('Loaded mesh ' + mesh2d.name)
 print_output('Exporting to ' + outputdir)
@@ -9,32 +13,38 @@ print_output('Exporting to ' + outputdir)
 t_end = 3 * 3600
 t_export = 200.0
 
-# bathymetry
+
+# bathymetry and viscosity sponge
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
-turbine_density = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_density').assign(0.0)
-
-# Initialise Discrete turbine farm characteristics
-# farm_options = DiscreteTidalTurbineFarmOptions()
-# farm_options.turbine_density = turbine_density
-# farm_options.thrust_coefficient = Function(FunctionSpace(mesh2d, "CG", 1), name='thrust_coefficient').assign(0.6)
-# farm_options.turbine_options.thrust_coefficient
-# farm_options.power_coefficient = Function(FunctionSpace(mesh2d, "CG", 1), name='power_coefficient').assign(0.0)
-# farm_options.turbine_drag = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_drag_coefficient').assign(0.0)
-# farm_options.upwind_correction = False
-turbine_density = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_density').assign(0.0)
-farm_options = DiscreteTidalTurbineFarmOptions()
-farm_options.turbine_type = 'table'
-farm_options.turbine_options.thrust_coefficients = np.load('thrusts_AR1500.npy').tolist()
-farm_options.turbine_options.thrust_speeds = np.load('speeds_AR1500.npy').tolist()  # in m/s
-farm_options.turbine_options.diameter = 18  # in metres
-farm_options.turbine_density = turbine_density
-farm_options.turbine_coordinates = np.load(os.path.join(os.path.dirname(__file__), "Turbine_coords.npy")).tolist()
-
-# Add viscosity sponge (depending on condition)
+bathymetry_2d.assign(Constant(50.0))
 x = SpatialCoordinate(mesh2d)
 h_viscosity = Function(P1_2d).interpolate(conditional(le(x[0], 50), 54-x[0], 1.0))
-bathymetry_2d.assign(Constant(50.0))
+
+
+# Some realistic thrust and speed curves if we want to use a tabulated turbine approach
+thrusts_AR2000 = [0., 0.75, 0.85, 0.95, 1., 3.05, 3.3, 3.55, 3.8, 4.05, 4.3, 4.55, 4.8, 5., 5.001, 5.05, 5.25, 5.5,
+                  5.75, 6.0, 6.25, 6.5, 6.75, 7.0]
+speeds_AR2000 = [0.010531, 0.032281, 0.038951, 0.119951, 0.516484, 0.516484, 0.387856, 0.302601, 0.242037, 0.197252,
+                 0.16319, 0.136716, 0.115775, 0.102048, 0.060513, 0.005112, 0.00151, 0.00089, 0.000653, 0.000524,
+                 0.000442, 0.000384, 0.000341, 0.000308]
+
+# Initialise discrete turbine farm characteristics
+turbine_density = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_density').assign(0.0)
+farm_options = DiscreteTidalTurbineFarmOptions()
+# farm_options.turbine_type = 'constant'
+# farm_options.turbine_options.thrust_coefficient = 0.6
+farm_options.turbine_type = 'table'
+farm_options.turbine_options.thrust_coefficients = speeds_AR2000
+farm_options.turbine_options.thrust_speeds = thrusts_AR2000
+farm_options.turbine_options.C_support = 10  # support structure thrust coefficient
+farm_options.turbine_options.A_support = 3.5*10.0  # cross-sectional area of support structure
+farm_options.turbine_options.diameter = 20
+farm_options.upwind_correction = False
+farm_options.turbine_density = turbine_density
+farm_options.turbine_coordinates = [[213.0, 64.0], [213.0, 128.0], [213.0, 192.0], [213.0, 256.0],
+                                    [277.0, 96.0], [277.0, 160.0], [277.0, 224.0]]
+
 
 # --- create solver ---
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
@@ -63,7 +73,7 @@ options.swe_timestepper_options.solver_parameters = {
     'pc_factor_mat_solver_type': 'mumps',
 }
 
-# Boundary conditions - Steady state case
+# Boundary conditions - steady state case
 tidal_elev = Function(P1_2d).assign(0.0)
 tidal_vel = Function(P1_2d).assign(0.0)
 solver_obj.bnd_functions['shallow_water'] = {1: {'un': tidal_vel},
@@ -72,23 +82,12 @@ solver_obj.bnd_functions['shallow_water'] = {1: {'un': tidal_vel},
 # initial conditions, piecewise linear function
 elev_init = Function(P1_2d)
 elev_init.assign(0.0)
-
-#  Addition of turbines in the domain
-# turbine = ThrustTurbine(diameter=20, swept_diameter=20)
-# farm_options.turbine_options = turbine
-# read the turbines coordinates from file in the same dir as this script:
-# turbine_coordinates = np.load(os.path.join(os.path.dirname(__file__), "Turbine_coords.npy"))
-# turbine_farm = DiscreteTidalfarm(solver_obj, turbine, turbine_coordinates, farm_options.turbine_density, 1)
-
 solver_obj.assign_initial_conditions(elev=elev_init, uv=(as_vector((1e-3, 0.0))))
+# try moving the solver_obj.assign to after the turbines callback if it fails to run (or doubly assign initial conds)
 
 # Operation of tidal turbine farm through a callback
-# cb = DiscreteTurbineOperation(solver_obj, 1, farm_options, support_structure={"C_sup": 0.6, "A_sup": 10 * 3.5})
-# solver_obj.add_callback(cb, 'timestep')
 cb_turbines = turbines.TurbineFunctionalCallback(solver_obj)
 solver_obj.add_callback(cb_turbines, 'timestep')
-
-solver_obj.assign_initial_conditions(elev=elev_init, uv=(as_vector((1e-3, 0.0))))
 
 
 def update_forcings(t_new):
@@ -96,5 +95,5 @@ def update_forcings(t_new):
     tidal_vel.project(Constant(ramp * 3.5))
 
 
-# No update_forcings for steady state case
+# See channel-optimisation example for a completely steady state simulation (no ramp)
 solver_obj.iterate(update_forcings=update_forcings)

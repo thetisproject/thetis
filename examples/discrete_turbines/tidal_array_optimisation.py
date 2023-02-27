@@ -35,6 +35,8 @@ test_gradient = True
 optimise = True
 
 # ---- set up the Thetis solver obj as usual ---- #
+if not os.path.exists('headland3.msh'):
+    os.system('gmsh -2 headland3.geo -o headland3.msh')
 mesh2d = Mesh('headland3.msh')
 
 tidal_amplitude = 5.
