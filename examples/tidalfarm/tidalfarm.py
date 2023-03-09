@@ -55,7 +55,7 @@ options.check_volume_conservation_2d = True
 options.element_family = 'dg-cg'
 options.swe_timestepper_type = 'CrankNicolson'
 options.swe_timestepper_options.implicitness_theta = 0.6
-# using direct solver as PressurePicard does not work with dolfin-adjoint (due to .split() not being annotated correctly)
+# using direct solver as PressurePicard doesn't work with dolfin-adjoint (due to .split() not being annotated correctly)
 options.swe_timestepper_options.solver_parameters = {'snes_monitor': None,
                                                      'snes_rtol': 1e-9,
                                                      'ksp_type': 'preonly',
@@ -143,7 +143,7 @@ print_output("Maximum turbine density = {}".format(max_density))
 # also we multiply by -1 so that if we minimize the functional, we maximize profit
 # (maximize is also availble from pyadjoint but currently broken)
 scaling = -1./assemble(max(farm_options.break_even_wattage, 100) * max_density * dx(2, domain=mesh2d))
-scaled_functional = scaling * cb.average_profit
+scaled_functional = scaling * cb.average_profit[0]
 
 # specifies the control we want to vary in the optimisation
 c = Control(turbine_density)
@@ -165,7 +165,7 @@ callback_list = optimisation.OptimisationCallbackList([
     optimisation.DerivativesExportOptimisationCallback(solver_obj),
     optimisation.UserExportOptimisationCallback(solver_obj, (farm_density,)),
     optimisation.FunctionalOptimisationCallback(solver_obj),
-    turbines.TurbineOptimisationCallback(solver_obj, cb),
+    # turbines.TurbineOptimisationCallback(solver_obj, cb),
 ])
 
 # anything that follows, is no longer annotated:
@@ -206,6 +206,6 @@ if optimise:
     # By default scipy's implementation of L-BFGS-B is used, see
     #   https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_l_bfgs_b.html
     # options, such as maxiter and pgtol can be passed on.
-    td_opt = minimise(rf, bounds=[0, max_density],
+    td_opt = minimize(rf, bounds=[0, max_density],
                       options={'maxiter': 100, 'pgtol': 1e-3})
     File('optimal_density.pvd').write(td_opt)
