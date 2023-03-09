@@ -73,7 +73,7 @@ def run(solve_adjoint=False, mesh=None, **model_options):
     options.use_grad_depth_viscosity_term = False
     options.no_exports = True
     options.update(model_options)
-    solver_obj.create_function_spaces()
+    solver_obj.create_equations()
 
     # recover Hessian
     if not solve_adjoint:

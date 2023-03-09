@@ -38,12 +38,12 @@ options.swe_timestepper_type = 'SteadyState'
 # (this is partly the default, just switching on mumps here (TODO: which should probaly be added to defaults?)
 #  and a snes monitor that displays the residual of the Newton iteration)
 options.swe_timestepper_options.solver_parameters = {'snes_monitor': None,
-                                                 'snes_rtol': 1e-12,
-                                                 'ksp_type': 'preonly',
-                                                 'pc_type': 'lu',
-                                                 'pc_factor_mat_solver_type': 'mumps',
-                                                 'mat_type': 'aij'
-                                                 }
+                                                     'snes_rtol': 1e-12,
+                                                     'ksp_type': 'preonly',
+                                                     'pc_type': 'lu',
+                                                     'pc_factor_mat_solver_type': 'mumps',
+                                                     'mat_type': 'aij'
+                                                     }
 options.horizontal_viscosity = h_viscosity
 
 # TODO: check do I still need these:
@@ -152,12 +152,12 @@ callback_list = optimisation.OptimisationCallbackList([
 # callbacks to indicate start of forward and adjoint runs in log
 def eval_cb_pre(controls):
     print_output("FORWARD RUN:")
-    print_output("positions: {}".format([float(c) for c in controls]))
+    print_output("positions: {}".format([float(c_) for c_ in controls]))
 
 
 def derivative_cb_pre(controls):
     print_output("ADJOINT RUN:")
-    print_output("positions: {}".format([float(c) for c in controls]))
+    print_output("positions: {}".format([float(c_) for c_ in controls]))
 
 
 # this reduces the functional J(u, m) to a function purely of the control m:
