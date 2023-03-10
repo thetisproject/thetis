@@ -13,6 +13,8 @@ print_output('Exporting to ' + outputdir)
 t_end = 3 * 3600
 t_export = 200.0
 
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
 
 # bathymetry and viscosity sponge
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)

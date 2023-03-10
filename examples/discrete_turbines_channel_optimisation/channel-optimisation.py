@@ -9,8 +9,15 @@ import numpy as np
 import random
 op2.init(log_level=INFO)
 
-test_gradient = False
-optimise = True
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    # when run as a pytest test, only run 5 timesteps
+    # and test the gradient
+    t_end = 5*100
+    test_gradient = True  # test gradient using Taylor test (see below)
+    optimise = False  # skip actual gradient based optimisation
+else:
+    test_gradient = False
+    optimise = True
 
 # ---- set up the Thetis solver obj as usual ---- #
 if not os.path.exists('mesh.msh'):

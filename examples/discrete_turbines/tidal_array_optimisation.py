@@ -20,19 +20,15 @@ import random
 op2.init(log_level=INFO)
 
 # Comment for testing forward model
-'''
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
     # when run as a pytest test, only run 5 timesteps
     # and test the gradient
-    t_end = 5*timestep
+    t_end = 5*100
     test_gradient = True  # test gradient using Taylor test (see below)
     optimise = False  # skip actual gradient based optimisation
 else:
-    test_gradient = False
+    test_gradient = True
     optimise = True
-'''
-test_gradient = True
-optimise = True
 
 # ---- set up the Thetis solver obj as usual ---- #
 if not os.path.exists('headland3.msh'):
