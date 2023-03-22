@@ -129,6 +129,7 @@ class TidalTurbineFarm:
             self.turbine = TabulatedThrustTurbine(options.turbine_options, upwind_correction=upwind_correction)
         self.dx = dx
         self.turbine_density = turbine_density
+        self.break_even_wattage = options.break_even_wattage
 
     def number_of_turbines(self):
         return assemble(self.turbine_density * self.dx)
@@ -207,7 +208,7 @@ class TurbineFunctionalCallback(DiagnosticCallback):
         self.cost = [farm.number_of_turbines() for farm in self.farms]
         if self.append_to_log:
             print_output('Number of turbines = {}'.format(sum(self.cost)))
-        self.break_even_wattage = [getattr(farm, 'break_even_wattage', 0) for farm in self.farms]
+        self.break_even_wattage = [farm.break_even_wattage for farm in self.farms]
 
         # time-integrated quantities:
         self.integrated_power = [0] * nfarms
@@ -251,9 +252,9 @@ class TurbineOptimisationCallback(DiagnosticOptimisationCallback):
         super().__init__(solver_obj, **kwargs)
 
     def compute_values(self, *args):
-        costs = [farm.cost.block_variable.saved_output for farm in self.tfc.farms]
-        powers = [farm.average_power.block_variable.saved_output for farm in self.tfc.farms]
-        profits = [farm.average_profit.block_variable.saved_output for farm in self.tfc.farms]
+        costs = [x.block_variable.saved_output for x in self.tfc.cost]
+        powers = [x.block_variable.saved_output for x in self.tfc.average_power]
+        profits = [x.block_variable.saved_output for x in self.tfc.average_profit]
         return costs, powers, profits
 
     def message_str(self, cost, average_power, average_profit):

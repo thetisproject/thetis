@@ -165,7 +165,7 @@ callback_list = optimisation.OptimisationCallbackList([
     optimisation.DerivativesExportOptimisationCallback(solver_obj),
     optimisation.UserExportOptimisationCallback(solver_obj, (farm_density,)),
     optimisation.FunctionalOptimisationCallback(solver_obj),
-    # turbines.TurbineOptimisationCallback(solver_obj, cb),
+    turbines.TurbineOptimisationCallback(solver_obj, cb),
 ])
 
 # anything that follows, is no longer annotated:
