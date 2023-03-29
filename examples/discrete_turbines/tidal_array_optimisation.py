@@ -31,9 +31,9 @@ else:
     optimise = True
 
 # ---- set up the Thetis solver obj as usual ---- #
-if not os.path.exists('headland3.msh'):
-    os.system('gmsh -2 headland3.geo -o headland3.msh')
-mesh2d = Mesh('headland3.msh')
+if not os.path.exists('headland.msh'):
+    os.system('gmsh -2 headland.geo -o headland.msh')
+mesh2d = Mesh('headland.msh')
 
 tidal_amplitude = 5.
 tidal_period = 12.42*60*60
@@ -57,7 +57,7 @@ options = solver_obj.options
 options.timestep = timestep
 options.simulation_export_time = timestep
 options.simulation_end_time = t_end
-options.output_directory = 'outputs'
+options.output_directory = 'outputs_opt'
 options.check_volume_conservation_2d = True
 options.element_family = 'dg-cg'
 options.swe_timestepper_type = 'CrankNicolson'
@@ -159,7 +159,7 @@ callback_list = optimisation.OptimisationCallbackList([
     optimisation.DerivativeConstantControlOptimisationCallback(solver_obj, array_dim=len(c)),
     optimisation.UserExportOptimisationCallback(solver_obj, [turbine_density, solver_obj.fields.uv_2d]),
     optimisation.FunctionalOptimisationCallback(solver_obj),
-    # turbines.TurbineOptimisationCallback(solver_obj, cb),
+    turbines.TurbineOptimisationCallback(solver_obj, cb),
 ])
 
 
