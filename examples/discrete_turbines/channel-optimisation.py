@@ -9,10 +9,9 @@ import numpy as np
 import random
 op2.init(log_level=INFO)
 
+output_dir = 'outputs'
+
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
-    # when run as a pytest test, only run 5 timesteps
-    # and test the gradient
-    t_end = 5*100
     test_gradient = True  # test gradient using Taylor test (see below)
     optimise = False  # skip actual gradient based optimisation
 else:
@@ -36,13 +35,12 @@ options = solver_obj.options
 options.timestep = 1.
 options.simulation_export_time = 1.
 options.simulation_end_time = 0.5
-
-options.output_directory = 'outputs'
+options.output_directory = output_dir
 options.check_volume_conservation_2d = True
 options.element_family = 'dg-cg'
 options.swe_timestepper_type = 'SteadyState'
 # for steady state we use a direct solve (preonly+lu) in combination with a Newton snes solver
-# (this is partly the default, just switching on mumps here (TODO: which should probaly be added to defaults?)
+# (this is partly the default, just switching on mumps here (TODO: which should probably be added to defaults?)
 #  and a snes monitor that displays the residual of the Newton iteration)
 options.swe_timestepper_options.solver_parameters = {'snes_monitor': None,
                                                      'snes_rtol': 1e-12,
@@ -64,7 +62,7 @@ left_tag = 1
 right_tag = 2
 coasts_tag = 3
 
-u_inflow = 2.0
+u_inflow = 3.0
 inflow_bc = {'uv': Constant((u_inflow, 0.0))}
 outflow_bc = {'elev': 0.}
 freeslip_bc = {'un': 0.}
@@ -76,9 +74,15 @@ solver_obj.bnd_functions['shallow_water'] = {
 }
 
 # initialise discrete turbine farm characteristics
+speeds_AR2000 = [0., 0.75, 0.85, 0.95, 1., 3.05, 3.3, 3.55, 3.8, 4.05, 4.3, 4.55, 4.8, 5., 5.001, 5.05, 5.25, 5.5, 5.75,
+                 6.0, 6.25, 6.5, 6.75, 7.0]
+thrusts_AR2000 = [0.010531, 0.032281, 0.038951, 0.119951, 0.516484, 0.516484, 0.387856, 0.302601, 0.242037, 0.197252,
+                  0.16319, 0.136716, 0.115775, 0.102048, 0.060513, 0.005112, 0.00151, 0.00089, 0.000653, 0.000524,
+                  0.000442, 0.000384, 0.000341, 0.000308]
 farm_options = DiscreteTidalTurbineFarmOptions()
-farm_options.turbine_type = 'constant'
-farm_options.turbine_options.thrust_coefficient = 0.8
+farm_options.turbine_type = 'table'
+farm_options.turbine_options.thrust_speeds = speeds_AR2000
+farm_options.turbine_options.thrust_coefficients = thrusts_AR2000
 farm_options.turbine_options.diameter = 20
 # TODO: check, does this impact optimisation?
 farm_options.upwind_correction = False
@@ -189,7 +193,7 @@ if test_gradient:
     #   rf(td0+h*dtd) - rf(td0) - < drf/dtd(rf0), h dtd> = O(h^2)
 
     # we choose the same starting layout but with a small perturbation
-    m0 = [Constant(x + random.uniform(-r, r)) for xy in farm_options.turbine_coordinates for x in xy]
+    m0 = [Constant(float(x) + random.uniform(-r, r)) for xy in farm_options.turbine_coordinates for x in xy]
 
     # the perturbation over which we test the Taylor approximation
     # (the taylor test below starts with a 1/100th of that, followed by a series of halvings
@@ -217,12 +221,12 @@ if optimise:
     #   through more general constraints of the form h(m)>0 where here
     #   we use h(m) = [dist((x1,y1) to (x2,y2))**2 - min_dist**2 for any combination of turbines]
     #   the MinimumDistanceConstraints implements this constraint (and its derivative), here
-    #   with a minimum distantce min_dist=25
-    mdc = turbines.MinimumDistanceConstraints(farm_options.turbine_coordinates, 25.)
+    #   with a minimum distantce min_dist= 1.5*D = 3*r
+    mdc = turbines.MinimumDistanceConstraints(farm_options.turbine_coordinates, 3*r)
 
     # finally, the optimisation call. Here, we can't use the default (L-BFGS-B) which only handles
     # box constraints, but use SLSQP which also handles more general constraints
     # see https://docs.scipy.org/doc/scipy/reference/optimize.minimize-slsqp.html
     # for further options
     td_opt = minimize(rf, method='SLSQP', constraints=mdc, bounds=[lb, ub],
-                      options={'maxiter': 300, 'ftol': 1e-06})
+                      options={'maxiter': 75, 'ftol': 1e-06})
