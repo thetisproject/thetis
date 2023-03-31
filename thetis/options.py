@@ -64,6 +64,7 @@ class SteadyStateTimeStepperOptions2d(TimeStepperOptions):
     solver_parameters = PETScSolverParameters({
         'ksp_type': 'preonly',
         'pc_type': 'lu',
+        'pc_factor_mat_solver_type': 'mumps',
         'mat_type': 'aij'
     }).tag(config=True)
 

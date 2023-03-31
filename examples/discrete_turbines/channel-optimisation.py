@@ -40,20 +40,10 @@ options.check_volume_conservation_2d = True
 options.element_family = 'dg-cg'
 options.swe_timestepper_type = 'SteadyState'
 # for steady state we use a direct solve (preonly+lu) in combination with a Newton snes solver
-# (this is partly the default, just switching on mumps here (TODO: which should probably be added to defaults?)
-#  and a snes monitor that displays the residual of the Newton iteration)
 options.swe_timestepper_options.solver_parameters = {'snes_monitor': None,
-                                                     'snes_rtol': 1e-12,
-                                                     'ksp_type': 'preonly',
-                                                     'pc_type': 'lu',
-                                                     'pc_factor_mat_solver_type': 'mumps',
-                                                     'mat_type': 'aij'
+                                                     'snes_rtol': 1e-12
                                                      }
 options.horizontal_viscosity = h_viscosity
-
-# TODO: check do I still need these:
-# options.use_automatic_sipg_parameter = False
-# options.sipg_parameter = Constant(100.)
 
 options.quadratic_drag_coefficient = Constant(0.0025)
 
@@ -84,8 +74,7 @@ farm_options.turbine_type = 'table'
 farm_options.turbine_options.thrust_speeds = speeds_AR2000
 farm_options.turbine_options.thrust_coefficients = thrusts_AR2000
 farm_options.turbine_options.diameter = 20
-# TODO: check, does this impact optimisation?
-farm_options.upwind_correction = False
+farm_options.upwind_correction = False  # higher SNES tolerance required when using upwind correction
 
 site_x = 320.
 site_y = 160.
@@ -156,6 +145,7 @@ callback_list = optimisation.OptimisationCallbackList([
     optimisation.DerivativeConstantControlOptimisationCallback(solver_obj, array_dim=len(c)),
     optimisation.UserExportOptimisationCallback(solver_obj, [turbine_density, solver_obj.fields.uv_2d]),
     optimisation.FunctionalOptimisationCallback(solver_obj),
+    turbines.TurbineOptimisationCallback(solver_obj, cb),
 ])
 
 
