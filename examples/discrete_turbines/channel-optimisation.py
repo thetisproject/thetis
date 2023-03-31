@@ -193,11 +193,16 @@ if test_gradient:
     #   rf(td0+h*dtd) - rf(td0) - < drf/dtd(rf0), h dtd> = O(h^2)
 
     # we choose the same starting layout but with a small perturbation
-    m0 = [Constant(float(x) + random.uniform(-r, r)) for xy in farm_options.turbine_coordinates for x in xy]
+    def perturbation(r):
+        dx = random.uniform(-r, r)
+        # ensure we use the same perturbation on all processes when parallel:
+        return mesh2d.comm.bcast(dx, 0)
+
+    m0 = [Constant(float(x) + perturbation(r)) for xy in farm_options.turbine_coordinates for x in xy]
 
     # the perturbation over which we test the Taylor approximation
     # (the taylor test below starts with a 1/100th of that, followed by a series of halvings
-    h0 = [Constant(random.uniform(-1, 1)) for xy in farm_options.turbine_coordinates for x in xy]
+    h0 = [Constant(perturbation(1)) for xy in farm_options.turbine_coordinates for x in xy]
 
     # this tests whether the above Taylor series residual indeed converges to zero at 2nd order in h as h->0
     minconv = taylor_test(rf, m0, h0)
