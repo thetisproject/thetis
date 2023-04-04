@@ -40,9 +40,9 @@ class TidalTurbine:
     def power(self, uv, depth):
         # ratio of discrete to upstream velocity (NOTE: should include support drag!)
         alpha = self.velocity_correction(uv, depth)
-        C_T = self.thrust_coefficient(uv)
         A_T = pi * self.diameter**2 / 4
         uv3 = dot(uv, uv)**1.5 / alpha**3  # upwind cubed velocity
+        C_T = self.thrust_coefficient(uv3**(1/3))
         # this assumes the velocity through the turbine does not change due to the support (is this correct?)
         return 0.25*C_T*A_T*(1+sqrt(1-C_T))*uv3
 
