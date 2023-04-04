@@ -25,7 +25,7 @@ File(outputdir + '/viscosity/viscosity.pvd').write(h_viscosity)
 
 
 # Turbine options
-turbine_thrust_def = 'table'  # 'table' or 'constant' (rated broken)
+turbine_thrust_def = 'table'  # 'table' or 'constant'
 include_support_structure = True
 speeds_AR2000 = [0., 0.75, 0.85, 0.95, 1., 3.05, 3.3, 3.55, 3.8, 4.05, 4.3, 4.55, 4.8, 5., 5.001, 5.05, 5.25, 5.5, 5.75,
                  6.0, 6.25, 6.5, 6.75, 7.0]
