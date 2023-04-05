@@ -85,14 +85,12 @@ if not hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
     options.timestep = 50.0
 options.discrete_tidal_turbine_farms[site_ID] = farm_options
 
-# Standard CrankNicolson solver settings to solve the shallow water PDEs are found in options.py and timeintegrator.py
-# We use pre-conditioning only rather than the default iterative Kyrlov subspace method with GMRES as it provides a
-# faster solve. In this case, the GMRES with a FieldSplit preconditioner (default) does not work, though LU
-# factorisation could be used for a slower solve if we still wanted to use GMRES.
-# Further information can be found in the PETSc SNES library documentation
+# Use direct solver instead of default iterative settings
+# (see SemiImplicitSWETimeStepperOptions2d in thetis/options.py)
+# to make it more robust for larger timesteps and low viscosity
 options.swe_timestepper_options.solver_parameters = {'ksp_type': 'preonly',
-                                                     'pc_type': 'lu'}
-
+                                                     'pc_type': 'lu',
+                                                     'pc_factor_mat_solver_type': 'mumps'}
 
 # Boundary conditions - steady state case
 left_tag = 1
