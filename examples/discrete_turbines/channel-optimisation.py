@@ -63,12 +63,20 @@ solver_obj.bnd_functions['shallow_water'] = {
     coasts_tag: freeslip_bc
 }
 
-# initialise discrete turbine farm characteristics
+# Define the thrust curve of the turbine using a tabulated approach:
+# thrusts_AR2000 contains the values for the thrust coefficient of an AR2000 tidal turbine at corresponding speeds in
+# speeds_AR2000 which have been determined using a curve fitting technique based on:
+# cut-in speed = 1m/s
+# rated speed = 3.05m/s
+# cut-out speed = 5m/s
+# There is a ramp up and down to cut-in and at cut-out speeds for model stability.
 speeds_AR2000 = [0., 0.75, 0.85, 0.95, 1., 3.05, 3.3, 3.55, 3.8, 4.05, 4.3, 4.55, 4.8, 5., 5.001, 5.05, 5.25, 5.5, 5.75,
                  6.0, 6.25, 6.5, 6.75, 7.0]
 thrusts_AR2000 = [0.010531, 0.032281, 0.038951, 0.119951, 0.516484, 0.516484, 0.387856, 0.302601, 0.242037, 0.197252,
                   0.16319, 0.136716, 0.115775, 0.102048, 0.060513, 0.005112, 0.00151, 0.00089, 0.000653, 0.000524,
                   0.000442, 0.000384, 0.000341, 0.000308]
+
+# initialise discrete turbine farm characteristics
 farm_options = DiscreteTidalTurbineFarmOptions()
 farm_options.turbine_type = 'table'
 farm_options.turbine_options.thrust_speeds = speeds_AR2000
@@ -103,7 +111,7 @@ solver_obj.assign_initial_conditions(uv=(as_vector((1e-3, 0.0))))
 
 # Operation of tidal turbine farm through a callback
 # This can be used for diagnostic output (to the log and hdf5 file)
-# but here is also used to define the functional that we optimised for
+# but here is also used to define the functional that we optimise for
 # through cb.integrated_power
 cb = turbines.TurbineFunctionalCallback(solver_obj)
 solver_obj.add_callback(cb, 'timestep')

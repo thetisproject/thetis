@@ -56,31 +56,6 @@ class ConstantThrustTurbine(TidalTurbine):
         return self.C_T
 
 
-class RatedThrustTurbine(TidalTurbine):
-    def __init__(self, options, upwind_correction=False):
-        super().__init__(options, upwind_correction=upwind_correction)
-        self.C_T = options.thrust_coefficient
-        self.rated_speed = options.rated_speed
-        self.cut_in_speed = options.cut_in_speed
-        self.cut_out_speed = options.cut_out_speed
-
-    def thrust_coefficient(self, uv):
-        umag = dot(uv, uv)**0.5
-        # C_P for |u|>u_rated:
-        y = self.C_T * (1+sqrt(1-self.C_T))/2 * self.cut_out_speed**3 / umag**3
-        # from this compute C_T s.t. C_P=C_T*(1+sqrt(1-C_T)/2, or
-        # equivalently: 4*C_P^2 - 4*C_T*C_P + C_T^3 = 0
-        # a cube root from this cubic equation is obtained using Cardano's formula
-        d = 4*y**4-64/27*y**3
-        C = (-d+4*y**4)**(1/6)
-        # the additiona 4pi/3 ensures we obtained the "right" cube with 0<C_T<0.85
-        C_T_rated = (C+4*y/(3*C)) * cos(atan_2(sqrt(-d), -2*y**2)/3 + 4*pi/3)
-
-        return conditional(umag < self.cut_in_speed, 0,
-                           conditional(umag < self.rated_speed, self.C_T,
-                                       conditional(umag < self.cut_out_speed, C_T_rated, 0)))
-
-
 def linearly_interpolate_table(x_list, y_list, y_final, x):
     """Return UFL expression that linearly interpolates between y-values in x-points
 
@@ -123,8 +98,6 @@ class TidalTurbineFarm:
         upwind_correction = getattr(options, 'upwind_correction', False)
         if options.turbine_type == 'constant':
             self.turbine = ConstantThrustTurbine(options.turbine_options, upwind_correction=upwind_correction)
-        elif options.turbine_type == 'rated':
-            self.turbine = RatedThrustTurbine(options.turbine_options, upwind_correction=upwind_correction)
         elif options.turbine_type == 'table':
             self.turbine = TabulatedThrustTurbine(options.turbine_options, upwind_correction=upwind_correction)
         self.dx = dx

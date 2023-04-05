@@ -475,20 +475,6 @@ class ConstantTidalTurbineOptions(TidalTurbineOptions):
         0.8, help='Thrust coefficient C_T').tag(config=True)
 
 
-class RatedTidalTurbineOptions(TidalTurbineOptions):
-    """Options for tidal turbine with analytical thrust based on rated speed"""
-    name = 'Rated tidal turbine options'
-    thrust_coefficient = PositiveFloat(
-        0.8, help='Thrust coefficient C_T').tag(config=True)
-    rated_speed = PositiveFloat(
-        3.0, help='Rated speed').tag(config=True)
-    cut_in_speed = NonNegativeFloat(
-        0.0, help='Cut-in speed').tag(config=True)
-    # a high default, so it's not normally applied
-    cut_out_speed = NonNegativeFloat(
-        100.0, help='Cut-out speed').tag(config=True)
-
-
 class TabulatedTidalTurbineOptions(TidalTurbineOptions):
     """Options for tidal turbine with tabulated thrust coefficient"""
     name = 'Tabulated tidal turbine options'
@@ -501,7 +487,6 @@ class TabulatedTidalTurbineOptions(TidalTurbineOptions):
 
 @attach_paired_options("turbine_type",
                        PairedEnum([('constant', ConstantTidalTurbineOptions),
-                                   ('rated', RatedTidalTurbineOptions),
                                    ('table', TabulatedTidalTurbineOptions),
                                    ],
                                   "turbine_options",
