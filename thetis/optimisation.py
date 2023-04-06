@@ -57,14 +57,14 @@ class UserExportManager(ExportManager):
         for field_name, function in zip(field_name_list, functions_to_export):
             field_dict[field_name] = function
             if shortnames is None and field_name in field_defs.field_metadata:
-                field_metadata[field_name] = {'shortname': field_defs.field_metadata[field_name]}
+                field_metadata[field_name] = {'shortname': field_defs.field_metadata[field_name]['shortname']}
             else:
                 field_metadata[field_name] = {'shortname': field_name}
 
         if filenames is None:
             for field_name in field_name_list:
                 if field_name in field_defs.field_metadata:
-                    field_metadata[field_name]['filename'] = field_defs.field_metadata['filename']
+                    field_metadata[field_name]['filename'] = filename_prefix + field_defs.field_metadata[field_name]['filename']
                 else:
                     field_metadata[field_name]['filename'] = filename_prefix + field_name
         else:
@@ -254,3 +254,37 @@ class FunctionalOptimisationCallback(DiagnosticOptimisationCallback):
 
     def message_str(self, functional):
         return 'Functional value: {}'.format(functional)
+
+
+class ConstantControlOptimisationCallback(DiagnosticOptimisationCallback):
+    """
+    OptimisationCallback that records the control values (which are assumed to be a list of Constants) in the log and/or hdf5 file."""
+    variable_names = ['controls']
+    name = 'controls'
+
+    def compute_values(self, *args):
+        controls = args[-1]
+        if self.array_dim != len(controls):
+            raise ValueError("Need array_dim argument in ConstantControlOptimisationCallback set to the number of controls")
+        return [[float(c) for c in controls]]
+
+    def message_str(self, *controls):
+        return 'Controls value: {}'.format(controls)
+
+
+class DerivativeConstantControlOptimisationCallback(DiagnosticOptimisationCallback):
+    """
+    OptimisationCallback that records the derivatives with respect to the controls, assumed to be a list of Constants, in the log and/or hdf5 file."""
+    variable_names = ['derivatives']
+    name = 'derivatives'
+
+    def compute_values(self, *args):
+        if len(args) != 3:
+            raise TypeError("DerivativesExportOptimsationCallback called with wrong number of arguments: should be used for derivative_cb_post callback only.")
+        derivatives = args[1]
+        if self.array_dim != len(derivatives):
+            raise ValueError("Need array_dim argument in ConstantControlOptimisationCallback set to the number of controls")
+        return [[float(d) for d in derivatives]]
+
+    def message_str(self, *derivatives):
+        return 'Derivatives: {}'.format(derivatives)

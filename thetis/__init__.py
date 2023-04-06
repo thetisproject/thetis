@@ -16,7 +16,7 @@ import thetis.optimisation  # NOQA
 import thetis.diagnostics  # NOQA
 from thetis._version import get_versions
 from thetis.assembledschur import AssembledSchurPC  # NOQA
-from thetis.options import TidalTurbineFarmOptions  # NOQA
+from thetis.options import TidalTurbineFarmOptions, DiscreteTidalTurbineFarmOptions  # NOQA
 import os  # NOQA
 import datetime  # NOQA
 import numpy  # NOQA
