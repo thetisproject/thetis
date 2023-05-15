@@ -610,8 +610,12 @@ def get_minimum_angles_2d(mesh2d):
         raise NotImplementedError("Minimum angle only currently implemented for triangles.")
     edge_lengths = get_facet_areas(mesh2d)
     min_angles = Function(FunctionSpace(mesh2d, "DG", 0))
-    par_loop("""for (int i=0; i<angle.dofs; i++) {
+    edge_cell_node_map = edge_lengths.function_space().cell_node_map()
+    min_angle_cell_node_map = min_angles.function_space().cell_node_map()
 
+    kernel = op2.Kernel("""
+        void minimum_angle_kernel(double *edges, double *angle) {
+            for (int i=0; i<%(nodes)d; i++) {
                   double min_edge = edges[0];
                   int min_index = 0;
 
@@ -634,7 +638,11 @@ def get_minimum_angles_2d(mesh2d):
                     }
                   }
                   angle[0] = acos(numerator/denominator);
-                }""", dx, {'edges': (edge_lengths, READ), 'angle': (min_angles, RW)})
+            }
+        }""" % {"nodes": edge_cell_node_map.arity}, "minimum_angle_kernel")
+    op2.par_loop(kernel, mesh2d.cell_set,
+                 edge_lengths.dat(op2.READ, edge_cell_node_map),
+                 min_angles.dat(op2.RW, min_angle_cell_node_map))
     return min_angles
 
 
@@ -650,10 +658,18 @@ def get_cell_widths_2d(mesh2d):
     except AssertionError:
         raise NotImplementedError("Cell widths only currently implemented for triangles.")
     cell_widths = Function(VectorFunctionSpace(mesh2d, "DG", 0)).assign(numpy.finfo(0.0).min)
-    par_loop("""for (int i=0; i<coords.dofs; i++) {
-                  widths[0] = fmax(widths[0], fabs(coords[2*i] - coords[(2*i+2)%6]));
-                  widths[1] = fmax(widths[1], fabs(coords[2*i+1] - coords[(2*i+3)%6]));
-                }""", dx, {'coords': (mesh2d.coordinates, READ), 'widths': (cell_widths, RW)})
+    coords_cell_node_map = mesh2d.coordinates.function_space().cell_node_map()
+    widths_cell_node_map = cell_widths.function_space().cell_node_map()
+    kernel = op2.Kernel("""
+        void cell_width_kernel(double *coords, double *widths) {
+            for (int i=0; i<%(nodes)d; i++) {
+                  widths[0] = fmax(widths[0], fabs(coords[2*i] - coords[(2*i+2)%%6]));
+                  widths[1] = fmax(widths[1], fabs(coords[2*i+1] - coords[(2*i+3)%%6]));
+            }
+        }""" % {"nodes": coords_cell_node_map.arity}, "cell_width_kernel")
+    op2.par_loop(kernel, mesh2d.cell_set,
+                 mesh2d.coordinates.dat(op2.READ, coords_cell_node_map),
+                 cell_widths.dat(op2.MAX, widths_cell_node_map))
     return cell_widths
 
 

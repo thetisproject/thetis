@@ -189,6 +189,11 @@ def test_minimum_angle(mesh2d):
     assert numpy.allclose(min_angle, pi/4)
 
 
+def test_cell_widths(mesh2d):
+    cell_width = utility.get_cell_widths_2d(mesh2d).dat.data
+    assert numpy.allclose(cell_width, 1./5)
+
+
 if __name__ == '__main__':
     """Run all tests"""
     import os
