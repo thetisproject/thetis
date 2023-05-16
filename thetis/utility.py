@@ -686,48 +686,19 @@ def anisotropic_cell_size(mesh):
     the advection-diffusion and the Stokes problems. SIAM Journal
     on Numerical Analysis 41.3: 1131-1162.
     """
-    try:
-        from firedrake.slate.slac.compiler import PETSC_ARCH
-    except ImportError:
-        PETSC_ARCH = os.path.join(os.environ.get('PETSC_DIR'), os.environ.get('PETSC_ARCH'))
-    include_dir = ["%s/include/eigen3" % PETSC_ARCH]
 
-    # Compute cell Jacobian
-    P0_ten = TensorFunctionSpace(mesh, "DG", 0)
-    J = Function(P0_ten, name="Cell Jacobian")
-    J.interpolate(Jacobian(mesh))
+    JTJ = dot(Jacobian(mesh).T, Jacobian(mesh))
 
-    # Compute minimum eigenvalue
+    # based on https://github.com/michalhabera/dolfiny/blob/master/dolfiny/invariants.py
+    I1 = JTJ[0, 0] + JTJ[1, 1]
+    D = (JTJ[0, 0] - JTJ[1, 1])**2 + 4 * JTJ[0, 1] * JTJ[1, 0]
+    D += numpy.finfo(float).eps
+
+    # Compute smallest singular value of J
     P0 = FunctionSpace(mesh, "DG", 0)
-    min_evalue = Function(P0, name="Minimum eigenvalue")
-    kernel_str = """
-#include <Eigen/Dense>
-
-using namespace Eigen;
-
-void eigmin(double minEval[1], const double * J_) {
-
-  // Map input onto an Eigen object
-  Map<Matrix<double, 2, 2, RowMajor> > J((double *)J_);
-
-  // Compute J^T * J
-  Matrix<double, 2, 2, RowMajor> A = J.transpose()*J;
-
-  // Solve eigenvalue problem
-  SelfAdjointEigenSolver<Matrix<double, 2, 2, RowMajor>> eigensolver(A);
-  Vector2d D = eigensolver.eigenvalues();
-
-  // Take the square root
-  double lambda1 = sqrt(fabs(D(0)));
-  double lambda2 = sqrt(fabs(D(1)));
-
-  // Select minimum eigenvalue in modulus
-  minEval[0] = fmin(lambda1, lambda2);
-}
-"""
-    kernel = op2.Kernel(kernel_str, 'eigmin', cpp=True, include_dirs=include_dir)
-    op2.par_loop(kernel, P0_ten.node_set, min_evalue.dat(op2.RW), J.dat(op2.READ))
-    return min_evalue
+    cell_size = Function(P0, name="Smallest singular value")
+    cell_size.interpolate(sqrt((I1-sqrt(D))/2.))
+    return cell_size
 
 
 def beta_plane_coriolis_params(latitude):
