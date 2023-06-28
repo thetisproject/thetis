@@ -15,8 +15,34 @@ from firedrake import *
 from .callback import DiagnosticCallback
 from .exporter import ExportManager
 import thetis.field_defs as field_defs
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 import numpy
+
+
+class OptimisationCallback(ABC):
+    """Base class for callback that can be used as callbacks of a :class:`ReducedFunctional`
+
+    Called at various stages during the optimisation process:
+    - eval_cb_pre(controls) and eval_cb_post(functional, controls)                    called before and after (re)evaluation of the forward model
+    - derivative_cb_pre(controls) and eval_cb_post(functional, derivative, controls)  called before and after the gradient computation using the adjoint of the model
+    - hessian_cb_pre(controls) and eval_cb_post(functional, derivative, controls)     called before and after the hessian computation
+    OptimisationCallbacks that (can) use controls, functional and derivative information, work out
+    what is provided by the number of arguments: current control values are always in the last argument;
+    if more than 2 arguments are provided, the first is the latest evaluated functional value.
+    """
+    @abstractmethod
+    def callback(self, *args):
+        pass
+
+    def __call__(self, *args):
+        self.callback(*args)
+
+        # if used as derivative callback, we need to return the derivatives (args[1]) or the controls (args[0]) for resp. the post or pre callback
+        # for other callbacks it doesn't matter what we return
+        if len(args) > 1:
+            return args[1]
+        else:
+            return args[0]
 
 
 class UserExportManager(ExportManager):
@@ -116,7 +142,7 @@ class DeferredExportManager(object):
         self.export_manager.export()
 
 
-class UserExportOptimisationCallback(UserExportManager):
+class UserExportOptimisationCallback(UserExportManager, OptimisationCallback):
     """A :class:`.UserExportManager` that can be used as a :class:`ReducedFunctional` callback
 
     Any callback arguments (functional value, derivatives, controls) are ignored"""
@@ -133,7 +159,7 @@ class UserExportOptimisationCallback(UserExportManager):
         # that determine what will be written
         self.orig_functions = self.functions.copy()
 
-    def __call__(self, *args):
+    def callback(self, *args):
         """
         Ensure the :class:`.UserExportManager` uses the checkpointed values and call its export().
 
@@ -143,7 +169,7 @@ class UserExportOptimisationCallback(UserExportManager):
         self.export()
 
 
-class ControlsExportOptimisationCallback(DeferredExportManager):
+class ControlsExportOptimisationCallback(DeferredExportManager, OptimisationCallback):
     """A callback that exports the current control values (assumed to all be :class:`Function` s)
 
     The control values are assumed to be the last argument in the callback (as for all :class:`ReducedFunctional` callbacks)."""
@@ -155,11 +181,11 @@ class ControlsExportOptimisationCallback(DeferredExportManager):
         kwargs.setdefault('filename_prefix', 'control_')
         super().__init__(solver_obj_or_outputdir, **kwargs)
 
-    def __call__(self, *args):
+    def callback(self, *args):
         self.export(args[-1])
 
 
-class DerivativesExportOptimisationCallback(DeferredExportManager):
+class DerivativesExportOptimisationCallback(DeferredExportManager, OptimisationCallback):
     """A callback that exports the derivatives calculated by the adjoint.
 
     The derivatives are assumed to be the second argument in the callback. This can therefore
@@ -172,9 +198,9 @@ class DerivativesExportOptimisationCallback(DeferredExportManager):
         kwargs.setdefault('filename_prefix', 'derivative_')
         super().__init__(solver_obj_or_outputdir, **kwargs)
 
-    def __call__(self, *args):
+    def callback(self, *args):
         if len(args) != 3:
-            raise TypeError("DerivativesExportOptimsationCallback called with wrong number of arguments: should be used for derivative_cb_post callback only.")
+            raise TypeError("DerivativesExportOptimisationCallback called with wrong number of arguments: should be used for derivative_cb_post callback only.")
         try:
             # get name from controls args[-1]
             names = [function.name() for function in args[-1]]
@@ -184,19 +210,19 @@ class DerivativesExportOptimisationCallback(DeferredExportManager):
         self.export(args[1], suggested_names=names)
 
 
-class OptimisationCallbackList(list):
+class OptimisationCallbackList(list, OptimisationCallback):
     """
     A list of callbacks that can be used as a single callback itself.
 
     Calls all callbacks in order."""
-    def __call__(self, *args):
-        for callback in self:
-            callback(*args)
+    def callback(self, *args):
+        for cb in self:
+            cb(*args)
 
 
-class DiagnosticOptimisationCallback(DiagnosticCallback):
+class DiagnosticOptimisationCallback(OptimisationCallback, DiagnosticCallback):
     """
-    An OptimsationCallback similar to :class:`.DiagnosticCallback` that can be used as callback in a :class:`ReducedFunctional`.
+    An OptimisationCallback similar to :class:`.DiagnosticCallback` that can be used as callback in a :class:`ReducedFunctional`.
 
     Note that in this case the computing of the values needs to be defined in the compute_values method,
     not in the __call__ method (as this one is directly called from the :class:`ReducedFunctional`). In addition,
@@ -237,7 +263,7 @@ class DiagnosticOptimisationCallback(DiagnosticCallback):
         if self.append_to_hdf5:
             self.push_to_hdf5(functional, values)
 
-    def __call__(self, *args):
+    def callback(self, *args):
         self.evaluate(*args)
 
 
@@ -280,7 +306,7 @@ class DerivativeConstantControlOptimisationCallback(DiagnosticOptimisationCallba
 
     def compute_values(self, *args):
         if len(args) != 3:
-            raise TypeError("DerivativesExportOptimsationCallback called with wrong number of arguments: should be used for derivative_cb_post callback only.")
+            raise TypeError("DerivativesExportOptimisationCallback called with wrong number of arguments: should be used for derivative_cb_post callback only.")
         derivatives = args[1]
         if self.array_dim != len(derivatives):
             raise ValueError("Need array_dim argument in ConstantControlOptimisationCallback set to the number of controls")
