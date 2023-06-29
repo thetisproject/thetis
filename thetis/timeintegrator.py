@@ -89,8 +89,6 @@ class TimeIntegrator(TimeIntegratorBase):
         """
         Create a copy of fields dictionary to store beginning of timestep values
         """
-        self._legacy_constants = isinstance(Constant(0.0, domain=self.solution.ufl_domain()), Constant)
-
         # create functions to hold the values of previous time step
         self.fields_old = {}
         for k in sorted(self.fields):
@@ -99,14 +97,18 @@ class TimeIntegrator(TimeIntegratorBase):
                     self.fields_old[k] = Function(
                         self.fields[k].function_space())
                 elif isinstance(self.fields[k], Constant):
-                    if self._legacy_constants:
-                        self.fields_old[k] = Constant(self.fields[k])
-                    else:
-                        self.fields_old[k] = self.fields[k]
+                    # Although Constants may be changed by the user, we just
+                    # use the same value here, as assigning to domain-less Constants
+                    # causes issues in the adjoint. Constants with a domain, created by Constaint(.., domain=...),
+                    # are now just Functions on the Real space, so are dealt with under isinstance(..., Function)
+                    self.fields_old[k] = self.fields[k]
 
     def update_fields_old(self):
+        """
+        Update the values of fields_old with those of fields
+        """
         for k in sorted(self.fields):
-            if isinstance(self.fields[k], Function) or self._legacy_constants:
+            if isinstance(self.fields[k], Function):
                 self.fields_old[k].assign(self.fields[k])
 
 
