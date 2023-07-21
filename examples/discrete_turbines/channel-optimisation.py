@@ -91,7 +91,7 @@ site_y_start = 80.
 r = farm_options.turbine_options.diameter/2.
 
 # a list contains the coordinates of all turbines: regular, non-staggered 4 x 2 layout
-farm_options.turbine_coordinates = [[Constant(x+cos(y)), Constant(y+numpy.sin(x))]
+farm_options.turbine_coordinates = [[Constant(x+cos(y), domain=mesh2d), Constant(y+numpy.sin(x), domain=mesh2d)]
                                     for x in np.linspace(site_x_start + 4*r, site_x_start + site_x - 4*r, 4)
                                     for y in np.linspace(site_y_start + 0.5*site_y-2*r,
                                                          site_y_start + 0.5*site_y+2*r, 2)]
@@ -166,7 +166,8 @@ def eval_cb_pre(controls):
 
 def derivative_cb_pre(controls):
     print_output("ADJOINT RUN:")
-    print_output("positions: {}".format([float(c_) for c_ in controls]))
+    print_output("positions: {}".format([float(c_.data()) for c_ in controls]))
+    return controls
 
 
 # this reduces the functional J(u, m) to a function purely of the control m:
@@ -196,11 +197,11 @@ if test_gradient:
         # ensure we use the same perturbation on all processes when parallel:
         return mesh2d.comm.bcast(dx, 0)
 
-    m0 = [Constant(float(x) + perturbation(r)) for xy in farm_options.turbine_coordinates for x in xy]
+    m0 = [Constant(float(x) + perturbation(r), domain=mesh2d) for xy in farm_options.turbine_coordinates for x in xy]
 
     # the perturbation over which we test the Taylor approximation
     # (the taylor test below starts with a 1/100th of that, followed by a series of halvings
-    h0 = [Constant(perturbation(1)) for xy in farm_options.turbine_coordinates for x in xy]
+    h0 = [Constant(perturbation(1), domain=mesh2d) for xy in farm_options.turbine_coordinates for x in xy]
 
     # this tests whether the above Taylor series residual indeed converges to zero at 2nd order in h as h->0
     minconv = taylor_test(rf, m0, h0)

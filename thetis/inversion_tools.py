@@ -47,7 +47,7 @@ class InversionManager(FrozenHasTraits):
         self.real = real
         self.penalty_parameters = penalty_parameters
         self.cost_function_scaling = cost_function_scaling or fd.Constant(1.0)
-        self.sta_manager.cost_function_scaling.assign(cost_function_scaling)
+        self.sta_manager.cost_function_scaling = self.cost_function_scaling
         self.test_consistency = test_consistency
         self.test_gradient = test_gradient
         self.outfiles_m = []
@@ -207,6 +207,7 @@ class InversionManager(FrozenHasTraits):
         def gradient_eval_cb(j, djdm, m):
             self.set_control_state(j, djdm, m)
             self.nb_grad_evals += 1
+            return djdm
 
         params = {
             'derivative_cb_post': gradient_eval_cb,
@@ -475,6 +476,8 @@ class StationObservationManager:
         self.mod_values_0d = fd.Function(self.fs_points_0d, name='model values')
         self.indicator_0d = fd.Function(self.fs_points_0d, name='station use indicator')
         self.indicator_0d.assign(1.0)
+        self.cost_function_scaling_0d = fd.Constant(0.0, domain=mesh0d)
+        self.cost_function_scaling_0d.assign(self.cost_function_scaling)
         self.station_weight_0d = fd.Function(self.fs_points_0d, name='station-wise weighting')
         self.station_weight_0d.assign(1.0)
         interp_kw = {}
@@ -544,7 +547,7 @@ class StationObservationManager:
         # compute square error
         self.obs_values_0d.assign(obs_func)
         self.mod_values_0d.interpolate(self.model_observation_field, ad_block_tag='observation')
-        s = self.cost_function_scaling * self.indicator_0d * self.station_weight_0d
+        s = self.cost_function_scaling_0d * self.indicator_0d * self.station_weight_0d
         self.J_misfit = fd.assemble(s * self.misfit_expr ** 2 * fd.dx, ad_block_tag='misfit_eval')
         return self.J_misfit
 
