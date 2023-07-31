@@ -6,6 +6,7 @@ import netCDF4
 import os
 import scipy.interpolate as si
 import numpy
+import types
 
 # Setup zones
 sim_tz = timezone.pytz.utc
@@ -22,7 +23,8 @@ def read_station_data():
         corresponding region code used in the CMEMS
         database
     """
-    with open("stations_elev.csv", "r") as csvfile:
+    pwd = os.path.abspath(os.path.dirname(__file__))
+    with open(os.path.join(pwd, "stations_elev.csv"), "r") as csvfile:
         stations = {
             d["name"]: {
                 "latlon": (float(d["latitude"]), float(d["longitude"])),
@@ -74,20 +76,18 @@ def construct_solver(spinup=False, store_station_time_series=True, **model_optio
         simulation and a function for updating forcings
     """
 
+    pwd = os.path.abspath(os.path.dirname(__file__))
+    h5_file_name = os.path.join(pwd, "north_sea_bathymetry.h5")
+    with CheckpointFile(h5_file_name, "r") as f:
+        mesh2d = f.load_mesh("firedrake_default")
+        bathymetry_2d = f.load_function(mesh2d, "Bathymetry")
+
     # Setup mesh and lonlat coords
-    mesh2d = Mesh("north_sea.msh")
     lonlat = coord_system.get_mesh_lonlat_function(mesh2d)
     lon, lat = lonlat
 
-    # Setup bathymetry
-    P1_2d = get_functionspace(mesh2d, "CG", 1)
-    bathymetry_2d = Function(P1_2d, name="Bathymetry")
-    with CheckpointFile("north_sea_bathymetry.h5", "r") as f:
-        m = f.load_mesh("firedrake_default")
-        g = f.load_function(m, "Bathymetry")
-        bathymetry_2d.assign(g)
-
     # Setup Manning friction
+    P1_2d = get_functionspace(mesh2d, "CG", 1)
     manning_2d = Function(P1_2d, name="Manning coefficient")
     manning_2d.assign(3.0e-02)
 
@@ -101,11 +101,11 @@ def construct_solver(spinup=False, store_station_time_series=True, **model_optio
     default_end_date = datetime.datetime(2022, 1, 2, tzinfo=sim_tz)
     start_date = model_options.pop("start_date", default_start_date)
     end_date = model_options.pop("end_date", default_end_date)
+    if os.getenv("THETIS_REGRESSION_TEST") is not None:
+        end_date = datetime.datetime(2022, 1, 1, 3, tzinfo=sim_tz)
     dt = 3600.0
     t_export = 3600.0
     t_end = (end_date - start_date).total_seconds()
-    if os.getenv("THETIS_REGRESSION_TEST") is not None:
-        t_end = 5 * t_export
 
     # Create solver
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
@@ -152,23 +152,33 @@ def construct_solver(spinup=False, store_station_time_series=True, **model_optio
             )
             solver_obj.add_callback(cb)
 
-    # Setup forcings
-    data_dir = os.path.join(os.environ.get("DATA", "./data"), "tpxo")
-    if not os.path.exists(data_dir):
-        raise IOError(f"Data directory {data_dir} does not exist")
-    forcing_constituents = ["Q1", "O1", "P1", "K1", "N2", "M2", "S2", "K2"]
     elev_tide_2d = Function(solver_obj.function_spaces.P1_2d, name="Tidal elevation")
-    tbnd = forcing.TPXOTidalBoundaryForcing(
-        elev_tide_2d,
-        start_date,
-        coord_system,
-        data_dir=data_dir,
-        constituents=forcing_constituents,
-        boundary_ids=[100],
-    )
+    if os.getenv("THETIS_REGRESSION_TEST") is None:
+        # Setup forcings
+        data_dir = os.path.join(os.environ.get("DATA", "./data"), "tpxo")
+        if not os.path.exists(data_dir):
+            raise IOError(f"Data directory {data_dir} does not exist")
+        forcing_constituents = ["Q1", "O1", "P1", "K1", "N2", "M2", "S2", "K2"]
+        tbnd = forcing.TPXOTidalBoundaryForcing(
+            elev_tide_2d,
+            start_date,
+            coord_system,
+            data_dir=data_dir,
+            constituents=forcing_constituents,
+            boundary_ids=[100],
+        )
 
-    # Set time to zero for the tidal forcings
-    tbnd.set_tidal_field(0.0)
+        # Set time to zero for the tidal forcings
+        tbnd.set_tidal_field(0.0)
+    else:
+        # for CI testing setup dummy tbnd
+        elev_tide_2d.assign(1.)
+
+        def set_tidal_field(t):
+            pass
+
+        tbnd = types.SimpleNamespace()
+        tbnd.set_tidal_field = set_tidal_field
 
     # Account for spinup
     bnd_time = Constant(0.0)

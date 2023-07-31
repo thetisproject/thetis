@@ -49,7 +49,6 @@ exclude_files = [
     'north_sea/model_config.py',
     'north_sea/plot_elevation.py',
     'north_sea/plot_setup.py',
-    'north_sea/spinup.py',
     'north_sea/run.py',
 ]
 
