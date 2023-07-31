@@ -170,7 +170,7 @@ class HDF5Exporter(ExporterBase):
         :arg int iexport: export index >= 0
         :arg function: :class:`Function` to export
         """
-        assert function.function_space() == self.function_space,\
+        assert function.function_space() == self.function_space, \
             'Function space does not match'
         filename = self.gen_filename(iexport)
         if self.verbose:
@@ -204,7 +204,7 @@ class HDF5Exporter(ExporterBase):
         :arg int iexport: export index >= 0
         :arg function: target :class:`Function`
         """
-        assert function.function_space() == self.function_space,\
+        assert function.function_space() == self.function_space, \
             'Function space does not match'
         filename = self.gen_filename(iexport)
         if self.verbose:
