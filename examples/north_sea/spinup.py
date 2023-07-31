@@ -15,7 +15,6 @@ solver_obj, start_time, update_forcings = construct_solver(
     fields_to_export_hdf5=["elev_2d", "uv_2d"],
     simulation_export_time=24 * 3600.0,
 )
-output_dir = solver_obj.options.output_directory
 solver_obj.assign_initial_conditions()
 update_forcings(0.0)
 
