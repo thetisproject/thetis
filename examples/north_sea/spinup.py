@@ -4,7 +4,9 @@ from model_config import *
 
 
 # Setup solver
+mesh2d = read_mesh_from_checkpoint('north_sea_bathymetry.h5')
 solver_obj, start_time, update_forcings = construct_solver(
+    mesh2d,
     output_directory="outputs_spinup",
     spinup=True,
     start_date=datetime.datetime(2022, 1, 1, tzinfo=sim_tz),
@@ -14,7 +16,6 @@ solver_obj, start_time, update_forcings = construct_solver(
     simulation_export_time=24 * 3600.0,
 )
 output_dir = solver_obj.options.output_directory
-mesh2d = solver_obj.mesh2d
 solver_obj.assign_initial_conditions()
 update_forcings(0.0)
 

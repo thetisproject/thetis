@@ -248,6 +248,32 @@ def create_directory(path, comm=COMM_WORLD):
     return path
 
 
+def read_mesh_from_checkpoint(filename, mesh_name=None):
+    """
+    Read mesh from a hdf5 checkpoint file.
+
+    When loading fields from a checkpoint file in a run, the mesh used in that
+    run needs to be read from that same checkpoint file. When multiple
+    checkpoint files are used as inputs to the model that have been created in
+    separate runs/scripts, make sure that only one of those scripts created the
+    original mesh by reading a .msh file or using a mesh creation utility like
+    RectangleMesh, and all other script read their mesh from the checkpoint
+    created by that first script.  For example, a preprocessing script might
+    read in a .msh file and interpolate and smoothen the bathymetry on that mesh
+    and write out the result in a checkpoint. A first Thetis run should read
+    its mesh from that checkpoint, and may then save a series of hdf5 files.
+    A second Thetis run can then read in the mesh and bathymetry from
+    the checkpoint of the preprocessing script, and call load_state()
+    to pick up from the previous run.
+    """
+    with CheckpointFile(filename, 'r') as f:
+        if mesh_name is None:
+            mesh_name = 'firedrake_default'
+        mesh = f.load_mesh(mesh_name)
+
+    return mesh
+
+
 @PETSc.Log.EventDecorator("thetis.get_facet_mask")
 def get_facet_mask(function_space, facet='bottom'):
     """

@@ -3,7 +3,9 @@ import time as time_mod
 from model_config import *
 
 
+mesh2d = read_mesh_from_checkpoint('north_sea_bathymetry.h5')
 solver_obj, start_time, update_forcings = construct_solver(
+    mesh2d,
     start_date=datetime.datetime(2022, 1, 15, tzinfo=sim_tz),
     end_date=datetime.datetime(2022, 1, 18, tzinfo=sim_tz),
 )

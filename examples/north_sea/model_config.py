@@ -53,20 +53,21 @@ def interpolate_bathymetry(bathymetry_2d, dataset="etopo1", cap=10.0):
         interp = si.RectBivariateSpline(
             nc.variables["lat"][:],  # latitude
             nc.variables["lon"][:],  # longitude
-            nc.variables["Band1"][:, :],  # elevation
+            nc.variables["z"][:, :],  # elevation
         )
 
     # Interpolate at mesh vertices
     lonlat_func = coord_system.get_mesh_lonlat_function(mesh)
     lon, lat = lonlat_func.dat.data_ro.T
-    bathymetry_2d.dat.data[:] = numpy.maximum(-interp(lat, lon), cap)
+    bathymetry_2d.dat.data[:] = numpy.maximum(-interp(lat, lon, grid=False), cap)
 
 
-def construct_solver(spinup=False, store_station_time_series=True, **model_options):
+def construct_solver(mesh2d, spinup=False, store_station_time_series=True, **model_options):
     """
     Construct a :class:`FlowSolver2d` instance for inverse modelling
     in the North Sea.
 
+    :kwarg mesh2d: 2D mesh to use
     :kwarg spinup: is this a spin-up run, or a subsequent simulation?
     :kwarg store_station_time_series: should gauge measurements be
         stored to disk?
@@ -75,7 +76,6 @@ def construct_solver(spinup=False, store_station_time_series=True, **model_optio
     """
 
     # Setup mesh and lonlat coords
-    mesh2d = Mesh("north_sea.msh")
     lonlat = coord_system.get_mesh_lonlat_function(mesh2d)
     lon, lat = lonlat
 
@@ -83,8 +83,7 @@ def construct_solver(spinup=False, store_station_time_series=True, **model_optio
     P1_2d = get_functionspace(mesh2d, "CG", 1)
     bathymetry_2d = Function(P1_2d, name="Bathymetry")
     with CheckpointFile("north_sea_bathymetry.h5", "r") as f:
-        m = f.load_mesh("firedrake_default")
-        g = f.load_function(m, "Bathymetry")
+        g = f.load_function(mesh2d, "Bathymetry")
         bathymetry_2d.assign(g)
 
     # Setup Manning friction

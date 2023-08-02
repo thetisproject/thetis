@@ -38,7 +38,10 @@ def bottom_friction_test(layers=25, gls_closure='k-omega',
     lx = nx*dx
     ny = 3  # nb elements in cross direction
     ly = ny*dx
-    mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x', reorder=True)
+    if load_export_ix:
+        mesh2d = read_mesh_from_checkpoint(outputdir + '/hdf5/Velocity2d_00000.h5')
+    else:
+        mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x', reorder=True)
 
     dt = 25.0
     t_end = 12 * 3600.0  # sufficient to reach ~steady state

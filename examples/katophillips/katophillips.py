@@ -50,7 +50,10 @@ def katophillips_test(layers=25, gls_closure='k-omega',
     lx = nx*dx
     ny = 3  # nb elements in cross direction
     ly = ny*dx
-    mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='both', reorder=True)
+    if load_export_ix:
+        mesh2d = read_mesh_from_checkpoint(outputdir + '/hdf5/Velocity2d_00000.h5')
+    else:
+        mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='both', reorder=True)
     # move mesh, center to (0,0)
     mesh2d.coordinates.dat.data[:, 0] -= lx/2
     mesh2d.coordinates.dat.data[:, 1] -= ly/2
