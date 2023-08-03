@@ -22,7 +22,7 @@ def bottom_ekman_test(layers=50, verify=True, iterate=True,
     ny = 3
     ly = ny*dx
     if load_export_ix:
-        mesh2d = read_mesh_from_checkpoint(outputdir + '/hdf5/Velocity2d_00000.h5')
+        mesh2d = read_mesh_from_checkpoint(outputdir)
     else:
         mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='both',
                                        reorder=True)

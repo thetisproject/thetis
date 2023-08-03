@@ -21,7 +21,7 @@ conservative = False
 
 # We pick up from a checkpoint file produced by trench_hydro.
 # Therefore, we have to read the mesh from it as well
-mesh2d = read_mesh_from_checkpoint('outputs_hydro/hdf5/Velocity2d_0000.h5')
+mesh2d = read_mesh_from_checkpoint('outputs_hydro')
 
 x, y = SpatialCoordinate(mesh2d)
 
