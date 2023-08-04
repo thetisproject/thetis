@@ -98,15 +98,17 @@ Restarting a simulation
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 If you have stored the required HDF5 files, you can continue a simulation
-using :py:meth:`~.FlowSolver.load_state` method, provided that you use the same
-mesh and the same number of MPI processes. This call replaces the
+using :py:meth:`~.FlowSolver.load_state` method, provided that you use the
+mesh from that checkpoint file. This call replaces the
 :py:meth:`~.FlowSolver.assign_initial_conditions` call.
 If initial conditions are not set, add ``load_state`` call above
 the :py:meth:`~.FlowSolver.iterate` call.
 
-In the simplest form, one only defines the export index that is used as initial
-condition::
+In the simplest form, the mesh needs to be loaded from a HDF5 checkpointfile
+and then the index given to the :py:meth:`~.FlowSolver.load_state` method::
 
+    mesh2d = read_mesh_from_checkpoint(outputdir)
+    ...set-up the thetis solver object with mesh2d...
     solver_obj.load_state(155)
 
 This also loads simulation time from the stored state.
