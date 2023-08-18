@@ -1,5 +1,5 @@
 from thetis import *
-from firedrake_adjoint import *
+from firedrake.adjoint import *
 import numpy
 import thetis.inversion_tools as inversion_tools
 from model_config import construct_solver
@@ -30,6 +30,9 @@ no_exports = os.getenv('THETIS_REGRESSION_TEST') is not None
 # Set output directory
 pwd = os.path.abspath(os.path.dirname(__file__))
 output_dir = f'{pwd}/outputs_new_' + '-'.join(controls) + '-opt'
+
+# annotate all Firedrake operations of the forward run
+continue_annotation()
 
 # Create the solver object
 # NOTE We disable all exports here as they would only be active during

@@ -2,8 +2,7 @@
 Basic example of discrete turbine optimisation in a channel
 """
 from thetis import *
-# this import automatically starts the annotation:
-from firedrake_adjoint import *
+from firedrake.adjoint import *
 from pyadjoint import minimize
 import numpy as np
 import random
@@ -17,6 +16,9 @@ if os.getenv('THETIS_REGRESSION_TEST') is not None:
 else:
     test_gradient = False
     optimise = True
+
+# annotate all Firedrake operations of the model run
+continue_annotation()
 
 # ---- set up the Thetis solver obj as usual ---- #
 if not os.path.exists('mesh.msh'):

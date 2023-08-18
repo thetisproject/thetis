@@ -1,5 +1,5 @@
 from thetis import *
-from firedrake_adjoint import *
+from firedrake.adjoint import *
 import thetis.inversion_tools as inversion_tools
 from model_config import *
 import argparse
@@ -36,6 +36,9 @@ no_regularization = args.no_regularization
 do_consistency_test = not args.no_consistency_test
 do_taylor_test = not args.no_taylor_test
 suffix = args.suffix
+
+# annotate all Firedrake operations of the forward run
+continue_annotation()
 
 # Setup initial condition
 pwd = os.path.abspath(os.path.dirname(__file__))
