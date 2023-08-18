@@ -1,5 +1,5 @@
 import firedrake as fd
-from firedrake_adjoint import *
+from firedrake.adjoint import *
 import ufl
 from .configuration import FrozenHasTraits
 from .solver2d import FlowSolver2d

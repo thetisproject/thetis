@@ -20,9 +20,11 @@ the forward model and automatically derives the adjoint.
 """
 
 from thetis import *
-# this import automatically starts the annotation:
-from firedrake_adjoint import *
+from firedrake.adjoint import *
 op2.init(log_level=INFO)
+
+# start annotating all Firedrake opterations in the forward model
+continue_annotation()
 
 # setup the Thetis solver obj as usual:
 mesh2d = Mesh('headland.msh')
@@ -72,7 +74,7 @@ right_tag = 2
 coasts_tag = 3
 tidal_elev = Function(get_functionspace(mesh2d, "CG", 1), name='tidal_elev')
 tidal_elev_bc = {'elev': tidal_elev}
-# noslip currently doesn't work (vector Constants are broken in firedrake_adjoint)
+# noslip currently doesn't work (vector Constants are broken in firedrake adjoint)
 freeslip_bc = {'un': Constant(0.0)}
 solver_obj.bnd_functions['shallow_water'] = {
     left_tag: tidal_elev_bc,
@@ -127,7 +129,7 @@ cb = turbines.TurbineFunctionalCallback(solver_obj)
 solver_obj.add_callback(cb, 'timestep')
 
 
-# run as normal (this run will be annotated by firedrake_adjoint)
+# run as normal (this run will be annotated by firedrake adjoint)
 solver_obj.assign_initial_conditions(uv=as_vector((1e-7, 0.0)), elev=tidal_elev)
 solver_obj.iterate(update_forcings=update_forcings)
 

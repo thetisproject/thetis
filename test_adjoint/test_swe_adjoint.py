@@ -1,15 +1,17 @@
 """
 Tests whether we can compute a consistent gradient of some functional
 based on the forward model with respect to the bottom friction
-via firedrake_adjoint.
+via firedrake adjoint.
 
 Stephan Kramer 25-05-16
 """
 import pytest
 from thetis import *
-from firedrake_adjoint import *
+from firedrake.adjoint import *
 
 op2.init(log_level=INFO)
+
+continue_annotation()
 
 velocity_u = 2.0
 
