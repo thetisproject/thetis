@@ -214,12 +214,9 @@ class HDF5Exporter(ExporterBase):
                 f.load(function)
         else:
             with CheckpointFile(filename, 'r') as f:
-                if not f._get_mesh_name_topology_name_map():
-                    raise IOError(f'File "{filename}" does not contain mesh topology, try loading it with the legacy DumbCheckpoint option?')
-                mesh_name = function.function_space().mesh().name
-                if mesh_name is None:
-                    mesh_name = 'firedrake_default'
-                mesh = f.load_mesh(mesh_name)
+                mesh = function.function_space().mesh()
+                if not hasattr(mesh, 'sfXC'):
+                    raise IOError('When loading fields from hdf5 checkpoint files, you should also read the mesh from checkpoint. See the documentation for `read_mesh_from_checkpoint()`')
                 g = f.load_function(mesh, function.name())
                 function.assign(g)
 

@@ -2,6 +2,7 @@
 Utility functions and classes for 2D and 3D ocean models
 """
 import os
+import glob
 import sys
 from collections import OrderedDict, namedtuple  # NOQA
 
@@ -246,6 +247,48 @@ def create_directory(path, comm=COMM_WORLD):
             os.makedirs(path)
     comm.barrier()
     return path
+
+
+def read_mesh_from_checkpoint(filename_or_outputdir, mesh_name=None):
+    """
+    Read mesh from a hdf5 checkpoint file.
+    :arg filename_or_outputdir: file name of the hdf5 checkpoint file,
+       or the output directory used in the previous run that create the
+       checkpoint. In the latter case the mesh will be read from the
+       first file that's found in outputdir/hdf5/*.h5
+
+    When loading fields from a checkpoint file in a run, the mesh used in that
+    run needs to be read from that same checkpoint file.
+
+    When multiple checkpoint files are used as model inputs which have
+    been created in separate runs/scripts, make sure that only one of those
+    scripts created the original mesh (by reading a .msh file or using a mesh
+    creation utility like RectangleMesh) and all other script read their mesh
+    from the checkpoint created by that first script.  For example, a
+    preprocessing script might read in a .msh file and interpolate and smoothen
+    the bathymetry on that mesh and write out the result in a checkpoint. A
+    first Thetis run should read its mesh from that checkpoint, and may then
+    save a series of hdf5 files.  A second Thetis run can then read in the mesh
+    and bathymetry from the checkpoint of the preprocessing script, and call
+    load_state() to pick up from the previous run.
+    """
+    if os.path.isdir(filename_or_outputdir):
+        # grab the first outputdir/hdf5/*.h5 file we can find
+        path = os.path.join(filename_or_outputdir, 'hdf5', '*.h5')
+        try:
+            filename = next(glob.iglob(path))
+        except StopIteration:
+            raise IOError(f'No checkpoint files found in {path}')
+    else:
+        # assume we're being pointed to the hdf5 file directly
+        filename = filename_or_outputdir
+
+    with CheckpointFile(filename, 'r') as f:
+        if mesh_name is None:
+            mesh_name = 'firedrake_default'
+        mesh = f.load_mesh(mesh_name)
+
+    return mesh
 
 
 @PETSc.Log.EventDecorator("thetis.get_facet_mask")

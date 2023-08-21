@@ -237,7 +237,7 @@ class TurbineOptimisationCallback(DiagnosticOptimisationCallback):
 class MinimumDistanceConstraints(pyadjoint.InequalityConstraint):
     """This class implements minimum distance constraints between turbines.
 
-    .. note:: This class subclasses `pyadjoint.InequalityConstraint`_. The
+    .. note:: This class subclasses ``pyadjoint.InequalityConstraint``. The
         following methods must be implemented:
 
         * ``length(self)``

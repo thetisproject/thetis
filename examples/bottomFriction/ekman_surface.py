@@ -20,8 +20,11 @@ def surface_ekman_test(layers=50, verify=True, iterate=True,
     lx = nx*dx
     ny = 3
     ly = ny*dx
-    mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='both',
-                                   reorder=True)
+    if load_export_ix:
+        mesh2d = read_mesh_from_checkpoint(outputdir)
+    else:
+        mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='both',
+                                       reorder=True)
 
     dt = 90.0
     t_end = 6 * 3600.0

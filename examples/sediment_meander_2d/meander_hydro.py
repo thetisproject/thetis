@@ -12,8 +12,11 @@ For more details of the test case set-up see
 """
 
 from thetis import *
-# import bathymetry and mesh for meander
-from meander_setup import *
+from meander_setup import meander_bathymetry
+
+# create bathymetry and mesh for meander
+mesh2d = Mesh('meander.msh')
+bathymetry_2d = meander_bathymetry(mesh2d)
 
 # define function spaces
 P1_2d = FunctionSpace(mesh2d, 'DG', 1)
