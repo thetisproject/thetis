@@ -114,6 +114,8 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
                             'lf-trc{:.1f}'.format(laxfriedrichs_trc),
                             ]) + lim_str
     outputdir = 'outputs_' + options_str
+    if load_export_ix:
+        mesh2d = read_mesh_from_checkpoint(outputdir)
 
     # bathymetry
     p1_2d = get_functionspace(mesh2d, 'CG', 1)

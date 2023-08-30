@@ -14,6 +14,7 @@ import weakref
 import time as time_mod
 from mpi4py import MPI
 from . import exporter
+from .turbines import TidalTurbineFarm, DiscreteTidalTurbineFarm
 from .field_defs import field_metadata
 from .options import ModelOptions2d
 from . import callback
@@ -384,7 +385,7 @@ class FlowSolver2d(FrozenClass):
             self._field_preproc_funcs[label] = preproc_func
 
     @unfrozen
-    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_equations")
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_fields")
     def create_fields(self):
         """
         Creates field Functions
@@ -457,11 +458,26 @@ class FlowSolver2d(FrozenClass):
             self.create_fields()
         self.equations = AttrDict()
 
+        # tidal farms, if any
+        if len(self.options.tidal_turbine_farms) + len(self.options.discrete_tidal_turbine_farms) > 0:
+            self.tidal_farms = []
+            p = self.function_spaces.U_2d.ufl_element().degree()
+            quad_degree = 2*p + 1
+            for subdomain, farm_options in self.options.tidal_turbine_farms.items():
+                fdx = dx(subdomain, degree=quad_degree)
+                self.tidal_farms.append(TidalTurbineFarm(farm_options.turbine_density,
+                                                         fdx, farm_options))
+            for subdomain, farm_options in self.options.discrete_tidal_turbine_farms.items():
+                fdx = dx(subdomain, degree=farm_options.quadrature_degree)
+                self.tidal_farms.append(DiscreteTidalTurbineFarm(self.mesh2d, fdx, farm_options))
+        else:
+            self.tidal_farms = None
         # Shallow water equations for hydrodynamic modelling
         self.equations.sw = shallowwater_eq.ShallowWaterEquations(
             self.fields.solution_2d.function_space(),
             self.depth,
             self.options,
+            tidal_farms=self.tidal_farms
         )
         self.equations.sw.bnd_functions = self.bnd_functions['shallow_water']
         uv_2d, elev_2d = self.fields.solution_2d.split()
@@ -535,7 +551,8 @@ class FlowSolver2d(FrozenClass):
             self.equations.mom = shallowwater_eq.ShallowWaterMomentumEquation(
                 u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
                 self.depth,
-                options=self.options
+                options=self.options,
+                tidal_farms=self.tidal_farms
             )
             self.equations.mom.bnd_functions = bnd_conditions
             return integrator(self.equations.sw, self.equations.mom, self.fields.solution_2d,

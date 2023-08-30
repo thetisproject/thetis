@@ -5,6 +5,7 @@ All options are type-checked and they are stored in traitlets Configurable
 objects.
 """
 from .configuration import *
+from traitlets import Integer, Float, TraitType, Dict, Enum, Unicode, Bool, Instance, List, Type
 from firedrake import Constant
 from .sediment_model import SedimentModel
 from collections import OrderedDict
@@ -63,6 +64,7 @@ class SteadyStateTimeStepperOptions2d(TimeStepperOptions):
     solver_parameters = PETScSolverParameters({
         'ksp_type': 'preonly',
         'pc_type': 'lu',
+        'pc_factor_mat_solver_type': 'mumps',
         'mat_type': 'aij'
     }).tag(config=True)
 
@@ -457,20 +459,57 @@ class LinearEquationOfStateOptions(EquationOfStateOptions):
 
 class TidalTurbineOptions(FrozenHasTraits):
     """Tidal turbine parameters"""
-    thrust_coefficient = PositiveFloat(
-        0.8, help='Thrust coefficient C_T').tag(config=True)
+    name = 'Tidal turbine options'
     diameter = PositiveFloat(
         18., help='Turbine diameter').tag(config=True)
+    C_support = NonNegativeFloat(
+        0., help='Thrust coefficient for support structure').tag(config=True)
+    A_support = NonNegativeFloat(
+        0., help='Cross section of support structure').tag(config=True)
 
 
+class ConstantTidalTurbineOptions(TidalTurbineOptions):
+    """Options for tidal turbine with constant thrust"""
+    name = 'Constant tidal turbine options'
+    thrust_coefficient = PositiveFloat(
+        0.8, help='Thrust coefficient C_T').tag(config=True)
+
+
+class TabulatedTidalTurbineOptions(TidalTurbineOptions):
+    """Options for tidal turbine with tabulated thrust coefficient"""
+    name = 'Tabulated tidal turbine options'
+    thrust_coefficients = List([3.0], help='Table of thrust coefficients')
+    thrust_speeds = List(
+        [0.8, 0.8],
+        help="""List of speeds at which thrust_coefficients are applied.
+        First and last entry function as cut-in and cut-out speeds respectively""")
+
+
+@attach_paired_options("turbine_type",
+                       PairedEnum([('constant', ConstantTidalTurbineOptions),
+                                   ('table', TabulatedTidalTurbineOptions),
+                                   ],
+                                  "turbine_options",
+                                  default_value='constant',
+                                  help='Type of turbine thrust specification').tag(config=True),
+                       Instance(TidalTurbineOptions, args=()).tag(config=True))
 class TidalTurbineFarmOptions(FrozenHasTraits, TraitType):
     """Tidal turbine farm options"""
     name = 'Farm options'
-    turbine_options = TidalTurbineOptions()
     turbine_density = FiredrakeScalarExpression(
         Constant(0.0), help='Density of turbines within the farm')
     break_even_wattage = NonNegativeFloat(
         0.0, help='Average power production per turbine required to break even')
+
+
+class DiscreteTidalTurbineFarmOptions(TidalTurbineFarmOptions):
+    """Discrete Tidal turbine farm options - defaults to 0 turbines in the field"""
+    name = 'Discrete Farm options'
+    turbine_coordinates = List(default_value=[], help="Coordinates for turbines").tag(config=True)
+    upwind_correction = Bool(True,
+                             help='bool: Apply flow correction to correct for upwind velocity').tag(config=True)
+    quadrature_degree = PositiveInteger(10,
+                                        help='Quadrature degree for thrust force and power output integral').tag(config=True)
 
 
 class TracerFieldOptions(FrozenHasTraits):
@@ -844,6 +883,11 @@ class ModelOptions2d(CommonModelOptions):
         """).tag(config=True)
     tidal_turbine_farms = Dict(trait=TidalTurbineFarmOptions(),
                                default_value={}, help='Dictionary mapping subdomain ids to the options of the corresponding farm')
+
+    discrete_tidal_turbine_farms = Dict(trait=DiscreteTidalTurbineFarmOptions(),
+                                        default_value={},
+                                        help='Dictionary mapping subdomain ids to the options of the corresponding farm')
+
     check_tracer_conservation = Bool(
         False, help="""
         Compute total tracer mass at every export

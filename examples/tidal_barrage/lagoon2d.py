@@ -70,7 +70,7 @@ options.timestep = Dt
 elev_init = Function(P1_2d)
 elev_init.assign(0.0)
 
-tidal_elev = Function(bathymetry_2d.function_space())
+tidal_elev = Constant(0.0)
 
 # Initialise hydraulic structure boundaries  and max them as fluxes
 lagoon_hydraulic_structures = {"sl_i": Constant(0.), "sl_o": Constant(0.), "tb_i": Constant(0.), "tb_o": Constant(0.)}
@@ -91,7 +91,7 @@ solver_obj.add_callback(cb_lagoon, 'timestep')
 
 
 def update_forcings(t_new,):
-    tidal_elev.assign(Constant(tanh((t_new)/(4*3600.)) * amplitude * sin(omega * t_new)))
+    tidal_elev.assign(tanh((t_new)/(4*3600.)) * sin(omega * t_new) * amplitude)
 
 
 # Solve the system

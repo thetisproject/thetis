@@ -221,8 +221,8 @@ oce_bnd_interp = NCOMInterpolator(
 
 def interp_ocean_bnd(time):
     oce_bnd_interp.set_fields(time)
-    uvel_bnd_3d.assign(uvel_bnd_3d*ncom_vel_mask_3d)
-    vvel_bnd_3d.assign(vvel_bnd_3d*ncom_vel_mask_3d)
+    uvel_bnd_3d.interpolate(uvel_bnd_3d*ncom_vel_mask_3d)
+    vvel_bnd_3d.interpolate(vvel_bnd_3d*ncom_vel_mask_3d)
 
 
 # tides

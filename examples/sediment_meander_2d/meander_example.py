@@ -12,9 +12,13 @@ For more details, see
 """
 
 from thetis import *
-# import bathymetry and mesh for meander
-from meander_setup import *
+from meander_setup import meander_bathymetry
 # Note it is necessary to run meander_hydro first to get the hydrodynamics simulation
+
+# We pick up from a checkpoint file produced by trench_hydro.
+# Therefore, we have to read the mesh from it as well
+mesh2d = read_mesh_from_checkpoint('outputs_hydro')
+bathymetry_2d = meander_bathymetry(mesh2d)
 
 
 def update_forcings_bnd(t_new):

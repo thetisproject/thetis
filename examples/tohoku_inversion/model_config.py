@@ -77,7 +77,7 @@ def get_source(mesh2d, source_model, initial_guess=None):
             raise ValueError(f"Element family {family} not supported for source inversion")
         degree = int(source_model[2:])
         element = FiniteElement(family, mesh2d.ufl_cell(), degree)
-        return FiniteElementTsunamiSource(mesh2d, element, initial_guess=initial_guess)
+        return FiniteElementTsunamiSource(mesh2d, coord_system, element, initial_guess=initial_guess)
 
 
 def interpolate_bathymetry(bathymetry_2d, dataset="etopo1", cap=30.0):
@@ -107,10 +107,10 @@ def interpolate_bathymetry(bathymetry_2d, dataset="etopo1", cap=30.0):
     # Interpolate at mesh vertices
     lonlat_func = coord_system.get_mesh_lonlat_function(mesh)
     lon, lat = lonlat_func.dat.data_ro.T
-    bathymetry_2d.dat.data[:] = numpy.maximum(-interp(lat, lon), cap)
+    bathymetry_2d.dat.data[:] = numpy.maximum(-interp(lat, lon, grid=False), cap)
 
 
-def construct_solver(elev_init, store_station_time_series=True, **model_options):
+def construct_solver(bathymetry_2d, elev_init, store_station_time_series=True, **model_options):
     """
     Construct a *linear* shallow water equation solver for tsunami
     propagation modelling.
@@ -125,13 +125,6 @@ def construct_solver(elev_init, store_station_time_series=True, **model_options)
         t_end = 5 * t_export
 
     # Bathymetry
-    P1_2d = get_functionspace(mesh2d, "CG", 1)
-    bathymetry_2d = Function(P1_2d, name="Bathymetry")
-    pwd = os.path.abspath(os.path.dirname(__file__))
-    with CheckpointFile(f"{pwd}/japan_sea_bathymetry.h5", "r") as f:
-        m = f.load_mesh("firedrake_default")
-        g = f.load_function(m, "Bathymetry")
-        bathymetry_2d.assign(g)
     bathymetry_2d.interpolate(bathymetry_2d - elev_init)
 
     # Create solver

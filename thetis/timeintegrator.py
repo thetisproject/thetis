@@ -85,6 +85,32 @@ class TimeIntegrator(TimeIntegratorBase):
         """
         raise NotImplementedError(f"Picard iterations are not supported for {self} time integrators.")
 
+    def create_fields_old(self):
+        """
+        Create a copy of fields dictionary to store beginning of timestep values
+        """
+        # create functions to hold the values of previous time step
+        self.fields_old = {}
+        for k in sorted(self.fields):
+            if self.fields[k] is not None:
+                if isinstance(self.fields[k], Function):
+                    self.fields_old[k] = Function(
+                        self.fields[k].function_space())
+                elif isinstance(self.fields[k], Constant):
+                    # Although Constants may be changed by the user, we just
+                    # use the same value here, as assigning to domain-less Constants
+                    # causes issues in the adjoint. Constants with a domain, created by Constaint(.., domain=...),
+                    # are now just Functions on the Real space, so are dealt with under isinstance(..., Function)
+                    self.fields_old[k] = self.fields[k]
+
+    def update_fields_old(self):
+        """
+        Update the values of fields_old with those of fields
+        """
+        for k in sorted(self.fields):
+            if isinstance(self.fields[k], Function):
+                self.fields_old[k].assign(self.fields[k])
+
 
 class ForwardEuler(TimeIntegrator):
     """Standard forward Euler time integration scheme."""
@@ -105,15 +131,7 @@ class ForwardEuler(TimeIntegrator):
         super(ForwardEuler, self).__init__(equation, solution, fields, dt, options)
         self.solution_old = Function(self.equation.function_space)
 
-        # create functions to hold the values of previous time step
-        self.fields_old = {}
-        for k in sorted(self.fields):
-            if self.fields[k] is not None:
-                if isinstance(self.fields[k], Function):
-                    self.fields_old[k] = Function(
-                        self.fields[k].function_space())
-                elif isinstance(self.fields[k], Constant):
-                    self.fields_old[k] = Constant(self.fields[k])
+        self.create_fields_old()
 
         u_old = self.solution_old
         u_tri = self.equation.trial
@@ -135,9 +153,7 @@ class ForwardEuler(TimeIntegrator):
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
-        # assign values to old functions
-        for k in sorted(self.fields_old):
-            self.fields_old[k].assign(self.fields[k])
+        self.update_fields_old()
 
     @PETSc.Log.EventDecorator("thetis.ForwardEuler.advance")
     def advance(self, t, update_forcings=None):
@@ -146,9 +162,7 @@ class ForwardEuler(TimeIntegrator):
             update_forcings(t + self.dt)
         self.solution_old.assign(self.solution)
         self.solver.solve()
-        # shift time
-        for k in sorted(self.fields_old):
-            self.fields_old[k].assign(self.fields[k])
+        self.update_fields_old()
 
 
 class CrankNicolson(TimeIntegrator):
@@ -175,16 +189,7 @@ class CrankNicolson(TimeIntegrator):
         else:
             self.solver_parameters.setdefault('snes_type', 'newtonls')
         self.solution_old = Function(self.equation.function_space, name='solution_old')
-        # create functions to hold the values of previous time step
-        # TODO is this necessary? is self.fields sufficient?
-        self.fields_old = {}
-        for k in sorted(self.fields):
-            if self.fields[k] is not None:
-                if isinstance(self.fields[k], Function):
-                    self.fields_old[k] = Function(
-                        self.fields[k].function_space(), name=self.fields[k].name()+'_old')
-                elif isinstance(self.fields[k], Constant):
-                    self.fields_old[k] = Constant(self.fields[k])
+        self.create_fields_old()
 
         u = self.solution
         u_old = self.solution_old
@@ -224,9 +229,7 @@ class CrankNicolson(TimeIntegrator):
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
-        # assign values to old functions
-        for k in sorted(self.fields_old):
-            self.fields_old[k].assign(self.fields[k])
+        self.update_fields_old()
 
     @PETSc.Log.EventDecorator("thetis.CrankNicolson.advance")
     def advance(self, t, update_forcings=None):
@@ -235,9 +238,7 @@ class CrankNicolson(TimeIntegrator):
             update_forcings(t + self.dt)
         self.solution_old.assign(self.solution)
         self.solver.solve()
-        # shift time
-        for k in sorted(self.fields_old):
-            self.fields_old[k].assign(self.fields[k])
+        self.update_fields_old()
 
     @PETSc.Log.EventDecorator("thetis.CrankNicolson.advance_picard")
     def advance_picard(self, t, update_forcings=None, update_lagged=True, update_fields=True):
@@ -248,9 +249,7 @@ class CrankNicolson(TimeIntegrator):
             self.solution_old.assign(self.solution)
         self.solver.solve()
         if update_fields:
-            # shift time
-            for k in sorted(self.fields_old):
-                self.fields_old[k].assign(self.fields[k])
+            self.update_fields_old()
 
 
 class SteadyState(TimeIntegrator):
@@ -370,15 +369,8 @@ class PressureProjectionPicard(TimeIntegrator):
             raise Exception("The timestepper PressureProjectionPicard is only recommended in combination with the "
                             "dg-cg element_family. If you want to use it in combination with dg-dg or rt-dg you need to adjust the solver_parameters_pressure option.")
 
-        # create functions to hold the values of previous time step
-        self.fields_old = {}
-        for k in sorted(self.fields):
-            if self.fields[k] is not None:
-                if isinstance(self.fields[k], Function):
-                    self.fields_old[k] = Function(
-                        self.fields[k].function_space())
-                elif isinstance(self.fields[k], Constant):
-                    self.fields_old[k] = Constant(self.fields[k])
+        self.create_fields_old()
+
         # for the mom. eqn. the 'eta' field is just one of the 'other' fields
         fields_mom = self.fields.copy()
         fields_mom_old = self.fields_old.copy()
@@ -452,9 +444,7 @@ class PressureProjectionPicard(TimeIntegrator):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
         self.solution_lagged.assign(solution)
-        # assign values to old functions
-        for k in sorted(self.fields_old):
-            self.fields_old[k].assign(self.fields[k])
+        self.update_fields_old()
 
     @PETSc.Log.EventDecorator("thetis.PressureProjectionPicard.advance")
     def advance(self, t, update_forcings=None):
@@ -471,9 +461,7 @@ class PressureProjectionPicard(TimeIntegrator):
             with timed_stage("Pressure solve"):
                 self.solver.solve()
 
-        # shift time
-        for k in sorted(self.fields_old):
-            self.fields_old[k].assign(self.fields[k])
+        self.update_fields_old()
 
 
 class LeapFrogAM3(TimeIntegrator):
