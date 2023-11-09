@@ -1087,51 +1087,47 @@ def form2indicator(F):
     r"""
     Deduce the cell-wise contributions to a functional.
 
-    Given a UFL form `F` that does not contain test or trial functions,
-    multiply each of its terms by a :math:`\mathbb P0` test function and
-    assemble, so that we deduce its contributions from each cell.
+    Given a 0-form, multiply the integrand of each of its integrals by a
+    :math:`\mathbb P0` test function and reassemble to give an element-wise error
+    indicator.
+
+    Note that a 0-form does not contain any :class:`firedrake.ufl_expr.TestFunction`\s
+    or :class:`firedrake.ufl_expr.TrialFunction`\s.
+
+    :arg F: the 0-form
+    :return: the corresponding error indicator field
 
     Modified code based on
-    https://github.com/pyroteus/pyroteus/blob/main/pyroteus/error_estimation.py
-
-    :arg F: the UFL form
+    https://github.com/pyroteus/goalie/blob/main/goalie/error_estimation.py
     """
     if len(F.arguments()) > 0:
-        raise ValueError("Input form cannot contain test or trial functions")
+        raise ValueError("Input form should be 0-form")
     mesh = F.ufl_domain()
     P0 = FunctionSpace(mesh, "DG", 0)
     p0test = TestFunction(P0)
-    indicator = Function(P0)
+    h = ufl.CellVolume(mesh)
 
-    # Contributions from surface integrals
-    flux_terms = 0
-    integrals = F.integrals_by_type("exterior_facet")
-    if len(integrals) > 0:
-        for integral in integrals:
-            tag = integral.subdomain_id()
-            flux_terms += p0test * integral.integrand() * ds(tag)
-    integrals = F.integrals_by_type("interior_facet")
-    if len(integrals) > 0:
-        for integral in integrals:
-            tag = integral.subdomain_id()
-            flux_terms += p0test("+") * integral.integrand() * dS(tag)
-            flux_terms += p0test("-") * integral.integrand() * dS(tag)
-    if flux_terms != 0:
-        mass_term = TrialFunction(P0) * p0test * dx
-        sp = {
+    rhs = 0
+    for integral in F.integrals_by_type("exterior_facet"):
+        dsi = ds(integral.subdomain_id())
+        rhs += h * p0test * integral.integrand() * dsi
+    for integral in F.integrals_by_type("interior_facet"):
+        dSi = dS(integral.subdomain_id())
+        rhs += h("+") * p0test("+") * integral.integrand() * dSi
+        rhs += h("-") * p0test("-") * integral.integrand() * dSi
+    for integral in F.integrals_by_type("cell"):
+        dxi = dx(integral.subdomain_id())
+        rhs += h * p0test * integral.integrand() * dxi
+
+    assert rhs != 0
+    indicator = Function(P0)
+    solve(
+        TrialFunction(P0) * p0test * dx == rhs,
+        indicator,
+        solver_parameters={
             "snes_type": "ksponly",
             "ksp_type": "preonly",
             "pc_type": "jacobi",
-        }
-        solve(mass_term == flux_terms, indicator, solver_parameters=sp)
-
-    # Contributions from volume integrals
-    cell_terms = 0
-    integrals = F.integrals_by_type("cell")
-    if len(integrals) > 0:
-        for integral in integrals:
-            tag = integral.subdomain_id()
-            cell_terms += p0test * integral.integrand() * dx(tag)
-    indicator += assemble(cell_terms)
-
+        },
+    )
     return indicator
