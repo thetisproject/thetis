@@ -26,7 +26,7 @@ def coords_xyz_to_lonlat(mesh):
     z_norm = z / sqrt(x**2 + y**2 + z**2)
     z_norm = min_value(max_value(z_norm, -1.0), 1.0)  # avoid silly roundoff errors
     lat = asin(z_norm)
-    lon = atan_2(y, x)
+    lon = atan2(y, x)
     return lon, lat
 
 
