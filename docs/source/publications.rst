@@ -8,8 +8,27 @@ Citing Thetis
 If you publish results obtained with Thetis, please cite the `2018 GMD paper <https://doi.org/10.5194/gmd-11-4359-2018>`_.
 Also see `instructions for citing Firedrake <https://firedrakeproject.org/citing.html>`_.
 
+2023
+----
+
+Woodroffe, S., Hill, J., Bustamante-Fernandez, E., Lloyd, JM., Luff, J., Richards, S., Shennan, I:
+On the varied impact of the Storegga tsunami in northwest Scotland.
+*Journal of Quaternary Science*, 
+doi: `10.1002/jqs.3539 <https://doi.org/10.1002/jqs.3539>`_, 2023.
+
+Hill, J., Rush, G., Peakall, J., Johnson, M., Hodson, L., Barlow, N.L.M.,
+Bowman, E.T., Gehrels, W.R., Hodgson, D.M., Kesserwani, G:
+Resolving tsunami wave dynamics: integrating sedimentology and numerical modelling.
+*The Depositional Record*
+doi: `10.1002/dep2.247 <https://doi.org/10.1002/dep2.247`>_, 2023.
+
 2022
 ----
+
+Lee, K.C., Webster, J.M., Salles, T., Mawson, E.E., Hill, J.:
+Tidal dynamics drive ooid formation in the Capricorn Channel since the Last Glacial Maximum.
+*Marine Geology*, 454:106944,
+doi:`10.1016/j.margeo.2022.106944 <https://doi.org/10.1016/j.margeo.2022.106944?`_, 2022.
 
 Mawson, E.E., Lee, K.C., Hill, J.:
 Sea level rise and the Great Barrier Reef: the future implications on reef tidal dynamics.
