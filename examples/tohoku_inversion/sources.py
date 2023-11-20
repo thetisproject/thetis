@@ -35,7 +35,7 @@ class TsunamiSource(FrozenConfigurable):
         self.mesh2d = mesh2d
         self.coord_system = coord_system
         if element is None:
-            element = ufl.FiniteElement("Lagrange", mesh2d.ufl_cell(), 1)
+            element = fd.FiniteElement("Lagrange", mesh2d.ufl_cell(), 1)
         self.function_space = utility.get_functionspace(mesh2d, element.family(), element.degree())
         self._elev_init = fd.Function(self.function_space, name="Elevation")
         self.xy = ufl.SpatialCoordinate(mesh2d)

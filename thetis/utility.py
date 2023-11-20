@@ -180,13 +180,13 @@ def get_extruded_base_element(ufl_element):
 
     In case of a non-extruded mesh, returns the element itself.
     """
-    if isinstance(ufl_element, ufl.HDivElement):
+    if isinstance(ufl_element, firedrake.HDivElement):
         ufl_element = ufl_element._element
-    if isinstance(ufl_element, ufl.MixedElement):
-        ufl_element = ufl_element.sub_elements()[0]
-    if isinstance(ufl_element, ufl.VectorElement):
-        ufl_element = ufl_element.sub_elements()[0]  # take the first component
-    if isinstance(ufl_element, ufl.EnrichedElement):
+    if isinstance(ufl_element, firedrake.MixedElement):
+        ufl_element = ufl_element.sub_elements[0]
+    if isinstance(ufl_element, firedrake.VectorElement):
+        ufl_element = ufl_element.sub_elements[0]  # take the first component
+    if isinstance(ufl_element, firedrake.EnrichedElement):
         ufl_element = ufl_element._elements[0]
     return ufl_element
 
@@ -220,11 +220,11 @@ def element_continuity(ufl_element):
     }
 
     base_element = get_extruded_base_element(ufl_element)
-    if isinstance(elem, ufl.HDivElement):
+    if isinstance(elem, firedrake.HDivElement):
         horiz_type = 'hdiv'
         vert_type = 'hdiv'
-    elif isinstance(base_element, ufl.TensorProductElement):
-        a, b = base_element.sub_elements()
+    elif isinstance(base_element, firedrake.TensorProductElement):
+        a, b = base_element.sub_elements
         horiz_type = elem_types[a.family()]
         vert_type = elem_types[b.family()]
     else:
@@ -311,7 +311,7 @@ def get_facet_mask(function_space, facet='bottom'):
     assert isinstance(elem, TensorProductElement), \
         f'function space must be defined on an extruded 3D mesh: {elem}'
     # figure out number of nodes in sub elements
-    h_elt, v_elt = elem.sub_elements()
+    h_elt, v_elt = elem.sub_elements
     nb_nodes_h = create_finat_element(h_elt).space_dimension()
     nb_nodes_v = create_finat_element(v_elt).space_dimension()
     # compute top/bottom facet indices
@@ -484,7 +484,7 @@ def extend_function_to_3d(func, mesh_extruded):
     family = ufl_elem.family()
     degree = ufl_elem.degree()
     name = func.name()
-    if isinstance(ufl_elem, ufl.VectorElement):
+    if isinstance(ufl_elem, firedrake.VectorElement):
         # vector function space
         fs_extended = get_functionspace(mesh_extruded, family, degree, 'R', 0,
                                         dim=2, vector=True)
