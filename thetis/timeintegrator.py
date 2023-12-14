@@ -352,8 +352,8 @@ class PressureProjectionPicard(TimeIntegrator):
             self.solution_lagged = Function(self.equation.function_space)
         else:
             self.solution_lagged = self.solution_old
-        uv_lagged, eta_lagged = self.solution_lagged.split()
-        uv_old, eta_old = self.solution_old.split()
+        uv_lagged, eta_lagged = self.solution_lagged.subfunctions
+        uv_old, eta_old = self.solution_old.subfunctions
 
         if (solver_parameters['ksp_type'] == 'preonly'
                 and 'fieldsplit_H_2d' in solver_parameters

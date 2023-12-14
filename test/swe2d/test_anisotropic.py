@@ -190,8 +190,8 @@ def estimate_error(mesh, **model_options):
 
     # Plot
     if not model_options.get("no_exports", False):
-        File("outputs/forward.pvd").write(*f0.split())
-        a0u, a0eta = a0.split()
+        File("outputs/forward.pvd").write(*f0.subfunctions)
+        a0u, a0eta = a0.subfunctions
         a0u.rename("uv_2d (adjoint)")
         a0eta.rename("elev_2d (adjoint)")
         File("outputs/adjoint.pvd").write(a0u, a0eta)

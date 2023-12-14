@@ -408,7 +408,7 @@ class FlowSolver2d(FrozenClass):
 
         # Add fields for shallow water modelling
         self.fields.solution_2d = Function(self.function_spaces.V_2d, name='solution_2d')
-        uv_2d, elev_2d = self.fields.solution_2d.split()  # correct treatment of the split 2d functions
+        uv_2d, elev_2d = self.fields.solution_2d.subfunctions  # correct treatment of the split 2d functions
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = elev_2d
 
@@ -424,7 +424,7 @@ class FlowSolver2d(FrozenClass):
             if num_labels > 1:
                 self.fields[system] = parent
             self.options.tracer_fields[system] = parent
-            children = [parent] if num_labels == 1 else parent.split()
+            children = [parent] if num_labels == 1 else parent.subfunctions
             for label, function in zip(labels, children):
                 tracer = self.options.tracer[label]
                 function.rename(label)
@@ -480,7 +480,7 @@ class FlowSolver2d(FrozenClass):
             tidal_farms=self.tidal_farms
         )
         self.equations.sw.bnd_functions = self.bnd_functions['shallow_water']
-        uv_2d, elev_2d = self.fields.solution_2d.split()
+        uv_2d, elev_2d = self.fields.solution_2d.subfunctions
 
         # Passive tracer equations
         for system, parent in self.options.tracer_fields.items():
@@ -566,7 +566,7 @@ class FlowSolver2d(FrozenClass):
         """
         Gets tracer timestepper object with appropriate parameters
         """
-        uv, elev = self.fields.solution_2d.split()
+        uv, elev = self.fields.solution_2d.subfunctions
         fields = {
             'elev_2d': elev,
             'uv_2d': uv,
@@ -591,7 +591,7 @@ class FlowSolver2d(FrozenClass):
         """
         Gets sediment timestepper object with appropriate parameters
         """
-        uv, elev = self.fields.solution_2d.split()
+        uv, elev = self.fields.solution_2d.subfunctions
         fields = {
             'elev_2d': elev,
             'uv_2d': uv,
@@ -608,7 +608,7 @@ class FlowSolver2d(FrozenClass):
         """
         Gets exner timestepper object with appropriate parameters
         """
-        uv, elev = self.fields.solution_2d.split()
+        uv, elev = self.fields.solution_2d.subfunctions
         if not self.options.sediment_model_options.solve_suspended_sediment:
             self.fields.sediment_2d = Function(elev.function_space()).interpolate(Constant(0.0))
         fields = {
@@ -746,7 +746,7 @@ class FlowSolver2d(FrozenClass):
         """
         if not self._initialized:
             self.initialize()
-        uv_2d, elev_2d = self.fields.solution_2d.split()
+        uv_2d, elev_2d = self.fields.solution_2d.subfunctions
         if elev is not None:
             elev_2d.project(elev)
         if uv is not None:
@@ -912,8 +912,8 @@ class FlowSolver2d(FrozenClass):
                 e = (label, norm_q, '10.4f')
                 entries.append(e)
         else:
-            norm_h = norm(self.fields.solution_2d.split()[1])
-            norm_u = norm(self.fields.solution_2d.split()[0])
+            norm_h = norm(self.fields.solution_2d.subfunctions[1])
+            norm_u = norm(self.fields.solution_2d.subfunctions[0])
             entries += [
                 ('eta norm', norm_h, '14.4f'),
                 ('u norm', norm_u, '14.4f'),
