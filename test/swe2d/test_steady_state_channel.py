@@ -55,7 +55,7 @@ def test_steady_state_channel(do_export=False):
 
     solver_obj.iterate()
 
-    uv, eta = solver_obj.fields.solution_2d.split()
+    uv, eta = solver_obj.fields.solution_2d.subfunctions
 
     x_2d, y_2d = SpatialCoordinate(mesh2d)
     eta_ana = interpolate(1 - x_2d/lx, p1_2d)

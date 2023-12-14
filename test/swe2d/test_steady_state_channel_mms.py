@@ -90,7 +90,7 @@ def test_steady_state_channel_mms(element_family, do_exports=False):
             File('source_{}.pvd'.format(i)).write(source_func)
         solver_obj.iterate()
 
-        uv, eta = solver_obj.fields.solution_2d.split()
+        uv, eta = solver_obj.fields.solution_2d.subfunctions
 
         eta_ana = project(eta_expr, solver_obj.function_spaces.H_2d)
         if do_exports:

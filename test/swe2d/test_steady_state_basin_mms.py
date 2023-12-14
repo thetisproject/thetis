@@ -249,8 +249,8 @@ def run(setup, refinement, order, do_export=True, options=None,
 
     solver_obj.iterate()
 
-    elev_l2_err = errornorm(elev_ana_ho, solver_obj.fields.solution_2d.split()[1])/numpy.sqrt(area)
-    uv_l2_err = errornorm(uv_ana_ho, solver_obj.fields.solution_2d.split()[0])/numpy.sqrt(area)
+    elev_l2_err = errornorm(elev_ana_ho, solver_obj.fields.solution_2d.subfunctions[1])/numpy.sqrt(area)
+    uv_l2_err = errornorm(uv_ana_ho, solver_obj.fields.solution_2d.subfunctions[0])/numpy.sqrt(area)
     print_output('elev L2 error {:.12f}'.format(elev_l2_err))
     print_output('uv L2 error {:.12f}'.format(uv_l2_err))
     return elev_l2_err, uv_l2_err

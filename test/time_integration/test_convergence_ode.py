@@ -63,7 +63,7 @@ class SimpleODEEquation(Equation):
     """
     def __init__(self, function_space, alpha, mode='explicit'):
         super(SimpleODEEquation, self).__init__(function_space)
-        self.a_space, self.b_space = function_space.split()
+        self.a_space, self.b_space = function_space.subfunctions
         self.a_test, self.b_test = TestFunctions(function_space)
         self.alpha = alpha
         if mode == 'imex':
@@ -134,7 +134,7 @@ def run(timeintegrator_class, timeintegrator_options, refinement=1):
     ti = timeintegrator_class(equation, solution, fields, dt, timeintegrator_options(), {})
     ti.initialize(solution)
     simulation_time = 0
-    sol_a, sol_b = solution.split()
+    sol_a, sol_b = solution.subfunctions
     values[0, :] = sol_a.dat.data[0], sol_b.dat.data[0]
     for i in range(ntimesteps):
         simulation_time = (i+1)*dt

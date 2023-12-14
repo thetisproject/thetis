@@ -992,7 +992,7 @@ class ModelOptions2d(CommonModelOptions):
             kwargs[label]['mixed'] = True
         self.tracer_fields[','.join(labels)] = function
         if function is not None:
-            for label, child in zip(labels, function.split()):
+            for label, child in zip(labels, function.subfunctions):
                 kwargs[label]['function'] = child
         for label, name, filename, shortname, unit in zip(labels, names, filenames, shortnames, units):
             self.add_tracer_2d(label, name, filename, shortname=shortname, unit=unit, **kwargs[label])
