@@ -11,6 +11,16 @@ Also see `instructions for citing Firedrake <https://firedrakeproject.org/citing
 2023
 ----
 
+Wallwork, J. G., Angeloudis, A., Barral, N., Mackie, L., Kramer, S. C., Piggott, M. D.:
+Tidal turbine array modelling using goal-oriented mesh adaptation.
+*Journal of Ocean Engineering and Marine Energy*,
+doi: `10.1007/s40722-023-00307-9 <https://doi.org/10.1007/s40722-023-00307-9>`_, 2023.
+
+Kärnä, T., Wallwork, J. G., Kramer, S. C.:
+Adjoint-based optimization of a regional water elevation model.
+*Journal of Advances in Modeling Earth Systems*,
+doi: `10.1029/2022MS003169 <https://doi.org/10.1029/2022MS003169>`_, 2023.
+
 Woodroffe, S., Hill, J., Bustamante-Fernandez, E., Lloyd, JM., Luff, J., Richards, S., Shennan, I:
 On the varied impact of the Storegga tsunami in northwest Scotland.
 *Journal of Quaternary Science*, 
