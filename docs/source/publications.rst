@@ -32,11 +32,6 @@ Resolving tsunami wave dynamics: integrating sedimentology and numerical modelli
 *The Depositional Record*
 doi: `10.1002/dep2.247 <https://doi.org/10.1002/dep2.247>`_, 2023.
 
-Zhang, C., Zhang, J., Angeloudis, A., Zhou, Y., Kramer, S.C., Piggott, M.D.:
-Physical Modelling of Tidal Stream Turbine Wake Structures under Yaw Conditions.
-*Energies* 2023, 16, 1742,
-doi: `10.3390/en16041742 <https://doi.org/10.3390/en16041742>`_, 2023.
-
 2022
 ----
 
