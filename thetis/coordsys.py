@@ -59,9 +59,9 @@ class UTMCoordinateSystem(CoordinateSystem):
     """
     Represents Universal Transverse Mercator coordinate systems
     """
-    def __init__(self, utm_zone):
+    def __init__(self, utm_zone, south=False):
         self.proj_obj = pyproj.Proj(proj='utm', zone=utm_zone, datum='WGS84',
-                                    units='m', errcheck=True)
+                                    units='m', errcheck=True, south=south)
         self.transformer_lonlat = pyproj.Transformer.from_crs(
             self.proj_obj.srs, LL_WGS84.srs)
         self.transformer_xy = pyproj.Transformer.from_crs(
