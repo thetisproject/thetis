@@ -106,7 +106,7 @@ farm_options.turbine_coordinates = [[Constant(x+cos(y), domain=mesh2d), Constant
 # everywhere, you can use the key "everywhere" instead of 2 below.
 # Regardless of this, the area where the turbines are places need to have sufficiently high
 # resolution to resolve the Gaussian bump functions that represent the turbines
-options.discrete_tidal_turbine_farms[2] = farm_options
+options.discrete_tidal_turbine_farms[2] = [farm_options]
 
 # set initial condition (initial velocity should not be exactly 0 to avoid failures in the Newton solve)
 solver_obj.assign_initial_conditions(uv=(as_vector((1e-3, 0.0))))

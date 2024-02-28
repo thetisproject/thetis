@@ -83,7 +83,7 @@ options.use_wetting_and_drying = True
 options.wetting_and_drying_alpha = Constant(0.5)
 if not hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
     options.timestep = 50.0
-options.discrete_tidal_turbine_farms[site_ID] = farm_options
+options.discrete_tidal_turbine_farms[site_ID] = [farm_options]
 
 # Use direct solver instead of default iterative settings
 # (see SemiImplicitSWETimeStepperOptions2d in thetis/options.py)
@@ -111,14 +111,15 @@ print_output(options.swe_timestepper_options.solver_parameters)
 # Operation of tidal turbine farm through a callback
 cb_turbines = turbines.TurbineFunctionalCallback(solver_obj)
 solver_obj.add_callback(cb_turbines, 'timestep')
-powers = []  # create empty list to append to if we would like to plot power over time
+powers = []  # create empty list to append instantaneous powers to
 
 
 def update_forcings(t_new):
     ramp = tanh(t_new / 2000.)
     tidal_vel.project(Constant(ramp * 3.))
-    powers.append(cb_turbines.integrated_power[0] / 100 - sum(powers))
+    powers.append(cb_turbines.instantaneous_power[0])
 
 
 # See channel-optimisation example for a completely steady state simulation (no ramp)
 solver_obj.iterate(update_forcings=update_forcings)
+powers.append(cb_turbines.instantaneous_power[0])  # add final power, should be the same as callback hdf5 file!

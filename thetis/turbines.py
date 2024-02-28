@@ -183,6 +183,7 @@ class TurbineFunctionalCallback(DiagnosticCallback):
             print_output('Number of turbines = {}'.format(sum(self.cost)))
         self.break_even_wattage = [farm.break_even_wattage for farm in self.farms]
 
+        self.instantaneous_power = [0] * nfarms
         # time-integrated quantities:
         self.integrated_power = [0] * nfarms
         self.average_power = [0] * nfarms
@@ -196,6 +197,7 @@ class TurbineFunctionalCallback(DiagnosticCallback):
         for i, farm in enumerate(self.farms):
             power = farm.power_output(self.uv, self.depth)
             current_power.append(power)
+            self.instantaneous_power[i] = power
             self.integrated_power[i] += power * self.dt
             self.average_power[i] = self.integrated_power[i] / self.time_period
             self.average_profit[i] = self.average_power[i] - self.break_even_wattage[i] * self.cost[i]

@@ -107,7 +107,7 @@ farm_options.turbine_density = turbine_density
 # in such a way that the cost is expressed in kW which can be subtracted from the profit
 # which is calculated as the power extracted by the turbines
 farm_options.break_even_wattage = 200
-options.tidal_turbine_farms[2] = farm_options
+options.tidal_turbine_farms[2] = [farm_options]
 
 # we first run the "forward" model with no turbines
 turbine_density.assign(0.0)

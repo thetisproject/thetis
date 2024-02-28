@@ -463,13 +463,24 @@ class FlowSolver2d(FrozenClass):
             self.tidal_farms = []
             p = self.function_spaces.U_2d.ufl_element().degree()
             quad_degree = 2*p + 1
-            for subdomain, farm_options in self.options.tidal_turbine_farms.items():
-                fdx = dx(subdomain, degree=quad_degree)
-                self.tidal_farms.append(TidalTurbineFarm(farm_options.turbine_density,
-                                                         fdx, farm_options))
-            for subdomain, farm_options in self.options.discrete_tidal_turbine_farms.items():
-                fdx = dx(subdomain, degree=farm_options.quadrature_degree)
-                self.tidal_farms.append(DiscreteTidalTurbineFarm(self.mesh2d, fdx, farm_options))
+            for subdomain, farm_options_list in self.options.tidal_turbine_farms.items():
+                if not isinstance(farm_options_list, list):
+                    error_msg = "Farm options must be entered as a list e.g. " \
+                                "solver2d.FlowSolver2d(mesh2d, bathymetry_2d).options.discrete_tidal_turbine_farms[site_ID] = " \
+                                "[farm_options]"
+                    raise TypeError(error_msg)
+                for farm_options in farm_options_list:
+                    fdx = dx(subdomain, degree=quad_degree)
+                    self.tidal_farms.append(TidalTurbineFarm(farm_options.turbine_density, fdx, farm_options))
+            for subdomain, farm_options_list in self.options.discrete_tidal_turbine_farms.items():
+                if not isinstance(farm_options_list, list):
+                    error_msg = "Farm options must be entered as a list e.g. " \
+                                "solver2d.FlowSolver2d(mesh2d, bathymetry_2d).options.discrete_tidal_turbine_farms[site_ID] = " \
+                                "[farm_options]"
+                    raise TypeError(error_msg)
+                for farm_options in farm_options_list:
+                    fdx = dx(subdomain, degree=farm_options.quadrature_degree)
+                    self.tidal_farms.append(DiscreteTidalTurbineFarm(self.mesh2d, fdx, farm_options))
         else:
             self.tidal_farms = None
         # Shallow water equations for hydrodynamic modelling
