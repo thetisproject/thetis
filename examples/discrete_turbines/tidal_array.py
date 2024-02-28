@@ -111,7 +111,7 @@ print_output(options.swe_timestepper_options.solver_parameters)
 # Operation of tidal turbine farm through a callback
 cb_turbines = turbines.TurbineFunctionalCallback(solver_obj)
 solver_obj.add_callback(cb_turbines, 'timestep')
-powers = []  # create empty list to append to, can also be accessed through the callback hdf5 file
+powers = []  # create empty list to append instantaneous powers to
 
 
 def update_forcings(t_new):
@@ -122,4 +122,4 @@ def update_forcings(t_new):
 
 # See channel-optimisation example for a completely steady state simulation (no ramp)
 solver_obj.iterate(update_forcings=update_forcings)
-powers.append(cb_turbines.instantaneous_power[0])  # add final power
+powers.append(cb_turbines.instantaneous_power[0])  # add final power, should be the same as callback hdf5 file!
