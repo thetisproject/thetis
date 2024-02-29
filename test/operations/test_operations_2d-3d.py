@@ -189,6 +189,18 @@ def test_minimum_angle(mesh2d):
     assert numpy.allclose(min_angle, pi/4)
 
 
+def test_cell_widths(mesh2d):
+    cell_width = utility.get_cell_widths_2d(mesh2d).dat.data
+    assert numpy.allclose(cell_width, 1./5)
+
+
+def test_anisotropic_cell_size(mesh2d):
+    cell_size = utility.anisotropic_cell_size(mesh2d).dat.data
+    # seems to produce two different cellsizes depending on orientation:
+    assert numpy.allclose(cell_size.max(), 1./5)
+    assert numpy.allclose(cell_size.min(), (numpy.sqrt(5)-1)/10)
+
+
 if __name__ == '__main__':
     """Run all tests"""
     import os

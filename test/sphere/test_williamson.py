@@ -24,9 +24,9 @@ def coords_xyz_to_lonlat(mesh):
     """
     x, y, z = SpatialCoordinate(mesh)
     z_norm = z / sqrt(x**2 + y**2 + z**2)
-    z_norm = Min(Max(z_norm, -1.0), 1.0)  # avoid silly roundoff errors
+    z_norm = min_value(max_value(z_norm, -1.0), 1.0)  # avoid silly roundoff errors
     lat = asin(z_norm)
-    lon = atan_2(y, x)
+    lon = atan2(y, x)
     return lon, lat
 
 
@@ -90,7 +90,7 @@ def setup_williamson5(mesh, time):
     R0 = pi / 9.
     lon_c = -pi / 2.
     lat_c = pi / 6.
-    r = sqrt(Min(R0**2, (lon - lon_c)**2 + (lat - lat_c)**2))
+    r = sqrt(min_value(R0**2, (lon - lon_c)**2 + (lat - lat_c)**2))
     bath_expr = depth - 2000 * (1 - r / R0)
 
     # NOTE scale uv to fit the modified bathymetry to reduce initial shock

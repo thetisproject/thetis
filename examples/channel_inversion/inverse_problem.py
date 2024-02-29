@@ -1,5 +1,5 @@
 from thetis import *
-from firedrake_adjoint import *
+from firedrake.adjoint import *
 import numpy
 import thetis.inversion_tools as inversion_tools
 from model_config import construct_solver
@@ -30,6 +30,9 @@ no_exports = os.getenv('THETIS_REGRESSION_TEST') is not None
 # Set output directory
 pwd = os.path.abspath(os.path.dirname(__file__))
 output_dir = f'{pwd}/outputs_new_' + '-'.join(controls) + '-opt'
+
+# annotate all Firedrake operations of the forward run
+continue_annotation()
 
 # Create the solver object
 # NOTE We disable all exports here as they would only be active during
@@ -90,7 +93,7 @@ sta_manager.load_observation_data(observation_data_dir, station_names, variable)
 sta_manager.set_model_field(solver_obj.fields.elev_2d)
 
 # Define the scaling for the cost function so that J ~ O(1)
-J_scalar = Constant(solver_obj.dt / options.simulation_end_time)
+J_scalar = Constant(solver_obj.dt / options.simulation_end_time, domain=mesh2d)
 
 # Create inversion manager and add controls
 inv_manager = inversion_tools.InversionManager(

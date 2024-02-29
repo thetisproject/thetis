@@ -74,7 +74,7 @@ def test_thacker(stepper, n, dt, max_err):
 
     # run for one cycle
     solverObj.iterate()
-    uv, eta = solverObj.fields.solution_2d.split()
+    uv, eta = solverObj.fields.solution_2d.subfunctions
 
     # mask out dry areas with a smooth function
     r = sqrt((x-X0)**2 + (y-Y0)**2)

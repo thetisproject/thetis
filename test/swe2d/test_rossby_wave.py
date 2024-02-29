@@ -138,8 +138,9 @@ def asymptotic_expansion_elev(H_2d, order=1, time=0.0, soliton_amplitude=0.395):
 
 def run(refinement_level, **model_options):
     order = model_options.pop('expansion_order')
-    family = model_options.get('element_family')
-    stepper = model_options.get('swe_timestepper_type')
+    # these are normal Thetis options, but we need to set them early on
+    family = model_options.pop('element_family')
+    stepper = model_options.pop('swe_timestepper_type')
     print_output("--- running refinement level {:d} in {:s} space".format(refinement_level, family))
 
     # Set up domain
@@ -158,7 +159,10 @@ def run(refinement_level, **model_options):
     # Create solver object
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
     options = solver_obj.options
+    # set timestepper early so we can set the relevant suboptions
     options.swe_timestepper_type = stepper
+    # set element_type early so we can create function spaces
+    options.element_family = family
     if hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
         options.swe_timestepper_options.use_automatic_timestep = False
     options.timestep = 0.96/refinement_level if stepper == 'SSPRK33' else 9.6/refinement_level

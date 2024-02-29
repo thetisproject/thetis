@@ -20,9 +20,11 @@ the forward model and automatically derives the adjoint.
 """
 
 from thetis import *
-# this import automatically starts the annotation:
-from firedrake_adjoint import *
+from firedrake.adjoint import *
 op2.init(log_level=INFO)
+
+# start annotating all Firedrake opterations in the forward model
+continue_annotation()
 
 # setup the Thetis solver obj as usual:
 mesh2d = Mesh('headland.msh')
@@ -55,7 +57,7 @@ options.check_volume_conservation_2d = True
 options.element_family = 'dg-cg'
 options.swe_timestepper_type = 'CrankNicolson'
 options.swe_timestepper_options.implicitness_theta = 0.6
-# using direct solver as PressurePicard does not work with dolfin-adjoint (due to .split() not being annotated correctly)
+# using direct solver as PressurePicard doesn't work with dolfin-adjoint (due to .split() not being annotated correctly)
 options.swe_timestepper_options.solver_parameters = {'snes_monitor': None,
                                                      'snes_rtol': 1e-9,
                                                      'ksp_type': 'preonly',
@@ -72,7 +74,7 @@ right_tag = 2
 coasts_tag = 3
 tidal_elev = Function(get_functionspace(mesh2d, "CG", 1), name='tidal_elev')
 tidal_elev_bc = {'elev': tidal_elev}
-# noslip currently doesn't work (vector Constants are broken in firedrake_adjoint)
+# noslip currently doesn't work (vector Constants are broken in firedrake adjoint)
 freeslip_bc = {'un': Constant(0.0)}
 solver_obj.bnd_functions['shallow_water'] = {
     left_tag: tidal_elev_bc,
@@ -105,7 +107,7 @@ farm_options.turbine_density = turbine_density
 # in such a way that the cost is expressed in kW which can be subtracted from the profit
 # which is calculated as the power extracted by the turbines
 farm_options.break_even_wattage = 200
-options.tidal_turbine_farms[2] = farm_options
+options.tidal_turbine_farms[2] = [farm_options]
 
 # we first run the "forward" model with no turbines
 turbine_density.assign(0.0)
@@ -127,7 +129,7 @@ cb = turbines.TurbineFunctionalCallback(solver_obj)
 solver_obj.add_callback(cb, 'timestep')
 
 
-# run as normal (this run will be annotated by firedrake_adjoint)
+# run as normal (this run will be annotated by firedrake adjoint)
 solver_obj.assign_initial_conditions(uv=as_vector((1e-7, 0.0)), elev=tidal_elev)
 solver_obj.iterate(update_forcings=update_forcings)
 
@@ -143,7 +145,7 @@ print_output("Maximum turbine density = {}".format(max_density))
 # also we multiply by -1 so that if we minimize the functional, we maximize profit
 # (maximize is also availble from pyadjoint but currently broken)
 scaling = -1./assemble(max(farm_options.break_even_wattage, 100) * max_density * dx(2, domain=mesh2d))
-scaled_functional = scaling * cb.average_profit
+scaled_functional = scaling * cb.average_profit[0]
 
 # specifies the control we want to vary in the optimisation
 c = Control(turbine_density)
@@ -206,6 +208,6 @@ if optimise:
     # By default scipy's implementation of L-BFGS-B is used, see
     #   https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_l_bfgs_b.html
     # options, such as maxiter and pgtol can be passed on.
-    td_opt = minimise(rf, bounds=[0, max_density],
+    td_opt = minimize(rf, bounds=[0, max_density],
                       options={'maxiter': 100, 'pgtol': 1e-3})
     File('optimal_density.pvd').write(td_opt)
