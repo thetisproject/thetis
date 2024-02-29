@@ -492,7 +492,7 @@ class FlowSolver(FrozenClass):
         # ----- fields
         self.fields.solution_2d = Function(self.function_spaces.V_2d)
         # correct treatment of the split 2d functions
-        uv_2d, eta2d = self.fields.solution_2d.split()
+        uv_2d, eta2d = self.fields.solution_2d.subfunctions
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = eta2d
         # elevation field seen by the 3D mode, different from elev_2d
@@ -861,7 +861,7 @@ class FlowSolver(FrozenClass):
         # compute maximal diffusivity for explicit schemes
         degree_h, degree_v = self.function_spaces.H.ufl_element().degree()
         max_diff_alpha = 1.0/60.0/max((degree_h*(degree_h + 1)), 1.0)  # FIXME depends on element type and order
-        self.fields.max_h_diff.assign(max_diff_alpha/self.dt * self.fields.h_elem_size_3d**2)
+        self.fields.max_h_diff.interpolate(max_diff_alpha/self.dt * self.fields.h_elem_size_3d**2)
         d = self.fields.max_h_diff.dat.data
         print_output('max h diff {:} - {:}'.format(d.min(), d.max()))
 

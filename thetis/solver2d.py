@@ -14,6 +14,7 @@ import weakref
 import time as time_mod
 from mpi4py import MPI
 from . import exporter
+from .turbines import TidalTurbineFarm, DiscreteTidalTurbineFarm
 from .field_defs import field_metadata
 from .options import ModelOptions2d
 from . import callback
@@ -384,7 +385,7 @@ class FlowSolver2d(FrozenClass):
             self._field_preproc_funcs[label] = preproc_func
 
     @unfrozen
-    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_equations")
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_fields")
     def create_fields(self):
         """
         Creates field Functions
@@ -407,7 +408,7 @@ class FlowSolver2d(FrozenClass):
 
         # Add fields for shallow water modelling
         self.fields.solution_2d = Function(self.function_spaces.V_2d, name='solution_2d')
-        uv_2d, elev_2d = self.fields.solution_2d.split()  # correct treatment of the split 2d functions
+        uv_2d, elev_2d = self.fields.solution_2d.subfunctions  # correct treatment of the split 2d functions
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = elev_2d
 
@@ -423,7 +424,7 @@ class FlowSolver2d(FrozenClass):
             if num_labels > 1:
                 self.fields[system] = parent
             self.options.tracer_fields[system] = parent
-            children = [parent] if num_labels == 1 else parent.split()
+            children = [parent] if num_labels == 1 else parent.subfunctions
             for label, function in zip(labels, children):
                 tracer = self.options.tracer[label]
                 function.rename(label)
@@ -457,14 +458,40 @@ class FlowSolver2d(FrozenClass):
             self.create_fields()
         self.equations = AttrDict()
 
+        # tidal farms, if any
+        if len(self.options.tidal_turbine_farms) + len(self.options.discrete_tidal_turbine_farms) > 0:
+            self.tidal_farms = []
+            p = self.function_spaces.U_2d.ufl_element().degree()
+            quad_degree = 2*p + 1
+            for subdomain, farm_options_list in self.options.tidal_turbine_farms.items():
+                if not isinstance(farm_options_list, list):
+                    error_msg = "Farm options must be entered as a list e.g. " \
+                                "solver2d.FlowSolver2d(mesh2d, bathymetry_2d).options.discrete_tidal_turbine_farms[site_ID] = " \
+                                "[farm_options]"
+                    raise TypeError(error_msg)
+                for farm_options in farm_options_list:
+                    fdx = dx(subdomain, degree=quad_degree)
+                    self.tidal_farms.append(TidalTurbineFarm(farm_options.turbine_density, fdx, farm_options))
+            for subdomain, farm_options_list in self.options.discrete_tidal_turbine_farms.items():
+                if not isinstance(farm_options_list, list):
+                    error_msg = "Farm options must be entered as a list e.g. " \
+                                "solver2d.FlowSolver2d(mesh2d, bathymetry_2d).options.discrete_tidal_turbine_farms[site_ID] = " \
+                                "[farm_options]"
+                    raise TypeError(error_msg)
+                for farm_options in farm_options_list:
+                    fdx = dx(subdomain, degree=farm_options.quadrature_degree)
+                    self.tidal_farms.append(DiscreteTidalTurbineFarm(self.mesh2d, fdx, farm_options))
+        else:
+            self.tidal_farms = None
         # Shallow water equations for hydrodynamic modelling
         self.equations.sw = shallowwater_eq.ShallowWaterEquations(
             self.fields.solution_2d.function_space(),
             self.depth,
             self.options,
+            tidal_farms=self.tidal_farms
         )
         self.equations.sw.bnd_functions = self.bnd_functions['shallow_water']
-        uv_2d, elev_2d = self.fields.solution_2d.split()
+        uv_2d, elev_2d = self.fields.solution_2d.subfunctions
 
         # Passive tracer equations
         for system, parent in self.options.tracer_fields.items():
@@ -535,7 +562,8 @@ class FlowSolver2d(FrozenClass):
             self.equations.mom = shallowwater_eq.ShallowWaterMomentumEquation(
                 u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
                 self.depth,
-                options=self.options
+                options=self.options,
+                tidal_farms=self.tidal_farms
             )
             self.equations.mom.bnd_functions = bnd_conditions
             return integrator(self.equations.sw, self.equations.mom, self.fields.solution_2d,
@@ -549,7 +577,7 @@ class FlowSolver2d(FrozenClass):
         """
         Gets tracer timestepper object with appropriate parameters
         """
-        uv, elev = self.fields.solution_2d.split()
+        uv, elev = self.fields.solution_2d.subfunctions
         fields = {
             'elev_2d': elev,
             'uv_2d': uv,
@@ -574,7 +602,7 @@ class FlowSolver2d(FrozenClass):
         """
         Gets sediment timestepper object with appropriate parameters
         """
-        uv, elev = self.fields.solution_2d.split()
+        uv, elev = self.fields.solution_2d.subfunctions
         fields = {
             'elev_2d': elev,
             'uv_2d': uv,
@@ -591,7 +619,7 @@ class FlowSolver2d(FrozenClass):
         """
         Gets exner timestepper object with appropriate parameters
         """
-        uv, elev = self.fields.solution_2d.split()
+        uv, elev = self.fields.solution_2d.subfunctions
         if not self.options.sediment_model_options.solve_suspended_sediment:
             self.fields.sediment_2d = Function(elev.function_space()).interpolate(Constant(0.0))
         fields = {
@@ -729,7 +757,7 @@ class FlowSolver2d(FrozenClass):
         """
         if not self._initialized:
             self.initialize()
-        uv_2d, elev_2d = self.fields.solution_2d.split()
+        uv_2d, elev_2d = self.fields.solution_2d.subfunctions
         if elev is not None:
             elev_2d.project(elev)
         if uv is not None:
@@ -895,8 +923,8 @@ class FlowSolver2d(FrozenClass):
                 e = (label, norm_q, '10.4f')
                 entries.append(e)
         else:
-            norm_h = norm(self.fields.solution_2d.split()[1])
-            norm_u = norm(self.fields.solution_2d.split()[0])
+            norm_h = norm(self.fields.solution_2d.subfunctions[1])
+            norm_u = norm(self.fields.solution_2d.subfunctions[0])
             entries += [
                 ('eta norm', norm_h, '14.4f'),
                 ('u norm', norm_u, '14.4f'),

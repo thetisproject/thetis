@@ -139,10 +139,10 @@ class SedimentModel(object):
         self.dstar = Function(self.P1_2d).interpolate(self.average_size*((self.g*self.R)/(self.viscosity**2))**(1/3))
         if float(max(self.dstar.dat.data[:])) < 1:
             raise ValueError('dstar value less than 1')
-        self.thetacr = Function(self.P1_2d).assign(conditional(self.dstar < 4, 0.24*(self.dstar**(-1)),
-                                                   conditional(self.dstar < 10, 0.14*(self.dstar**(-0.64)),
-                                                   conditional(self.dstar < 20, 0.04*(self.dstar**(-0.1)),
-                                                               conditional(self.dstar < 150, 0.013*(self.dstar**(0.29)), 0.055)))))
+        self.thetacr = Function(self.P1_2d).interpolate(conditional(self.dstar < 4, 0.24*(self.dstar**(-1)),
+                                                        conditional(self.dstar < 10, 0.14*(self.dstar**(-0.64)),
+                                                        conditional(self.dstar < 20, 0.04*(self.dstar**(-0.1)),
+                                                                    conditional(self.dstar < 150, 0.013*(self.dstar**(0.29)), 0.055)))))
 
         # critical bed shear stress
         self.taucr = Function(self.P1_2d).interpolate((self.rhos-self.rhow)*self.g*self.average_size*self.thetacr)

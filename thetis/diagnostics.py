@@ -130,7 +130,7 @@ class HessianRecoverer2D(DiagnosticCalculator):
         g, H = TrialFunctions(W)
         phi, tau = TestFunctions(W)
         sol = Function(W)
-        self._gradient, self._hessian = sol.split()
+        self._gradient, self._hessian = sol.subfunctions
 
         # The formulation is chosen such that f does not need to have any
         # finite element derivatives

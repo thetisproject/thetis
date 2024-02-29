@@ -19,12 +19,9 @@ conservative = False
 
 # Note it is necessary to run trench_hydro first to get the hydrodynamics simulation
 
-# define mesh
-lx = 16
-ly = 1.1
-nx = lx*5
-ny = 5
-mesh2d = RectangleMesh(nx, ny, lx, ly)
+# We pick up from a checkpoint file produced by trench_hydro.
+# Therefore, we have to read the mesh from it as well
+mesh2d = read_mesh_from_checkpoint('outputs_hydro')
 
 x, y = SpatialCoordinate(mesh2d)
 

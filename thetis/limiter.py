@@ -3,7 +3,6 @@ Slope limiters for discontinuous fields
 """
 from .utility import *
 from firedrake import VertexBasedLimiter
-import ufl
 from pyop2.profiling import timed_stage
 import numpy
 
@@ -24,25 +23,25 @@ def assert_function_space(fs, family, degree):
     if not isinstance(family, list):
         fam_list = [family]
     ufl_elem = fs.ufl_element()
-    if isinstance(ufl_elem, ufl.VectorElement):
-        ufl_elem = ufl_elem.sub_elements()[0]
+    if isinstance(ufl_elem, firedrake.VectorElement):
+        ufl_elem = ufl_elem.sub_elements[0]
 
     if ufl_elem.family() == 'TensorProductElement':
         # extruded mesh
-        A, B = ufl_elem.sub_elements()
-        assert A.family() in fam_list,\
+        A, B = ufl_elem.sub_elements
+        assert A.family() in fam_list, \
             'horizontal space must be one of {0:s}'.format(fam_list)
-        assert B.family() in fam_list,\
+        assert B.family() in fam_list, \
             'vertical space must be {0:s}'.format(fam_list)
-        assert A.degree() == degree,\
+        assert A.degree() == degree, \
             'degree of horizontal space must be {0:d}'.format(degree)
-        assert B.degree() == degree,\
+        assert B.degree() == degree, \
             'degree of vertical space must be {0:d}'.format(degree)
     else:
         # assume 2D mesh
-        assert ufl_elem.family() in fam_list,\
+        assert ufl_elem.family() in fam_list, \
             'function space must be one of {0:s}'.format(fam_list)
-        assert ufl_elem.degree() == degree,\
+        assert ufl_elem.degree() == degree, \
             'degree of function space must be {0:d}'.format(degree)
 
 

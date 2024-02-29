@@ -26,7 +26,10 @@ if suffix != "":
 
 # Setup initial condition
 pwd = os.path.abspath(os.path.dirname(__file__))
-mesh2d = Mesh(f"{pwd}/japan_sea.msh")
+with CheckpointFile(f"{pwd}/japan_sea_bathymetry.h5", "r") as f:
+    mesh2d = f.load_mesh("firedrake_default")
+    bathymetry = f.load_function(mesh2d, "Bathymetry")
+
 initial_guess = None
 if args.load:
     print_output(f"Loading controls from {input_dir}")
@@ -38,7 +41,7 @@ source = get_source(mesh2d, source_model, initial_guess=initial_guess)
 
 # Solve forward
 solver_obj = construct_solver(
-    source.elev_init,
+    bathymetry, source.elev_init,
     output_directory=output_dir,
     store_station_time_series=not no_exports,
     no_exports=no_exports,

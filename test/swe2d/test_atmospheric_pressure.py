@@ -84,7 +84,7 @@ def test_pressure_forcing(element_family, timestepper):
         solverObj.assign_initial_conditions(uv=Constant((1e-7, 0.)))
         solverObj.iterate()
 
-        uv, eta = solverObj.fields.solution_2d.split()
+        uv, eta = solverObj.fields.solution_2d.subfunctions
         eta_ana = project(eta_expr, solverObj.function_spaces.H_2d)
         eta_errs.append(errornorm(eta_ana, eta)/numpy.sqrt(area))
 

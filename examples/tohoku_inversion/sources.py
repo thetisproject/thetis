@@ -1,5 +1,6 @@
 import firedrake as fd
-from thetis.configuration import *
+import traitlets
+from thetis.configuration import BoundedFloat, PositiveInteger, FrozenConfigurable, PositiveFloat
 import thetis.utility as utility
 import ufl
 from okada import OkadaParameters, okada
@@ -34,7 +35,7 @@ class TsunamiSource(FrozenConfigurable):
         self.mesh2d = mesh2d
         self.coord_system = coord_system
         if element is None:
-            element = ufl.FiniteElement("Lagrange", mesh2d.ufl_cell(), 1)
+            element = fd.FiniteElement("Lagrange", mesh2d.ufl_cell(), 1)
         self.function_space = utility.get_functionspace(mesh2d, element.family(), element.degree())
         self._elev_init = fd.Function(self.function_space, name="Elevation")
         self.xy = ufl.SpatialCoordinate(mesh2d)
@@ -99,29 +100,32 @@ class FiniteElementTsunamiSource(TsunamiSource):
     Generate a tsunami source condition in a finite element space.
     """
 
-    mask_shape = Enum(
+    mask_shape = traitlets.Enum(
         ["rectangle", "circle"],
         default_value="rectangle", allow_none=True,
         help="Shape of mask function").tag(config=True)
 
     @utility.unfrozen
-    def __init__(self, mesh2d, element=None, initial_guess=None):
+    def __init__(self, mesh2d, coord_system, element=None, initial_guess=None):
         """
         :arg mesh2d: mesh upon which to define the source
+        :arg coord_system: :class:`CoordinateSystem` instance
         :kwarg element: :class:`FiniteElement` with which to define the source
         :kwarg initial_guess: :class:`Function` or filename to use for the
             initial guess
         """
-        super().__init__(mesh2d, element=element)
+        super().__init__(mesh2d, coord_system, element=element)
         self.initial_guess = initial_guess
 
+    @utility.unfrozen
     def generate(self):
         mask = self.mask
         self._controls = [fd.Function(self.function_space, name="Elevation")]
         if self.initial_guess is None:
+            eps = 1.0e-03
             self._controls[0].interpolate(eps * mask)
         elif isinstance(self.initial_guess, str):
-            with CheckpointFile(self.initial_guess, "r") as chk:
+            with fd.CheckpointFile(self.initial_guess, "r") as chk:
                 mesh_name = self.mesh2d.name
                 if mesh_name is None:
                     mesh_name = "firedrake_default"
@@ -156,7 +160,7 @@ class FiniteElementTsunamiSource(TsunamiSource):
             r = self.fault_width
             return ufl.conditional(x ** 2 + y ** 2 < r ** 2, 1, 0)
         else:
-            raise ValueError(f"Mask shape '{shape}' not supported")
+            raise ValueError(f"Mask shape '{self.mask_shape}' not supported")
 
     @property
     def control_bounds(self):

@@ -1,5 +1,5 @@
 from thetis import *
-from firedrake_adjoint import *
+from firedrake.adjoint import *
 import thetis.inversion_tools as inversion_tools
 from model_config import *
 import argparse
@@ -37,9 +37,14 @@ do_consistency_test = not args.no_consistency_test
 do_taylor_test = not args.no_taylor_test
 suffix = args.suffix
 
+# annotate all Firedrake operations of the forward run
+continue_annotation()
+
 # Setup initial condition
 pwd = os.path.abspath(os.path.dirname(__file__))
-mesh2d = Mesh(f"{pwd}/japan_sea.msh")
+with CheckpointFile(f"{pwd}/japan_sea_bathymetry.h5", "r") as f:
+    mesh2d = f.load_mesh("firedrake_default")
+    bathymetry = f.load_function(mesh2d, "Bathymetry")
 source = get_source(mesh2d, source_model)
 if source_model == "okada":
     source.subfault_variables = args.okada_parameters
@@ -49,7 +54,7 @@ output_dir = f"{pwd}/outputs_elev-init-optimization_{source_model}"
 if suffix is not None:
     output_dir = "_".join([output_dir, suffix])
 solver_obj = construct_solver(
-    source.elev_init,
+    bathymetry, source.elev_init,
     output_directory=output_dir,
     store_station_time_series=False,
     no_exports=True,

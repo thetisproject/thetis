@@ -6,64 +6,154 @@ from firedrake.petsc import PETSc
 from .log import *
 from .callback import DiagnosticCallback
 from .optimisation import DiagnosticOptimisationCallback
+import pyadjoint
 import numpy
 
 
-class TurbineFarm(object):
+class TidalTurbine:
+    def __init__(self, options, upwind_correction=False):
+        self.diameter = options.diameter
+        self.C_support = options.C_support
+        self.A_support = options.A_support
+        self.upwind_correction = upwind_correction
+
+    def _thrust_area(self, uv):
+        C_T = self.thrust_coefficient(uv)
+        A_T = pi * self.diameter**2 / 4
+        fric = C_T * A_T
+        if self.C_support:
+            fric += self.C_support * self.A_support
+        return fric
+
+    def velocity_correction(self, uv, depth):
+        fric = self._thrust_area(uv)
+        if self.upwind_correction:
+            return 0.5*(1+sqrt(1-fric/(self.diameter*depth)))
+        else:
+            return 1
+
+    def friction_coefficient(self, uv, depth):
+        thrust_area = self._thrust_area(uv)
+        alpha = self.velocity_correction(uv, depth)
+        return thrust_area/2./alpha**2
+
+    def power(self, uv, depth):
+        # ratio of discrete to upstream velocity (NOTE: should include support drag!)
+        alpha = self.velocity_correction(uv, depth)
+        A_T = pi * self.diameter**2 / 4
+        uv3 = dot(uv, uv)**1.5 / alpha**3  # upwind cubed velocity
+        C_T = self.thrust_coefficient(uv3**(1/3))
+        # this assumes the velocity through the turbine does not change due to the support (is this correct?)
+        return 0.25*C_T*A_T*(1+sqrt(1-C_T))*uv3
+
+
+class ConstantThrustTurbine(TidalTurbine):
+    def __init__(self, options, upwind_correction=False):
+        super().__init__(options, upwind_correction=upwind_correction)
+        self.C_T = options.thrust_coefficient
+
+    def thrust_coefficient(self, uv):
+        return self.C_T
+
+
+def linearly_interpolate_table(x_list, y_list, y_final, x):
+    """Return UFL expression that linearly interpolates between y-values in x-points
+
+    :param x_list: (1D) x-points
+    :param y_list: y-values in those points
+    :param y_final: value for x>x_list[-1]
+    :param x: point to interpolate (assumed x>x_list[0])
     """
-    Evaluates power output, costs and profit of tidal turbine farm
+    # below x1, interpolate between x0 and x1:
+    below_x1 = ((x_list[1]-x)*y_list[0] + (x-x_list[0])*y_list[1])/(x_list[1]-x_list[0])
+    # above x1, interpolate from rest of the table, or take final value:
+    if len(x_list) > 2:
+        above_x1 = linearly_interpolate_table(x_list[1:], y_list[1:], y_final, x)
+    else:
+        above_x1 = y_final
 
-    Cost is simply the number of turbines evaluated as the integral of the
-    turbine density.
+    return conditional(x < x_list[1], below_x1, above_x1)
 
-    Power output is calculated as the amount of energy
-    taken out of the flow by the turbine drag term. This is in general
-    an over-estimate of the 'usefully extractable' energy. Furthermore no
-    density is included, so that assuming a density of 1000 kg/m^3 and
-    all further quantities in SI, the power is measured in kW.
 
-    Profit is calculated as:
+class TabulatedThrustTurbine(TidalTurbine):
+    def __init__(self, options, upwind_correction=False):
+        super().__init__(options, upwind_correction=upwind_correction)
+        self.C_T = options.thrust_coefficients
+        self.speeds = options.thrust_speeds
+        if not len(self.C_T) == len(self.speeds):
+            raise ValueError("In tabulated thrust curve the number of thrust coefficients and speed values should be the same.")
 
-      Profit = Power - break_even_wattage * Cost
+    def thrust_coefficient(self, uv):
+        umag = dot(uv, uv)**0.5
+        return conditional(umag < self.speeds[0], 0, linearly_interpolate_table(self.speeds, self.C_T, 0, umag))
 
-    With the above assumptions, break_even_wattage should be specified in
-    kW and can be interpreted as the average power per turbine required
-    to 'break even', i.e. Profit=0.
 
-    Power output and profit are time-integrated (simple first order) and
-    time-averages are available as average_power and average_profit.
-    """
-    def __init__(self, farm_options, subdomain_id, u, v, dt):
+class TidalTurbineFarm:
+    def __init__(self, turbine_density, dx, options):
         """
-        :arg farm_options: a :class:`TidalTurbineFarmOptions` object that define the farm and the turbines used
-        :arg int subdomain_id: the farm is restricted to this subdomain
-        :arg u,v: the depth-averaged velocity field
-        :arg float dt: used for time-integration."""
-        turbine_density = farm_options.turbine_density
-        C_T = farm_options.turbine_options.thrust_coefficient
-        A_T = pi*(farm_options.turbine_options.diameter/2.)**2
-        C_D = C_T*A_T/2.*turbine_density
-        self.power_integral = C_D * (u*u + v*v)**1.5 * dx(subdomain_id)
-        # cost integral is n/o turbines = \int turbine_density
-        self.cost = assemble(turbine_density * dx(subdomain_id))
-        self.break_even_wattage = farm_options.break_even_wattage
-        self.dt = dt
+        :arg turbine_density: turbine distribution density field or expression
+        :arg dx: measure to integrate power output, n/o turbines
+        :arg options: a :class:`TidalTurbineFarmOptions` options dictionary
+        """
+        upwind_correction = getattr(options, 'upwind_correction', False)
+        if options.turbine_type == 'constant':
+            self.turbine = ConstantThrustTurbine(options.turbine_options, upwind_correction=upwind_correction)
+        elif options.turbine_type == 'table':
+            self.turbine = TabulatedThrustTurbine(options.turbine_options, upwind_correction=upwind_correction)
+        self.dx = dx
+        self.turbine_density = turbine_density
+        self.break_even_wattage = options.break_even_wattage
 
-        # time-integrated quantities:
-        self.integrated_power = 0.
-        self.average_power = 0.
-        self.average_profit = 0.
-        self.time_period = 0.
+    def number_of_turbines(self):
+        return assemble(self.turbine_density * self.dx)
 
-    @PETSc.Log.EventDecorator("thetis.TurbineFarm.evaluate_timestep")
-    def evaluate_timestep(self):
-        """Perform time integration and return current power and time-averaged power and profit."""
-        self.time_period = self.time_period + self.dt
-        current_power = assemble(self.power_integral)
-        self.integrated_power = self.integrated_power + current_power * self.dt
-        self.average_power = self.integrated_power / self.time_period
-        self.average_profit = self.average_power - self.break_even_wattage * self.cost
-        return current_power, self.average_power, self.average_profit
+    def power_output(self, uv, depth):
+        return assemble(self.turbine.power(uv, depth) * self.turbine_density * self.dx)
+
+    def friction_coefficient(self, uv, depth):
+        return self.turbine.friction_coefficient(uv, depth)
+
+
+class DiscreteTidalTurbineFarm(TidalTurbineFarm):
+    """
+    Class that can be used for the addition of turbines in the turbine density field
+    """
+
+    def __init__(self, mesh, dx, options):
+        """
+        :arg mesh: mesh domain
+        :arg dx: measure to integrate power output, n/o turbines
+        :arg options: a :class:`TidalTurbineFarmOptions` options dictionary
+        """
+
+        # Preliminaries
+        self.mesh = mesh
+        # this sets self.turbine_expr=0
+        super().__init__(0, dx, options)
+
+        # Adding turbine distribution in the domain
+        self.add_turbines(options.turbine_coordinates)
+
+    def add_turbines(self, coordinates):
+        """
+        :param coords: Array with turbine coordinates to be positioned
+        :param function: turbine density function to be adapted
+        :param mesh: computational mesh domain
+        :param radius: radius where the bump will be applied
+        :return: updated turbine density field
+        """
+        x = SpatialCoordinate(self.mesh)
+
+        radius = self.turbine.diameter * 0.5
+        for coord in coordinates:
+            dx0 = (x[0] - coord[0])/radius
+            dx1 = (x[1] - coord[1])/radius
+            psi_x = conditional(lt(abs(dx0), 1), exp(1-1/(1-dx0**2)), 0)
+            psi_y = conditional(lt(abs(dx1), 1), exp(1-1/(1-dx1**2)), 0)
+            bump = psi_x * psi_y
+
+            unit_bump_integral = 1.45661  # integral of bump function for radius=1 (copied from OpenTidalFarm who used Wolfram)
+            self.turbine_density = self.turbine_density + bump/(radius**2 * unit_bump_integral)
 
 
 class TurbineFunctionalCallback(DiagnosticCallback):
@@ -78,40 +168,46 @@ class TurbineFunctionalCallback(DiagnosticCallback):
         """
         :arg solver_obj: a :class:`.FlowSolver2d` object containing the tidal_turbine_farms
         :arg kwargs: see :class:`DiagnosticCallback`"""
-        nfarms = len(solver_obj.options.tidal_turbine_farms)
+        if not hasattr(solver_obj, 'tidal_farms'):
+            solver_obj.create_equations()
+        self.farms = solver_obj.tidal_farms
+        nfarms = len(self.farms)
         super().__init__(solver_obj, array_dim=nfarms, **kwargs)
 
-        solver_obj.create_equations()
-        # TODO: was u, eta = split(solution)
-        u, v, eta = solver_obj.fields.solution_2d
-        dt = solver_obj.options.timestep
+        self.uv, eta = split(solver_obj.fields.solution_2d)
+        self.dt = solver_obj.options.timestep
+        self.depth = solver_obj.fields.bathymetry_2d
 
-        self.farms = [TurbineFarm(farm_options, subdomain_id, u, v, dt) for subdomain_id, farm_options in solver_obj.options.tidal_turbine_farms.items()]
-        """The sum of the number of turbines in all farms"""
-        self.cost = sum(farm.cost for farm in self.farms)
+        self.cost = [farm.number_of_turbines() for farm in self.farms]
         if self.append_to_log:
-            print_output('Number of turbines = {}'.format(self.cost))
+            print_output('Number of turbines = {}'.format(sum(self.cost)))
+        self.break_even_wattage = [farm.break_even_wattage for farm in self.farms]
+
+        self.instantaneous_power = [0] * nfarms
+        # time-integrated quantities:
+        self.integrated_power = [0] * nfarms
+        self.average_power = [0] * nfarms
+        self.average_profit = [0] * nfarms
+        self.time_period = 0.
+
+    def _evaluate_timestep(self):
+        """Perform time integration and return current power and time-averaged power and profit."""
+        self.time_period = self.time_period + self.dt
+        current_power = []
+        for i, farm in enumerate(self.farms):
+            power = farm.power_output(self.uv, self.depth)
+            current_power.append(power)
+            self.instantaneous_power[i] = power
+            self.integrated_power[i] += power * self.dt
+            self.average_power[i] = self.integrated_power[i] / self.time_period
+            self.average_profit[i] = self.average_power[i] - self.break_even_wattage[i] * self.cost[i]
+        return current_power, self.average_power, self.average_profit
 
     def __call__(self):
-        return numpy.transpose([farm.evaluate_timestep() for farm in self.farms])
+        return self._evaluate_timestep()
 
     def message_str(self, current_power, average_power, average_profit):
         return 'Current power, average power and profit for each farm: {}, {}, {}'.format(current_power, average_power, average_profit)
-
-    @property
-    def average_profit(self):
-        """The sum of the time-averaged profit output of all farms"""
-        return sum(farm.average_profit for farm in self.farms)
-
-    @property
-    def average_power(self):
-        """The sum of the time-averaged power output of all farms"""
-        return sum(farm.average_power for farm in self.farms)
-
-    @property
-    def integrated_power(self):
-        """The sum of the time-integrated power output of all farms"""
-        return sum(farm.integrated_power for farm in self.farms)
 
 
 class TurbineOptimisationCallback(DiagnosticOptimisationCallback):
@@ -131,10 +227,86 @@ class TurbineOptimisationCallback(DiagnosticOptimisationCallback):
         super().__init__(solver_obj, **kwargs)
 
     def compute_values(self, *args):
-        costs = [farm.cost.block_variable.saved_output for farm in self.tfc.farms]
-        powers = [farm.average_power.block_variable.saved_output for farm in self.tfc.farms]
-        profits = [farm.average_profit.block_variable.saved_output for farm in self.tfc.farms]
+        costs = [x.block_variable.saved_output for x in self.tfc.cost]
+        powers = [x.block_variable.saved_output for x in self.tfc.average_power]
+        profits = [x.block_variable.saved_output for x in self.tfc.average_profit]
         return costs, powers, profits
 
     def message_str(self, cost, average_power, average_profit):
         return 'Costs, average power and profit for each farm: {}, {}, {}'.format(cost, average_power, average_profit)
+
+
+class MinimumDistanceConstraints(pyadjoint.InequalityConstraint):
+    """This class implements minimum distance constraints between turbines.
+
+    .. note:: This class subclasses ``pyadjoint.InequalityConstraint``. The
+        following methods must be implemented:
+
+        * ``length(self)``
+        * ``function(self, m)``
+        * ``jacobian(self, m)``
+    """
+    def __init__(self, turbine_positions, minimum_distance):
+        """Create MinimumDistanceConstraints
+
+        :param turbine_positions: list of [x,y] where x and y are either float or Constant
+        :param minimum_distance: The minimum distance allowed between turbines.
+        """
+        self._turbines = [float(xi) for xy in turbine_positions for xi in xy]
+        self._minimum_distance = minimum_distance
+        self._nturbines = len(turbine_positions)
+
+    def length(self):
+        """Returns the number of constraints ``len(function(m))``."""
+        return int(self._nturbines*(self._nturbines-1)/2)
+
+    def function(self, m):
+        """Return an object which must be positive for the point to be feasible.
+
+        :param m: The serialized paramaterisation of the turbines.
+        :type m: numpy.ndarray.
+        :returns: numpy.ndarray -- each entry must be positive for the positions to be
+            feasible.
+        """
+        print_output("Calculating minimum distance constraints.")
+        inequality_constraints = []
+        for i in range(self._nturbines):
+            for j in range(self._nturbines):
+                if i <= j:
+                    continue
+                inequality_constraints.append((m[2*i]-m[2*j])**2 + (m[2*i+1]-m[2*j+1])**2 - self._minimum_distance**2)
+
+        inequality_constraints = numpy.array(inequality_constraints)
+        if any(inequality_constraints <= 0):
+            print_output(
+                "Minimum distance inequality constraints (should all "
+                "be > 0): %s" % inequality_constraints)
+        return inequality_constraints
+
+    def jacobian(self, m):
+        """Returns the gradient of the constraint function.
+
+        Return a list of vector-like objects representing the gradient of the
+        constraint function with respect to the parameter m.
+
+        :param m: The serialized paramaterisation of the turbines.
+        :type m: numpy.ndarray.
+        :returns: numpy.ndarray -- the gradient of the constraint function with
+            respect to each input parameter m.
+        """
+        print_output("Calculating gradient of equality constraint")
+
+        grad_h = numpy.zeros((self.length(), self._nturbines*2))
+        row = 0
+        for i in range(self._nturbines):
+            for j in range(self._nturbines):
+                if i <= j:
+                    continue
+
+                grad_h[row, 2*i] = 2*(m[2*i] - m[2*j])
+                grad_h[row, 2*j] = -2*(m[2*i] - m[2*j])
+                grad_h[row, 2*i+1] = 2*(m[2*i+1] - m[2*j+1])
+                grad_h[row, 2*j+1] = -2*(m[2*i+1] - m[2*j+1])
+                row += 1
+
+        return grad_h

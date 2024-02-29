@@ -2,6 +2,7 @@
 Utility functions and classes for 2D and 3D ocean models
 """
 import os
+import glob
 import sys
 from collections import OrderedDict, namedtuple  # NOQA
 
@@ -179,13 +180,13 @@ def get_extruded_base_element(ufl_element):
 
     In case of a non-extruded mesh, returns the element itself.
     """
-    if isinstance(ufl_element, ufl.HDivElement):
+    if isinstance(ufl_element, firedrake.HDivElement):
         ufl_element = ufl_element._element
-    if isinstance(ufl_element, ufl.MixedElement):
-        ufl_element = ufl_element.sub_elements()[0]
-    if isinstance(ufl_element, ufl.VectorElement):
-        ufl_element = ufl_element.sub_elements()[0]  # take the first component
-    if isinstance(ufl_element, ufl.EnrichedElement):
+    if isinstance(ufl_element, firedrake.MixedElement):
+        ufl_element = ufl_element.sub_elements[0]
+    if isinstance(ufl_element, firedrake.VectorElement):
+        ufl_element = ufl_element.sub_elements[0]  # take the first component
+    if isinstance(ufl_element, firedrake.EnrichedElement):
         ufl_element = ufl_element._elements[0]
     return ufl_element
 
@@ -219,11 +220,11 @@ def element_continuity(ufl_element):
     }
 
     base_element = get_extruded_base_element(ufl_element)
-    if isinstance(elem, ufl.HDivElement):
+    if isinstance(elem, firedrake.HDivElement):
         horiz_type = 'hdiv'
         vert_type = 'hdiv'
-    elif isinstance(base_element, ufl.TensorProductElement):
-        a, b = base_element.sub_elements()
+    elif isinstance(base_element, firedrake.TensorProductElement):
+        a, b = base_element.sub_elements
         horiz_type = elem_types[a.family()]
         vert_type = elem_types[b.family()]
     else:
@@ -248,6 +249,48 @@ def create_directory(path, comm=COMM_WORLD):
     return path
 
 
+def read_mesh_from_checkpoint(filename_or_outputdir, mesh_name=None):
+    """
+    Read mesh from a hdf5 checkpoint file.
+    :arg filename_or_outputdir: file name of the hdf5 checkpoint file,
+       or the output directory used in the previous run that create the
+       checkpoint. In the latter case the mesh will be read from the
+       first file that's found in outputdir/hdf5/*.h5
+
+    When loading fields from a checkpoint file in a run, the mesh used in that
+    run needs to be read from that same checkpoint file.
+
+    When multiple checkpoint files are used as model inputs which have
+    been created in separate runs/scripts, make sure that only one of those
+    scripts created the original mesh (by reading a .msh file or using a mesh
+    creation utility like RectangleMesh) and all other script read their mesh
+    from the checkpoint created by that first script.  For example, a
+    preprocessing script might read in a .msh file and interpolate and smoothen
+    the bathymetry on that mesh and write out the result in a checkpoint. A
+    first Thetis run should read its mesh from that checkpoint, and may then
+    save a series of hdf5 files.  A second Thetis run can then read in the mesh
+    and bathymetry from the checkpoint of the preprocessing script, and call
+    load_state() to pick up from the previous run.
+    """
+    if os.path.isdir(filename_or_outputdir):
+        # grab the first outputdir/hdf5/*.h5 file we can find
+        path = os.path.join(filename_or_outputdir, 'hdf5', '*.h5')
+        try:
+            filename = next(glob.iglob(path))
+        except StopIteration:
+            raise IOError(f'No checkpoint files found in {path}')
+    else:
+        # assume we're being pointed to the hdf5 file directly
+        filename = filename_or_outputdir
+
+    with CheckpointFile(filename, 'r') as f:
+        if mesh_name is None:
+            mesh_name = 'firedrake_default'
+        mesh = f.load_mesh(mesh_name)
+
+    return mesh
+
+
 @PETSc.Log.EventDecorator("thetis.get_facet_mask")
 def get_facet_mask(function_space, facet='bottom'):
     """
@@ -268,7 +311,7 @@ def get_facet_mask(function_space, facet='bottom'):
     assert isinstance(elem, TensorProductElement), \
         f'function space must be defined on an extruded 3D mesh: {elem}'
     # figure out number of nodes in sub elements
-    h_elt, v_elt = elem.sub_elements()
+    h_elt, v_elt = elem.sub_elements
     nb_nodes_h = create_finat_element(h_elt).space_dimension()
     nb_nodes_v = create_finat_element(v_elt).space_dimension()
     # compute top/bottom facet indices
@@ -441,7 +484,7 @@ def extend_function_to_3d(func, mesh_extruded):
     family = ufl_elem.family()
     degree = ufl_elem.degree()
     name = func.name()
-    if isinstance(ufl_elem, ufl.VectorElement):
+    if isinstance(ufl_elem, firedrake.VectorElement):
         # vector function space
         fs_extended = get_functionspace(mesh_extruded, family, degree, 'R', 0,
                                         dim=2, vector=True)
@@ -610,8 +653,12 @@ def get_minimum_angles_2d(mesh2d):
         raise NotImplementedError("Minimum angle only currently implemented for triangles.")
     edge_lengths = get_facet_areas(mesh2d)
     min_angles = Function(FunctionSpace(mesh2d, "DG", 0))
-    par_loop("""for (int i=0; i<angle.dofs; i++) {
+    edge_cell_node_map = edge_lengths.function_space().cell_node_map()
+    min_angle_cell_node_map = min_angles.function_space().cell_node_map()
 
+    kernel = op2.Kernel("""
+        void minimum_angle_kernel(double *edges, double *angle) {
+            for (int i=0; i<%(nodes)d; i++) {
                   double min_edge = edges[0];
                   int min_index = 0;
 
@@ -634,7 +681,11 @@ def get_minimum_angles_2d(mesh2d):
                     }
                   }
                   angle[0] = acos(numerator/denominator);
-                }""", dx, {'edges': (edge_lengths, READ), 'angle': (min_angles, RW)})
+            }
+        }""" % {"nodes": edge_cell_node_map.arity}, "minimum_angle_kernel")
+    op2.par_loop(kernel, mesh2d.cell_set,
+                 edge_lengths.dat(op2.READ, edge_cell_node_map),
+                 min_angles.dat(op2.RW, min_angle_cell_node_map))
     return min_angles
 
 
@@ -650,10 +701,18 @@ def get_cell_widths_2d(mesh2d):
     except AssertionError:
         raise NotImplementedError("Cell widths only currently implemented for triangles.")
     cell_widths = Function(VectorFunctionSpace(mesh2d, "DG", 0)).assign(numpy.finfo(0.0).min)
-    par_loop("""for (int i=0; i<coords.dofs; i++) {
-                  widths[0] = fmax(widths[0], fabs(coords[2*i] - coords[(2*i+2)%6]));
-                  widths[1] = fmax(widths[1], fabs(coords[2*i+1] - coords[(2*i+3)%6]));
-                }""", dx, {'coords': (mesh2d.coordinates, READ), 'widths': (cell_widths, RW)})
+    coords_cell_node_map = mesh2d.coordinates.function_space().cell_node_map()
+    widths_cell_node_map = cell_widths.function_space().cell_node_map()
+    kernel = op2.Kernel("""
+        void cell_width_kernel(double *coords, double *widths) {
+            for (int i=0; i<%(nodes)d; i++) {
+                  widths[0] = fmax(widths[0], fabs(coords[2*i] - coords[(2*i+2)%%6]));
+                  widths[1] = fmax(widths[1], fabs(coords[2*i+1] - coords[(2*i+3)%%6]));
+            }
+        }""" % {"nodes": coords_cell_node_map.arity}, "cell_width_kernel")
+    op2.par_loop(kernel, mesh2d.cell_set,
+                 mesh2d.coordinates.dat(op2.READ, coords_cell_node_map),
+                 cell_widths.dat(op2.MAX, widths_cell_node_map))
     return cell_widths
 
 
@@ -670,48 +729,19 @@ def anisotropic_cell_size(mesh):
     the advection-diffusion and the Stokes problems. SIAM Journal
     on Numerical Analysis 41.3: 1131-1162.
     """
-    try:
-        from firedrake.slate.slac.compiler import PETSC_ARCH
-    except ImportError:
-        PETSC_ARCH = os.path.join(os.environ.get('PETSC_DIR'), os.environ.get('PETSC_ARCH'))
-    include_dir = ["%s/include/eigen3" % PETSC_ARCH]
 
-    # Compute cell Jacobian
-    P0_ten = TensorFunctionSpace(mesh, "DG", 0)
-    J = Function(P0_ten, name="Cell Jacobian")
-    J.interpolate(Jacobian(mesh))
+    JTJ = dot(Jacobian(mesh).T, Jacobian(mesh))
 
-    # Compute minimum eigenvalue
+    # based on https://github.com/michalhabera/dolfiny/blob/master/dolfiny/invariants.py
+    I1 = JTJ[0, 0] + JTJ[1, 1]
+    D = (JTJ[0, 0] - JTJ[1, 1])**2 + 4 * JTJ[0, 1] * JTJ[1, 0]
+    D += numpy.finfo(float).eps
+
+    # Compute smallest singular value of J
     P0 = FunctionSpace(mesh, "DG", 0)
-    min_evalue = Function(P0, name="Minimum eigenvalue")
-    kernel_str = """
-#include <Eigen/Dense>
-
-using namespace Eigen;
-
-void eigmin(double minEval[1], const double * J_) {
-
-  // Map input onto an Eigen object
-  Map<Matrix<double, 2, 2, RowMajor> > J((double *)J_);
-
-  // Compute J^T * J
-  Matrix<double, 2, 2, RowMajor> A = J.transpose()*J;
-
-  // Solve eigenvalue problem
-  SelfAdjointEigenSolver<Matrix<double, 2, 2, RowMajor>> eigensolver(A);
-  Vector2d D = eigensolver.eigenvalues();
-
-  // Take the square root
-  double lambda1 = sqrt(fabs(D(0)));
-  double lambda2 = sqrt(fabs(D(1)));
-
-  // Select minimum eigenvalue in modulus
-  minEval[0] = fmin(lambda1, lambda2);
-}
-"""
-    kernel = op2.Kernel(kernel_str, 'eigmin', cpp=True, include_dirs=include_dir)
-    op2.par_loop(kernel, P0_ten.node_set, min_evalue.dat(op2.RW), J.dat(op2.READ))
-    return min_evalue
+    cell_size = Function(P0, name="Smallest singular value")
+    cell_size.interpolate(sqrt((I1-sqrt(D))/2.))
+    return cell_size
 
 
 def beta_plane_coriolis_params(latitude):
@@ -1057,51 +1087,47 @@ def form2indicator(F):
     r"""
     Deduce the cell-wise contributions to a functional.
 
-    Given a UFL form `F` that does not contain test or trial functions,
-    multiply each of its terms by a :math:`\mathbb P0` test function and
-    assemble, so that we deduce its contributions from each cell.
+    Given a 0-form, multiply the integrand of each of its integrals by a
+    :math:`\mathbb P0` test function and reassemble to give an element-wise error
+    indicator.
+
+    Note that a 0-form does not contain any :class:`firedrake.ufl_expr.TestFunction`\s
+    or :class:`firedrake.ufl_expr.TrialFunction`\s.
+
+    :arg F: the 0-form
+    :return: the corresponding error indicator field
 
     Modified code based on
-    https://github.com/pyroteus/pyroteus/blob/main/pyroteus/error_estimation.py
-
-    :arg F: the UFL form
+    https://github.com/pyroteus/goalie/blob/main/goalie/error_estimation.py
     """
     if len(F.arguments()) > 0:
-        raise ValueError("Input form cannot contain test or trial functions")
+        raise ValueError("Input form should be 0-form")
     mesh = F.ufl_domain()
     P0 = FunctionSpace(mesh, "DG", 0)
     p0test = TestFunction(P0)
-    indicator = Function(P0)
+    h = ufl.CellVolume(mesh)
 
-    # Contributions from surface integrals
-    flux_terms = 0
-    integrals = F.integrals_by_type("exterior_facet")
-    if len(integrals) > 0:
-        for integral in integrals:
-            tag = integral.subdomain_id()
-            flux_terms += p0test * integral.integrand() * ds(tag)
-    integrals = F.integrals_by_type("interior_facet")
-    if len(integrals) > 0:
-        for integral in integrals:
-            tag = integral.subdomain_id()
-            flux_terms += p0test("+") * integral.integrand() * dS(tag)
-            flux_terms += p0test("-") * integral.integrand() * dS(tag)
-    if flux_terms != 0:
-        mass_term = TrialFunction(P0) * p0test * dx
-        sp = {
+    rhs = 0
+    for integral in F.integrals_by_type("exterior_facet"):
+        dsi = ds(integral.subdomain_id())
+        rhs += h * p0test * integral.integrand() * dsi
+    for integral in F.integrals_by_type("interior_facet"):
+        dSi = dS(integral.subdomain_id())
+        rhs += h("+") * p0test("+") * integral.integrand() * dSi
+        rhs += h("-") * p0test("-") * integral.integrand() * dSi
+    for integral in F.integrals_by_type("cell"):
+        dxi = dx(integral.subdomain_id())
+        rhs += h * p0test * integral.integrand() * dxi
+
+    assert rhs != 0
+    indicator = Function(P0)
+    solve(
+        TrialFunction(P0) * p0test * dx == rhs,
+        indicator,
+        solver_parameters={
             "snes_type": "ksponly",
             "ksp_type": "preonly",
             "pc_type": "jacobi",
-        }
-        solve(mass_term == flux_terms, indicator, solver_parameters=sp)
-
-    # Contributions from volume integrals
-    cell_terms = 0
-    integrals = F.integrals_by_type("cell")
-    if len(integrals) > 0:
-        for integral in integrals:
-            tag = integral.subdomain_id()
-            cell_terms += p0test * integral.integrand() * dx(tag)
-    indicator += assemble(cell_terms)
-
+        },
+    )
     return indicator
