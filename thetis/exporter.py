@@ -2,7 +2,7 @@
 Routines for handling file exports.
 """
 from .utility import *
-from firedrake.output import is_cg
+from firedrake.output.vtk_output import is_cg
 from collections import OrderedDict
 import itertools
 
