@@ -150,7 +150,7 @@ mask_numpy_x1 = (x_arr-setup.basin_lx)/lx_relax + 1
 mask_temp_relax_3d.dat.data[:] = numpy.maximum(mask_numpy_x0, mask_numpy_x1)
 ix = mask_temp_relax_3d.dat.data < 0
 mask_temp_relax_3d.dat.data[ix] = 0.0
-# File('mask.pvd').write(mask_temp_relax_3d)
+# VTKFile('mask.pvd').write(mask_temp_relax_3d)
 options.temperature_source_3d = mask_temp_relax_3d/t_temp_relax*(temp_relax - solver_obj.fields.temp_3d)
 
 # use salinity field as a passive tracer for tracking inflowing waters
@@ -256,7 +256,7 @@ print_output('Exporting to {:}'.format(outputdir))
 # Export bottom salinity
 bot_salt_2d = Function(solver_obj.function_spaces.H_2d, name='Salinity')
 extract_bot_salt = SubFunctionExtractor(solver_obj.fields.salt_3d, bot_salt_2d, boundary='bottom')
-bot_salt_file = File(options.output_directory + '/BotSalinity2d.pvd')
+bot_salt_file = VTKFile(options.output_directory + '/BotSalinity2d.pvd')
 
 
 def export_func():

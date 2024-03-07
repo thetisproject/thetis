@@ -82,9 +82,9 @@ def compute_l2_error(refinement=1, quadratic=False, no_exports=True):
     mesh.coordinates.dat.data[:, 2] = new_z
 
     if not no_exports:
-        out_density = File('density.pvd')
-        out_bhead = File('baroc_head.pvd')
-        out_pg = File('int_pg.pvd')
+        out_density = VTKFile('density.pvd')
+        out_bhead = VTKFile('baroc_head.pvd')
+        out_pg = VTKFile('int_pg.pvd')
 
     # project initial scalar
     density_3d.project(density_expr)

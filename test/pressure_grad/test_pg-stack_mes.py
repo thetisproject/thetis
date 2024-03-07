@@ -177,10 +177,10 @@ def compute_l2_error(refinement=1, quadratic_pressure=False, quadratic_density=F
     print_output('Int.PG  L2 error: {:}'.format(l2_err_pg))
 
     if not no_exports:
-        out_temp = File('temperature.pvd')
-        out_density = File('density.pvd')
-        out_bhead = File('baroc_head.pvd')
-        out_pg = File('int_pg.pvd')
+        out_temp = VTKFile('temperature.pvd')
+        out_density = VTKFile('density.pvd')
+        out_bhead = VTKFile('baroc_head.pvd')
+        out_pg = VTKFile('int_pg.pvd')
 
         # export numerical solution
         out_temp.write(temp_3d)

@@ -120,6 +120,6 @@ if options.no_exports:
 source = get_source(mesh2d, source_model, initial_guess=inv_manager.control_coeff_list)
 if source_model == "okada":
     source.subfault_variables = args.okada_parameters
-outfile = File(f"{options.output_directory}/elevation_optimised.pvd")
+outfile = VTKFile(f"{options.output_directory}/elevation_optimised.pvd")
 print_function_value_range(source.elev_init, prefix="Optimal")
 outfile.write(source.elev_init)

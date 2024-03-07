@@ -106,7 +106,7 @@ def run_bottom_friction(do_assert=True, do_export=False, **model_options):
         log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')
         log_uv.project(as_vector((u_b / kappa * ln((xyz[2] + depth + z_0)/z_0), 0, 0)))
         if do_export:
-            out = File(outputdir + '/log_uv/log_uv.pvd')
+            out = VTKFile(outputdir + '/log_uv/log_uv.pvd')
             out.write(log_uv)
 
     solver_obj.iterate()

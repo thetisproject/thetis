@@ -32,7 +32,7 @@ def test_implicit_friction(do_export=False, do_assert=True):
     mesh = ExtrudedMesh(mesh2d, layers=50, layer_height=-depth/layers)
 
     if do_export:
-        out_file = File('implicit_bf_sol.pvd')
+        out_file = VTKFile('implicit_bf_sol.pvd')
 
     # ----- define function spaces
     deg = 1

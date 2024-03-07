@@ -96,7 +96,7 @@ def run(refinement, **model_options):
     # export analytical solution
     if not options.no_exports:
         salt_ana = Function(solverobj.function_spaces.H, name='salt analytical')
-        out_salt_ana = File(os.path.join(options.output_directory, 'salt_ana.pvd'))
+        out_salt_ana = VTKFile(os.path.join(options.output_directory, 'salt_ana.pvd'))
 
     def export_func():
         if not options.no_exports:

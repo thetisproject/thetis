@@ -151,7 +151,7 @@ mask_numpy_y1 = (1 + (y_arr - ly)/ly_relax)
 mask_temp_relax_3d.dat.data[:] = numpy.maximum(mask_numpy_y0, mask_numpy_y1)
 ix = mask_temp_relax_3d.dat.data < 0
 mask_temp_relax_3d.dat.data[ix] = 0.0
-# File('mask.pvd').write(mask_temp_relax_3d)
+# VTKFile('mask.pvd').write(mask_temp_relax_3d)
 # NOTE must accept ufl expressions as forcing term!
 options.temperature_source_3d = mask_temp_relax_3d/t_temp_relax*(temp_relax - solver_obj.fields.temp_3d)
 

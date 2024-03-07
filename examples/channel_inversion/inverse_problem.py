@@ -133,4 +133,4 @@ for oc, cc in zip(control_opt_list, inv_manager.control_coeff_list):
     oc.rename(name)
     print_function_value_range(oc, prefix='Optimal')
     if not no_exports:
-        File(f'{options.output_directory}/{name}_optimised.pvd').write(oc)
+        VTKFile(f'{options.output_directory}/{name}_optimised.pvd').write(oc)

@@ -191,7 +191,7 @@ def run(refinement, cell='triangle', setup=setup_williamson2, **model_options):
     solver_obj.create_function_spaces()
     if not options.no_exports:
         # Store analytical elevation to disk
-        out = File(outputdir + '/Elevation2d_ana/Elevation2d_ana.pvd')
+        out = VTKFile(outputdir + '/Elevation2d_ana/Elevation2d_ana.pvd')
         ana_elev = Function(solver_obj.function_spaces.H_2d, name='Elevation')
 
     def export():

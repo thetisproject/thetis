@@ -138,8 +138,8 @@ def run(refinement, **model_options):
     solver_obj.iterate()
     sol = solver_obj.fields.tracer_2d
     if not options.no_exports:
-        File('outputs/finite_element_solution.pvd').write(sol)
-        File('outputs/fourier_series_solution.pvd').write(fsol)
+        VTKFile('outputs/finite_element_solution.pvd').write(sol)
+        VTKFile('outputs/fourier_series_solution.pvd').write(fsol)
     return errornorm(sol, fsol)
 
 

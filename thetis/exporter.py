@@ -2,7 +2,7 @@
 Routines for handling file exports.
 """
 from .utility import *
-from firedrake.output.vtk_output import is_cg
+from firedrake.output.vtk_output import is_cg, VTKFile
 from collections import OrderedDict
 import itertools
 
@@ -91,7 +91,7 @@ class VTKExporter(ExporterBase):
         if (len(filename) < len(suffix)+1 or filename[:len(suffix)] != suffix):
             self.filename += suffix
         path = os.path.join(path, self.filename)
-        self.outfile = File(path)
+        self.outfile = VTKFile(path)
         self.cast_operators = {}
 
     def set_next_export_ix(self, next_export_ix):
@@ -351,6 +351,6 @@ class ExportManager(object):
 
         :arg bathymetry_2d: 2D bathymetry :class:`Function`
         """
-        bathfile = File(os.path.join(self.outputdir, 'init_bathymetry_2d/init_bathymetry_2d.pvd'))
+        bathfile = VTKFile(os.path.join(self.outputdir, 'init_bathymetry_2d/init_bathymetry_2d.pvd'))
 
         bathfile.write(bathymetry_2d)

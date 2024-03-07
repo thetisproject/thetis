@@ -28,7 +28,7 @@ bathymetry_2d = Function(P1_2d, name='Bathymetry')
 bathymetry_2d.assign(Constant(50.0))
 x = SpatialCoordinate(mesh2d)
 h_viscosity = Function(P1_2d).interpolate(conditional(le(x[0], 50), 51-x[0], 1.0))
-File(outputdir + '/viscosity/viscosity.pvd').write(h_viscosity)
+VTKFile(outputdir + '/viscosity/viscosity.pvd').write(h_viscosity)
 
 
 # Turbine options
