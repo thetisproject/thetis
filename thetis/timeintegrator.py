@@ -529,7 +529,7 @@ class LeapFrogAM3(TimeIntegrator):
         self.mass_matrix = assemble(self.a)
         self.solution.assign(solution)
         self.solution_old.assign(solution)
-        assemble(self.mass_new, self.msolution_old)
+        assemble(self.mass_new, tensor=self.msolution_old)
         self.lin_solver = LinearSolver(self.mass_matrix)
         # TODO: Linear solver is not annotated and does not accept ad_block_tag
 
@@ -559,9 +559,9 @@ class LeapFrogAM3(TimeIntegrator):
         """
         if self._nontrivial:
             with timed_region('lf_pre_asmb_sol'):
-                assemble(self.mass_new, self.msolution_old)  # store current solution
+                assemble(self.mass_new, tensor=self.msolution_old)  # store current solution
             with timed_region('lf_pre_asmb_rhs'):
-                assemble(self.l_prediction, self.rhs_func)
+                assemble(self.l_prediction, tensor=self.rhs_func)
             with timed_region('lf_pre_asgn_sol'):
                 self.solution_old.assign(self.solution)  # time shift
             with timed_region('lf_pre_solve'):
@@ -570,7 +570,7 @@ class LeapFrogAM3(TimeIntegrator):
     def eval_rhs(self):
         if self._nontrivial:
             with timed_region('lf_cor_asmb_rhs'):
-                assemble(self.l, self.rhs_func)
+                assemble(self.l, tensor=self.rhs_func)
 
     @PETSc.Log.EventDecorator("thetis.LeapFrogAM3.correct")
     def correct(self):
@@ -591,7 +591,7 @@ class LeapFrogAM3(TimeIntegrator):
             with timed_region('lf_cor_incr_rhs'):
                 self.rhs_func += self.msolution_old
             with timed_region('lf_cor_asmb_mat'):
-                assemble(self.a, self.mass_matrix)
+                assemble(self.a, tensor=self.mass_matrix)
             with timed_region('lf_cor_solve'):
                 self._solve_system()
 
@@ -677,10 +677,10 @@ class SSPRK22ALE(TimeIntegrator):
         if self._nontrivial:
             # Compute $Mu$ and assign $q_{old} = Mu$
             with timed_region('pre1_asseble_mu'):
-                assemble(self.mu_form, self.mu_old)
+                assemble(self.mu_form, tensor=self.mu_old)
             # Evaluate $k = \Delta t F(u)$
             with timed_region('pre1_asseble_f'):
-                assemble(self.l, self.tendency)
+                assemble(self.l, tensor=self.tendency)
             # $q = q_{old} + k$
             with timed_region('pre1_incr_rhs'):
                 self.mu.assign(self.mu_old + self.tendency)
@@ -700,7 +700,7 @@ class SSPRK22ALE(TimeIntegrator):
         if self._nontrivial:
             # Solve $u = M^{-1}q$
             with timed_region('sol1_assemble_A'):
-                assemble(self.a, self.lin_solver.A)
+                assemble(self.a, tensor=self.lin_solver.A)
             with timed_region('sol1_solve'):
                 self.lin_solver.solve(self.solution, self.mu)
 
@@ -712,7 +712,7 @@ class SSPRK22ALE(TimeIntegrator):
         if self._nontrivial:
             # Evaluate $k = \Delta t F(u)$
             with timed_region('pre2_asseble_f'):
-                assemble(self.l, self.tendency)
+                assemble(self.l, tensor=self.tendency)
             # $q = \frac{1}{2}q + \frac{1}{2}q_{old} + \frac{1}{2}k$
             with timed_region('pre2_incr_rhs'):
                 self.mu.assign(0.5*self.mu + 0.5*self.mu_old + 0.5*self.tendency)
@@ -734,7 +734,7 @@ class SSPRK22ALE(TimeIntegrator):
         if self._nontrivial:
             # Solve $u = M^{-1}q$
             with timed_region('sol2_assemble_A'):
-                assemble(self.a, self.lin_solver.A)
+                assemble(self.a, tensor=self.lin_solver.A)
             with timed_region('sol2_solve'):
                 self.lin_solver.solve(self.solution, self.mu)
 
