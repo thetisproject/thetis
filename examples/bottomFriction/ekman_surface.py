@@ -7,6 +7,7 @@ Vertical viscosity is assumed to be constant to allow simple analytical
 solution.
 """
 from thetis import *
+from firedrake.output.vtk_output import VTKFile
 
 depth = 20.0
 

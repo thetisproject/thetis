@@ -26,6 +26,7 @@ comparisons with other WD models.
     doi: 10.1016/j.advwatres.2009.09.005.
 """
 from thetis import *
+from firedrake.output.vtk_output import VTKFile
 
 outputdir = 'outputs'
 mesh2d = RectangleMesh(12, 6, 13800, 7200)

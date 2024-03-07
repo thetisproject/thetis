@@ -6,6 +6,7 @@ Flow becomes steady after an initial ramp up.
 """
 
 from thetis import *
+from firedrake.output.vtk_output import VTKFile
 
 # Set output directory, load mesh, set simulation export and end times
 outputdir = 'outputs'

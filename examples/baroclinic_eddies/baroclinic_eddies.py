@@ -29,6 +29,7 @@ set to constant 1e-4 m2/s. Tracer diffusion is set to zero.
 """
 
 from thetis import *
+from firedrake.output.vtk_output import VTKFile
 from diagnostics import *
 
 

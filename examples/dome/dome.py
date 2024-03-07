@@ -23,6 +23,7 @@ Typical mesh resolution is dx=10 km, 21 sigma levels [2]
     z-coordinate, isopycnal and non-hydrostatic models. Ocean Modelling, 11(1-2):69-97.
 """
 from thetis import *
+from firedrake.output.vtk_output import VTKFile
 import dome_setup as setup
 import diagnostics
 
