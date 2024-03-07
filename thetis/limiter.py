@@ -93,7 +93,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         """
         b = assemble(TestFunction(self.P0) * field * dx)
         if self.time_dependent_mesh:
-            assemble(self.a_form, self.centroid_solver.A)
+            assemble(self.a_form, tensor=self.centroid_solver.A)
         self.centroid_solver.solve(self.centroids, b)
 
     @PETSc.Log.EventDecorator("thetis.VertexBasedP1DGLimiter.compute_bounds")

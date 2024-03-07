@@ -126,7 +126,7 @@ def bottom_friction_test(layers=25, gls_closure='k-omega',
             z_0 = float(options.bottom_roughness)
             log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')
             log_uv.project(as_vector((u_b / kappa * ln((xyz[2] + depth + z_0)/z_0), 0, 0)))
-            out = File(options.output_directory + '/log_uv/log_uv.pvd')
+            out = VTKFile(options.output_directory + '/log_uv/log_uv.pvd')
             out.write(log_uv)
 
             uv_p1_dg = Function(solver_obj.function_spaces.P1DGv, name='velocity p1dg')

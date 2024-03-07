@@ -39,7 +39,7 @@ def vertex_limiter_test(dim=3, type='linear', direction='x', export=False):
     tracer.project(tracer_original)
 
     if export:
-        tracer_file = File('tracer.pvd')
+        tracer_file = VTKFile('tracer.pvd')
         tracer_file.write(tracer)
 
     limiter = VertexBasedP1DGLimiter(p1dg)

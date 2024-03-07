@@ -210,4 +210,4 @@ if optimise:
     # options, such as maxiter and pgtol can be passed on.
     td_opt = minimize(rf, bounds=[0, max_density],
                       options={'maxiter': 100, 'pgtol': 1e-3})
-    File('optimal_density.pvd').write(td_opt)
+    VTKFile('optimal_density.pvd').write(td_opt)

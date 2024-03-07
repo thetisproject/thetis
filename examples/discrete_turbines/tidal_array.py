@@ -6,6 +6,7 @@ Flow becomes steady after an initial ramp up.
 """
 
 from thetis import *
+from firedrake.output.vtk_output import VTKFile
 
 # Set output directory, load mesh, set simulation export and end times
 outputdir = 'outputs'
@@ -28,7 +29,7 @@ bathymetry_2d = Function(P1_2d, name='Bathymetry')
 bathymetry_2d.assign(Constant(50.0))
 x = SpatialCoordinate(mesh2d)
 h_viscosity = Function(P1_2d).interpolate(conditional(le(x[0], 50), 51-x[0], 1.0))
-File(outputdir + '/viscosity/viscosity.pvd').write(h_viscosity)
+VTKFile(outputdir + '/viscosity/viscosity.pvd').write(h_viscosity)
 
 
 # Turbine options

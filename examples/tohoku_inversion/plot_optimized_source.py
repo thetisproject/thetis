@@ -45,7 +45,7 @@ elev = source.elev_init
 
 # Plot in vtu format
 print_output("Writing optimized elevation to vtu")
-outfile = File(f"{output_dir}/elevation_optimized.pvd")
+outfile = VTKFile(f"{output_dir}/elevation_optimized.pvd")
 print_function_value_range(elev, prefix="Optimal")
 outfile.write(elev)
 
