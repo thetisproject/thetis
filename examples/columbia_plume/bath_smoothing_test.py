@@ -3,6 +3,7 @@ Columbia river plume simulation
 ===============================
 """
 from thetis import *
+from firedrake.output.vtk_output import VTKFile
 from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_bnd
 comm = COMM_WORLD
 
