@@ -20,7 +20,7 @@ site_ID = 2  # mesh PhysID for subdomain where turbines are to be sited
 print_output('Loaded mesh ' + mesh2d.name)
 print_output('Exporting to ' + outputdir)
 
-t_end = 0.25 * 3600
+t_end = 1.5 * 3600
 t_export = 200.0
 
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
