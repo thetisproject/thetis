@@ -26,3 +26,6 @@ del get_versions
 
 thetis_log_level(DEBUG)
 set_thetis_loggers(comm=COMM_WORLD)
+
+from . import _version
+__version__ = _version.get_versions()['version']
