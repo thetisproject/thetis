@@ -13,7 +13,7 @@ on:
 
 jobs:
   build:
-    name: "Build Thetis"  
+    name: "Build Thetis"
     # The type of runner that the job will run on
     runs-on: self-hosted
     # The docker container to use.
@@ -26,10 +26,6 @@ jobs:
         run: |
           cd ..
           rm -rf build
-      - name: Setup python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.8
       - name: Install Thetis
         run: |
           . /home/firedrake/firedrake/bin/activate
