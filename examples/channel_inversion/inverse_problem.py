@@ -1,5 +1,6 @@
 from thetis import *
 from firedrake.adjoint import *
+from firedrake.output.vtk_output import VTKFile
 import numpy
 import thetis.inversion_tools as inversion_tools
 from model_config import construct_solver
