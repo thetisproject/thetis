@@ -136,6 +136,16 @@ class FieldDict(AttrDict):
         super(FieldDict, self).__setattr__(key, value)
 
 
+def domain_constant(value, mesh, **kwargs):
+    """Create constant over a domain
+
+    Returns what used to be Constant(mesh, domain=mesh)"""
+    R = FunctionSpace(mesh, "R", 0)
+    c = Function(R, **kwargs)
+    c.assign(value)
+    return c
+
+
 def get_functionspace(mesh, h_family, h_degree, v_family=None, v_degree=None,
                       vector=False, tensor=False, hdiv=False, variant=None, v_variant=None,
                       **kwargs):
@@ -404,8 +414,7 @@ def comp_volume_2d(eta, bath):
 @PETSc.Log.EventDecorator("thetis.comp_volume_3d")
 def comp_volume_3d(mesh):
     """Computes volume of the 3D domain as an integral"""
-    one = Constant(1.0, domain=mesh.coordinates.ufl_domain())
-    val = assemble(one*dx)
+    val = assemble(Constant(1.0)*dx(domain=mesh))
     return val
 
 
