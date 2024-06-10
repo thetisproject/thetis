@@ -1,4 +1,5 @@
 from thetis import *
+import firedrake as fd
 from firedrake.adjoint import *
 import numpy
 import thetis.inversion_tools as inversion_tools
@@ -133,4 +134,4 @@ for oc, cc in zip(control_opt_list, inv_manager.control_coeff_list):
     oc.rename(name)
     print_function_value_range(oc, prefix='Optimal')
     if not no_exports:
-        VTKFile(f'{options.output_directory}/{name}_optimised.pvd').write(oc)
+        fd.VTKFile(f'{options.output_directory}/{name}_optimised.pvd').write(oc)
