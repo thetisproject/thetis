@@ -139,10 +139,24 @@ class FieldDict(AttrDict):
 def domain_constant(value, mesh, **kwargs):
     """Create constant over a domain
 
-    Returns what used to be Constant(mesh, domain=mesh)"""
-    R = FunctionSpace(mesh, "R", 0)
+    Returns what used to be Constant(value, domain=mesh)"""
+    try:
+        shape = value.ufl_shape
+        value = value.dat.data.flatten()
+    except AttributeError:
+        shape = np.shape(value)
+        value = np.asarray(value).flatten()
+
+    if len(shape) == 0:
+        R = FunctionSpace(mesh, "R", 0)
+    elif len(shape) == 1:
+        R = VectorFunctionSpace(mesh, "R", 0, dim=shape[0])
+    elif len(shape) == 2:
+        R = TensorFunctionSpace(mesh, "R", 0, shape=shape)
+
     c = Function(R, **kwargs)
     c.assign(value)
+
     return c
 
 
