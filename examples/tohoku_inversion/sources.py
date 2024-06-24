@@ -248,7 +248,7 @@ class ArrayTsunamiSource(TsunamiSource):
         for j, y in enumerate(self.Y):
             for i, x in enumerate(self.X):
                 k = i + j * self.num_subfaults_par
-                xyij.assign(numpy.array([x, y]))
+                xyij.assign([x, y])
                 centroid = fd.Constant(self.xy0 + ufl.dot(R, xyij))
                 self.calculate_contribution(k, centroid)
 
