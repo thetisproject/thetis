@@ -333,8 +333,8 @@ class InversionManager(FrozenHasTraits):
             var = fd.Function(self.sta_manager.fs_points_0d)
             for i, j in enumerate(self.sta_manager.local_station_index):
                 obs_speed = numpy.sqrt(
-                    numpy.array(self.sta_manager.observation_u[j]) ** 2 +
-                    numpy.array(self.sta_manager.observation_v[j]) ** 2)
+                    numpy.array(self.sta_manager.observation_u[j]) ** 2
+                    + numpy.array(self.sta_manager.observation_v[j]) ** 2)
                 var.dat.data[i] = numpy.var(obs_speed)
             self.sta_manager.station_weight_0d.interpolate(1 / var)
 
