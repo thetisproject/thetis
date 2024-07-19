@@ -252,7 +252,8 @@ class InversionManager(FrozenHasTraits):
                 var.dat.data[i] = numpy.var(self.sta_manager.observation_values[j])
             self.sta_manager.station_weight_0d.interpolate(1/var)
 
-        def cost_fn(t):
+        def cost_fn():
+            t = solver_obj.simulation_time
             misfit = self.sta_manager.eval_cost_function(t)
             self.J_misfit += misfit
             self.J += misfit
