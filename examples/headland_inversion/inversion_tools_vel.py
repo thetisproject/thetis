@@ -101,9 +101,9 @@ class InversionManager(FrozenHasTraits):
             create_directory(self.output_dir + '/hdf5')
             for i in range(max(self.outfile_index)+1):
                 self.outfiles_m.append(
-                    fd.output.vtk_output.VTKFile(f'{self.output_dir}/control_progress_{i:02d}.pvd'))
+                    fd.VTKFile(f'{self.output_dir}/control_progress_{i:02d}.pvd'))
                 self.outfiles_dJdm.append(
-                    fd.output.vtk_output.VTKFile(f'{self.output_dir}/gradient_progress_{i:02d}.pvd'))
+                    fd.VTKFile(f'{self.output_dir}/gradient_progress_{i:02d}.pvd'))
         self.initialized = True
 
     def add_control(self, f, mapping=None, new_map=False):
