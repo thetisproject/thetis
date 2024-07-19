@@ -136,6 +136,15 @@ class FieldDict(AttrDict):
         super(FieldDict, self).__setattr__(key, value)
 
 
+def domain_constant(value, mesh, **kwargs):
+    """Create constant over a domain
+    Returns what used to be Constant(mesh, domain=mesh)"""
+    R = FunctionSpace(mesh, "R", 0)
+    c = Function(R, **kwargs)
+    c.assign(value)
+    return c
+
+
 def get_functionspace(mesh, h_family, h_degree, v_family=None, v_degree=None,
                       vector=False, tensor=False, hdiv=False, variant=None, v_variant=None,
                       **kwargs):
