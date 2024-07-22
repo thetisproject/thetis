@@ -58,7 +58,7 @@ def test_steady_state_channel(do_export=False):
     uv, eta = solver_obj.fields.solution_2d.subfunctions
 
     x_2d, y_2d = SpatialCoordinate(mesh2d)
-    eta_ana = interpolate(1 - x_2d/lx, p1_2d)
+    eta_ana = Function(p1_2d).interpolate(1 - x_2d/lx)
     area = lx*ly
     l2norm = errornorm(eta_ana, eta)/math.sqrt(area)
     print_output(l2norm)
