@@ -3,7 +3,7 @@ from firedrake.adjoint import *
 import ufl
 from .configuration import FrozenHasTraits
 from .solver2d import FlowSolver2d
-from .utility import create_directory, print_function_value_range, get_functionspace, unfrozen
+from .utility import create_directory, print_function_value_range, get_functionspace, unfrozen, domain_constant
 from .log import print_output
 from .diagnostics import HessianRecoverer2D
 from .exporter import HDF5Exporter
@@ -477,7 +477,7 @@ class StationObservationManager:
         self.mod_values_0d = fd.Function(self.fs_points_0d, name='model values')
         self.indicator_0d = fd.Function(self.fs_points_0d, name='station use indicator')
         self.indicator_0d.assign(1.0)
-        self.cost_function_scaling_0d = fd.Constant(0.0, domain=mesh0d)
+        self.cost_function_scaling_0d = domain_constant(0.0, mesh0d)
         self.cost_function_scaling_0d.assign(self.cost_function_scaling)
         self.station_weight_0d = fd.Function(self.fs_points_0d, name='station-wise weighting')
         self.station_weight_0d.assign(1.0)
@@ -615,7 +615,7 @@ class RegularizationCalculator(abc.ABC):
         self.regularization_expr = 0
         self.mesh = function.function_space().mesh()
         # calculate mesh area (to scale the cost function)
-        self.mesh_area = fd.assemble(fd.Constant(1.0, domain=self.mesh) * fd.dx)
+        self.mesh_area = fd.assemble(fd.Constant(1.0) * fd.dx(domain=self.mesh))
         self.name = function.name()
 
     def eval_cost_function(self):
