@@ -488,26 +488,29 @@ class StationObservationManager:
         # Construct timeseries interpolator
         self.station_interpolators = []
         self.local_station_index = []
-        for i in range(self.fs_points_0d.dof_dset.size):
-            # loop over local DOFs and match coordinates to observations
-            # NOTE this must be done manually as VertexOnlyMesh reorders points
-            x_mesh, y_mesh = mesh0d.coordinates.dat.data[i, :]
-            xy_diff = xy - numpy.array([x_mesh, y_mesh])
-            xy_dist = numpy.sqrt(xy_diff[:, 0]**2 + xy_diff[:, 1]**2)
-            j = numpy.argmin(xy_dist)
-            self.local_station_index.append(j)
+        if len(mesh0d.coordinates.dat.data[:]) > 0:
+            for i in range(self.fs_points_0d.dof_dset.size):
+                # loop over local DOFs and match coordinates to observations
+                # NOTE this must be done manually as VertexOnlyMesh reorders points
+                x_mesh, y_mesh = mesh0d.coordinates.dat.data[i, :]
+                xy_diff = xy - numpy.array([x_mesh, y_mesh])
+                xy_dist = numpy.sqrt(xy_diff[:, 0]**2 + xy_diff[:, 1]**2)
+                j = numpy.argmin(xy_dist)
+                self.local_station_index.append(j)
 
-            x, y = xy[j, :]
-            t = self.observation_time[j]
-            v = self.observation_values[j]
-            x_mesh, y_mesh = mesh0d.coordinates.dat.data[i, :]
+                x, y = xy[j, :]
+                t = self.observation_time[j]
+                v = self.observation_values[j]
+                x_mesh, y_mesh = mesh0d.coordinates.dat.data[i, :]
 
-            msg = 'bad station location ' \
-                f'{j} {i} {x} {x_mesh} {y} {y_mesh} {x-x_mesh} {y-y_mesh}'
-            assert numpy.allclose([x, y], [x_mesh, y_mesh]), msg
-            # create temporal interpolator
-            ip = interp1d(t, v, **interp_kw)
-            self.station_interpolators.append(ip)
+                msg = 'bad station location ' \
+                    f'{j} {i} {x} {x_mesh} {y} {y_mesh} {x-x_mesh} {y-y_mesh}'
+                assert numpy.allclose([x, y], [x_mesh, y_mesh]), msg
+                # create temporal interpolator
+                ip = interp1d(t, v, **interp_kw)
+                self.station_interpolators.append(ip)
+        else:
+            pass
 
         # Process start and end times for observations
         self.obs_start_times = numpy.array([
