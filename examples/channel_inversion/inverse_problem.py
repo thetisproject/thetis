@@ -113,7 +113,7 @@ for control_name in controls:
 cost_function = inv_manager.get_cost_function(solver_obj)
 
 # Solve and setup reduced functional
-solver_obj.iterate(update_forcings=cost_function)
+solver_obj.iterate(export_func=cost_function)  # note that export time should equal dt if not using a custom callback
 inv_manager.stop_annotating()
 
 # Run inversion
