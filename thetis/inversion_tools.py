@@ -509,8 +509,6 @@ class StationObservationManager:
                 # create temporal interpolator
                 ip = interp1d(t, v, **interp_kw)
                 self.station_interpolators.append(ip)
-        else:
-            pass
 
         # Process start and end times for observations
         self.obs_start_times = numpy.array([
