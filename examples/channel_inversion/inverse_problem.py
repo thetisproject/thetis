@@ -94,7 +94,7 @@ sta_manager.load_observation_data(observation_data_dir, station_names, variable)
 sta_manager.set_model_field(solver_obj.fields.elev_2d)
 
 # Define the scaling for the cost function so that J ~ O(1)
-J_scalar = Constant(solver_obj.dt / options.simulation_end_time, domain=mesh2d)
+J_scalar = domain_constant(solver_obj.dt / options.simulation_end_time, mesh2d)
 
 # Create inversion manager and add controls
 inv_manager = inversion_tools.InversionManager(
@@ -113,7 +113,7 @@ for control_name in controls:
 cost_function = inv_manager.get_cost_function(solver_obj)
 
 # Solve and setup reduced functional
-solver_obj.iterate(export_func=cost_function)
+solver_obj.iterate(export_func=cost_function)  # note that export time should equal dt if not using a custom callback
 inv_manager.stop_annotating()
 
 # Run inversion
