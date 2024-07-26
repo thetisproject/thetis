@@ -99,9 +99,11 @@ for c in source.controls:
 
 # Extract the regularized cost function
 cost_function = inv_manager.get_cost_function(solver_obj, weight_by_variance=True)
+cost_function_callback = inversion_tools.CostFunctionCallback(solver_obj, cost_function)
+solver_obj.add_callback(cost_function_callback, 'timestep')
 
 # Solve and setup the reduced functional
-solver_obj.iterate(export_func=cost_function)
+solver_obj.iterate()
 inv_manager.stop_annotating()
 
 # Run inversion

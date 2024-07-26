@@ -1,5 +1,11 @@
 from thetis import *
-from firedrake.output.vtk_output import VTKFile
+from firedrake import VTKFile
+from mpi4py import MPI
+
+# Initialize MPI
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+size = comm.Get_size()
 
 
 def generate_bathymetry(mesh, H, output_directory, exporting=True):
@@ -100,7 +106,20 @@ def construct_solver(store_station_time_series=True, **model_options):
     bathymetry_2d.project(bathy)
 
     x, y = SpatialCoordinate(mesh2d)
-    lx, ly = np.max(mesh2d.coordinates.dat.data[:, 0]), np.max(mesh2d.coordinates.dat.data[:, 1])
+    local_lx = np.max(mesh2d.coordinates.dat.data[:,
+                      0])  # for parallel runs, the mesh is partioned so we need to get the maximum from each processor!
+    local_ly = np.max(mesh2d.coordinates.dat.data[:, 1])
+
+    all_lx = comm.gather(local_lx, root=0)
+    all_ly = comm.gather(local_ly, root=0)
+    if rank == 0:
+        lx_ = np.max(all_lx)
+        ly_ = np.max(all_ly)
+    else:
+        lx_ = None
+        ly_ = None
+    lx = comm.bcast(lx_, root=0)
+    ly = comm.bcast(ly_, root=0)
 
     # friction Manning coefficient
     manning_2d = Function(P1_2d, name='Manning coefficient')

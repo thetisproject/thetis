@@ -6,6 +6,12 @@ from model_config import construct_solver
 from scipy.interpolate import LinearNDInterpolator, NearestNDInterpolator
 import h5py
 import argparse
+from mpi4py import MPI
+
+# Initialize MPI
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+size = comm.Get_size()
 
 # ---------------------------------------- Step 1: set up mesh and ground truth ----------------------------------------
 
@@ -55,8 +61,22 @@ manning_2d = solver_obj.fields.manning_2d
 
 coordinates = mesh2d.coordinates.dat.data[:]
 x, y = coordinates[:, 0], coordinates[:, 1]
-lx, ly = np.max(x), np.max(y)
-N = coordinates.shape[0]
+local_lx = np.max(x)  # for parallel runs, the mesh is partioned so we need to get the maximum from each processor!
+local_ly = np.max(y)
+
+all_lx = comm.gather(local_lx, root=0)
+all_ly = comm.gather(local_ly, root=0)
+if rank == 0:
+    lx_ = np.max(all_lx)
+    ly_ = np.max(all_ly)
+else:
+    lx_ = None
+    ly_ = None
+lx = comm.bcast(lx_, root=0)
+ly = comm.bcast(ly_, root=0)
+
+local_N = coordinates.shape[0]
+N = comm.allreduce(local_N, op=MPI.SUM)  # allreduce sums the local numbers to get the total number of coordinates
 masks, M, m_true = None, 0, []
 
 # Create a FunctionSpace on the mesh (corresponds to Manning)
@@ -159,7 +179,6 @@ print_output('Exporting to ' + options.output_directory)
 # Create station manager
 observation_data_dir = output_dir_forward
 variable = 'uv'
-lx, ly = np.max(x), np.max(y)
 stations = [
     ('stationA', (lx/10, ly/2)),
     ('stationB', (lx/2, ly/2)),
@@ -230,9 +249,11 @@ if not no_exports:
 
 # Extract the regularized cost function
 cost_function = inv_manager.get_cost_function(solver_obj, weight_by_variance=True)
+cost_function_callback = inversion_tools.CostFunctionCallback(solver_obj, cost_function)
+solver_obj.add_callback(cost_function_callback, 'timestep')
 
 # Solve and setup reduced functional
-solver_obj.iterate(update_forcings=update_forcings, export_func=cost_function)
+solver_obj.iterate(update_forcings=update_forcings)
 inv_manager.stop_annotating()
 
 # Run inversion

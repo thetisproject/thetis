@@ -7,12 +7,39 @@ from .utility import create_directory, print_function_value_range, get_functions
 from .log import print_output
 from .diagnostics import HessianRecoverer2D
 from .exporter import HDF5Exporter
+from .callback import DiagnosticCallback
 import abc
 import numpy
 import h5py
 from scipy.interpolate import interp1d
 import time as time_mod
 import os
+
+
+class CostFunctionCallback(DiagnosticCallback):
+    def __init__(self, solver_obj, cost_function, **kwargs):
+        # Disable logging and HDF5 export
+        kwargs.setdefault('append_to_log', False)
+        kwargs.setdefault('export_to_hdf5', False)
+        super().__init__(solver_obj, **kwargs)
+        self.cost_function = cost_function
+
+    @property
+    def name(self):
+        return 'cost_function_callback'
+
+    @property
+    def variable_names(self):
+        return ['cost_function']
+
+    def __call__(self):
+        # Evaluate the cost function
+        cost_value = self.cost_function()
+        return [cost_value]
+
+    def message_str(self, cost_value):
+        # Return a string representation of the cost function value
+        return f"Cost function value: {cost_value}"
 
 
 class InversionManager(FrozenHasTraits):
@@ -248,8 +275,9 @@ class InversionManager(FrozenHasTraits):
 
         if weight_by_variance:
             var = fd.Function(self.sta_manager.fs_points_0d)
-            for i, j in enumerate(self.sta_manager.local_station_index):
-                var.dat.data[i] = numpy.var(self.sta_manager.observation_values[j])
+            if len(var.dat.data[:]) > 0:
+                for i, j in enumerate(self.sta_manager.local_station_index):
+                    var.dat.data[i] = numpy.var(self.sta_manager.observation_values[j])
             self.sta_manager.station_weight_0d.interpolate(1/var)
 
         def cost_fn():
@@ -488,26 +516,27 @@ class StationObservationManager:
         # Construct timeseries interpolator
         self.station_interpolators = []
         self.local_station_index = []
-        for i in range(self.fs_points_0d.dof_dset.size):
-            # loop over local DOFs and match coordinates to observations
-            # NOTE this must be done manually as VertexOnlyMesh reorders points
-            x_mesh, y_mesh = mesh0d.coordinates.dat.data[i, :]
-            xy_diff = xy - numpy.array([x_mesh, y_mesh])
-            xy_dist = numpy.sqrt(xy_diff[:, 0]**2 + xy_diff[:, 1]**2)
-            j = numpy.argmin(xy_dist)
-            self.local_station_index.append(j)
+        if len(mesh0d.coordinates.dat.data[:]) > 0:
+            for i in range(self.fs_points_0d.dof_dset.size):
+                # loop over local DOFs and match coordinates to observations
+                # NOTE this must be done manually as VertexOnlyMesh reorders points
+                x_mesh, y_mesh = mesh0d.coordinates.dat.data[i, :]
+                xy_diff = xy - numpy.array([x_mesh, y_mesh])
+                xy_dist = numpy.sqrt(xy_diff[:, 0]**2 + xy_diff[:, 1]**2)
+                j = numpy.argmin(xy_dist)
+                self.local_station_index.append(j)
 
-            x, y = xy[j, :]
-            t = self.observation_time[j]
-            v = self.observation_values[j]
-            x_mesh, y_mesh = mesh0d.coordinates.dat.data[i, :]
+                x, y = xy[j, :]
+                t = self.observation_time[j]
+                v = self.observation_values[j]
+                x_mesh, y_mesh = mesh0d.coordinates.dat.data[i, :]
 
-            msg = 'bad station location ' \
-                f'{j} {i} {x} {x_mesh} {y} {y_mesh} {x-x_mesh} {y-y_mesh}'
-            assert numpy.allclose([x, y], [x_mesh, y_mesh]), msg
-            # create temporal interpolator
-            ip = interp1d(t, v, **interp_kw)
-            self.station_interpolators.append(ip)
+                msg = 'bad station location ' \
+                    f'{j} {i} {x} {x_mesh} {y} {y_mesh} {x-x_mesh} {y-y_mesh}'
+                assert numpy.allclose([x, y], [x_mesh, y_mesh]), msg
+                # create temporal interpolator
+                ip = interp1d(t, v, **interp_kw)
+                self.station_interpolators.append(ip)
 
         # Process start and end times for observations
         self.obs_start_times = numpy.array([
