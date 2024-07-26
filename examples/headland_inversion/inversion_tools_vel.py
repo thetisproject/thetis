@@ -7,6 +7,7 @@ from thetis.utility import create_directory, print_function_value_range, get_fun
 from thetis.log import print_output
 from thetis.diagnostics import HessianRecoverer2D
 from thetis.exporter import HDF5Exporter
+from thetis.callback import DiagnosticCallback
 import abc
 import numpy
 import h5py
@@ -31,6 +32,32 @@ def group_consecutive_elements(indices):
         grouped_list.append(current_group)
 
     return grouped_list
+
+
+class CostFunctionCallback(DiagnosticCallback):
+    def __init__(self, solver_obj, cost_function, **kwargs):
+        # Disable logging and HDF5 export
+        kwargs.setdefault('append_to_log', False)
+        kwargs.setdefault('export_to_hdf5', False)
+        super().__init__(solver_obj, **kwargs)
+        self.cost_function = cost_function
+
+    @property
+    def name(self):
+        return 'cost_function_callback'
+
+    @property
+    def variable_names(self):
+        return ['cost_function']
+
+    def __call__(self):
+        # Evaluate the cost function
+        cost_value = self.cost_function()
+        return [cost_value]
+
+    def message_str(self, cost_value):
+        # Return a string representation of the cost function value
+        return f"Cost function value: {cost_value}"
 
 
 class InversionManager(FrozenHasTraits):
@@ -331,11 +358,12 @@ class InversionManager(FrozenHasTraits):
 
         if weight_by_variance:
             var = fd.Function(self.sta_manager.fs_points_0d)
-            for i, j in enumerate(self.sta_manager.local_station_index):
-                obs_speed = numpy.sqrt(
-                    numpy.array(self.sta_manager.observation_u[j]) ** 2
-                    + numpy.array(self.sta_manager.observation_v[j]) ** 2)
-                var.dat.data[i] = numpy.var(obs_speed)
+            if len(var.dat.data[:]) > 0:
+                for i, j in enumerate(self.sta_manager.local_station_index):
+                    obs_speed = numpy.sqrt(
+                        numpy.array(self.sta_manager.observation_u[j]) ** 2
+                        + numpy.array(self.sta_manager.observation_v[j]) ** 2)
+                    var.dat.data[i] = numpy.var(obs_speed)
             self.sta_manager.station_weight_0d.interpolate(1 / var)
 
         def cost_fn():
@@ -557,29 +585,31 @@ class StationObservationManager:
         self.station_interpolators_u = []
         self.station_interpolators_v = []
         self.local_station_index = []
-        for i in range(self.fs_points_0d.dof_dset.size):
-            # loop over local DOFs and match coordinates to observations
-            # NOTE this must be done manually as VertexOnlyMesh reorders points
-            x_mesh, y_mesh = mesh0d.coordinates.dat.data[i, :]
-            xy_diff = xy - numpy.array([x_mesh, y_mesh])
-            xy_dist = numpy.sqrt(xy_diff[:, 0]**2 + xy_diff[:, 1]**2)
-            j = numpy.argmin(xy_dist)
-            self.local_station_index.append(j)
 
-            x, y = xy[j, :]
-            t = self.observation_time[j]
-            u = self.observation_u[j]
-            v = self.observation_v[j]
-            x_mesh, y_mesh = mesh0d.coordinates.dat.data[i, :]
+        if len(mesh0d.coordinates.dat.data[:]) > 0:
+            for i in range(self.fs_points_0d.dof_dset.size):
+                # loop over local DOFs and match coordinates to observations
+                # NOTE this must be done manually as VertexOnlyMesh reorders points
+                x_mesh, y_mesh = mesh0d.coordinates.dat.data[i, :]
+                xy_diff = xy - numpy.array([x_mesh, y_mesh])
+                xy_dist = numpy.sqrt(xy_diff[:, 0]**2 + xy_diff[:, 1]**2)
+                j = numpy.argmin(xy_dist)
+                self.local_station_index.append(j)
 
-            msg = 'bad station location ' \
-                f'{j} {i} {x} {x_mesh} {y} {y_mesh} {x-x_mesh} {y-y_mesh}'
-            assert numpy.allclose([x, y], [x_mesh, y_mesh]), msg
-            # create temporal interpolator
-            ip_u = interp1d(t, u, **interp_kw)
-            ip_v = interp1d(t, v, **interp_kw)
-            self.station_interpolators_u.append(ip_u)
-            self.station_interpolators_v.append(ip_v)
+                x, y = xy[j, :]
+                t = self.observation_time[j]
+                u = self.observation_u[j]
+                v = self.observation_v[j]
+                x_mesh, y_mesh = mesh0d.coordinates.dat.data[i, :]
+
+                msg = 'bad station location ' \
+                    f'{j} {i} {x} {x_mesh} {y} {y_mesh} {x-x_mesh} {y-y_mesh}'
+                assert numpy.allclose([x, y], [x_mesh, y_mesh]), msg
+                # create temporal interpolator
+                ip_u = interp1d(t, u, **interp_kw)
+                ip_v = interp1d(t, v, **interp_kw)
+                self.station_interpolators_u.append(ip_u)
+                self.station_interpolators_v.append(ip_v)
 
         # Process start and end times for observations
         self.obs_start_times = numpy.array([
