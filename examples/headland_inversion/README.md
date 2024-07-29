@@ -9,9 +9,9 @@ configures the `solver object`, but with a friction field based on a sea bed par
 
 ![Sea Bed Particle Sizes](images/seabed_classification.png)
 
-The idealised headland is 20km long and 6km wide, with a coastline depth of 3m and a main channel depth of 40m. Both 
-boundaries are undefined and are thus land boundaries. The boundaries are forced by a sinusoidal elevation function, 
-emulating a single tidal signal. A viscosity sponge is used at the left hand boundary to provide some model stability.
+The idealised headland is 20km long and 6km wide, with a coastline depth of 3m and a main channel depth of 40m. The left 
+and right boundaries are forced by a sinusoidal elevation function, emulating a single tidal signal. A viscosity sponge 
+is used at the left hand boundary to provide some model stability.
 
 ## Inversion run
 
@@ -22,8 +22,8 @@ source ~/firedrake/bin/activate
 make invert CASE=NodalFreedom
 ```
 
-The inversion problem is currently run from a `Makefile`. User arguments are specified here i.e. fields to optimise and 
-then the Makefile runs the scripts with the inputs provided.
+The inversion problem is currently run from a `Makefile`. User arguments are specified here i.e. fields to optimise 
+(just Manning for this example) and then the Makefile runs the scripts with the inputs provided.
 
 The solver object is set up using `construct_solver` and then initial values for each field (in this case we only 
 optimise for bed friction) are specified. The station manager, `StationObservationManager` , is then defined, which is 
@@ -44,13 +44,13 @@ friction is allowed, whilst in regions of lower resolution less variability is a
 data points. The cost function is then defined using the inversion manager, which is the Hessian regularised L2 norm. 
 The actual class, `HessianRecoverer2D`, for calculating this loss can be found in `thetis.diagnostics.py`.
 
-The forward model is then run (`solver_obj.iterate`), also passing `export_func=cost_function` to allow us to alter 
-the boundary conditions and perform an important step for the adjoint. Passing `export_func=cost_function` effectively 
-embeds the dependency of the model state on the control variables into the cost function, forming the reduced 
-functional. The reduced functional is thus the original cost function plus the regularization term, modified by the 
-model equations. Running the model gives us the baseline cost and more importantly, calculates the gradients of the cost 
-function with respect to the control variables (friction) which are fed into the adjoint method. The annotation process 
-is then stopped, which has been recording the computations related to the cost function and its derivatives.
+The forward model is then run (`solver_obj.iterate`) with the cost function embedded via a callback, which is an 
+important step for the adjoint. Passing the cost function callback effectively embeds the dependency of the model state 
+on the control variables into the cost function, forming the reduced functional. The reduced functional is thus the 
+original cost function plus the regularization term, modified by the model equations. Running the model gives us the 
+baseline cost and more importantly, calculates the gradients of the cost function with respect to the control variables 
+(friction) which are fed into the adjoint method. The annotation process is then stopped, which has been recording the 
+computations related to the cost function and its derivatives.
 
 Optimisation parameters are then defined, which are the maximum number of iterations and the tolerance for the 
 optimisation convergence criterion (threshold for the relative change in the cost function, below which the optimisation 
@@ -197,3 +197,14 @@ make plot CASE=IndependentPointsScheme
 
 To plot the progress, we can use the Makefile to run `plot_velocity_progress.py`. This plots the velocity over time at 
 each of the station locations for each iteration of the optimisation, relative to the ground truth from the forward run.
+
+## Running in parallel
+
+The default settings run these scripts in parallel, however we can leverage parallel processing to accelerate the 
+simulations by partioning the mesh. To do so, simply provide the number of processors you would like to use after the 
+PARALLEL option, e.g.:
+
+```sh
+source ~/firedrake/bin/activate
+make invert CASE=IndependentPointsScheme PARALLEL=4
+```
