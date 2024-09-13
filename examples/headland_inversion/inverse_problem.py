@@ -87,18 +87,18 @@ if selected_case == 'Constant':
     manning_2d.assign(domain_constant(manning_const, mesh2d))
 elif selected_case == 'Regions':
     # Define our values for n
-    mask_values = [
-        np.logical_and(x < lx / 2, y < 1 * ly / 6).astype(float),
-        np.logical_and(x >= lx / 2, y < 1 * ly / 6).astype(float),
-        np.logical_and(np.logical_and(x < lx / 2, y >= 1 * ly / 6), y < 8 * ly / 15).astype(float),
-        np.logical_and(np.logical_and(x >= lx / 2, y >= 1 * ly / 6), y < 8 * ly / 15).astype(float),
-        np.logical_and(np.logical_and(x < 3 * lx / 8, y >= 8 * ly / 15), y < 5 * ly / 6).astype(float),
-        np.logical_and(np.logical_and(x >= 3 * lx / 8, x < 0.5 * lx), y >= 8 * ly / 15).astype(float),
-        np.logical_and(np.logical_and(x >= 0.5 * lx, x < 5 * lx / 8), y >= 8 * ly / 15).astype(float),
-        np.logical_and(np.logical_and(x >= 5 * lx / 8, y >= 8 * ly / 15), y < 5 * ly / 6).astype(float),
-        np.logical_and(x < 3 * lx / 8, y >= 5 * ly / 6).astype(float),
-        np.logical_and(x >= 5 * lx / 8, y >= 5 * ly / 6).astype(float)
-    ]
+    mask_values = np.array([
+        ((x < lx / 2) & (y < ly / 6)),
+        ((x >= lx / 2) & (y < ly / 6)),
+        ((x < lx / 2) & (y >= ly / 6) & (y < 8 * ly / 15)),
+        ((x >= lx / 2) & (y >= ly / 6) & (y < 8 * ly / 15)),
+        ((x < 3 * lx / 8) & (y >= 8 * ly / 15) & (y < 5 * ly / 6)),
+        ((x >= 3 * lx / 8) & (x < 0.5 * lx) & (y >= 8 * ly / 15)),
+        ((x >= 0.5 * lx) & (x < 5 * lx / 8) & (y >= 8 * ly / 15)),
+        ((x >= 5 * lx / 8) & (y >= 8 * ly / 15) & (y < 5 * ly / 6)),
+        ((x < 3 * lx / 8) & (y >= 5 * ly / 6)),
+        ((x >= 5 * lx / 8) & (y >= 5 * ly / 6))
+    ], dtype=float)
 
     m_true = [Constant(0.03 - 0.0005 * i, domain=mesh2d) for i in range(len(mask_values))]
     masks = [Function(V) for _ in range(len(mask_values))]
@@ -107,23 +107,19 @@ elif selected_case == 'Regions':
 
     M = len(m_true)
 
-    # Define a function to update n based on m i.e. the mapping
-    def update_n(n, m):
-        # Reset n to zero
-        n.assign(0)
-        # Add the weighted masks to n
-        for m_, mask_ in zip(m, masks):
-            n += m_ * mask_
-
-    update_n(manning_2d, m_true)
+    manning_2d.assign(0)
+    for m_, mask_ in zip(m_true, masks):
+        manning_2d += m_ * mask_
 elif selected_case == 'IndependentPointsScheme':
     # Define our values for n
-    points = [(0, 0), (0, 0.5 * ly), (0, ly), (0.5 * lx, 0), (lx, 0), (lx, 0.5 * ly), (lx, ly), (0.5 * lx, 0.5 * ly),
-              (0.1 * lx, 0.9 * ly), (0.3 * lx, 0.9 * ly), (0.7 * lx, 0.9 * ly), (0.9 * lx, 0.9 * ly),
-              (0.1 * lx, 0.7 * ly), (0.3 * lx, 0.7 * ly), (0.7 * lx, 0.7 * ly), (0.9 * lx, 0.7 * ly),
-              (0.3 * lx, 0.75 * ly), (0.7 * lx, 0.75 * ly), (0.5 * lx, 0.4 * ly), (0.5 * lx, 0.1 * ly),
-              (0.1 * lx, 0.25 * ly), (0.3 * lx, 0.25 * ly), (0.7 * lx, 0.25 * ly), (0.9 * lx, 0.25 * ly),
-              (0.1 * lx, 0.05 * ly), (0.3 * lx, 0.05 * ly), (0.7 * lx, 0.05 * ly), (0.9 * lx, 0.05 * ly)]
+    points = np.array([
+        [0, 0], [0, 0.5], [0, 1], [0.5, 0], [1, 0], [1, 0.5], [1, 1], [0.5, 0.5],
+        [0.1, 0.9], [0.3, 0.9], [0.7, 0.9], [0.9, 0.9],
+        [0.1, 0.7], [0.3, 0.7], [0.7, 0.7], [0.9, 0.7],
+        [0.3, 0.75], [0.7, 0.75], [0.5, 0.4], [0.5, 0.1],
+        [0.1, 0.25], [0.3, 0.25], [0.7, 0.25], [0.9, 0.25],
+        [0.1, 0.05], [0.3, 0.05], [0.7, 0.05], [0.9, 0.05]
+    ]) * np.array([lx, ly])
     m_true = [Constant(0.03 - 0.0005 * i, domain=mesh2d) for i in range(len(points))]
     M = len(m_true)
 
@@ -147,15 +143,9 @@ elif selected_case == 'IndependentPointsScheme':
     for i, mask in enumerate(masks):
         mask.dat.data[:] = linear_coefficients[:, i]
 
-    # Define a function to update n based on m i.e. the mapping
-    def update_n(n, m):
-        # Reset n to zero
-        n.assign(0)
-        # Add the weighted masks to n
-        for m_, mask_ in zip(m, masks):
-            n += m_ * mask_
-
-    update_n(manning_2d, m_true)
+    manning_2d.assign(0)
+    for m_, mask_ in zip(m_true, masks):
+        manning_2d += m_ * mask_
 else:
     pass
 
@@ -226,16 +216,9 @@ if selected_case == 'Constant':
     inv_manager.add_control(manning_const)
 elif selected_case == 'Regions' or selected_case == 'IndependentPointsScheme':
     m_values = [Constant(0.03 - 0.0005 * i, domain=mesh2d) for i in range(M)]
-
-    # Define a function to update n based on m i.e. the mapping
-    def update_n(n, m):
-        # Reset n to zero
-        n.assign(0)
-        # Add the weighted masks to n
-        for m_, mask_ in zip(m, masks):
-            n += m_ * mask_
-
-    update_n(manning_2d, m_values)
+    manning_2d.assign(0)
+    for m_, mask_ in zip(m_values, masks):
+        manning_2d += m_ * mask_
     for i, control in enumerate(m_values):
         if i == 0:
             inv_manager.add_control(control, masks[0], new_map=True)
@@ -281,16 +264,9 @@ for oc, cc in zip(control_opt_list, inv_manager.control_coeff_list):
     elif selected_case == 'Regions' or selected_case == 'IndependentPointsScheme':
         P1_2d = get_functionspace(mesh2d, 'CG', 1)
         manning_2d = Function(P1_2d, name='manning2d')
-
-        # Define a function to update n based on m i.e. the mapping
-        def update_n(n, m):
-            # Reset n to zero
-            n.assign(0)
-            # Add the weighted masks to n
-            for m_, mask_ in zip(m, masks):
-                n += m_ * mask_
-
-        update_n(manning_2d, inv_manager.m_list)
+        manning_2d.assign(0)
+        for m_, mask_ in zip(inv_manager.m_list, masks):
+            manning_2d += m_ * mask_
         VTKFile(f'{options.output_directory}/manning_optimised.pvd').write(manning_2d)
     else:
         name = cc.name()
@@ -300,5 +276,5 @@ for oc, cc in zip(control_opt_list, inv_manager.control_coeff_list):
             VTKFile(f'{options.output_directory}/{name}_optimised.pvd').write(oc)
 
 if selected_case == 'Regions' or selected_case == 'IndependentPointsScheme':
-    print("Optimised vector m:\n",
-          [np.round(control_opt_list[i].dat.data[0], 4) for i in range(len(control_opt_list))])
+    print_output("Optimised vector m:\n" +
+                 str([np.round(control_opt_list[i].dat.data[0], 4) for i in range(len(control_opt_list))]))

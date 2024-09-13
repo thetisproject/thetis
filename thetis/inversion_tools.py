@@ -275,6 +275,7 @@ class InversionManager(FrozenHasTraits):
 
         if weight_by_variance:
             var = fd.Function(self.sta_manager.fs_points_0d)
+            # in parallel access to .dat.data should be collective
             if len(var.dat.data[:]) > 0:
                 for i, j in enumerate(self.sta_manager.local_station_index):
                     var.dat.data[i] = numpy.var(self.sta_manager.observation_values[j])
