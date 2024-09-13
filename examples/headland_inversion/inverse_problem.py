@@ -276,5 +276,4 @@ for oc, cc in zip(control_opt_list, inv_manager.control_coeff_list):
             VTKFile(f'{options.output_directory}/{name}_optimised.pvd').write(oc)
 
 if selected_case == 'Regions' or selected_case == 'IndependentPointsScheme':
-    print_output("Optimised vector m:\n" +
-                 str([np.round(control_opt_list[i].dat.data[0], 4) for i in range(len(control_opt_list))]))
+    print_output("Optimised vector m:\n" + str([np.round(control_opt_list[i].dat.data[0], 4) for i in range(len(control_opt_list))]))
