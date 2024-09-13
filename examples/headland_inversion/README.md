@@ -147,24 +147,21 @@ associated with each mask. This means we can define each mask by assigning its v
 `mask.dat.data[:] = mask_values[i]`. In the case of bed particle size mapping, this is important, because it would be 
 challenging to have to define a series of `conditional` or other operators to define each area. Note that if we 
 included this assignment of the masks at each iteration of the adjoint, it would not work as there is no graphical 
-connection when we do assignments with `function.dat.data[:] = values`. We can then define our mapping function as 
-follows:
+connection when we do assignments with `function.dat.data[:] = values`. We can then map our values as follows:
 
 ```
-def update_n(n, m):
-    # Reset n to zero
-    n.assign(0)
-    # Add the weighted masks to n
-    for m_, mask_ in zip(m, masks):
-        n += m_ * mask_
+manning_2d.assign(0)
+# Add the weighted masks to n
+for m_, mask_ in zip(m_true, masks):
+    manning_2d += m_ * mask_
 ```
 
 We then iterate through each mask (region) and then add the corresponding value of Manning (n) friction. We now have a 
 mapping that `PyAdjoint` can understand.
 
-As for the `InversionManager`, we can then provide this mapping `update_n` function which allows us to export the 
-`Control` and `Gradient` fields correctly, rather than having `m` outputs for `m` controls. We can then run the forward,
-inverse and plotting scripts in order.
+As for the `InversionManager`, we can then provide this mapping through an `update_n` function which allows us to export
+the `Control` and `Gradient` fields correctly, rather than having `m` outputs for `m` controls. We can then run the 
+forward, inverse and plotting scripts in order.
 
 ### Independent Point Scheme
 
@@ -180,7 +177,7 @@ interpolation of the points, this mapping is generated as follows:
 
 ```
 # Get domain limits, define independent points and specify their values
-lx, ly = np.max(x), np.max(y)
+lx, ly = np.max(x), np.max(y)  # done differently in parallel
 points = [(lx/4, ly/4), (lx/4, 3*ly/4), (lx/2, ly/4), (lx/2, 3*ly/4),
           (3*lx/4, ly/4), (3*lx/4, 3*ly/4)]
 m_true = [Constant(0.01*(i+1), domain=mesh2d) for i in range(len(points))]
