@@ -1,5 +1,5 @@
 from thetis import *
-import inversion_tools_vel as inversion_tools
+import thetis.inversion_tools as inversion_tools
 from firedrake import *
 from firedrake.adjoint import *
 from model_config import construct_solver
@@ -176,7 +176,8 @@ stations = [
     ('stationD', (3*lx/4, 3*ly/4)),
     ('stationE', (9*lx/10, ly/2)),
 ]
-sta_manager = inversion_tools.StationObservationManager(mesh2d, output_directory=options.output_directory)
+sta_manager = inversion_tools.StationObservationManager(mesh2d, output_directory=options.output_directory,
+                                                        observation_param='uv')
 print_output('Station Manager instantiated.')
 station_names, observation_coords, observation_time, observation_u, observation_v = [], [], [], [], []
 for name, (sta_x, sta_y) in stations:
@@ -190,9 +191,8 @@ for name, (sta_x, sta_y) in stations:
         observation_u.append(var[:, 0])
         observation_v.append(var[:, 1])
 observation_x, observation_y = numpy.array(observation_coords).T
-sta_manager.register_observation_data(station_names, variable, observation_time, observation_u,
-                                      observation_v, observation_x, observation_y,
-                                      start_times=None, end_times=None)
+sta_manager.register_observation_data(station_names, variable, observation_time, observation_x, observation_y,
+                                      u=observation_u, v=observation_v, start_times=None, end_times=None)
 print_output('Data registered.')
 sta_manager.construct_evaluator()
 sta_manager.set_model_field(solver_obj.fields.uv_2d)

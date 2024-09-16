@@ -90,7 +90,7 @@ station_names = [
 ]
 sta_manager = inversion_tools.StationObservationManager(
     mesh2d, output_directory=options.output_directory)
-sta_manager.load_observation_data(observation_data_dir, station_names, variable)
+sta_manager.load_elev_observation_data(observation_data_dir, station_names, variable)
 sta_manager.set_model_field(solver_obj.fields.elev_2d)
 
 # Define the scaling for the cost function so that J ~ O(1)

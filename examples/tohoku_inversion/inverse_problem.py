@@ -73,7 +73,7 @@ end_times = [dat["end"] for dat in stations.values()]
 sta_manager = inversion_tools.StationObservationManager(
     mesh2d, output_directory=options.output_directory
 )
-sta_manager.load_observation_data(
+sta_manager.load_elev_observation_data(
     observation_data_dir,
     station_names,
     variable,
