@@ -529,19 +529,8 @@ class DetectorsCallback(DiagnosticCallback):
         self.field_names = field_names
         self._name = name
 
-        # create VertexOnlyMesh and function spaces for interpolation
-        self.mesh = solver_obj.fields[field_names[0]].function_space().mesh()
-        self.vom = VertexOnlyMesh(self.mesh, detector_locations, redundant=True)
-        self.function_spaces = {}
-        for field_name in field_names:
-            field = solver_obj.fields[field_name]
-            if isinstance(field.function_space().ufl_element(), VectorElement):
-                P0DG = VectorFunctionSpace(self.vom, "DG", 0)
-                P0DG_input_ordering = VectorFunctionSpace(self.vom.input_ordering, "DG", 0)
-            else:
-                P0DG = FunctionSpace(self.vom, "DG", 0)
-                P0DG_input_ordering = FunctionSpace(self.vom.input_ordering, "DG", 0)
-            self.function_spaces[field_name] = (P0DG, P0DG_input_ordering)
+        # initialise interpolation functions using vom_interpolator_functions
+        self.interp_functions = vom_interpolator_functions(solver_obj, field_names, detector_locations)
 
     @property
     def name(self):
@@ -570,12 +559,10 @@ class DetectorsCallback(DiagnosticCallback):
 
     def _evaluate_field(self, field_name):
         field = self.solver_obj.fields[field_name]
-        P0DG, P0DG_input_ordering = self.function_spaces[field_name]
-        f_at_points = Function(P0DG)
-        f_at_input_points = Function(P0DG_input_ordering)
+        f_at_points, f_at_input_points = self.interp_functions[field_name]
         f_at_points.interpolate(field)
         f_at_input_points.interpolate(f_at_points)
-        return f_at_input_points.dat.data_ro
+        return f_at_input_points.dat.data_ro[:]
 
     def __call__(self):
         """
@@ -694,7 +681,6 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         self.tolerance = tolerance
         self.eval_func = eval_func
         self._initialized = False
-        self.bathymetry_val = None
 
     @PETSc.Log.EventDecorator("thetis.TimeSeriesCallback2D._initialize")
     def _initialize(self):
@@ -706,31 +692,16 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         xyz = (self.x, self.y, self.z) if self.on_sphere else (self.x, self.y)
         self.xyz = numpy.array([xyz])
 
-        # create VertexOnlyMesh and function spaces
-        self.mesh = self.solver_obj.fields[self.fieldnames[0]].function_space().mesh()
-        self.vom = VertexOnlyMesh(self.mesh, self.xyz, redundant=True)
-        self.function_spaces = {}
-        for field_name in self.fieldnames:
-            field = self.solver_obj.fields[field_name]
-            if isinstance(field.function_space().ufl_element(), VectorElement):
-                P0DG = VectorFunctionSpace(self.vom, "DG", 0)
-                P0DG_input_ordering = VectorFunctionSpace(self.vom.input_ordering, "DG", 0)
-            else:
-                P0DG = FunctionSpace(self.vom, "DG", 0)
-                P0DG_input_ordering = FunctionSpace(self.vom.input_ordering, "DG", 0)
-            self.function_spaces[field_name] = (P0DG, P0DG_input_ordering)
+        # initialise interpolation functions using vom_interpolator_functions
+        self.interp_functions = vom_interpolator_functions(self.solver_obj, self.fieldnames, self.xyz)
 
         # test evaluation
         try:
             if self.eval_func is None:
-                bathymetry_field = self.solver_obj.fields.bathymetry_2d
-                P0DG = FunctionSpace(self.vom, "DG", 0)
-                P0DG_input_ordering = FunctionSpace(self.vom.input_ordering, "DG", 0)
-                f_at_points = Function(P0DG)
-                f_at_input_points = Function(P0DG_input_ordering)
-                f_at_points.interpolate(bathymetry_field)
+                field = self.solver_obj.fields[self.fieldnames[0]]
+                f_at_points, f_at_input_points = self.interp_functions[self.fieldnames[0]]
+                f_at_points.interpolate(field)
                 f_at_input_points.interpolate(f_at_points)
-                self.bathymetry_val = f_at_input_points.dat.data_ro[:]
             else:
                 self.eval_func(self.solver_obj.fields.bathymetry_2d, self.xyz, tolerance=self.tolerance)
         except PointNotInDomainError as e:
@@ -750,9 +721,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
             try:
                 field = self.solver_obj.fields[fieldname]
                 if self.eval_func is None:
-                    P0DG, P0DG_input_ordering = self.function_spaces[fieldname]
-                    f_at_points = Function(P0DG)
-                    f_at_input_points = Function(P0DG_input_ordering)
+                    f_at_points, f_at_input_points = self.interp_functions[fieldname]
                     f_at_points.interpolate(field)
                     f_at_input_points.interpolate(f_at_points)
                     val = f_at_input_points.dat.data_ro[:]

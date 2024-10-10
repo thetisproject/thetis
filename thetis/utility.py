@@ -1154,3 +1154,38 @@ def form2indicator(F):
         },
     )
     return indicator
+
+
+@PETSc.Log.EventDecorator("thetis.vom_interpolator_functions")
+def vom_interpolator_functions(solver_obj, field_names, locations):
+    r"""
+    Creates function spaces and associated Functions for interpolation
+    on a VertexOnlyMesh (VOM) and returns them for reuse.
+
+    :arg solver_obj: Thetis solver object
+    :arg field_names: List of field names to create functions for.
+    :arg locations: List of locations for interpolation.
+    :return: A dictionary mapping field names to a tuple of (f_at_points, f_at_input_points)
+             which are Functions for interpolation.
+    """
+    vom = VertexOnlyMesh(solver_obj.mesh2d, locations, redundant=True)
+
+    functions_dict = {}
+
+    for field_name in field_names:
+        field = solver_obj.fields[field_name]
+
+        if isinstance(field.function_space().ufl_element(), VectorElement):
+            P0DG = VectorFunctionSpace(vom, "DG", 0)
+            P0DG_input_ordering = VectorFunctionSpace(vom.input_ordering, "DG", 0)
+        else:
+            P0DG = FunctionSpace(vom, "DG", 0)
+            P0DG_input_ordering = FunctionSpace(vom.input_ordering, "DG", 0)
+
+        f_at_points = Function(P0DG)
+        f_at_input_points = Function(P0DG_input_ordering)
+
+        # Store the Functions in the dictionary keyed by field name
+        functions_dict[field_name] = (f_at_points, f_at_input_points)
+
+    return functions_dict
