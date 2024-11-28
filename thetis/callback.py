@@ -508,7 +508,7 @@ class DetectorsCallback(DiagnosticCallback):
         """
         # printing all detector output to log is probably not a useful default:
         kwargs.setdefault('append_to_log', False)
-        self.field_dims = [solver_obj.fields[field_name].function_space().value_size
+        self.field_dims = [solver_obj.fields[field_name].function_space().block_size
                            for field_name in field_names]
         attrs = {
             # use null-padded ascii strings, dtype='U' not supported in hdf5, see http://docs.h5py.org/en/latest/strings.html
@@ -996,7 +996,7 @@ class TransectCallback(DiagnosticCallback):
         self.field_dims = {}
         for f in self.fieldnames:
             func = solver_obj.fields[f]
-            self.field_dims[f] = func.function_space().value_size
+            self.field_dims[f] = func.function_space().block_size
         self.variable_names = ['z_coord']
         for f, f_short in zip(fieldnames, field_short_names):
             if self.field_dims[f] == 1:
