@@ -32,7 +32,7 @@ class TidalPowerCallback(DiagnosticCallback):
         self.field_dims = []
         for field_name in field_names:
             if field_name != 'pow':
-                self.field_dims.append(solver_obj.fields[field_name].function_space().block_size)
+                self.field_dims.append(solver_obj.fields[field_name].function_space().value_size)
         attrs = {
             # use null-padded ascii strings, dtype='U' not supported in hdf5,
             # see http://docs.h5py.org/en/latest/strings.html
