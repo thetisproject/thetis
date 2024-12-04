@@ -41,6 +41,7 @@ include_support_structure = True  # add additional drag due to the support struc
 
 # Define the thrust curve of the turbine using a tabulated approach:
 # speeds_AR2000: speeds for corresponding thrust coefficients - thrusts_AR2000
+# powers_AR2000: list of idealised power coefficients of an AR2000 tidal turbine
 # thrusts_AR2000: list of idealised thrust coefficients of an AR2000 tidal turbine using a curve fitting technique with:
 #   * cut-in speed = 1 m/s
 #   * rated speed = 3.05 m/s
@@ -48,9 +49,15 @@ include_support_structure = True  # add additional drag due to the support struc
 # (ramp up and down to cut-in and at cut-out speeds for model stability)
 speeds_AR2000 = [0., 0.75, 0.85, 0.95, 1., 3.05, 3.3, 3.55, 3.8, 4.05, 4.3, 4.55, 4.8, 5., 5.001, 5.05, 5.25, 5.5, 5.75,
                  6.0, 6.25, 6.5, 6.75, 7.0]
+powers_AR2000 = [0.0105, 0.032, 0.0385, 0.116, 0.437, 0.437, 0.345, 0.277, 0.226, 0.187, 0.156, 0.132, 0.112, 0.0993,
+                 0.0595, 0.0051, 0.00151, 0.000889, 0.000652, 0.000523, 0.000441, 0.000384, 0.000341, 0.000308]
 thrusts_AR2000 = [0.010531, 0.032281, 0.038951, 0.119951, 0.516484, 0.516484, 0.387856, 0.302601, 0.242037, 0.197252,
                   0.16319, 0.136716, 0.115775, 0.102048, 0.060513, 0.005112, 0.00151, 0.00089, 0.000653, 0.000524,
                   0.000442, 0.000384, 0.000341, 0.000308]
+
+
+# Set the water density to match the thrust and power curves (defaults to 1000kg/m3)
+physical_constants['rho0'] = 1026.0
 
 # initialise discrete turbine farm characteristics
 farm_options = DiscreteTidalTurbineFarmOptions()
@@ -117,6 +124,10 @@ print_output(options.swe_timestepper_options.solver_parameters)
 cb_farm = turbines.TurbineFunctionalCallback(solver_obj)
 solver_obj.add_callback(cb_farm, 'timestep')
 power_farm = []  # create empty list to append instantaneous powers to
+# export the turbine density
+turbine_density_function = Function(P1_2d, name="Turbine Density")
+turbine_density_function.project(solver_obj.tidal_farms[0].turbine_density)
+VTKFile(outputdir + '/turbine_density.pvd').write(turbine_density_function)
 
 # 2. Tracking of individual turbines through the callback defined in turbine_callback.py
 #    This can be used even if the turbines are not included in the simulation.
