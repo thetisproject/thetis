@@ -605,8 +605,8 @@ def compute_elem_height(zcoord, output):
                 }
             }
         }""" % {'nodes': zcoord.cell_node_map().arity,
-                'func_dim': zcoord.function_space().value_size,
-                'output_dim': output.function_space().value_size},
+                'func_dim': zcoord.function_space().block_size,
+                'output_dim': output.function_space().block_size},
         'my_kernel')
     op2.par_loop(
         kernel, fs_out.mesh().cell_set,
