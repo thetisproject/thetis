@@ -1,14 +1,15 @@
 """
 Basic example of a discrete turbine array placed in the high energy region
-of flow past a headland. Turbines are based on the SIMEC Atlantis AR2000
-with cut-in, rated and cut-out speeds of 1m/s, 3.05m/s and 5m/s respectively.
+of flow past a headland. Turbines are based on the SIMEC Atlantis AR1500 and
+AR2000 models with cut-in, rated and cut-out speeds.
 Flow becomes steady after an initial ramp up.
-Two callbacks are used - one for the farm and one for discrete turbines.
+Two callbacks are used - one for the overall farm and one for discrete turbines.
 """
 
 from thetis import *
 from firedrake.output.vtk_output import VTKFile
 from turbine_callback import TidalPowerCallback
+from copy import deepcopy
 
 
 # Set output directory, load mesh, set simulation export and end times
@@ -55,28 +56,48 @@ thrusts_AR2000 = [0.010531, 0.032281, 0.038951, 0.119951, 0.516484, 0.516484, 0.
                   0.16319, 0.136716, 0.115775, 0.102048, 0.060513, 0.005112, 0.00151, 0.00089, 0.000653, 0.000524,
                   0.000442, 0.000384, 0.000341, 0.000308]
 
-
 # Set the water density to match the thrust and power curves (defaults to 1000kg/m3)
 physical_constants['rho0'] = 1026.0
 
 # initialise discrete turbine farm characteristics
-farm_options = DiscreteTidalTurbineFarmOptions()
-farm_options.turbine_type = turbine_thrust_def
+farm_options_AR2000 = DiscreteTidalTurbineFarmOptions()
+farm_options_AR2000.turbine_type = turbine_thrust_def
 if turbine_thrust_def == 'table':
-    farm_options.turbine_options.thrust_speeds = speeds_AR2000
-    farm_options.turbine_options.thrust_coefficients = thrusts_AR2000
+    farm_options_AR2000.turbine_options.thrust_speeds = speeds_AR2000
+    farm_options_AR2000.turbine_options.thrust_coefficients = thrusts_AR2000
+    farm_options_AR2000.turbine_options.power_coefficients = powers_AR2000
 else:
-    farm_options.turbine_options.thrust_coefficient = 0.6
+    farm_options_AR2000.turbine_options.thrust_coefficient = 0.6
+    farm_options_AR2000.turbine_options.power_coefficient = 0.55
 if include_support_structure:
-    farm_options.turbine_options.C_support = 0.7  # support structure thrust coefficient
-    farm_options.turbine_options.A_support = 2.6 * 14.0  # cross-sectional area of support structure
-farm_options.turbine_options.diameter = 20
-farm_options.upwind_correction = True  # See https://arxiv.org/abs/1506.03611 for more details
-turbine_density = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_density').assign(0.0)
-farm_options.turbine_density = turbine_density
-farm_options.turbine_coordinates = [[Constant(x), Constant(y)]
-                                    for x in numpy.arange(940, 1061, 60)
-                                    for y in numpy.arange(260, 341, 40)]
+    farm_options_AR2000.turbine_options.C_support = 0.7  # support structure thrust coefficient
+    farm_options_AR2000.turbine_options.A_support = 2.6 * 14.0  # cross-sectional area of support structure
+farm_options_AR2000.turbine_options.diameter = 20
+farm_options_AR2000.upwind_correction = True  # See https://arxiv.org/abs/1506.03611 for more details
+turbine_density = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_density_AR2000').assign(0.0)
+farm_options_AR2000.turbine_density = turbine_density
+farm_options_AR2000.turbine_coordinates = [[Constant(x), Constant(y)]
+                                           for x in numpy.arange(1000, 1061, 60)
+                                           for y in numpy.arange(260, 341, 40)]
+
+# Now create a second farm with AR1500s
+powers_AR1500 = [0.00953, 0.0291, 0.035, 0.106, 0.405, 0.405, 0.32, 0.257, 0.209, 0.173, 0.145, 0.122, 0.104, 0.0919,
+                 0.0551, 0.00471, 0.00139, 0.000821, 0.000602, 0.000483, 0.000408, 0.000355, 0.000315, 0.000285]
+thrusts_AR1500 = [0.00955, 0.0293, 0.0353, 0.109, 0.468, 0.468, 0.355, 0.278, 0.223, 0.182, 0.15, 0.126, 0.107, 0.0942,
+                  0.0559, 0.00472, 0.00139, 0.000821, 0.000602, 0.000483, 0.000408, 0.000355, 0.000315, 0.000285]
+farm_options_AR1500 = deepcopy(farm_options_AR2000)
+if turbine_thrust_def == 'table':
+    farm_options_AR1500.turbine_options.thrust_speeds = speeds_AR2000
+    farm_options_AR1500.turbine_options.thrust_coefficients = thrusts_AR1500
+    farm_options_AR1500.turbine_options.power_coefficients = powers_AR1500
+else:
+    farm_options_AR1500.turbine_options.thrust_coefficient = 0.6
+    farm_options_AR1500.turbine_options.power_coefficient = 0.55
+farm_options_AR1500.turbine_options.diameter = 18
+turbine_density = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_density_AR1500').assign(0.0)
+farm_options_AR1500.turbine_density = turbine_density
+farm_options_AR1500.turbine_coordinates = [[Constant(940), Constant(y)] for y in numpy.arange(260, 341, 40)]
+
 
 # --- create solver ---
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
@@ -94,7 +115,7 @@ options.use_wetting_and_drying = True
 options.wetting_and_drying_alpha = Constant(0.5)
 if not hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
     options.timestep = 50.0
-options.discrete_tidal_turbine_farms[site_ID] = [farm_options]
+options.discrete_tidal_turbine_farms[site_ID] = [farm_options_AR1500, farm_options_AR2000]
 
 # Use direct solver instead of default iterative settings
 # (see SemiImplicitSWETimeStepperOptions2d in thetis/options.py)
@@ -127,42 +148,58 @@ power_farm = []  # create empty list to append instantaneous powers to
 # export the turbine density
 turbine_density_function = Function(P1_2d, name="Turbine Density")
 turbine_density_function.project(solver_obj.tidal_farms[0].turbine_density)
-VTKFile(outputdir + '/turbine_density.pvd').write(turbine_density_function)
+VTKFile(outputdir + '/turbine_density_AR1500.pvd').write(turbine_density_function)
+turbine_density_function.project(solver_obj.tidal_farms[1].turbine_density)
+VTKFile(outputdir + '/turbine_density_AR2000.pvd').write(turbine_density_function)
 
 # 2. Tracking of individual turbines through the callback defined in turbine_callback.py
 #    This can be used even if the turbines are not included in the simulation.
 #    This method becomes slow when the domain becomes very large (e.g. 100k+ elements).
-turbine_names = ['TTG' + str(i+1) for i in range(len(farm_options.turbine_coordinates))]
-cb_turbines = TidalPowerCallback(solver_obj, site_ID, farm_options, ['pow'], name='array', turbine_names=turbine_names)
-solver_obj.add_callback(cb_turbines, 'timestep')
+turbine_names = ['AR1500_' + str(i+1) for i in range(len(farm_options_AR1500.turbine_coordinates))]
+cb_turbines_AR1500 = TidalPowerCallback(solver_obj, site_ID, farm_options_AR1500, ['pow'], name='AR1500array',
+                                        turbine_names=turbine_names)
+solver_obj.add_callback(cb_turbines_AR1500, 'timestep')
+turbine_names = ['AR2000_' + str(i+1) for i in range(len(farm_options_AR2000.turbine_coordinates))]
+cb_turbines_AR2000 = TidalPowerCallback(solver_obj, site_ID, farm_options_AR2000, ['pow'], name='AR2000array',
+                                        turbine_names=turbine_names)
+solver_obj.add_callback(cb_turbines_AR2000, 'timestep')
 powers_turbines = []
 
 print_output("\nMonitoring the following turbines:")
-for i in range(len(cb_turbines.variable_names)):
-    print_output(cb_turbines.variable_names[i] + ': (' + str(cb_turbines.get_turbine_coordinates[i][0]) + ', '
-                 + str(cb_turbines.get_turbine_coordinates[i][1]) + ')')
+for i in range(len(cb_turbines_AR1500.variable_names)):
+    print_output(cb_turbines_AR1500.variable_names[i] + ': (' + str(cb_turbines_AR1500.get_turbine_coordinates[i][0])
+                 + ', ' + str(cb_turbines_AR1500.get_turbine_coordinates[i][1]) + ')')
+for i in range(len(cb_turbines_AR2000.variable_names)):
+    print_output(cb_turbines_AR2000.variable_names[i] + ': (' + str(cb_turbines_AR2000.get_turbine_coordinates[i][0])
+                 + ', ' + str(cb_turbines_AR2000.get_turbine_coordinates[i][1]) + ')')
 print_output("")
 
 
 def update_forcings(t_new):
     ramp = tanh(t_new / 2000.)
     tidal_vel.project(Constant(ramp * 3.))
-    power_farm.append(cb_farm.instantaneous_power[0])
-    powers_turbines.append(cb_turbines())
+    power_farm.append(cb_farm.instantaneous_power.copy())
+    powers_turbines.append(numpy.concat((cb_turbines_AR1500(), cb_turbines_AR2000())))
 
 
 # See channel-optimisation example for a completely steady state simulation (no ramp)
 solver_obj.iterate(update_forcings=update_forcings)
 
-power_farm.append(cb_farm.instantaneous_power[0])  # add final power, should be the same as callback hdf5 file!
-farm_energy = sum(power_farm) * options.timestep / 3600
-powers_turbines.append(cb_turbines())  # add final power, should be the same as callback hdf5 file!
+print_output(cb_farm.instantaneous_power)
+power_farm.append(cb_farm.instantaneous_power)  # add final powers, should be the same as callback hdf5 file!
+power_farm = np.array(power_farm).T
+AR1500farm_energy = np.sum(power_farm[0]) * options.timestep / 3600
+AR2000farm_energy = np.sum(power_farm[1]) * options.timestep / 3600
+farm_energy = AR1500farm_energy + AR2000farm_energy
+powers_turbines.append(np.concat((cb_turbines_AR1500(), cb_turbines_AR2000())))
 turbine_energies = np.sum(np.array(powers_turbines), axis=0) * options.timestep / 3600
 callback_diff = 100 * (farm_energy - np.sum(turbine_energies, axis=0)) / farm_energy
 
 print_output("\nTurbine energies:")
-for i in range(len(cb_turbines.variable_names)):
-    print_output(cb_turbines.variable_names[i] + ': ' + "{:.2f}".format(turbine_energies[i][0]) + 'kWh')
+for i in range(len(cb_turbines_AR1500.variable_names)):
+    print_output(cb_turbines_AR1500.variable_names[i] + ': ' + "{:.2f}".format(turbine_energies[i][0]) + 'kWh')
+for i in range(len(cb_turbines_AR2000.variable_names)):
+    print_output(cb_turbines_AR2000.variable_names[i] + ': ' + "{:.2f}".format(turbine_energies[i][0]) + 'kWh')
 
 print_output("Check callbacks sum to the same energy")
 print_output("Farm callback total energy recorded: " + "{:.2f}".format(farm_energy) + 'kWh')

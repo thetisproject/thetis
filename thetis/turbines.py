@@ -88,6 +88,8 @@ class TabulatedThrustTurbine(TidalTurbine):
         self.speeds = options.thrust_speeds
         if not len(self.C_T) == len(self.speeds):
             raise ValueError("In tabulated thrust curve the number of thrust coefficients and speed values should be the same.")
+        if not len(self.C_P) == len(self.speeds):
+            raise ValueError("In tabulated thrust curve the number of power coefficients and speed values should be the same.")
 
     def thrust_coefficient(self, uv):
         umag = dot(uv, uv)**0.5

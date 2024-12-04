@@ -473,12 +473,15 @@ class ConstantTidalTurbineOptions(TidalTurbineOptions):
     name = 'Constant tidal turbine options'
     thrust_coefficient = PositiveFloat(
         0.8, help='Thrust coefficient C_T').tag(config=True)
+    power_coefficient = PositiveFloat(
+        0.7, help='Power coefficient C_P').tag(config=True)
 
 
 class TabulatedTidalTurbineOptions(TidalTurbineOptions):
     """Options for tidal turbine with tabulated thrust coefficient"""
     name = 'Tabulated tidal turbine options'
     thrust_coefficients = List([3.0], help='Table of thrust coefficients')
+    power_coefficients = List([2.7], help='Table of power coefficients')
     thrust_speeds = List(
         [0.8, 0.8],
         help="""List of speeds at which thrust_coefficients are applied.
