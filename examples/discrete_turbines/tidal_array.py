@@ -185,7 +185,6 @@ def update_forcings(t_new):
 # See channel-optimisation example for a completely steady state simulation (no ramp)
 solver_obj.iterate(update_forcings=update_forcings)
 
-print_output(cb_farm.instantaneous_power)
 power_farm.append(cb_farm.instantaneous_power)  # add final powers, should be the same as callback hdf5 file!
 power_farm = np.array(power_farm).T
 AR1500farm_energy = np.sum(power_farm[0]) * options.timestep / 3600
