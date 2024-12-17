@@ -101,7 +101,7 @@ for c in source.controls:
 cost_function = inv_manager.get_cost_function(solver_obj, weight_by_variance=True)
 
 # Solve and setup the reduced functional
-solver_obj.iterate(update_forcings=cost_function)
+solver_obj.iterate(export_func=cost_function)
 inv_manager.stop_annotating()
 
 # Run inversion

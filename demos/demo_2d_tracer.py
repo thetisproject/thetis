@@ -87,9 +87,7 @@ solver_obj.bnd_functions['tracer_2d'] = {'on_boundary': {'value': Constant(1.0)}
 
 # The velocity field is set up using a simple analytic expression. ::
 
-vP1_2d = VectorFunctionSpace(mesh2d, "CG", 1)
-x, y = SpatialCoordinate(mesh2d)
-uv_init = interpolate(as_vector([0.5 - y, x - 0.5]), vP1_2d)
+uv_init = as_vector([0.5 - y, x - 0.5])
 
 # Now, we set up the cosine-bell--cone--slotted-cylinder initial condition. The
 # first four lines declare various parameters relating to the positions of these
@@ -115,7 +113,7 @@ slot_cyl = conditional(
 # neglecting the inflow boundary condition.  We also save the initial state so
 # that we can check the :math:`L^2`-norm error at the end. ::
 
-q_init = interpolate(1.0 + bell + cone + slot_cyl, P1_2d)
+q_init = Function(P1_2d).interpolate(1.0 + bell + cone + slot_cyl)
 solver_obj.assign_initial_conditions(uv=uv_init, tracer_2d=q_init)
 
 # Now we are in a position to run the time loop. ::

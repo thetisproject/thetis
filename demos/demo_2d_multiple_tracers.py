@@ -45,9 +45,8 @@ options.tracer_timestepper_options.use_automatic_timestep = False
 options.use_lax_friedrichs_tracer = False
 options.use_limiter_for_tracers = False
 
-vP1_2d = VectorFunctionSpace(mesh2d, "CG", 1)
 x, y = SpatialCoordinate(mesh2d)
-uv_init = interpolate(as_vector([0.5 - y, x - 0.5]), vP1_2d)
+uv_init = as_vector([0.5 - y, x - 0.5])
 
 # Initial conditions for each tracer are defined as before,
 # but must be assigned separately. ::
@@ -65,9 +64,9 @@ slot_cyl = conditional(
     0.0
 )
 
-bell_init = interpolate(1.0 + bell, P1_2d)
-cone_init = interpolate(1.0 + cone, P1_2d)
-slot_cyl_init = interpolate(1.0 + slot_cyl, P1_2d)
+bell_init = Function(P1_2d).interpolate(1.0 + bell)
+cone_init = Function(P1_2d).interpolate(1.0 + cone)
+slot_cyl_init = Function(P1_2d).interpolate(1.0 + slot_cyl)
 solver_obj.assign_initial_conditions(
     uv=uv_init, bell_2d=bell_init, cone_2d=cone_init, slot_cyl_2d=slot_cyl_init
 )

@@ -38,7 +38,7 @@ def fourier_series_solution(mesh, lx, diff_flux, **model_options):
     # Initial condition and source term for two homogeneous Neumann problems
     P1 = get_functionspace(mesh, 'CG', 1)
     ic = Function(P1).interpolate(diff_flux*0.5*(lx - x)*(lx - x)/lx)
-    source = Constant(-nu*diff_flux/lx, domain=mesh)
+    source = domain_constant(-nu*diff_flux/lx, mesh)
 
     # The solution uses truncated Fourier expansions, meaning we need the following...
 
