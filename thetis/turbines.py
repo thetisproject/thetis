@@ -45,14 +45,14 @@ class TidalTurbine:
         uv3 = dot(uv, uv)**1.5 / alpha**3  # upwind cubed velocity
         C_P = self.power_coefficient(uv3**(1/3))
         # this assumes the velocity through the turbine does not change due to the support (is this correct?)
-        return 0.5*(physical_constants['rho0']/1000)*A_T*C_P*uv3
+        return 0.5*physical_constants['rho0']*A_T*C_P*uv3  # units: W
 
 
 class ConstantThrustTurbine(TidalTurbine):
     def __init__(self, options, upwind_correction=False):
         super().__init__(options, upwind_correction=upwind_correction)
         self.C_T = options.thrust_coefficient
-        self.C_P = getattr(options, "power_coefficient", 0.5 * self.C_T * (1 + (1 - self.C_T) ** 0.5))
+        self.C_P = options.power_coefficient or 0.5 * self.C_T * (1 + (1 - self.C_T) ** 0.5)
 
     def thrust_coefficient(self, uv):
         return self.C_T
@@ -84,7 +84,7 @@ class TabulatedThrustTurbine(TidalTurbine):
     def __init__(self, options, upwind_correction=False):
         super().__init__(options, upwind_correction=upwind_correction)
         self.C_T = options.thrust_coefficients
-        self.C_P = getattr(options, "power_coefficient", [0.5 * c_t * (1 + (1 - c_t) ** 0.5) for c_t in self.C_T])
+        self.C_P = options.power_coefficients or [0.5 * c_t * (1 + (1 - c_t) ** 0.5) for c_t in self.C_T]
         self.speeds = options.thrust_speeds
         if not len(self.C_T) == len(self.speeds):
             raise ValueError("In tabulated thrust curve the number of thrust coefficients and speed values should be the same.")

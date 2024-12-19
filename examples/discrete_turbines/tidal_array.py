@@ -18,8 +18,8 @@ if not os.path.exists('headland.msh'):
     os.system('gmsh -2 headland.geo -o headland.msh')
 mesh2d = Mesh('headland.msh')
 site_ID = 2  # mesh PhysID for subdomain where turbines are to be sited
-print_output('Loaded mesh ' + mesh2d.name)
-print_output('Exporting to ' + outputdir)
+print_output(f'Loaded mesh {mesh2d.name}')
+print_output(f'Exporting to {outputdir}')
 
 t_end = 1.5 * 3600
 t_export = 200.0
@@ -81,13 +81,14 @@ farm_options_AR2000.turbine_coordinates = [[Constant(x), Constant(y)]
                                            for y in numpy.arange(260, 341, 40)]
 
 # Now create a second farm with AR1500s
+speeds_AR1500 = speeds_AR2000.copy()
 powers_AR1500 = [0.00953, 0.0291, 0.035, 0.106, 0.405, 0.405, 0.32, 0.257, 0.209, 0.173, 0.145, 0.122, 0.104, 0.0919,
                  0.0551, 0.00471, 0.00139, 0.000821, 0.000602, 0.000483, 0.000408, 0.000355, 0.000315, 0.000285]
 thrusts_AR1500 = [0.00955, 0.0293, 0.0353, 0.109, 0.468, 0.468, 0.355, 0.278, 0.223, 0.182, 0.15, 0.126, 0.107, 0.0942,
                   0.0559, 0.00472, 0.00139, 0.000821, 0.000602, 0.000483, 0.000408, 0.000355, 0.000315, 0.000285]
 farm_options_AR1500 = deepcopy(farm_options_AR2000)
 if turbine_thrust_def == 'table':
-    farm_options_AR1500.turbine_options.thrust_speeds = speeds_AR2000
+    farm_options_AR1500.turbine_options.thrust_speeds = speeds_AR1500
     farm_options_AR1500.turbine_options.thrust_coefficients = thrusts_AR1500
     farm_options_AR1500.turbine_options.power_coefficients = powers_AR1500
 else:
@@ -137,7 +138,7 @@ elev_init = Function(P1_2d)
 elev_init.assign(0.0)
 solver_obj.assign_initial_conditions(elev=elev_init, uv=(as_vector((1e-3, 0.0))))
 
-print_output(str(options.swe_timestepper_type) + ' solver options:')
+print_output(f'{options.swe_timestepper_type} solver options:')
 print_output(options.swe_timestepper_options.solver_parameters)
 
 # Operation of tidal turbine farm through a callback (density assumed = 1000kg/m3)
@@ -155,23 +156,24 @@ VTKFile(outputdir + '/turbine_density_AR2000.pvd').write(turbine_density_functio
 # 2. Tracking of individual turbines through the callback defined in turbine_callback.py
 #    This can be used even if the turbines are not included in the simulation.
 #    This method becomes slow when the domain becomes very large (e.g. 100k+ elements).
-turbine_names = ['AR1500_' + str(i+1) for i in range(len(farm_options_AR1500.turbine_coordinates))]
+num_AR1500s = len(farm_options_AR1500.turbine_coordinates)
+turbine_names = [f'AR1500_{i+1}' for i in range(num_AR1500s)]
 cb_turbines_AR1500 = TidalPowerCallback(solver_obj, site_ID, farm_options_AR1500, ['pow'], name='AR1500array',
                                         turbine_names=turbine_names)
 solver_obj.add_callback(cb_turbines_AR1500, 'timestep')
-turbine_names = ['AR2000_' + str(i+1) for i in range(len(farm_options_AR2000.turbine_coordinates))]
+turbine_names = [f'AR2000_{i+1}' for i in range(len(farm_options_AR2000.turbine_coordinates))]
 cb_turbines_AR2000 = TidalPowerCallback(solver_obj, site_ID, farm_options_AR2000, ['pow'], name='AR2000array',
                                         turbine_names=turbine_names)
 solver_obj.add_callback(cb_turbines_AR2000, 'timestep')
 powers_turbines = []
 
 print_output("\nMonitoring the following turbines:")
-for i in range(len(cb_turbines_AR1500.variable_names)):
-    print_output(cb_turbines_AR1500.variable_names[i] + ': (' + str(cb_turbines_AR1500.get_turbine_coordinates[i][0])
-                 + ', ' + str(cb_turbines_AR1500.get_turbine_coordinates[i][1]) + ')')
-for i in range(len(cb_turbines_AR2000.variable_names)):
-    print_output(cb_turbines_AR2000.variable_names[i] + ': (' + str(cb_turbines_AR2000.get_turbine_coordinates[i][0])
-                 + ', ' + str(cb_turbines_AR2000.get_turbine_coordinates[i][1]) + ')')
+for i, name in enumerate(cb_turbines_AR1500.variable_names):
+    print_output(f'{name}: ' f'({cb_turbines_AR1500.get_turbine_coordinates[i][0]}, '
+                 f'{cb_turbines_AR1500.get_turbine_coordinates[i][1]})')
+for i, name in enumerate(cb_turbines_AR2000.variable_names):
+    print_output(f'{name}: ' f'({cb_turbines_AR2000.get_turbine_coordinates[i][0]}, '
+                 f'{cb_turbines_AR2000.get_turbine_coordinates[i][1]})')
 print_output("")
 
 
@@ -195,13 +197,13 @@ turbine_energies = np.sum(np.array(powers_turbines), axis=0) * options.timestep 
 callback_diff = 100 * (farm_energy - np.sum(turbine_energies, axis=0)) / farm_energy
 
 print_output("\nTurbine energies:")
-for i in range(len(cb_turbines_AR1500.variable_names)):
-    print_output(cb_turbines_AR1500.variable_names[i] + ': ' + "{:.2f}".format(turbine_energies[i][0]) + 'kWh')
-for i in range(len(cb_turbines_AR2000.variable_names)):
-    print_output(cb_turbines_AR2000.variable_names[i] + ': ' + "{:.2f}".format(turbine_energies[i][0]) + 'kWh')
+for i, name in enumerate(cb_turbines_AR1500.variable_names):
+    print_output(f'{name}: {turbine_energies[i][0]*10**(-3):.2f}kWh')
+for i, name in enumerate(cb_turbines_AR2000.variable_names):
+    print_output(f'{name}: {turbine_energies[num_AR1500s+i][0]*10**(-3):.2f}kWh')
 
 print_output("Check callbacks sum to the same energy")
-print_output("Farm callback total energy recorded: " + "{:.2f}".format(farm_energy) + 'kWh')
-print_output("Turbines callback total energy recorded: " + "{:.2f}".format(np.sum(turbine_energies, axis=0)[0]) + 'kWh')
-print_output("Difference: " + "{:.5f}".format(callback_diff[0]) + "%")
+print_output(f"Farm callback total energy recorded: {farm_energy*10**(-3):.2f}kWh")
+print_output(f"Turbines callback total energy recorded: {np.sum(turbine_energies*10**(-3), axis=0)[0]:.2f}kWh")
+print_output(f"Difference: {callback_diff[0]:.5f}%")
 print_output("")
