@@ -138,10 +138,15 @@ def run(solve_adjoint=False, mesh=None, **model_options):
                                  'Hessian2d',
                                  preproc_func=hessian_calculator)
 
-    # apply initial guess of inflow velocity, solve and return number of nonlinear solver iterations
+    # Apply initial guess of inflow velocity and solve
     solver_obj.assign_initial_conditions(uv=inflow_velocity)
     solver_obj.iterate()
+
     if not solve_adjoint:
+        # Check that turbines have been picked up
+        assert not np.allclose(solver_obj.fields.uv_2d.dat.data[0], 0.5, atol=1e-3)
+
+        # Return number of nonlinear solver iterations
         return solver_obj.timestepper.solver.snes.getIterationNumber()
 
     # quantity of interest: power output
