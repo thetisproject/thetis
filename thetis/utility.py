@@ -328,7 +328,7 @@ def get_facet_mask(function_space, facet='bottom'):
         Here we assume that the mesh has been extruded upwards (along positive
         z axis).
     """
-    from tsfc.finatinterface import create_element as create_finat_element
+    from finat.element_factory import create_element as create_finat_element
 
     # get base element
     elem = get_extruded_base_element(function_space.ufl_element())
