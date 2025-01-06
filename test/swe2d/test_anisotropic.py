@@ -146,6 +146,10 @@ def run(solve_adjoint=False, mesh=None, **model_options):
         # Check that turbines have been picked up
         assert not np.allclose(solver_obj.fields.uv_2d.dat.data[0], 0.5, atol=1e-3)
 
+        # Check the turbine density has been set up correctly
+        total_turbine_density = assemble(solver_obj.tidal_farms[0].turbine_density * dx)
+        assert np.isclose(total_turbine_density, 2, atol=0.01), f"Expected 2, but got {total_turbine_density}"
+
         # Return number of nonlinear solver iterations
         return solver_obj.timestepper.solver.snes.getIterationNumber()
 
