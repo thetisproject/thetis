@@ -157,9 +157,8 @@ def run(solve_adjoint=False, taylor_test=False, mesh=None, **model_options):
     # quantity of interest: power output
     q_2d = solver_obj.fields.solution_2d
     uv_2d, elev_2d = split(q_2d)
-    # C_D = 0.5 * C_T * A * farm_options.turbine_density  # FIXME
-    C_D = Function(P1_2d)
-    C_D.interpolate(0.5 * C_T * A * farm_options.turbine_density)
+    C_D = Function(solver_obj.function_spaces.P1DG_2d)
+    C_D.project(0.5 * C_T * A * farm_options.turbine_density)
     J = C_D * dot(uv_2d, uv_2d) ** 1.5 * dx
 
     if taylor_test:
