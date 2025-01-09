@@ -102,11 +102,11 @@ turbine_density = Function(get_functionspace(mesh2d, "CG", 1), name='turbine_den
 # - farm_options.turbine_options.diameter (default 16.0)
 farm_options = TidalTurbineFarmOptions()
 farm_options.turbine_density = turbine_density
-# amount of power produced per turbine (kW) on average to "break even" (cost = revenue)
+# amount of power produced per turbine (W) on average to "break even" (cost = revenue)
 # this is used to scale the cost, which is assumed to be linear with the number of turbines,
-# in such a way that the cost is expressed in kW which can be subtracted from the profit
+# in such a way that the cost is expressed in W which can be subtracted from the profit
 # which is calculated as the power extracted by the turbines
-farm_options.break_even_wattage = 200
+farm_options.break_even_wattage = 200000
 options.tidal_turbine_farms[2] = [farm_options]
 
 # we first run the "forward" model with no turbines
@@ -144,7 +144,7 @@ print_output("Maximum turbine density = {}".format(max_density))
 # the scaling is based on the maximum cost term
 # also we multiply by -1 so that if we minimize the functional, we maximize profit
 # (maximize is also availble from pyadjoint but currently broken)
-scaling = -1./assemble(max(farm_options.break_even_wattage, 100) * max_density * dx(2, domain=mesh2d))
+scaling = -1./assemble(max(farm_options.break_even_wattage, 100000) * max_density * dx(2, domain=mesh2d))
 scaled_functional = scaling * cb.average_profit[0]
 
 # specifies the control we want to vary in the optimisation

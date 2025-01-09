@@ -8,7 +8,7 @@ import numpy as np
 import random
 op2.init(log_level=INFO)
 
-output_dir = 'outputs'
+output_dir = 'outputs_optimisation'
 
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
     test_gradient = True  # test gradient using Taylor test (see below)
