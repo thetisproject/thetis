@@ -17,6 +17,7 @@ resulting from this process is used in this test. The mesh is anisotropic in the
 """
 from thetis import *
 import thetis.diagnostics as diagnostics
+from firedrake.adjoint import pyadjoint
 from petsc4py import PETSc
 import pytest
 import os
@@ -32,7 +33,7 @@ def load_mesh():
     return Mesh(plex)
 
 
-def run(solve_adjoint=False, mesh=None, **model_options):
+def run(solve_adjoint=False, taylor_test=False, mesh=None, **model_options):
     mesh2d = mesh or load_mesh()
     P1_2d = FunctionSpace(mesh2d, "CG", 1)
 
@@ -156,8 +157,19 @@ def run(solve_adjoint=False, mesh=None, **model_options):
     # quantity of interest: power output
     q_2d = solver_obj.fields.solution_2d
     uv_2d, elev_2d = split(q_2d)
-    C_D = 0.5 * C_T * A * farm_options.turbine_density
+    # C_D = 0.5 * C_T * A * farm_options.turbine_density  # FIXME
+    C_D = Function(P1_2d)
+    C_D.interpolate(0.5 * C_T * A * farm_options.turbine_density)
     J = C_D * dot(uv_2d, uv_2d) ** 1.5 * dx
+
+    if taylor_test:
+        control = q_2d
+        Jhat = pyadjoint.ReducedFunctional(assemble(J), pyadjoint.Control(control))
+        h = Function(control)
+        h.assign(0.1)
+        assert pyadjoint.taylor_test(Jhat, control, h) > 1.9
+        print("Taylor test passed")
+        return
 
     # solve adjoint problem
     F = solver_obj.timestepper.F
@@ -226,6 +238,10 @@ def test_sipg(family):
     assert snes_it <= expected, msg
 
 
+def test_gradient(family):
+    run(element_family=family, taylor_test=True)
+
+
 def test_dwr(family):
     n = 5
     mesh = RectangleMesh(12 * n, 5 * n, 1200, 500)
@@ -242,4 +258,4 @@ def test_dwr(family):
 if __name__ == '__main__':
     n = 5
     mesh = RectangleMesh(12 * n, 5 * n, 1200, 500)
-    estimate_error(mesh, element_family="dg-cg")
+    run(solve_adjoint=True, mesh=mesh, element_family="dg-cg")
