@@ -942,8 +942,7 @@ class FlowSolver2d(FrozenClass):
         sys.stdout.flush()
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.iterate")
-    def iterate(self, update_forcings=None,
-                export_func=None):
+    def iterate(self, update_forcings=None, export_func=None):
         """
         Runs the simulation
 
@@ -958,14 +957,13 @@ class FlowSolver2d(FrozenClass):
             be called on every export.
         """
         for _ in self.create_iterator(update_forcings=update_forcings,
-                export_func=export_func):
-             pass
-            
+                                      export_func=export_func):
+            pass
+
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_iterator")
-    def create_iterator(self, update_forcings=None,
-                export_func=None):
+    def create_iterator(self, update_forcings=None, export_func=None):
         """
-        Creates a generator to iterate through the simulation and return access 
+        Creates a generator to iterate through the simulation and return access
         to time advancing function when time control is handled eternally.
 
         Iterates over the time loop until time ``options.simulation_end_time`` is reached.
@@ -979,7 +977,7 @@ class FlowSolver2d(FrozenClass):
                 # user code
 
         or, to get per time-step control:
-                
+
         .. code-block:: python
 
             thetis_timestepper = solver_obj.generator()
@@ -1079,7 +1077,7 @@ class FlowSolver2d(FrozenClass):
 
         while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
             self.timestepper.advance(self.simulation_time, update_forcings)
-            
+
             # returns internal simulation time
             yield self.simulation_time
 
