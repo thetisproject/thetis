@@ -947,7 +947,8 @@ class FlowSolver2d(FrozenClass):
         """
         Runs the simulation
 
-        Iterates over the time loop until time ``options.simulation_end_time`` is reached.
+        Wrapper for function for `create_iterator` generator and automatically
+        iterates over the time loop until time ``options.simulation_end_time`` is reached.
         Exports fields to disk on ``options.simulation_export_time`` intervals.
 
         :kwarg update_forcings: User-defined function that takes simulation
@@ -956,6 +957,42 @@ class FlowSolver2d(FrozenClass):
         :kwarg export_func: User-defined function (with no arguments) that will
             be called on every export.
         """
+        for _ in self.create_iterator(update_forcings=update_forcings,
+                export_func=export_func):
+             pass
+            
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_iterator")
+    def create_iterator(self, update_forcings=None,
+                export_func=None):
+        """
+        Creates a generator to iterate through the simulation and return access 
+        to time advancing function when time control is handled eternally.
+
+        Iterates over the time loop until time ``options.simulation_end_time`` is reached.
+        Exports fields to disk on ``options.simulation_export_time`` intervals.
+
+        For example:
+
+        .. code-block:: python
+
+            for t in solver_obj.generator():
+                # user code
+
+        or, to get per time-step control:
+                
+        .. code-block:: python
+
+            thetis_timestepper = solver_obj.generator()
+            while t_Thetis<t_end and .... :
+                t_Thetis = next(thetis_timestepper)
+
+        :kwarg update_forcings: User-defined function that takes simulation
+            time as an argument and updates time-dependent boundary conditions
+            (if any).
+        :kwarg export_func: User-defined function (with no arguments) that will
+            be called on every export.
+        """
+
         if not self._initialized:
             self.initialize()
 
@@ -1042,6 +1079,9 @@ class FlowSolver2d(FrozenClass):
 
         while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
             self.timestepper.advance(self.simulation_time, update_forcings)
+            
+            # returns internal simulation time
+            yield self.simulation_time
 
             # Move to next time step
             self.iteration += 1
