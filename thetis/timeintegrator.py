@@ -504,7 +504,7 @@ class LeapFrogAM3(TimeIntegrator):
         fs = self.equation.function_space
         self.solution_old = Function(fs, name='old solution')
         self.msolution_old = Cofunction(fs.dual(), name='dual solution')
-        self.rhs_func = Cofunction(fs, name='rhs linear form')
+        self.rhs_func = Cofunction(fs.dual(), name='rhs linear form')
 
         # fully explicit evaluation
         self.a = self.equation.mass_term(self.equation.trial)
