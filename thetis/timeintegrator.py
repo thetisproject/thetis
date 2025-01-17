@@ -639,9 +639,9 @@ class SSPRK22ALE(TimeIntegrator):
         super(SSPRK22ALE, self).__init__(equation, solution, fields, dt, options)
 
         fs = self.equation.function_space
-        self.mu = Function(fs, name='dual solution')
-        self.mu_old = Function(fs, name='dual solution')
-        self.tendency = Function(fs, name='tendency')
+        self.mu = Cofunction(fs.dual(), name='dual solution')
+        self.mu_old = Cofunction(fs.dual(), name='dual solution')
+        self.tendency = Cofunction(fs.dual(), name='tendency')
 
         # fully explicit evaluation
         self.a = self.equation.mass_term(self.equation.trial)
