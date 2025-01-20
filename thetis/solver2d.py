@@ -964,7 +964,7 @@ class FlowSolver2d(FrozenClass):
     def create_iterator(self, update_forcings=None, export_func=None):
         """
         Creates a generator to iterate through the simulation and return access
-        to time advancing function when time control is handled eternally.
+        to time advancing function when time control is handled externally.
 
         Iterates over the time loop until time ``options.simulation_end_time`` is reached.
         Exports fields to disk on ``options.simulation_export_time`` intervals.
@@ -973,7 +973,7 @@ class FlowSolver2d(FrozenClass):
 
         .. code-block:: python
 
-            for t in solver_obj.generator():
+            for t in solver_obj.create_iterator():
                 # user code
 
         or, to get per time-step control:
@@ -982,7 +982,7 @@ class FlowSolver2d(FrozenClass):
 
             thetis_timestepper = solver_obj.create_iterator()
 
-            while t_Thetis<t_end-timestep and .... :
+            while t_Thetis<t_end - timestep and .... :
                 t_Thetis = next(thetis_timestepper)
 
         :kwarg update_forcings: User-defined function that takes simulation
