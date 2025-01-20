@@ -89,7 +89,7 @@ solver_obj.bnd_functions['tracer_2d'] = {'on_boundary': {'value': Constant(1.0)}
 
 # The velocity field is set up using a simple analytic expression. ::
 
-x,y = SpatialCoordinate(mesh2d)
+x, y = SpatialCoordinate(mesh2d)
 uv_init = as_vector([0.5 - y, x - 0.5])
 
 # Now, we set up the cosine-bell--cone--slotted-cylinder initial condition. The
@@ -128,7 +128,7 @@ t_Thetis = 0
 
 while t_Thetis < t_end - timestep:
     t_Thetis = next(thetis_timestepper)
-    
+  
 # Finally, we display the normalised :math:`L^2` error, by comparing to the initial condition. ::
 
 q = solver_obj.fields.tracer_2d
