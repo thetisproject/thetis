@@ -128,7 +128,7 @@ t_Thetis = 0
 
 while t_Thetis < t_end - timestep:
     t_Thetis = next(thetis_timestepper)
-  
+
 # Finally, we display the normalised :math:`L^2` error, by comparing to the initial condition. ::
 
 q = solver_obj.fields.tracer_2d
