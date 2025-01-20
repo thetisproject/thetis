@@ -1078,7 +1078,7 @@ class FlowSolver2d(FrozenClass):
 
         while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
             self.timestepper.advance(self.simulation_time, update_forcings)
-            
+
             # returns internal simulation time
             yield self.simulation_time
 
