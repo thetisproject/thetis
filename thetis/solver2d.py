@@ -980,8 +980,9 @@ class FlowSolver2d(FrozenClass):
 
         .. code-block:: python
 
-            thetis_timestepper = solver_obj.generator()
-            while t_Thetis<t_end and .... :
+            thetis_timestepper = solver_obj.create_iterator()
+
+            while t_Thetis<t_end-timestep and .... :
                 t_Thetis = next(thetis_timestepper)
 
         :kwarg update_forcings: User-defined function that takes simulation
@@ -1077,7 +1078,7 @@ class FlowSolver2d(FrozenClass):
 
         while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
             self.timestepper.advance(self.simulation_time, update_forcings)
-
+            
             # returns internal simulation time
             yield self.simulation_time
 
