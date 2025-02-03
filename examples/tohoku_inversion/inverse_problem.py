@@ -73,8 +73,8 @@ end_times = [dat["end"] for dat in stations.values()]
 sta_manager = inversion_tools.StationObservationManager(
     mesh2d, output_directory=options.output_directory
 )
-# Define the scaling for the cost function so that J ~ O(1)
-# TODO: is this right, or is it dJ/dm that needs to be ~ O(1)?
+# Define the scaling for the cost function so that dJ/dm ~ O(1)
+# TODO: Update scaling to depend on number of DOFs in the problem
 cost_function_scaling = domain_constant(10000000 * solver_obj.dt / options.simulation_end_time, mesh2d)
 sta_manager.cost_function_scaling = cost_function_scaling
 sta_manager.load_observation_data(
