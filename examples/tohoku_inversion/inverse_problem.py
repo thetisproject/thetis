@@ -83,7 +83,8 @@ sta_manager.load_observation_data(
 sta_manager.set_model_field(solver_obj.fields.elev_2d)
 
 # Define the scaling for the cost function so that J ~ O(1)
-J_scalar = Constant(solver_obj.dt / options.simulation_end_time)
+t_end = (options.simulation_end_date - options.simulation_initial_date).total_seconds()
+J_scalar = Constant(solver_obj.dt / t_end)
 
 # Create inversion manager and add controls
 no_exports = os.getenv("THETIS_REGRESSION_TEST") is not None
