@@ -122,6 +122,8 @@ options.discrete_tidal_turbine_farms[site_ID] = [farm_options_AR1500, farm_optio
 # (see SemiImplicitSWETimeStepperOptions2d in thetis/options.py)
 # to make it more robust for larger timesteps and low viscosity
 options.swe_timestepper_options.solver_parameters = {'ksp_view': None,
+                                                     'snes_monitor': None,
+                                                     'ksp_monitor': None,
                                                      'ksp_type': 'preonly',
                                                      'pc_type': 'lu',
                                                      'pc_factor_mat_solver_type': 'mumps'}
