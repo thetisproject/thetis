@@ -14,23 +14,15 @@ import numpy
 class TidalTurbine:
     def __init__(self, options, upwind_correction=False):
         self.diameter = options.diameter
-        self.swept_diameter = options.swept_diameter or self.diameter
+        self.projected_diameter = options.projected_diameter or self.diameter
         self.C_support = options.C_support
         self.A_support = options.A_support
         self.upwind_correction = upwind_correction
 
-        # Check that the parameter choices make some sense - these won't break
-        # the simulation but may give unexpected results if the choice isn't
-        # understood.
-        if self.swept_diameter != self.diameter:
-            log(INFO, 'Warning - swept_diameter and plan_diameter are not equal. '
-                      'Upwind correction may not be accurate.')
-
     def _thrust_area(self, uv):
         C_T = self.thrust_coefficient(uv)
-        A_T = pi * self.swept_diameter**2 / 4
-        swept_area_factor = self.diameter**2/self.swept_diameter**2
-        fric = C_T * A_T * swept_area_factor
+        A_T = pi * self.diameter**2 / 4
+        fric = C_T * A_T
         if self.C_support:
             fric += self.C_support * self.A_support
         return fric
@@ -38,7 +30,7 @@ class TidalTurbine:
     def velocity_correction(self, uv, depth):
         fric = self._thrust_area(uv)
         if self.upwind_correction:
-            return 0.5*(1+sqrt(1-fric/(self.swept_diameter*depth)))
+            return 0.5*(1+sqrt(1-fric/(self.projected_diameter*depth)))
         else:
             return 1
 
@@ -165,7 +157,7 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
         """
         x = SpatialCoordinate(self.mesh)
 
-        radius = self.turbine.swept_diameter * 0.5
+        radius = self.turbine.projected_diameter * 0.5
         for coord in coordinates:
             dx0 = (x[0] - coord[0])/radius
             dx1 = (x[1] - coord[1])/radius
