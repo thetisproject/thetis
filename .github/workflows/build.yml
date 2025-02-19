@@ -35,7 +35,7 @@ jobs:
         run: |
           . /home/firedrake/firedrake/bin/activate
           python $(which firedrake-clean)
-          python -m pytest --durations=0 -n 12 -v test
+          python -m pytest --durations-min=60.0 -n 12 -v test
       - name: Test Thetis adjoint
         run: |
           . /home/firedrake/firedrake/bin/activate
