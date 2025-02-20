@@ -18,31 +18,56 @@ jobs:
     runs-on: self-hosted
     # The docker container to use.
     container:
-      image: firedrakeproject/firedrake-vanilla:latest
+      # UNDO ME
+      # image: firedrakeproject/firedrake-vanilla-default:latest
+      image: firedrakeproject/firedrake-vanilla-default:pip
     steps:
-      - uses: actions/checkout@v2
-      - name: Cleanup
-        if: ${{ always() }}
+      - name: Pre-cleanup
         run: |
-          cd ..
-          rm -rf build
+          : # Wipe everything away in the current directory
+          find . -delete
+
+      - uses: actions/checkout@v4
+        with:
+          path: thetis-repo
+
       - name: Install Thetis
+        id: install
         run: |
-          . /home/firedrake/firedrake/bin/activate
-          python -m pip install -r requirements.txt
-          python -m pip install -e .
-      - name: Test Thetis
-        run: |
-          . /home/firedrake/firedrake/bin/activate
-          python $(which firedrake-clean)
-          python -m pytest --durations=0 --durations-min=60.0 -n 12 -v test
-      - name: Test Thetis adjoint
-        run: |
-          . /home/firedrake/firedrake/bin/activate
-          python $(which firedrake-clean)
-          python -m pytest --durations=0 -n 12 -v test_adjoint
+          : # Pass '--system-site-packages' so Firedrake can be found
+          python3 -m venv --system-site-packages venv-thetis
+          . venv-thetis/bin/activate
+          pip install ./thetis-repo
+          pip list
+
       - name: Lint
-        if: ${{ always() }}
         run: |
-          . /home/firedrake/firedrake/bin/activate
-          make lint
+          . venv-thetis/bin/activate
+          pip install flake8
+          make -C thetis-repo lint
+
+      - name: Test Thetis
+        # Run even if the step above failed
+        if: success() || steps.install.conclusion == 'success'
+        run: |
+          firedrake-clean
+          . venv-thetis/bin/activate
+          : # Run the serial tests
+          : # Use pytest-xdist here so we can have a single collated output (not possible
+          : # for parallel tests)
+          firedrake-run-split-tests 1 1 -n 12 --verbose --durations=0 --durations-min=60.0 thetis-repo/test
+          : # Run the parallel tests
+          firedrake-run-split-tests 2 6 --verbose --durations=0 --durations-min=60.0 thetis-repo/test
+
+      - name: Test Thetis adjoint
+        if: success() || steps.install.conclusion == 'success'
+        run: |
+          firedrake-clean
+          . venv-thetis/bin/activate
+          firedrake-run-split-tests 1 1 -n 12 --verbose --durations=0 thetis-repo/test_adjoint
+
+      - name: Post-cleanup
+        if: always()
+        run: |
+          find . -delete
+          firedrake-clean
