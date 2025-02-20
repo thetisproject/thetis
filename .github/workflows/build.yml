@@ -21,14 +21,27 @@ jobs:
       # UNDO ME
       # image: firedrakeproject/firedrake-vanilla-default:latest
       image: firedrakeproject/firedrake-vanilla-default:pip
+    env:
+      # Make sure that tests with >2 processes are not silently skipped
+      PYTEST_MPI_MAX_NPROCS: 2
     steps:
+      - name: Fix HOME
+        # For unknown reasons GitHub actions overwrite HOME to /github/home
+        # which will break everything unless fixed
+        # (https://github.com/actions/runner/issues/863)
+        run: echo "HOME=/home/firedrake" >> "$GITHUB_ENV"
+
       - name: Pre-cleanup
         run: |
           : # Wipe everything away in the current directory
           find . -delete
+          firedrake-clean
 
       - uses: actions/checkout@v4
         with:
+          # Download Thetis into a subdirectory not called 'thetis' to make sure
+          # that the package installs correctly. Otherwise 'import thetis' may
+          # work even if the installation failed because it is a subdirectory.
           path: thetis-repo
 
       - name: Install Thetis
@@ -50,7 +63,6 @@ jobs:
         # Run even if the step above failed
         if: success() || steps.install.conclusion == 'success'
         run: |
-          firedrake-clean
           . venv-thetis/bin/activate
           : # Run the serial tests
           : # Use pytest-xdist here so we can have a single collated output (not possible
