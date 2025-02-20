@@ -13,6 +13,7 @@ dependencies = [
   "scipy",
   "traitlets",
   "uptide",
+  "vtk",
 ]
 authors = [
   {name = "Tuomas Karna", email = "tuomas.karna@gmail.com" },
