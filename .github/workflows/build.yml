@@ -18,17 +18,13 @@ jobs:
     runs-on: [self-hosted, Linux]
     # The docker container to use.
     container:
-      image: firedrakeproject/firedrake-vanilla-default:latest
+      # UNDO ME
+      # image: firedrakeproject/firedrake-vanilla-default:latest
+      image: firedrakeproject/firedrake-vanilla-default:roottest
     env:
       # Make sure that tests with >2 processes are not silently skipped
       PYTEST_MPI_MAX_NPROCS: 2
     steps:
-      - name: Fix HOME
-        # For unknown reasons GitHub actions overwrite HOME to /github/home
-        # which will break everything unless fixed
-        # (https://github.com/actions/runner/issues/863)
-        run: echo "HOME=/home/firedrake" >> "$GITHUB_ENV"
-
       - name: Pre-cleanup
         run: |
           : # Wipe everything away in the current directory
