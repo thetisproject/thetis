@@ -183,7 +183,8 @@ class ATMInterpolator(object):
         """
         east_wind, north_wind, prmsl = self.time_interpolator(time)
         east_strs, north_strs = compute_wind_stress(east_wind, north_wind)
-        if self.wind_stress_field.geometric_dimension() == 3:
+        # if self.wind_stress_field.geometric_dimension() == 3:
+        if self.wind_stress_field.function_space().mesh().geometric_dimension() == 3:
             u_strs, v_strs, z_strs = self.vect_rotator(east_strs, north_strs)
             self.wind_stress_field.dat.data_with_halos[:, 0] = u_strs
             self.wind_stress_field.dat.data_with_halos[:, 1] = v_strs
@@ -857,7 +858,8 @@ class GenericInterpolator2D(object):
             i, j = self.vector_field_index
             east_comp = vals[i]
             north_comp = vals[j]
-            if self.vector_field.geometric_dimension() == 3:
+            # if self.vector_field.geometric_dimension() == 3:
+            if self.vector_field.function_space().mesh().geometric_dimension() == 3:
                 u, v, w = self.vect_rotator(east_comp, north_comp)
                 self.vector_field.dat.data_with_halos[:, 0] = u
                 self.vector_field.dat.data_with_halos[:, 1] = v
