@@ -9,45 +9,68 @@ Thetis requires installation of `Firedrake
 principle other Linux and Linux-like systems) and must be run from
 within the Firedrake virtual environment.
 
-Install Firedrake and Thetis
------------------------------
+Installing Firedrake
+---------------------
 
-You can install both Firedrake and Thetis by running::
+You can install Firedrake by following the download documentation on the
+`Firedrake website <http://firedrakeproject.org/download.html>`_.
 
-    curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install
-    python3 firedrake-install --install thetis
+.. note::
 
-See  `Firedrake website <http://firedrakeproject.org/download.html>`_ for more
-information on the installation procedure. Note that the install proceduce may
-take up to one hour depending on your system.
+   **Installing Firedrake can take up to an hour depending on the system.**
 
-The Thetis source will be installed in the ``src/thetis`` subdirectory
-of your Firedrake install.
-In order to use Firedrake and Thetis you need to activate the Firedrake
+In order to use Firedrake and install Thetis you need to activate the Firedrake
 virtualenv::
 
-    source <your-firedrake-install-dir>/firedrake/bin/activate
+   source <your-firedrake-venv-dir>/bin/activate
 
-Using this install method you should
-**not** add Thetis to your ``PYTHONPATH``. Instead, Thetis will
-automatically be available to import whenever your Firedrake
-virtualenv is active.
+.. warning::
 
-If you have already installed Firedrake
----------------------------------------
+   **Please check that Firedrake is working before trying to install Thetis.**
 
-You can install Thetis in your Firedrake installation by
-activating the Firedrake virtualenv and running::
 
-    firedrake-update --install thetis
+Installing Thetis
+------------------
 
+.. warning::
+
+   ``pip install thetis`` will **not** install the desired Thetis package!
+
+You can install Thetis in your Firedrake installation by activating the Firedrake virtualenv and running:
+
+.. code-block:: none
+
+   pip install git+https://github.com/thetisproject/thetis.git
+
+Using this install method, you should **not** add Thetis to your
+``PYTHONPATH``. Instead, Thetis will automatically be available to import whenever your Firedrake virtualenv is active.
+
+.. _editable-install:
+
+Editable install
+=============================================================================
+
+If you would like to link your Thetis installation to the GitHub repository and contribute to the project, first activate
+your Firedrake environment and then clone and install the repository with:
+
+.. code-block:: none
+
+   git clone https://github.com/thetisproject/thetis
+   python -m pip install -e <path_to_thetis>
+
+An IDE such as PyCharm will not recognize Thetis when installed in this fashion for any project outside the cloned repository,
+as the source is not in site-packages. It will still run, and if you would like to enable full code navigation, you
+can add the Thetis cloned repository as a content root, then add the ``thetis`` sub-directory as a sources root.
+
+.. _shared-preinstalled-firedrake:
 
 If you are using a shared, pre-installed Firedrake (such as on some clusters)
------------------------------------------------------------------------------
+=============================================================================
 
-Check out the `Thetis <http://github.com/thetisproject/thetis>`_
-repository from Github.
-You then need to add the Thetis repository to your ``PYTHONPATH`` in the
-Firedrake virtualenv. You can do this with ``pip``::
+Check out the `Thetis repository <http://github.com/thetisproject/thetis>`_ from GitHub.
+You then need to add the Thetis repository to your ``PYTHONPATH`` in the Firedrake virtualenv. You can do this with ``pip``:
 
-    pip install -e <path-to-thetis-repository>
+.. code-block:: none
+
+   pip install -e <path-to-thetis-repository>
+
