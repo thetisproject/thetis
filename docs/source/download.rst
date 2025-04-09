@@ -19,7 +19,7 @@ You can install Firedrake by following the download documentation on the
 
    **Installing Firedrake can take up to an hour depending on the system.**
 
-In order to use Firedrake and install Thetis you need to activate the Firedrake
+After installation, in order to use Firedrake and install Thetis you need to activate the Firedrake
 virtualenv::
 
    source <your-firedrake-venv-dir>/bin/activate
@@ -50,13 +50,12 @@ Using this install method, you should **not** add Thetis to your
 Editable install
 =============================================================================
 
-If you would like to link your Thetis installation to the GitHub repository and contribute to the project, first activate
-your Firedrake environment and then clone and install the repository with:
+If you want to install Thetis from a local checkout of the repository that you can directly edit, update (pull) from github, switch branches, etc., it is recommended to use an editable install using:
 
 .. code-block:: none
 
    git clone https://github.com/thetisproject/thetis
-   python -m pip install -e <path_to_thetis>
+   pip install -e <path_to_thetis>
 
 An IDE such as PyCharm will not recognize Thetis when installed in this fashion for any project outside the cloned repository,
 as the source is not in site-packages. It will still run, and if you would like to enable full code navigation, you
