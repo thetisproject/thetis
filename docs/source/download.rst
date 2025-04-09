@@ -61,15 +61,15 @@ An IDE such as PyCharm will not recognize Thetis when installed in this fashion 
 as the source is not in site-packages. It will still run, and if you would like to enable full code navigation, you
 can add the Thetis cloned repository as a content root, then add the ``thetis`` sub-directory as a sources root.
 
-.. _shared-preinstalled-firedrake:
+.. _alternative-installation-methods:
 
-If you are using a shared, pre-installed Firedrake (such as on some clusters)
-=============================================================================
+Alternative installation methods
+=================================
 
-Check out the `Thetis repository <http://github.com/thetisproject/thetis>`_ from GitHub.
-You then need to add the Thetis repository to your ``PYTHONPATH`` in the Firedrake virtualenv. You can do this with ``pip``:
+As well as being installable through ``pip``, Firedrake also provides Docker containers which typically contain the
+latest Thetis at the time of release.
 
-.. code-block:: none
-
-   pip install -e <path-to-thetis-repository>
+If there are any problems with the installation of Firedrake and Thetis, the Slack workspace for Firedrake contains both
+the general channel for Firedrake and a specific channel for Thetis. GitHub can also be used to report issues. Please
+follow this `link <https://thetisproject.org/contact.html>`_ for contact details and we will be happy to help.
 
