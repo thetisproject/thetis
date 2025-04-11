@@ -84,7 +84,7 @@ class ATMNetCDFTime(interpolation.NetCDFTimeParser):
     A TimeParser class for reading atmosphere model output files.
     """
     @PETSc.Log.EventDecorator("thetis.ATMNetCDFTime.__init__")
-    def __init__(self, filename, max_duration=None, verbose=False):
+    def __init__(self, filename, max_duration=None, verbose=False, time_variable_name='time'):
         """
         :arg filename:
         :kwarg max_duration: Time span to read from each file (in seconds).
@@ -93,7 +93,7 @@ class ATMNetCDFTime(interpolation.NetCDFTimeParser):
             all time steps are loaded. Default: None.
         :kwarg bool verbose: Se True to print debug information.
         """
-        super(ATMNetCDFTime, self).__init__(filename, time_variable_name='time')
+        super(ATMNetCDFTime, self).__init__(filename, time_variable_name=time_variable_name)
         # NOTE these are daily forecast files, limit time steps to one day
         self.start_time = timezone.epoch_to_datetime(float(self.time_array[0]))
         self.end_time_raw = timezone.epoch_to_datetime(float(self.time_array[-1]))
@@ -123,7 +123,8 @@ class ATMInterpolator(object):
                  ncfile_pattern, init_date,
                  vect_rotator=None,
                  east_wind_var_name='uwind', north_wind_var_name='vwind',
-                 pressure_var_name='prmsl', fill_mode=None,
+                 pressure_var_name='prmsl', time_variable_name='time',
+                 fill_mode=None,
                  fill_value=numpy.nan,
                  verbose=False):
         """
@@ -160,7 +161,8 @@ class ATMInterpolator(object):
         var_list = [east_wind_var_name, north_wind_var_name, pressure_var_name]
         self.reader = interpolation.NetCDFSpatialInterpolator(
             self.grid_interpolator, var_list)
-        self.timesearch_obj = interpolation.NetCDFTimeSearch(ncfile_pattern, init_date, ATMNetCDFTime, verbose=verbose)
+        self.timesearch_obj = interpolation.NetCDFTimeSearch(
+            ncfile_pattern, init_date, ATMNetCDFTime, verbose=verbose, time_variable_name=time_variable_name)
         self.time_interpolator = interpolation.LinearTimeInterpolator(self.timesearch_obj, self.reader)
         lon = self.grid_interpolator.mesh_lonlat[:, 0]
         lat = self.grid_interpolator.mesh_lonlat[:, 1]
@@ -181,7 +183,7 @@ class ATMInterpolator(object):
         """
         east_wind, north_wind, prmsl = self.time_interpolator(time)
         east_strs, north_strs = compute_wind_stress(east_wind, north_wind)
-        if self.wind_stress_field.geometric_dimension() == 3:
+        if self.wind_stress_field.ufl_shape == (3,):
             u_strs, v_strs, z_strs = self.vect_rotator(east_strs, north_strs)
             self.wind_stress_field.dat.data_with_halos[:, 0] = u_strs
             self.wind_stress_field.dat.data_with_halos[:, 1] = v_strs
@@ -855,7 +857,7 @@ class GenericInterpolator2D(object):
             i, j = self.vector_field_index
             east_comp = vals[i]
             north_comp = vals[j]
-            if self.vector_field.geometric_dimension() == 3:
+            if self.vector_field.ufl_shape == (3,):
                 u, v, w = self.vect_rotator(east_comp, north_comp)
                 self.vector_field.dat.data_with_halos[:, 0] = u
                 self.vector_field.dat.data_with_halos[:, 1] = v
