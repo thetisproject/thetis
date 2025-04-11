@@ -492,7 +492,7 @@ class FlowSolver(FrozenClass):
         # ----- fields
         self.fields.solution_2d = Function(self.function_spaces.V_2d)
         # correct treatment of the split 2d functions
-        uv_2d, eta2d = self.fields.solution_2d.split()
+        uv_2d, eta2d = self.fields.solution_2d.subfunctions
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = eta2d
         # elevation field seen by the 3D mode, different from elev_2d

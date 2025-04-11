@@ -502,8 +502,8 @@ class ExpandFunctionTo3d(object):
 
         family_2d = self.fs_2d.ufl_element().family()
         base_element_3d = get_extruded_base_element(self.fs_3d.ufl_element())
-        assert isinstance(base_element_3d, ufl.TensorProductElement)
-        family_3dh = base_element_3d.sub_elements()[0].family()
+        assert isinstance(base_element_3d, firedrake.TensorProductElement)
+        family_3dh = base_element_3d.sub_elements[0].family()
         if family_2d != family_3dh:
             raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
         self.do_hdiv_scaling = family_2d in ['Raviart-Thomas', 'RTCF', 'Brezzi-Douglas-Marini', 'BDMCF']
@@ -527,8 +527,8 @@ class ExpandFunctionTo3d(object):
                     }
                 }
             }""" % {'nodes': self.fs_2d.finat_element.space_dimension(),
-                    'func2d_dim': self.input_2d.function_space().value_size,
-                    'func3d_dim': self.fs_3d.value_size,
+                    'func2d_dim': self.input_2d.function_space().block_size,
+                    'func3d_dim': self.fs_3d.block_size,
                     'v_nodes': n_vert_nodes},
             'my_kernel')
 
@@ -625,8 +625,8 @@ class SubFunctionExtractor(object):
 
         family_2d = self.fs_2d.ufl_element().family()
         base_element_3d = get_extruded_base_element(self.fs_3d.ufl_element())
-        assert isinstance(base_element_3d, ufl.TensorProductElement)
-        family_3dh = base_element_3d.sub_elements()[0].family()
+        assert isinstance(base_element_3d, firedrake.TensorProductElement)
+        family_3dh = base_element_3d.sub_elements[0].family()
         if family_2d != family_3dh:
             raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
         self.do_hdiv_scaling = family_2d in ['Raviart-Thomas', 'RTCF', 'Brezzi-Douglas-Marini', 'BDMCF']
@@ -664,8 +664,8 @@ class SubFunctionExtractor(object):
                         }
                     }
                 }""" % {'nodes': self.output_2d.cell_node_map().arity,
-                        'func2d_dim': self.output_2d.function_space().value_size,
-                        'func3d_dim': self.fs_3d.value_size},
+                        'func2d_dim': self.output_2d.function_space().block_size,
+                        'func3d_dim': self.fs_3d.block_size},
                 'my_kernel')
         else:
             self.kernel = op2.Kernel("""
@@ -676,8 +676,8 @@ class SubFunctionExtractor(object):
                         }
                     }
                 }""" % {'nodes': self.output_2d.cell_node_map().arity,
-                        'func2d_dim': self.output_2d.function_space().value_size,
-                        'func3d_dim': self.fs_3d.value_size},
+                        'func2d_dim': self.output_2d.function_space().block_size,
+                        'func3d_dim': self.fs_3d.block_size},
                 'my_kernel')
 
         if self.do_hdiv_scaling:
@@ -747,8 +747,8 @@ class ALEMeshUpdater(object):
 
         family_2d = self.fs_2d.ufl_element().family()
         base_element_3d = get_extruded_base_element(self.fs_3d.ufl_element())
-        assert isinstance(base_element_3d, ufl.TensorProductElement)
-        family_3dh = base_element_3d.sub_elements()[0].family()
+        assert isinstance(base_element_3d, firedrake.TensorProductElement)
+        family_3dh = base_element_3d.sub_elements[0].family()
         if family_2d != family_3dh:
             raise Exception('2D and 3D spaces do not match: "{0:s}" != "{1:s}"'.format(family_2d, family_3dh))
 
@@ -771,8 +771,8 @@ class ALEMeshUpdater(object):
                     }
                 }
             }""" % {'nodes': self.fs_2d.finat_element.space_dimension(),
-                    'func2d_dim': self.fs_2d.value_size,
-                    'func3d_dim': self.fs_3d.value_size,
+                    'func2d_dim': self.fs_2d.block_size,
+                    'func3d_dim': self.fs_3d.block_size,
                     'v_nodes': n_vert_nodes},
             'my_kernel')
 
@@ -790,8 +790,8 @@ class ALEMeshUpdater(object):
                     }
                 }
             }""" % {'nodes': self.fs_2d.finat_element.space_dimension(),
-                    'func2d_dim': self.fs_2d.value_size,
-                    'func3d_dim': self.fs_3d.value_size,
+                    'func2d_dim': self.fs_2d.block_size,
+                    'func3d_dim': self.fs_3d.block_size,
                     'v_nodes': n_vert_nodes},
             'my_kernel')
 

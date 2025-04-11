@@ -35,7 +35,7 @@ class TsunamiSource(FrozenConfigurable):
         self.mesh2d = mesh2d
         self.coord_system = coord_system
         if element is None:
-            element = ufl.FiniteElement("Lagrange", mesh2d.ufl_cell(), 1)
+            element = fd.FiniteElement("Lagrange", mesh2d.ufl_cell(), 1)
         self.function_space = utility.get_functionspace(mesh2d, element.family(), element.degree())
         self._elev_init = fd.Function(self.function_space, name="Elevation")
         self.xy = ufl.SpatialCoordinate(mesh2d)
@@ -243,13 +243,11 @@ class ArrayTsunamiSource(TsunamiSource):
     def generate(self):
         if not hasattr(self, "contributions"):
             self.create_subfaults()
-        xyij = fd.Constant(ufl.as_vector([0, 0]))
         R = self.rotation_matrix()
         for j, y in enumerate(self.Y):
             for i, x in enumerate(self.X):
                 k = i + j * self.num_subfaults_par
-                xyij.assign(numpy.array([x, y]))
-                centroid = fd.Constant(self.xy0 + ufl.dot(R, xyij))
+                centroid = fd.Constant(self.xy0 + ufl.dot(R, fd.as_vector([x, y])))
                 self.calculate_contribution(k, centroid)
 
 

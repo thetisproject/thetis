@@ -89,7 +89,7 @@ def test_standing_wave_channel(timesteps, max_rel_err, timestepper, tmpdir, do_e
 
     solver_obj.iterate()
 
-    uv, eta = solver_obj.fields.solution_2d.split()
+    uv, eta = solver_obj.fields.solution_2d.subfunctions
 
     area = lx*ly
     rel_err = errornorm(elev_init, eta)/math.sqrt(area)

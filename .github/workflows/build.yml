@@ -13,40 +13,71 @@ on:
 
 jobs:
   build:
-    name: "Build Thetis"  
+    name: "Build Thetis"
     # The type of runner that the job will run on
-    runs-on: self-hosted
+    runs-on: [self-hosted, Linux]
     # The docker container to use.
     container:
-      image: firedrakeproject/firedrake-vanilla:latest
+      image: firedrakeproject/firedrake-vanilla-default:latest
+    env:
+      # Make sure that tests with >2 processes are not silently skipped
+      PYTEST_MPI_MAX_NPROCS: 2
     steps:
-      - uses: actions/checkout@v2
-      - name: Cleanup
-        if: ${{ always() }}
+      - name: Fix HOME
+        # For unknown reasons GitHub actions overwrite HOME to /github/home
+        # which will break everything unless fixed
+        # (https://github.com/actions/runner/issues/863)
+        run: echo "HOME=/home/firedrake" >> "$GITHUB_ENV"
+
+      - name: Pre-cleanup
         run: |
-          cd ..
-          rm -rf build
-      - name: Setup python
-        uses: actions/setup-python@v2
+          : # Wipe everything away in the current directory
+          find . -delete
+          firedrake-clean
+
+      - uses: actions/checkout@v4
         with:
-          python-version: 3.8
+          # Download Thetis into a subdirectory not called 'thetis' to make sure
+          # that the package installs correctly. Otherwise 'import thetis' may
+          # work even if the installation failed because it is a subdirectory.
+          path: thetis-repo
+
       - name: Install Thetis
+        id: install
         run: |
-          . /home/firedrake/firedrake/bin/activate
-          python -m pip install -r requirements.txt
-          python -m pip install -e .
-      - name: Test Thetis
-        run: |
-          . /home/firedrake/firedrake/bin/activate
-          python $(which firedrake-clean)
-          python -m pytest -n 12 -v test
-      - name: Test Thetis adjoint
-        run: |
-          . /home/firedrake/firedrake/bin/activate
-          python $(which firedrake-clean)
-          python -m pytest -n 12 -v test_adjoint
+          : # Pass '--system-site-packages' so Firedrake can be found
+          python3 -m venv --system-site-packages venv-thetis
+          . venv-thetis/bin/activate
+          pip install ./thetis-repo
+          pip list
+
       - name: Lint
-        if: ${{ always() }}
         run: |
-          . /home/firedrake/firedrake/bin/activate
-          make lint
+          . venv-thetis/bin/activate
+          pip install flake8
+          make -C thetis-repo lint
+
+      - name: Test Thetis
+        # Run even if the step above failed
+        if: success() || steps.install.conclusion == 'success'
+        run: |
+          . venv-thetis/bin/activate
+          : # Run the serial tests
+          python -m pytest -n 12 --verbose --durations=0 --durations-min=60.0 \
+            -m "parallel[1] or not parallel" thetis-repo/test
+          : # Run the parallel tests (note that xdist is not valid in parallel)
+          mpiexec -n 2 python -m pytest --verbose --durations=0 --durations-min=60.0 \
+            -m parallel[2] thetis-repo/test
+
+      - name: Test Thetis adjoint
+        if: success() || steps.install.conclusion == 'success'
+        run: |
+          firedrake-clean
+          . venv-thetis/bin/activate
+          python -m pytest -n 12 --verbose --durations=0 thetis-repo/test_adjoint
+
+      - name: Post-cleanup
+        if: always()
+        run: |
+          find . -delete
+          firedrake-clean

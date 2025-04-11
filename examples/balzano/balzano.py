@@ -26,6 +26,7 @@ comparisons with other WD models.
     doi: 10.1016/j.advwatres.2009.09.005.
 """
 from thetis import *
+from firedrake.output.vtk_output import VTKFile
 
 outputdir = 'outputs'
 mesh2d = RectangleMesh(12, 6, 13800, 7200)
@@ -81,9 +82,9 @@ solverObj.bnd_functions['shallow_water'] = {
 }
 
 # User-defined output: moving bathymetry and eta_tilde
-wd_bathfile = File(os.path.join(outputdir, 'moving_bath.pvd'))
+wd_bathfile = VTKFile(os.path.join(outputdir, 'moving_bath.pvd'))
 moving_bath = Function(P1_2d, name="moving_bath")
-eta_tildefile = File(os.path.join(outputdir, 'eta_tilde.pvd'))
+eta_tildefile = VTKFile(os.path.join(outputdir, 'eta_tilde.pvd'))
 eta_tilde = Function(P1_2d, name="eta_tilde")
 
 

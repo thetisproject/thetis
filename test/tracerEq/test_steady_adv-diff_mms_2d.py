@@ -133,7 +133,7 @@ def run(setup, refinement, do_export=True, **options):
     # outputs
     outputdir = 'outputs_{}'.format(refinement)
     if do_export:
-        out_2 = File(os.path.join(outputdir, 'Tracer.pvd'))
+        out_2 = VTKFile(os.path.join(outputdir, 'Tracer.pvd'))
 
     # bathymetry
     x_2d, y_2d = SpatialCoordinate(mesh2d)

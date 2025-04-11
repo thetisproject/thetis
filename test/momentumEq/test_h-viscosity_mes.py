@@ -87,7 +87,7 @@ def run(refinement, **model_options):
 
     # export analytical solution
     if not options.no_exports:
-        out_uv_ana = File(os.path.join(options.output_directory, 'uv_ana.pvd'))
+        out_uv_ana = VTKFile(os.path.join(options.output_directory, 'uv_ana.pvd'))
 
     def export_func():
         if not options.no_exports:

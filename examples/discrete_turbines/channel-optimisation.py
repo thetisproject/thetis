@@ -8,7 +8,7 @@ import numpy as np
 import random
 op2.init(log_level=INFO)
 
-output_dir = 'outputs'
+output_dir = 'outputs_optimisation'
 
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
     test_gradient = True  # test gradient using Taylor test (see below)
@@ -93,7 +93,7 @@ site_y_start = 80.
 r = farm_options.turbine_options.diameter/2.
 
 # a list contains the coordinates of all turbines: regular, non-staggered 4 x 2 layout
-farm_options.turbine_coordinates = [[Constant(x+cos(y), domain=mesh2d), Constant(y+numpy.sin(x), domain=mesh2d)]
+farm_options.turbine_coordinates = [[domain_constant(x+cos(y), mesh2d), domain_constant(y+numpy.sin(x), mesh2d)]
                                     for x in np.linspace(site_x_start + 4*r, site_x_start + site_x - 4*r, 4)
                                     for y in np.linspace(site_y_start + 0.5*site_y-2*r,
                                                          site_y_start + 0.5*site_y+2*r, 2)]
@@ -106,7 +106,7 @@ farm_options.turbine_coordinates = [[Constant(x+cos(y), domain=mesh2d), Constant
 # everywhere, you can use the key "everywhere" instead of 2 below.
 # Regardless of this, the area where the turbines are places need to have sufficiently high
 # resolution to resolve the Gaussian bump functions that represent the turbines
-options.discrete_tidal_turbine_farms[2] = farm_options
+options.discrete_tidal_turbine_farms[2] = [farm_options]
 
 # set initial condition (initial velocity should not be exactly 0 to avoid failures in the Newton solve)
 solver_obj.assign_initial_conditions(uv=(as_vector((1e-3, 0.0))))
@@ -199,11 +199,11 @@ if test_gradient:
         # ensure we use the same perturbation on all processes when parallel:
         return mesh2d.comm.bcast(dx, 0)
 
-    m0 = [Constant(float(x) + perturbation(r), domain=mesh2d) for xy in farm_options.turbine_coordinates for x in xy]
+    m0 = [domain_constant(float(x) + perturbation(r), mesh2d) for xy in farm_options.turbine_coordinates for x in xy]
 
     # the perturbation over which we test the Taylor approximation
     # (the taylor test below starts with a 1/100th of that, followed by a series of halvings
-    h0 = [Constant(perturbation(1), domain=mesh2d) for xy in farm_options.turbine_coordinates for x in xy]
+    h0 = [domain_constant(perturbation(1), mesh2d) for xy in farm_options.turbine_coordinates for x in xy]
 
     # this tests whether the above Taylor series residual indeed converges to zero at 2nd order in h as h->0
     minconv = taylor_test(rf, m0, h0)

@@ -29,6 +29,7 @@ set to constant 1e-4 m2/s. Tracer diffusion is set to zero.
 """
 
 from thetis import *
+from firedrake.output.vtk_output import VTKFile
 from diagnostics import *
 
 
@@ -242,7 +243,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     # custom export of surface temperature field
     surf_temp_2d = Function(solver_obj.function_spaces.H_2d, name='Temperature')
     extract_surf_temp = SubFunctionExtractor(solver_obj.fields.temp_3d, surf_temp_2d)
-    surf_temp_file = File(options.output_directory + '/SurfTemperature2d.pvd')
+    surf_temp_file = VTKFile(options.output_directory + '/SurfTemperature2d.pvd')
 
     def export_func():
         extract_surf_temp.solve()

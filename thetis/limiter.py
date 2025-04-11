@@ -3,7 +3,6 @@ Slope limiters for discontinuous fields
 """
 from .utility import *
 from firedrake import VertexBasedLimiter
-import ufl
 from pyop2.profiling import timed_stage
 import numpy
 
@@ -24,12 +23,12 @@ def assert_function_space(fs, family, degree):
     if not isinstance(family, list):
         fam_list = [family]
     ufl_elem = fs.ufl_element()
-    if isinstance(ufl_elem, ufl.VectorElement):
-        ufl_elem = ufl_elem.sub_elements()[0]
+    if isinstance(ufl_elem, firedrake.VectorElement):
+        ufl_elem = ufl_elem.sub_elements[0]
 
     if ufl_elem.family() == 'TensorProductElement':
         # extruded mesh
-        A, B = ufl_elem.sub_elements()
+        A, B = ufl_elem.sub_elements
         assert A.family() in fam_list, \
             'horizontal space must be one of {0:s}'.format(fam_list)
         assert B.family() in fam_list, \
@@ -94,7 +93,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         """
         b = assemble(TestFunction(self.P0) * field * dx)
         if self.time_dependent_mesh:
-            assemble(self.a_form, self.centroid_solver.A)
+            assemble(self.a_form, tensor=self.centroid_solver.A)
         self.centroid_solver.solve(self.centroids, b)
 
     @PETSc.Log.EventDecorator("thetis.VertexBasedP1DGLimiter.compute_bounds")

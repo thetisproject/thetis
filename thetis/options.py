@@ -462,6 +462,9 @@ class TidalTurbineOptions(FrozenHasTraits):
     name = 'Tidal turbine options'
     diameter = PositiveFloat(
         18., help='Turbine diameter').tag(config=True)
+    projected_diameter = PositiveFloat(
+        None, allow_none=True, help='Extent over which turbine drag is applied'
+                                    '(defaults to diameter if not provided)').tag(config=True)
     C_support = NonNegativeFloat(
         0., help='Thrust coefficient for support structure').tag(config=True)
     A_support = NonNegativeFloat(
@@ -473,16 +476,24 @@ class ConstantTidalTurbineOptions(TidalTurbineOptions):
     name = 'Constant tidal turbine options'
     thrust_coefficient = PositiveFloat(
         0.8, help='Thrust coefficient C_T').tag(config=True)
+    power_coefficient = PositiveFloat(
+        None, allow_none=True, help='Power coefficient C_P, defaults to None and will be calculated using '
+                                    'an empirical formula based on thrust coefficients unless specified (see '
+                                    'ConstantThrustTurbine).').tag(config=True)
 
 
 class TabulatedTidalTurbineOptions(TidalTurbineOptions):
     """Options for tidal turbine with tabulated thrust coefficient"""
     name = 'Tabulated tidal turbine options'
-    thrust_coefficients = List([3.0], help='Table of thrust coefficients')
     thrust_speeds = List(
-        [0.8, 0.8],
-        help="""List of speeds at which thrust_coefficients are applied.
-        First and last entry function as cut-in and cut-out speeds respectively""")
+        [0.9, 1., 3., 5., 5.001],
+        help='List of speeds at which thrust_coefficients are applied.'
+        'First and last entry function as cut-in and cut-out speeds respectively')
+    thrust_coefficients = List([0.01, 0.7, 0.7, 0.1, 0.0001], help='Table of thrust coefficients')
+    power_coefficients = List(
+        None, allow_none=True, help='Table of power coefficients. Defaults to None and will be calculated '
+                                    'using an empirical formula based on thrust coefficients unless specified (see '
+                                    'TabulatedThrustTurbine).').tag(config=True)
 
 
 @attach_paired_options("turbine_type",
@@ -881,12 +892,13 @@ class ModelOptions2d(CommonModelOptions):
 
         Note this is only relevant if `use_automatic_wetting_and_drying_alpha` is set to ``True``.
         """).tag(config=True)
-    tidal_turbine_farms = Dict(trait=TidalTurbineFarmOptions(),
-                               default_value={}, help='Dictionary mapping subdomain ids to the options of the corresponding farm')
+    tidal_turbine_farms = Dict(trait=List(TidalTurbineFarmOptions()), default_value={},
+                               help='Dictionary mapping subdomain ids to a list of TidalTurbineFarmOptions instances '
+                                    'corresponding to one or more farms.')
 
-    discrete_tidal_turbine_farms = Dict(trait=DiscreteTidalTurbineFarmOptions(),
-                                        default_value={},
-                                        help='Dictionary mapping subdomain ids to the options of the corresponding farm')
+    discrete_tidal_turbine_farms = Dict(trait=List(DiscreteTidalTurbineFarmOptions()), default_value={},
+                                        help='Dictionary mapping subdomain ids to a list of DiscreteTidalTurbineFarmOptions '
+                                             'instances corresponding to one or more farms.')
 
     check_tracer_conservation = Bool(
         False, help="""
@@ -992,7 +1004,7 @@ class ModelOptions2d(CommonModelOptions):
             kwargs[label]['mixed'] = True
         self.tracer_fields[','.join(labels)] = function
         if function is not None:
-            for label, child in zip(labels, function.split()):
+            for label, child in zip(labels, function.subfunctions):
                 kwargs[label]['function'] = child
         for label, name, filename, shortname, unit in zip(labels, names, filenames, shortnames, units):
             self.add_tracer_2d(label, name, filename, shortname=shortname, unit=unit, **kwargs[label])

@@ -29,7 +29,7 @@ class AssembledSchurPC(PCBase):
 
         test, trial = a.arguments()
         W = test.function_space()
-        V, Q = W.split()
+        V, Q = W.subfunctions
         v = TestFunction(V)
         u = TrialFunction(V)
         mass = dot(v, u)*dx
