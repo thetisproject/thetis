@@ -78,6 +78,7 @@ def compute_wind_stress(wind_u, wind_v, method='LargeYeager2009'):
     tau_y = tau*wind_v
     return tau_x, tau_y
 
+
 class ERA5Interpolator(object):
     """
     Interpolates ERA5 atmospheric model data on 2D fields.
@@ -124,13 +125,14 @@ class ERA5Interpolator(object):
         var_list = [east_wind_var_name, north_wind_var_name, pressure_var_name]
         self.reader = interpolation.NetCDFSpatialInterpolator(
             self.grid_interpolator, var_list)
-        self.timesearch_obj = interpolation.NetCDFTimeSearch(ncfile,
-                                                             init_date,
-                                                             interpolation.NetCDFTimeParser,
-                                                             verbose=False)
+        self.timesearch_obj = \
+            interpolation.NetCDFTimeSearch(ncfile,
+                                           init_date,
+                                           interpolation.NetCDFTimeParser,
+                                           verbose=False)
         self.time_interpolator = \
-                interpolation.LinearTimeInterpolator(self.timesearch_obj,
-                                                     self.reader)
+            interpolation.LinearTimeInterpolator(self.timesearch_obj,
+                                                 self.reader)
         lon = self.grid_interpolator.mesh_lonlat[:, 0]
         lat = self.grid_interpolator.mesh_lonlat[:, 1]
         if vect_rotator is None:
@@ -152,6 +154,7 @@ class ERA5Interpolator(object):
         self.wind_stress_field.dat.data_with_halos[:, 0] = u_strs
         self.wind_stress_field.dat.data_with_halos[:, 1] = v_strs
         self.atm_pressure_field.dat.data_with_halos[:] = prmsl
+
 
 class ATMNetCDFTime(interpolation.NetCDFTimeParser):
     """
