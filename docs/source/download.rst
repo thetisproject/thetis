@@ -13,7 +13,7 @@ Installing Firedrake
 ---------------------
 
 You can install Firedrake by following the download documentation on the
-`Firedrake website <http://firedrakeproject.org/download.html>`_.
+`Firedrake website <http://firedrakeproject.org/install.html>`_.
 
 .. note::
 
