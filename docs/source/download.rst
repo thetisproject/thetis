@@ -17,7 +17,7 @@ You can install Firedrake by following the download documentation on the
 
 .. note::
 
-   **Installing Firedrake can take up to an hour depending on the system.**
+   **Installing PETSc and Firedrake can take up to 30 minutes depending on the system.**
 
 After installation, in order to use Firedrake and install Thetis you need to activate the Firedrake
 virtualenv::
