@@ -26,15 +26,15 @@ virtualenv::
 
 .. warning::
 
-   **Please check that Firedrake is working before trying to install Thetis.**
+   **You should check that the Firedrake install has been successful by running:**
+
+   ::
+
+      firedrake-check
 
 
 Installing Thetis
 ------------------
-
-.. warning::
-
-   ``pip install thetis`` will **not** install the desired Thetis package!
 
 You can install Thetis in your Firedrake installation by activating the Firedrake virtualenv and running:
 
@@ -42,19 +42,24 @@ You can install Thetis in your Firedrake installation by activating the Firedrak
 
    pip install git+https://github.com/thetisproject/thetis.git
 
-Using this install method, you should **not** add Thetis to your
-``PYTHONPATH``. Instead, Thetis will automatically be available to import whenever your Firedrake virtualenv is active.
 
 .. _editable-install:
 
 Editable install
 =============================================================================
 
-If you want to install Thetis from a local checkout of the repository that you can directly edit, update (pull) from github, switch branches, etc., it is recommended to use an editable install using:
+If you want to install Thetis from a local checkout of the repository that you can directly edit, update (pull) from GitHub, switch branches, etc., it is recommended to use an editable install using:
 
 .. code-block:: none
 
    git clone https://github.com/thetisproject/thetis
+   pip install -e <path_to_thetis>
+
+If you have SSH keys set up with GitHub, you can use the SSH-based clone instead:
+
+.. code-block:: none
+
+   git clone git@github.com:thetisproject/thetis
    pip install -e <path_to_thetis>
 
 An IDE such as PyCharm will not recognize Thetis when installed in this fashion for any project outside the cloned repository,
@@ -66,7 +71,7 @@ can add the Thetis cloned repository as a content root, then add the ``thetis`` 
 Alternative installation methods
 =================================
 
-As well as being installable through ``pip``, Firedrake also provides Docker containers which typically contain the
+As well as being installable through ``pip``, Firedrake also provides Docker containers which *typically* contain the
 latest Thetis at the time of release.
 
 If there are any problems with the installation of Firedrake and Thetis, the Slack workspace for Firedrake contains both
