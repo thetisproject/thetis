@@ -31,3 +31,20 @@ Repository = "https://github.com/thetisproject/thetis.git"
 
 [tool.setuptools]
 packages = ["thetis", "test", "examples"]
+
+[project.optional-dependencies]
+# Dependencies needed to build the docs
+docs = [
+  "bibtexparser",
+  "matplotlib",  # needed to resolve API
+  "numpydoc",
+  "pylit",
+  "sphinx<8.2.0",  # https://github.com/firedrakeproject/firedrake/issues/4059
+  "sphinx-autobuild",
+  "sphinx-reredirects",
+  "sphinxcontrib-bibtex",
+  "sphinxcontrib-jquery",
+  "sphinxcontrib-svg2pdfconverter",
+  "sphinxcontrib-youtube",
+  "vtk",  # needed to resolve API
+]
