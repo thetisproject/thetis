@@ -1,7 +1,6 @@
 import qmesh
 
 
-
 def generate_mesh(level):
     """
     Generate a mesh of the North Sea domain using qmesh.
