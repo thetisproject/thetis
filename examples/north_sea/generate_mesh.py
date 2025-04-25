@@ -1,4 +1,5 @@
-import qmesh3 as qmesh
+import qmesh
+
 
 
 def generate_mesh(level):
@@ -9,6 +10,7 @@ def generate_mesh(level):
 
     # Setup qmesh
     qmesh.setLogOutputFile("qmesh.log")
+    qmesh.initialise()
 
     # Read shapefile describing domain boundaries
     boundary = qmesh.vector.Shapes()
@@ -32,7 +34,7 @@ def generate_mesh(level):
     gshhs_coast.fromFile("mesh_data/Coastline.shp")
     gradation_raster = qmesh.raster.gradationToShapes()
     gradation_raster.setShapes(gshhs_coast)
-    gradation_raster.setRasterBounds(-16.0, 12.0, 48.0, 64.0)
+    gradation_raster.setRasterBounds(-16.0, 9.0, 48.0, 64.0)
     gradation_raster.setRasterResolution(300, 300)
     gradation_raster.setGradationParameters(
         10.0e03 * 0.5**level,  # inner gradation (m)
