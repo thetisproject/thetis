@@ -205,6 +205,7 @@ class ATMNetCDFTime(interpolation.NetCDFTimeParser):
                                                                                            self.max_steps))
                 print_output('  New time span: {:} -> {:}'.format(self.start_time, self.end_time))
 
+
 class ATMInterpolator(AtmosphericForcingInterpolator):
     """
     Interpolates WRF/NAM atmospheric model data on 2D fields.
@@ -219,13 +220,13 @@ class ATMInterpolator(AtmosphericForcingInterpolator):
                  verbose=False):
 
         super().__init__(function_space, wind_stress_field,
-                 atm_pressure_field, coord_system,
-                 ncfile, init_date, ATMNetCDFTime,
-                 vect_rotator,
-                 east_wind_var_name, north_wind_var_name,
-                 pressure_var_name, time_var_name,
-                 fill_mode, fill_value,
-                 verbose)
+                         atm_pressure_field, coord_system,
+                         ncfile, init_date, ATMNetCDFTime,
+                         vect_rotator,
+                         east_wind_var_name, north_wind_var_name,
+                         pressure_var_name, time_var_name,
+                         fill_mode, fill_value,
+                         verbose)
 
 
 class SpatialInterpolatorNCOMBase(interpolation.SpatialInterpolator):
