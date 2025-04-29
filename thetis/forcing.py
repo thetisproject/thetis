@@ -86,10 +86,11 @@ class AtmosphericForcingInterpolator(object):
     @PETSc.Log.EventDecorator("thetis.AtmosForcingInterpolator.__init__")
     def __init__(self, function_space, wind_stress_field,
                  atm_pressure_field, coord_system,
-                 ncfile, init_date, temporal_interpolator,
+                 ncfile, init_date,
                  vect_rotator=None,
                  east_wind_var_name='u10', north_wind_var_name='v10',
                  pressure_var_name='sp', time_var_name='time',
+                 pressure_units="pa", temporal_interpolator=interpolation.NetCDFTimeParser,
                  fill_mode=None, fill_value=numpy.nan,
                  verbose=False):
         """
@@ -118,6 +119,7 @@ class AtmosphericForcingInterpolator(object):
         self.function_space = function_space
         self.wind_stress_field = wind_stress_field
         self.atm_pressure_field = atm_pressure_field
+        self.pressure_units = pressure_units
 
         # construct interpolators
         self.grid_interpolator = interpolation.NetCDFLatLonInterpolator2d(
@@ -161,14 +163,60 @@ class AtmosphericForcingInterpolator(object):
             u_strs, v_strs = self.vect_rotator(east_strs, north_strs)
             self.wind_stress_field.dat.data_with_halos[:, 0] = u_strs
             self.wind_stress_field.dat.data_with_halos[:, 1] = v_strs
-        self.atm_pressure_field.dat.data_with_halos[:] = prmsl
+        if self.pressure_units == "pa":
+            self.atm_pressure_field.dat.data_with_halos[:] = prmsl
+        elif self.pressure_units == "hpa":
+            self.atm_pressure_field.dat.data_with_halos[:] = prmsl * 100 # hPa to Pa
+            
 
 
 class ERA5Interpolator(AtmosphericForcingInterpolator):
     """
-    Dummy class to prevent braking existing code
+    Class to use ERA5 forcing. Note most defaults are for this kind of forcing
     """
-    pass
+    def __init__(self, function_space, wind_stress_field,
+                 atm_pressure_field, coord_system,
+                 ncfile, init_date,
+                 vect_rotator=None, 
+                 fill_mode=None, fill_value=numpy.nan,
+                 verbose=False):
+
+        super().__init__(function_space, wind_stress_field,
+                         atm_pressure_field, coord_system,
+                         ncfile, init_date,
+                         vect_rotator,
+                         fill_mode=fill_mode, fill_value=fill_value,
+                         verbose=verbose)
+
+
+
+class TCHazardsInterpolator(AtmosphericForcingInterpolator):
+    """
+    Class to use atmospheric forcing from the TCHazaRds package
+    https://github.com/AusClimateService/TCHazaRds
+
+    O’Grady, J. et al. (2024) ‘Evaluation of parametric tropical cyclone surface winds over the Eastern Australian region’, 
+    Monthly weather review, 152(1), pp. 345–361. Available at: https://doi.org/10.1175/mwr-d-23-0063.1.
+    
+    """
+    def __init__(self, function_space, wind_stress_field,
+                 atm_pressure_field, coord_system,
+                 ncfile, init_date,
+                 vect_rotator=None, 
+                 fill_mode=None, fill_value=numpy.nan,
+                 verbose=False):
+
+        super().__init__(function_space, wind_stress_field,
+                         atm_pressure_field, coord_system,
+                         ncfile, init_date,
+                         vect_rotator, 
+                         east_wind_var_name="Uw", north_wind_var_name="Vw",
+                         pressure_var_name="Pr", time_var_name="time",
+                         pressure_units="hpa", 
+                         fill_mode=fill_mode, fill_value=fill_value,
+                         verbose=verbose)
+
+
 
 
 class ATMNetCDFTime(interpolation.NetCDFTimeParser):
@@ -212,21 +260,20 @@ class ATMInterpolator(AtmosphericForcingInterpolator):
     """
     def __init__(self, function_space, wind_stress_field,
                  atm_pressure_field, coord_system,
-                 ncfile, init_date, temporal_interpolator,
-                 vect_rotator=None,
-                 east_wind_var_name='uwind', north_wind_var_name='vwind',
-                 pressure_var_name='prmsl', time_var_name='time',
+                 ncfile, init_date,
+                 vect_rotator=None, 
                  fill_mode=None, fill_value=numpy.nan,
                  verbose=False):
 
         super().__init__(function_space, wind_stress_field,
                          atm_pressure_field, coord_system,
-                         ncfile, init_date, ATMNetCDFTime,
+                         ncfile, init_date,
                          vect_rotator,
-                         east_wind_var_name, north_wind_var_name,
-                         pressure_var_name, time_var_name,
-                         fill_mode, fill_value,
-                         verbose)
+                         east_wind_var_name="uwind", north_wind_var_name="vwind",
+                         pressure_var_name="prmsl",
+                         temporal_interpolator=ATMNetCDFTime,
+                         fill_mode=fill_mode, fill_value=fill_value,
+                         verbose=verbose)
 
 
 class SpatialInterpolatorNCOMBase(interpolation.SpatialInterpolator):
