@@ -5,6 +5,7 @@ from firedrake import *
 from firedrake.petsc import PETSc
 from .log import *
 from .callback import DiagnosticCallback
+from .physical_constants import physical_constants
 from .optimisation import DiagnosticOptimisationCallback
 import pyadjoint
 import numpy
@@ -13,6 +14,7 @@ import numpy
 class TidalTurbine:
     def __init__(self, options, upwind_correction=False):
         self.diameter = options.diameter
+        self.projected_diameter = options.projected_diameter or self.diameter
         self.C_support = options.C_support
         self.A_support = options.A_support
         self.upwind_correction = upwind_correction
@@ -28,7 +30,7 @@ class TidalTurbine:
     def velocity_correction(self, uv, depth):
         fric = self._thrust_area(uv)
         if self.upwind_correction:
-            return 0.5*(1+sqrt(1-fric/(self.diameter*depth)))
+            return 0.5*(1+sqrt(1-fric/(self.projected_diameter*depth)))
         else:
             return 1
 
@@ -40,20 +42,24 @@ class TidalTurbine:
     def power(self, uv, depth):
         # ratio of discrete to upstream velocity (NOTE: should include support drag!)
         alpha = self.velocity_correction(uv, depth)
-        A_T = pi * self.diameter**2 / 4
+        A_T = pi * self.diameter**2 / 4  # power is based on true turbine diameter
         uv3 = dot(uv, uv)**1.5 / alpha**3  # upwind cubed velocity
-        C_T = self.thrust_coefficient(uv3**(1/3))
+        C_P = self.power_coefficient(uv3**(1/3))
         # this assumes the velocity through the turbine does not change due to the support (is this correct?)
-        return 0.25*C_T*A_T*(1+sqrt(1-C_T))*uv3
+        return 0.5*physical_constants['rho0']*A_T*C_P*uv3  # units: W
 
 
 class ConstantThrustTurbine(TidalTurbine):
     def __init__(self, options, upwind_correction=False):
         super().__init__(options, upwind_correction=upwind_correction)
         self.C_T = options.thrust_coefficient
+        self.C_P = options.power_coefficient or 0.5 * self.C_T * (1 + (1 - self.C_T) ** 0.5)
 
     def thrust_coefficient(self, uv):
         return self.C_T
+
+    def power_coefficient(self, uv):
+        return self.C_P
 
 
 def linearly_interpolate_table(x_list, y_list, y_final, x):
@@ -79,13 +85,20 @@ class TabulatedThrustTurbine(TidalTurbine):
     def __init__(self, options, upwind_correction=False):
         super().__init__(options, upwind_correction=upwind_correction)
         self.C_T = options.thrust_coefficients
+        self.C_P = options.power_coefficients or [0.5 * c_t * (1 + (1 - c_t) ** 0.5) for c_t in self.C_T]
         self.speeds = options.thrust_speeds
         if not len(self.C_T) == len(self.speeds):
             raise ValueError("In tabulated thrust curve the number of thrust coefficients and speed values should be the same.")
+        if not len(self.C_P) == len(self.speeds):
+            raise ValueError("In tabulated thrust curve the number of power coefficients and speed values should be the same.")
 
     def thrust_coefficient(self, uv):
         umag = dot(uv, uv)**0.5
         return conditional(umag < self.speeds[0], 0, linearly_interpolate_table(self.speeds, self.C_T, 0, umag))
+
+    def power_coefficient(self, uv):
+        umag = dot(uv, uv) ** 0.5
+        return conditional(umag < self.speeds[0], 0, linearly_interpolate_table(self.speeds, self.C_P, 0, umag))
 
 
 class TidalTurbineFarm:
@@ -144,7 +157,7 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
         """
         x = SpatialCoordinate(self.mesh)
 
-        radius = self.turbine.diameter * 0.5
+        radius = self.turbine.projected_diameter * 0.5
         for coord in coordinates:
             dx0 = (x[0] - coord[0])/radius
             dx1 = (x[1] - coord[1])/radius
