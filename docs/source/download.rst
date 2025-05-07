@@ -9,45 +9,72 @@ Thetis requires installation of `Firedrake
 principle other Linux and Linux-like systems) and must be run from
 within the Firedrake virtual environment.
 
-Install Firedrake and Thetis
------------------------------
+Installing Firedrake
+---------------------
 
-You can install both Firedrake and Thetis by running::
+You can install Firedrake by following the download documentation on the
+`Firedrake website <http://firedrakeproject.org/install.html>`_.
 
-    curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install
-    python3 firedrake-install --install thetis
+.. note::
 
-See  `Firedrake website <http://firedrakeproject.org/download.html>`_ for more
-information on the installation procedure. Note that the install proceduce may
-take up to one hour depending on your system.
+   **Installing PETSc and Firedrake can take up to 30 minutes depending on the system.**
 
-The Thetis source will be installed in the ``src/thetis`` subdirectory
-of your Firedrake install.
-In order to use Firedrake and Thetis you need to activate the Firedrake
+After installation, in order to use Firedrake and install Thetis you need to activate the Firedrake
 virtualenv::
 
-    source <your-firedrake-install-dir>/firedrake/bin/activate
+   source <your-firedrake-venv-dir>/bin/activate
 
-Using this install method you should
-**not** add Thetis to your ``PYTHONPATH``. Instead, Thetis will
-automatically be available to import whenever your Firedrake
-virtualenv is active.
+.. warning::
 
-If you have already installed Firedrake
----------------------------------------
+   **You should check that the Firedrake install has been successful by running:**
 
-You can install Thetis in your Firedrake installation by
-activating the Firedrake virtualenv and running::
+   ::
 
-    firedrake-update --install thetis
+      firedrake-check
 
 
-If you are using a shared, pre-installed Firedrake (such as on some clusters)
------------------------------------------------------------------------------
+Installing Thetis
+------------------
 
-Check out the `Thetis <http://github.com/thetisproject/thetis>`_
-repository from Github.
-You then need to add the Thetis repository to your ``PYTHONPATH`` in the
-Firedrake virtualenv. You can do this with ``pip``::
+You can install Thetis in your Firedrake installation by activating the Firedrake virtualenv and running:
 
-    pip install -e <path-to-thetis-repository>
+.. code-block:: none
+
+   pip install git+https://github.com/thetisproject/thetis.git
+
+
+.. _editable-install:
+
+Editable install
+=============================================================================
+
+If you want to install Thetis from a local checkout of the repository that you can directly edit, update (pull) from GitHub, switch branches, etc., it is recommended to use an editable install using:
+
+.. code-block:: none
+
+   git clone https://github.com/thetisproject/thetis
+   pip install -e <path_to_thetis>
+
+If you have SSH keys set up with GitHub, you can use the SSH-based clone instead:
+
+.. code-block:: none
+
+   git clone git@github.com:thetisproject/thetis
+   pip install -e <path_to_thetis>
+
+An IDE such as PyCharm will not recognize Thetis when installed in this fashion for any project outside the cloned repository,
+as the source is not in site-packages. It will still run, and if you would like to enable full code navigation, you
+can add the Thetis cloned repository as a content root, then add the ``thetis`` sub-directory as a sources root.
+
+.. _alternative-installation-methods:
+
+Alternative installation methods
+=================================
+
+As well as being installable through ``pip``, Firedrake also provides Docker containers which *typically* contain the
+latest Thetis at the time of release.
+
+If there are any problems with the installation of Firedrake and Thetis, the Slack workspace for Firedrake contains both
+the general channel for Firedrake and a specific channel for Thetis. GitHub can also be used to report issues. Please
+follow this `link <https://thetisproject.org/contact.html>`_ for contact details and we will be happy to help.
+
