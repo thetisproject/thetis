@@ -80,10 +80,10 @@ def run_tracer_consistency(constant_c=True, **model_options):
         tracer_init2d.interpolate(tracer_l + (tracer_r - tracer_l)*0.5*(1.0 + sign(x_2d - lx/4)))
 
     solver_obj.assign_initial_conditions(elev=elev_init, tracer=tracer_init2d)
-    
+
     # time stepping
     thetis_timestepper = solver_obj.create_iterator()
-    t_Thetis = solver_obj.simulation_time # initial time
+    t_Thetis = solver_obj.simulation_time  # initial time
     t_epsilon = 1.0e-5
     while t_Thetis <= t_end - t_epsilon:
         try:
