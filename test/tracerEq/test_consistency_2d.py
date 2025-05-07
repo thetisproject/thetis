@@ -80,19 +80,28 @@ def run_tracer_consistency(constant_c=True, **model_options):
         tracer_init2d.interpolate(tracer_l + (tracer_r - tracer_l)*0.5*(1.0 + sign(x_2d - lx/4)))
 
     solver_obj.assign_initial_conditions(elev=elev_init, tracer=tracer_init2d)
-    solver_obj.iterate()
+    
+    # time stepping
+    thetis_timestepper = solver_obj.create_iterator()
+    t_Thetis = solver_obj.simulation_time # initial time
+    t_epsilon = 1.0e-5
+    while t_Thetis <= t_end - t_epsilon:
+        try:
+            t_Thetis = next(thetis_timestepper)
+        except StopIteration:
+            break
 
-    # TODO do these checks every export ...
-    vol2d, vol2d_rerr = solver_obj.callbacks['export']['volume2d']()
-    assert vol2d_rerr < 1e-10, '2D volume is not conserved'
-    tracer_int, tracer_int_rerr = solver_obj.callbacks['export']['tracer_2d mass']()
-    assert abs(tracer_int_rerr) < 1.2e-4, 'tracer is not conserved'
-    smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['tracer_2d overshoot']()
-    max_abs_overshoot = max(abs(undershoot), abs(overshoot))
-    overshoot_tol = 1e-11
-    if not conservative:
-        msg = 'Tracer overshoots are too large: {:}'.format(max_abs_overshoot)
-        assert max_abs_overshoot < overshoot_tol, msg
+        # checks executed every export
+        vol2d, vol2d_rerr = solver_obj.callbacks['export']['volume2d']()
+        assert vol2d_rerr < 1e-10, '2D volume is not conserved'
+        tracer_int, tracer_int_rerr = solver_obj.callbacks['export']['tracer_2d mass']()
+        assert abs(tracer_int_rerr) < 1.2e-4, 'tracer is not conserved'
+        smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['tracer_2d overshoot']()
+        max_abs_overshoot = max(abs(undershoot), abs(overshoot))
+        overshoot_tol = 1e-11
+        if not conservative:
+            msg = 'Tracer overshoots are too large: {:}'.format(max_abs_overshoot)
+            assert max_abs_overshoot < overshoot_tol, msg
 
 # ---------------------------
 # standard tests for pytest
