@@ -13,6 +13,7 @@ oscillation frequency. Initial condition repeats every 20 exports.
 from thetis import *
 import pytest
 
+
 def run_tracer_consistency(constant_c=True, **model_options):
 
     t_cycle = 2000.0  # standing wave period
