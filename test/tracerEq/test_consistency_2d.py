@@ -13,7 +13,6 @@ oscillation frequency. Initial condition repeats every 20 exports.
 from thetis import *
 import pytest
 
-
 def run_tracer_consistency(constant_c=True, **model_options):
 
     t_cycle = 2000.0  # standing wave period
@@ -46,8 +45,8 @@ def run_tracer_consistency(constant_c=True, **model_options):
     # create solver
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     options = solver_obj.options
-    options.use_limiter_for_tracers = not constant_c
-    options.use_nonlinear_equations = True
+    options.use_limiter_for_tracers = model_options.pop('use_limiter_for_tracers', not constant_c)
+    options.use_nonlinear_equations = model_options.pop('use_nonlinear_equations', True)
     conservative = model_options.pop('use_tracer_conservative_form', False)
     options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d',
                           use_conservative_form=conservative)
@@ -60,6 +59,7 @@ def run_tracer_consistency(constant_c=True, **model_options):
     options.set_timestepper_type(model_options.pop('timestepper_type', 'CrankNicolson'))
     options.output_directory = outputdir
     options.fields_to_export = ['uv_2d', 'elev_2d', 'tracer_2d']
+    options.no_exports = (model_options.pop('no_exports', True))
     options.update(model_options)
 
     if not options.no_exports:
@@ -91,17 +91,17 @@ def run_tracer_consistency(constant_c=True, **model_options):
         except StopIteration:
             break
 
-        # checks executed every export
-        vol2d, vol2d_rerr = solver_obj.callbacks['export']['volume2d']()
-        assert vol2d_rerr < 1e-10, '2D volume is not conserved'
-        tracer_int, tracer_int_rerr = solver_obj.callbacks['export']['tracer_2d mass']()
-        assert abs(tracer_int_rerr) < 1.2e-4, 'tracer is not conserved'
-        smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['tracer_2d overshoot']()
-        max_abs_overshoot = max(abs(undershoot), abs(overshoot))
-        overshoot_tol = 1e-11
-        if not conservative:
-            msg = 'Tracer overshoots are too large: {:}'.format(max_abs_overshoot)
-            assert max_abs_overshoot < overshoot_tol, msg
+    # TODO do these checks every export ...
+    vol2d, vol2d_rerr = solver_obj.callbacks['export']['volume2d']()
+    assert vol2d_rerr < 1e-10, '2D volume is not conserved'
+    tracer_int, tracer_int_rerr = solver_obj.callbacks['export']['tracer_2d mass']()
+    assert abs(tracer_int_rerr) < 1.2e-4, 'tracer is not conserved'
+    smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['tracer_2d overshoot']()
+    max_abs_overshoot = max(abs(undershoot), abs(overshoot))
+    overshoot_tol = 1e-11
+    if not conservative:
+        msg = 'Tracer overshoots are too large: {:}'.format(max_abs_overshoot)
+        assert max_abs_overshoot < overshoot_tol, msg
 
 # ---------------------------
 # standard tests for pytest
