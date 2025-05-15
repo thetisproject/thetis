@@ -166,8 +166,7 @@ class AtmosphericForcingInterpolator(object):
         if self.pressure_units == "pa":
             self.atm_pressure_field.dat.data_with_halos[:] = prmsl
         elif self.pressure_units == "hpa":
-            self.atm_pressure_field.dat.data_with_halos[:] = prmsl * 100 # hPa to Pa
-            
+            self.atm_pressure_field.dat.data_with_halos[:] = prmsl * 100  # hPa to Pa
 
 
 class ERA5Interpolator(AtmosphericForcingInterpolator):
@@ -177,7 +176,7 @@ class ERA5Interpolator(AtmosphericForcingInterpolator):
     def __init__(self, function_space, wind_stress_field,
                  atm_pressure_field, coord_system,
                  ncfile, init_date,
-                 vect_rotator=None, 
+                 vect_rotator=None,
                  fill_mode=None, fill_value=numpy.nan,
                  verbose=False):
 
@@ -189,34 +188,31 @@ class ERA5Interpolator(AtmosphericForcingInterpolator):
                          verbose=verbose)
 
 
-
 class TCHazardsInterpolator(AtmosphericForcingInterpolator):
     """
     Class to use atmospheric forcing from the TCHazaRds package
     https://github.com/AusClimateService/TCHazaRds
-
-    O’Grady, J. et al. (2024) ‘Evaluation of parametric tropical cyclone surface winds over the Eastern Australian region’, 
-    Monthly weather review, 152(1), pp. 345–361. Available at: https://doi.org/10.1175/mwr-d-23-0063.1.
-    
+    O’Grady, J. et al. (2024) ‘Evaluation of parametric tropical cyclone surface winds 
+    over the Eastern Australian region’,
+    Monthly weather review, 152(1), pp. 345–361. 
+    Available at: https://doi.org/10.1175/mwr-d-23-0063.1.
     """
     def __init__(self, function_space, wind_stress_field,
                  atm_pressure_field, coord_system,
                  ncfile, init_date,
-                 vect_rotator=None, 
+                 vect_rotator=None,
                  fill_mode=None, fill_value=numpy.nan,
                  verbose=False):
 
         super().__init__(function_space, wind_stress_field,
                          atm_pressure_field, coord_system,
                          ncfile, init_date,
-                         vect_rotator, 
+                         vect_rotator,
                          east_wind_var_name="Uw", north_wind_var_name="Vw",
                          pressure_var_name="Pr", time_var_name="time",
-                         pressure_units="hpa", 
+                         pressure_units="hpa",
                          fill_mode=fill_mode, fill_value=fill_value,
                          verbose=verbose)
-
-
 
 
 class ATMNetCDFTime(interpolation.NetCDFTimeParser):
@@ -253,6 +249,8 @@ class ATMNetCDFTime(interpolation.NetCDFTimeParser):
                              max_duration/3600.,
                              self.max_steps)
                 print_output('  New time span: %s -> %s', self.start_time, self.end_time)
+
+
 class ATMInterpolator(AtmosphericForcingInterpolator):
     """
     Interpolates WRF/NAM atmospheric model data on 2D fields.
@@ -260,7 +258,7 @@ class ATMInterpolator(AtmosphericForcingInterpolator):
     def __init__(self, function_space, wind_stress_field,
                  atm_pressure_field, coord_system,
                  ncfile, init_date,
-                 vect_rotator=None, 
+                 vect_rotator=None,
                  fill_mode=None, fill_value=numpy.nan,
                  verbose=False):
 
