@@ -233,7 +233,7 @@ class ATMNetCDFTime(interpolation.NetCDFTimeParser):
             all time steps are loaded. Default: None.
         :kwarg bool verbose: Se True to print debug information.
         """
-        super(ATMNetCDFTime, self).__init__(filename, time_variable_name=time_variable_name)
+        super().__init__(filename, time_variable_name=time_variable_name)
         # NOTE these are daily forecast files, limit time steps to one day
         self.start_time = timezone.epoch_to_datetime(float(self.time_array[0]))
         self.end_time_raw = timezone.epoch_to_datetime(float(self.time_array[-1]))
@@ -245,15 +245,14 @@ class ATMNetCDFTime(interpolation.NetCDFTimeParser):
         self.time_array = self.time_array[:self.max_steps]
         self.end_time = timezone.epoch_to_datetime(float(self.time_array[-1]))
         if verbose:
-            print_output('Parsed file {:}'.format(filename))
-            print_output('  Time span: {:} -> {:}'.format(self.start_time, self.end_time_raw))
-            print_output('  Time step: {:} h'.format(self.time_step/3600.))
+            print_output('Parsed file %s', filename)
+            print_output('  Time span: %s -> %s', self.start_time, self.end_time_raw)
+            print_output('  Time step: %.1f h', self.time_step/3600.)
             if max_duration is not None:
-                print_output('  Restricting duration to {:} h -> keeping {:} steps'.format(max_duration/3600.,
-                                                                                           self.max_steps))
-                print_output('  New time span: {:} -> {:}'.format(self.start_time, self.end_time))
-
-
+                print_output('  Restricting duration to %.1f h -> keeping %d steps', 
+                             max_duration/3600.,
+                             self.max_steps)
+                print_output('  New time span: %s -> %s', self.start_time, self.end_time)
 class ATMInterpolator(AtmosphericForcingInterpolator):
     """
     Interpolates WRF/NAM atmospheric model data on 2D fields.
