@@ -192,9 +192,9 @@ class TCHazardsInterpolator(AtmosphericForcingInterpolator):
     """
     Class to use atmospheric forcing from the TCHazaRds package
     https://github.com/AusClimateService/TCHazaRds
-    O’Grady, J. et al. (2024) ‘Evaluation of parametric tropical cyclone surface winds 
+    O’Grady, J. et al. (2024) ‘Evaluation of parametric tropical cyclone surface winds
     over the Eastern Australian region’,
-    Monthly weather review, 152(1), pp. 345–361. 
+    Monthly weather review, 152(1), pp. 345–361.
     Available at: https://doi.org/10.1175/mwr-d-23-0063.1.
     """
     def __init__(self, function_space, wind_stress_field,
@@ -245,7 +245,7 @@ class ATMNetCDFTime(interpolation.NetCDFTimeParser):
             print_output('  Time span: %s -> %s', self.start_time, self.end_time_raw)
             print_output('  Time step: %.1f h', self.time_step/3600.)
             if max_duration is not None:
-                print_output('  Restricting duration to %.1f h -> keeping %d steps', 
+                print_output('  Restricting duration to %.1f h -> keeping %d steps',
                              max_duration/3600.,
                              self.max_steps)
                 print_output('  New time span: %s -> %s', self.start_time, self.end_time)
