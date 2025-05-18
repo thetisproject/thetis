@@ -121,7 +121,7 @@ solver_obj.assign_initial_conditions(uv=uv_init, tracer_2d=q_init)
 
 # Now we are in a position to run the time loop. We can either automatically run
 # the time loop to the end time as in :doc:`2D channel example <demo_2d_channel.py>`
-# or call a time iterator to explicitly run the time loop, by issuing ::
+# or, here, we create a time iterator that we can use to explicitly iterate over the timesteps ourselves. This might be useful for instance if we want to couple Thetis with another model ::
 
 thetis_timestepper = solver_obj.create_iterator()
 t_Thetis = 0
