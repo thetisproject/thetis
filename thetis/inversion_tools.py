@@ -5,7 +5,7 @@ from .configuration import FrozenHasTraits
 from .solver2d import FlowSolver2d
 from .utility import create_directory, print_function_value_range, get_functionspace, unfrozen, domain_constant
 from .log import print_output
-from .diagnostics import HessianRecoverer2D
+from .diagnostics import GradientRecoverer2D, HessianRecoverer2D
 from .exporter import HDF5Exporter
 import abc
 import numpy
@@ -619,6 +619,42 @@ class RegularizationCalculator(abc.ABC):
     def eval_cost_function(self):
         expr = self.scaling * self.regularization_expr / self.mesh_area * fd.dx
         return fd.assemble(expr, ad_block_tag="reg_eval")
+
+
+class GradientRegularizationCalculator(RegularizationCalculator):
+    r"""
+    Computes the following regularization term for a control Function `f`:
+
+    .. math::
+        J = \gamma \| (\Delta x) \nabla f \|^2,
+
+    where :math:`\nabla f` is the gradient of the field `f`.
+    TODO: change InversionManager to allow this to be specified instead of Hessian
+    """
+    def __init__(self, function, gamma, scaling=1.0):
+        """
+        :arg function: Control :class:`Function`
+        :arg gamma: Gradient penalty coefficient
+        :kwarg scaling: Optional global scaling for the regularization term
+        """
+        super().__init__(function, scaling=scaling)
+
+        # Setup continuous vector function space
+        P1v_2d = get_functionspace(self.mesh, "CG", 1, vector=True)
+        self.gradient_2d = fd.Function(P1v_2d, name=f"{self.name} gradient")
+
+        # Recover gradient using projection
+        self.gradient_recoverer = GradientRecoverer2D(
+            function, self.gradient_2d)
+
+        h = fd.CellSize(self.mesh)
+
+        # Regularization term: |grad(f)|^2 * h^2
+        self.regularization_expr = gamma * fd.inner(self.gradient_2d, self.gradient_2d) * h**2
+
+    def eval_cost_function(self):
+        self.gradient_recoverer.solve()
+        return super().eval_cost_function()
 
 
 class HessianRegularizationCalculator(RegularizationCalculator):

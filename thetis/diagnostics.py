@@ -5,7 +5,7 @@ from .utility import *
 from .configuration import *
 from abc import ABCMeta, abstractmethod
 
-__all__ = ["VorticityCalculator2D", "HessianRecoverer2D", "KineticEnergyCalculator",
+__all__ = ["VorticityCalculator2D", "GradientRecoverer2D", "HessianRecoverer2D", "KineticEnergyCalculator",
            "ShallowWaterDualWeightedResidual2D", "TracerDualWeightedResidual2D"]
 
 
@@ -75,6 +75,68 @@ class VorticityCalculator2D(DiagnosticCalculator):
     @PETSc.Log.EventDecorator("thetis.VorticityCalculator2D.solve")
     def solve(self):
         self.solver.solve()
+
+
+class GradientRecoverer2D(DiagnosticCalculator):
+    r"""
+    Gradient recovery via mixed finite element method with facet terms.
+    Recovers the gradient of a scalar field using double integration by parts.
+    """
+    field_2d = FiredrakeScalarExpression(
+        Constant(0.0), help='Field to be recovered').tag(config=True)
+
+    @unfrozen
+    def __init__(self, field_2d, gradient_2d, **kwargs):
+        """
+        :arg field_2d: Scalar field to compute gradient of
+        :arg gradient_2d: Function to hold recovered gradient (must be vector-valued)
+        :kwargs: Passed to LinearVariationalSolver
+        """
+        self.field_2d = field_2d
+        self.gradient_2d = gradient_2d
+
+        V = gradient_2d.function_space()
+        mesh = V.mesh()
+        dim = mesh.topological_dimension()
+        if dim != 2:
+            raise ValueError(f'Dimension {dim} not supported')
+
+        n = FacetNormal(mesh)
+
+        if element_continuity(V.ufl_element()).horizontal != 'cg':
+            raise ValueError('Gradient must be in a continuous space')
+        if V.dof_dset.dim != (2,):
+            raise ValueError('Expecting a 2D vector function')
+
+        # Mixed system: trial and test functions
+        g = TrialFunction(V)
+        phi = TestFunction(V)
+        sol = Function(V, name=f"{gradient_2d.name()} (recovered)")
+
+        # Variational formulation (integration by parts + facet terms)
+        a = inner(phi, g)*dx
+        L = -field_2d * div(phi)*dx \
+            + field_2d * dot(phi, n)*ds \
+            + avg(field_2d) * jump(phi, n)*dS
+
+        # Solver parameters
+        sp = {
+            "mat_type": "aij",
+            "ksp_type": "cg",
+            "pc_type": "bjacobi" if COMM_WORLD.size > 1 else "ilu",
+        }
+
+        # Define solver
+        prob = LinearVariationalProblem(a, L, sol)
+        kwargs.setdefault('solver_parameters', sp)
+        self.solver = LinearVariationalSolver(prob, **kwargs)
+
+        self._gradient = sol
+
+    @PETSc.Log.EventDecorator("thetis.GradientRecoverer2D.solve")
+    def solve(self):
+        self.solver.solve()
+        self.gradient_2d.assign(self._gradient)
 
 
 class HessianRecoverer2D(DiagnosticCalculator):
