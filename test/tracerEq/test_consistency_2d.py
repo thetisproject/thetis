@@ -89,9 +89,10 @@ def run_tracer_consistency(constant_c=True, **model_options):
     while True:
         try:
             t_Thetis = next(thetis_timestepper)
-        except StopIteration:
+        except StopIteration as e:
+            t_Thetis = e.value
             break
-    assert t_Thetis>=t_end - t_epsilon
+    assert t_Thetis >= t_end - t_epsilon
 
     # TODO do these checks every export ...
     vol2d, vol2d_rerr = solver_obj.callbacks['export']['volume2d']()

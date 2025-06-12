@@ -1101,3 +1101,5 @@ class FlowSolver2d(FrozenClass):
                 self.export()
                 if export_func is not None:
                     export_func()
+
+        return self.simulation_time
