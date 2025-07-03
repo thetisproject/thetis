@@ -214,7 +214,7 @@ class InversionManager(FrozenHasTraits):
         }
         return params
 
-    def get_cost_function(self, solver_obj, weight_by_variance=False):
+    def get_cost_function(self, solver_obj, weight_by_variance=False, regularisation_manager="Hessian"):
         r"""
         Get a sum of square errors cost function for the problem:
 
@@ -232,14 +232,33 @@ class InversionManager(FrozenHasTraits):
         :arg solver_obj: the :class:`FlowSolver2d` instance
         :kwarg weight_by_variance: should the observation data be
             weighted by the variance at each station?
+        :kwarg regularisation_manager: which regularisation to apply
+            ("Hessian" or "Gradient")
         """
         assert isinstance(solver_obj, FlowSolver2d)
+        if self.real:
+            calculator = RSpaceRegularizationCalculator
+            print_output("R-space regularisation being applied (real case).")
+        else:
+            if regularisation_manager == "Hessian":
+                calculator = HessianRegularizationCalculator
+                print_output("Hessian regularisation being applied.")
+            elif regularisation_manager == "Gradient":
+                calculator = GradientRegularizationCalculator
+                print_output("Gradient regularisation being applied.")
+            else:
+                raise ValueError(
+                    f"Unsupported regularisation_manager: '{regularisation_manager}'. "
+                    "Must be one of: 'Hessian', 'Gradient'."
+                )
+
         if len(self.penalty_parameters) > 0:
             self.reg_manager = ControlRegularizationManager(
                 self.control_coeff_list,
                 self.penalty_parameters,
                 self.cost_function_scaling,
-                RSpaceRegularizationCalculator if self.real else HessianRegularizationCalculator)
+                calculator,
+            )
         self.J_reg = 0
         self.J_misfit = 0
         if self.reg_manager is not None:
