@@ -48,8 +48,7 @@ jobs:
           : # Pass '--system-site-packages' so Firedrake can be found
           python3 -m venv --system-site-packages venv-thetis
           . venv-thetis/bin/activate
-          pip install ./thetis-repo
-          pip install '.[dev]'
+          pip install ./thetis-repo[dev]
           pip list
 
       - name: Lint
