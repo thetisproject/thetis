@@ -57,7 +57,7 @@ jobs:
           pip install flake8
           make -C thetis-repo lint
 
-      - name: Test Thetis
+      - name: Test Thetis (serial)
         # Run even if the step above failed
         if: success() || steps.install.conclusion == 'success'
         run: |
@@ -66,12 +66,15 @@ jobs:
           export COVERAGE_FILE=".coverage.serial"
           python -m pytest --cov=thetis -n 12 --verbose --durations=0 --durations-min=60.0 \
           -m "parallel[1] or not parallel" thetis-repo/test
-          ls -alh .coverage*
+
+      - name: Test Thetis (parallel)
+        if: success() || steps.install.conclusion == 'success'
+        run: |
+          . venv-thetis/bin/activate
           : # Run the parallel tests (note that xdist is not valid in parallel)
           mpiexec -n 2 bash -c 'export COVERAGE_FILE=".coverage.mpi.${OMPI_COMM_WORLD_RANK}"; \
           python -m pytest --cov=thetis --verbose --durations=0 --durations-min=60.0 \
           -m parallel[2] thetis-repo/test'
-          ls -alh .coverage*
 
       - name: Test Thetis adjoint
         if: success() || steps.install.conclusion == 'success'
@@ -94,7 +97,7 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           files: ./coverage.xml
-          dry-run: true  # fail_ci_if_error: true
+          dry_run: true  # fail_ci_if_error: true
 
       - name: Post-cleanup
         if: always()
