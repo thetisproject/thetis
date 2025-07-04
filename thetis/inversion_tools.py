@@ -13,6 +13,7 @@ import h5py
 from scipy.interpolate import interp1d
 import time as time_mod
 import os
+from mpi4py import MPI
 
 
 class InversionManager(FrozenHasTraits):
@@ -648,9 +649,8 @@ class GradientRegularizationCalculator(RegularizationCalculator):
         J = \gamma \| (\Delta x) \nabla f \|^2,
 
     where :math:`\nabla f` is the gradient of the field `f`.
-    TODO: change InversionManager to allow this to be specified instead of Hessian
     """
-    def __init__(self, function, gamma, scaling=1.0):
+    def __init__(self, function, gamma, scaling=1.0, use_local_element_size=True):
         """
         :arg function: Control :class:`Function`
         :arg gamma: Gradient penalty coefficient
@@ -667,6 +667,13 @@ class GradientRegularizationCalculator(RegularizationCalculator):
             function, self.gradient_2d)
 
         h = fd.CellSize(self.mesh)
+        if not use_local_element_size:
+            V = fd.FunctionSpace(self.mesh, "DG", 0)
+            h = fd.Function(V)
+            h.project(h)
+            local_min = h.dat.data.min()
+            global_min = self.mesh.comm.allreduce(local_min, op=MPI.MIN)
+            h.assign(global_min)
 
         # Regularization term: |grad(f)|^2 * h^2
         self.regularization_expr = gamma * fd.inner(self.gradient_2d, self.gradient_2d) * h**2
@@ -686,7 +693,7 @@ class HessianRegularizationCalculator(RegularizationCalculator):
 
     where :math:`H` is the Hessian of field :math:`f`.
     """
-    def __init__(self, function, gamma, scaling=1.0):
+    def __init__(self, function, gamma, scaling=1.0, use_local_element_size=True):
         """
         :arg function: Control :class:`Function`
         :arg gamma: Hessian penalty coefficient
@@ -701,6 +708,13 @@ class HessianRegularizationCalculator(RegularizationCalculator):
             function, hessian_2d, gradient_2d)
 
         h = fd.CellSize(self.mesh)
+        if not use_local_element_size:
+            V = fd.FunctionSpace(self.mesh, "DG", 0)
+            h = fd.Function(V)
+            h.project(h)
+            local_min = h.dat.data.min()
+            global_min = self.mesh.comm.allreduce(local_min, op=MPI.MIN)
+            h.assign(global_min)
         # regularization expression |hessian|^2
         # NOTE this is normalized by the mesh element size
         # d^2 u/dx^2 * dx^2 ~ du^2
