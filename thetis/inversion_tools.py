@@ -675,11 +675,11 @@ class GradientRegularizationCalculator(RegularizationCalculator):
         h = fd.CellSize(self.mesh)
         if not use_local_element_size:
             V = fd.FunctionSpace(self.mesh, "DG", 0)
-            h = fd.Function(V)
-            h.project(h)
-            local_min = h.dat.data.min()
+            h_ = fd.Function(V)
+            h_.project(h)
+            local_min = h_.dat.data.min()
             global_min = self.mesh.comm.allreduce(local_min, op=MPI.MIN)
-            h.assign(global_min)
+            h = fd.Function(V).assign(global_min)
 
         # Regularization term: |grad(f)|^2 * h^2
         self.regularization_expr = gamma * fd.inner(self.gradient_2d, self.gradient_2d) * h**2
@@ -716,11 +716,11 @@ class HessianRegularizationCalculator(RegularizationCalculator):
         h = fd.CellSize(self.mesh)
         if not use_local_element_size:
             V = fd.FunctionSpace(self.mesh, "DG", 0)
-            h = fd.Function(V)
-            h.project(h)
-            local_min = h.dat.data.min()
+            h_ = fd.Function(V)
+            h_.project(h)
+            local_min = h_.dat.data.min()
             global_min = self.mesh.comm.allreduce(local_min, op=MPI.MIN)
-            h.assign(global_min)
+            h = fd.Function(V).assign(global_min)
         # regularization expression |hessian|^2
         # NOTE this is normalized by the mesh element size
         # d^2 u/dx^2 * dx^2 ~ du^2
