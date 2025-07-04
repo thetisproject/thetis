@@ -63,22 +63,29 @@ jobs:
         run: |
           . venv-thetis/bin/activate
           : # Run the serial tests
+          export COVERAGE_FILE=".coverage.serial"
           python -m pytest --cov=thetis -n 12 --verbose --durations=0 --durations-min=60.0 \
           -m "parallel[1] or not parallel" thetis-repo/test
+          ls -alh .coverage*
           : # Run the parallel tests (note that xdist is not valid in parallel)
-          mpiexec -n 2 python -m pytest --cov=thetis --verbose --durations=0 --durations-min=60.0 \
-          -m parallel[2] thetis-repo/test
+          mpiexec -n 2 bash -c 'export COVERAGE_FILE=".coverage.mpi.${OMPI_COMM_WORLD_RANK}"; \
+          python -m pytest --cov=thetis --verbose --durations=0 --durations-min=60.0 \
+          -m parallel[2] thetis-repo/test'
+          ls -alh .coverage*
 
       - name: Test Thetis adjoint
         if: success() || steps.install.conclusion == 'success'
         run: |
           firedrake-clean
           . venv-thetis/bin/activate
+          export COVERAGE_FILE=".coverage.adjoint"
           python -m pytest --cov=thetis -n 12 --verbose --durations=0 thetis-repo/test_adjoint
+          ls -alh .coverage*
 
       - name: Combine coverage
         run: |
           . venv-thetis/bin/activate
+          export COVERAGE_FILE=".coverage"
           coverage combine
           coverage xml
           coverage report
