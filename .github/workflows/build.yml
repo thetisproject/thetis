@@ -49,6 +49,7 @@ jobs:
           python3 -m venv --system-site-packages venv-thetis
           . venv-thetis/bin/activate
           pip install ./thetis-repo
+          pip install '.[dev]'
           pip list
 
       - name: Lint
@@ -62,19 +63,25 @@ jobs:
         if: success() || steps.install.conclusion == 'success'
         run: |
           . venv-thetis/bin/activate
-          : # Run the serial tests
-          python -m pytest -n 12 --verbose --durations=0 --durations-min=60.0 \
-            -m "parallel[1] or not parallel" thetis-repo/test
+          : # Run the serial tests (coverage measurement saved in .coverage file)
+          python -m pytest --cov=thetis --cov-report=term-missing --cov-append -n 12 --verbose --durations=0 --durations-min=60.0 \
+          -m "parallel[1] or not parallel" thetis-repo/test
           : # Run the parallel tests (note that xdist is not valid in parallel)
-          mpiexec -n 2 python -m pytest --verbose --durations=0 --durations-min=60.0 \
-            -m parallel[2] thetis-repo/test
+          mpiexec -n 2 python -m pytest --cov=thetis --cov-report=term-missing --cov-append --verbose --durations=0 --durations-min=60.0 \
+          -m parallel[2] thetis-repo/test
 
       - name: Test Thetis adjoint
         if: success() || steps.install.conclusion == 'success'
         run: |
           firedrake-clean
           . venv-thetis/bin/activate
-          python -m pytest -n 12 --verbose --durations=0 thetis-repo/test_adjoint
+          python -m pytest --cov=thetis --cov-report=term-missing --cov-append -n 12 --verbose --durations=0 thetis-repo/test_adjoint
+
+      - name: Upload coverage to Codecov (dry run)
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.xml
+          dry-run: true  # fail_ci_if_error: true
 
       - name: Post-cleanup
         if: always()
