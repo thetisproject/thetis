@@ -236,6 +236,8 @@ class InversionManager(FrozenHasTraits):
             weighted by the variance at each station?
         :kwarg regularisation_manager: which regularisation to apply
             ("Hessian" or "Gradient")
+        :kwarg use_local_element_size: choose whether to use local
+            (varying) element size to normalise regularisation units
         """
         assert isinstance(solver_obj, FlowSolver2d)
         if self.real:
