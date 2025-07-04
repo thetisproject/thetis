@@ -71,12 +71,10 @@ jobs:
         if: success() || steps.install.conclusion == 'success'
         run: |
           . venv-thetis/bin/activate
-          ls -alh .coverage*
           : # Run the parallel tests (note that xdist is not valid in parallel)
           mpiexec -n 2 bash -c 'export COVERAGE_FILE=".coverage.mpi.${OMPI_COMM_WORLD_RANK}"; \
           python -m pytest --cov=thetis --verbose --durations=0 --durations-min=60.0 \
           -m parallel[2] thetis-repo/test'
-          ls -alh .coverage*
 
       - name: Test Thetis adjoint
         if: success() || steps.install.conclusion == 'success'
@@ -99,7 +97,7 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           files: ./coverage.xml
-          dry-run: true  # fail_ci_if_error: true
+          dry_run: true  # fail_ci_if_error: true
 
       - name: Post-cleanup
         if: always()
