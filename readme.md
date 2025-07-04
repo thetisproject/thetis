@@ -40,7 +40,7 @@ pip install git+https://github.com/thetisproject/thetis.git
 
 To get up and running with Thetis once it has been installed, we recommend checking out the [basic tutorials and 
 documentation](https://thetisproject.org/documentation.html#tutorials). Further examples can then be found in the 
-repository at [`examples`](./examples). See [`examples/python/README.md`](./examples/README.md) for 
+repository at [`examples`](./examples). See [`examples/README.md`](./examples/readme.md) for 
 detailed descriptions of each example script.
 
 
