@@ -215,7 +215,8 @@ class InversionManager(FrozenHasTraits):
         }
         return params
 
-    def get_cost_function(self, solver_obj, weight_by_variance=False, regularisation_manager="Hessian"):
+    def get_cost_function(self, solver_obj, weight_by_variance=False, regularisation_manager="Hessian",
+                          use_local_element_size=True):
         r"""
         Get a sum of square errors cost function for the problem:
 
@@ -239,8 +240,10 @@ class InversionManager(FrozenHasTraits):
         assert isinstance(solver_obj, FlowSolver2d)
         if self.real:
             calculator = RSpaceRegularizationCalculator
+            calculator_kwargs = None
             print_output("R-space regularisation being applied (real case).")
         else:
+            calculator_kwargs = {"use_local_element_size": use_local_element_size}
             if regularisation_manager == "Hessian":
                 calculator = HessianRegularizationCalculator
                 print_output("Hessian regularisation being applied.")
@@ -259,6 +262,7 @@ class InversionManager(FrozenHasTraits):
                 self.penalty_parameters,
                 self.cost_function_scaling,
                 calculator,
+                calculator_kwargs=calculator_kwargs
             )
         self.J_reg = 0
         self.J_misfit = 0
@@ -758,18 +762,20 @@ class ControlRegularizationManager:
     Handles regularization of multiple control fields
     """
     def __init__(self, function_list, gamma_list, penalty_term_scaling=None,
-                 calculator=HessianRegularizationCalculator):
+                 calculator=HessianRegularizationCalculator, calculator_kwargs=None):
         """
         :arg function_list: list of control functions
         :arg gamma_list: list of penalty parameters
         :kwarg penalty_term_scaling: Penalty term scaling factor
         :kwarg calculator: class used for obtaining regularization
         """
+        if calculator_kwargs is None:
+            calculator_kwargs = {}
         self.reg_calculators = []
         assert len(function_list) == len(gamma_list), \
             'Number of control functions and parameters must match'
         self.reg_calculators = [
-            calculator(f, g, scaling=penalty_term_scaling)
+            calculator(f, g, scaling=penalty_term_scaling, **calculator_kwargs)
             for f, g in zip(function_list, gamma_list)
         ]
 
