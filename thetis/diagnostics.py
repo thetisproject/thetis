@@ -83,7 +83,7 @@ class GradientRecoverer2D(DiagnosticCalculator):
     Gradient recovery via L2 projection.
     """
     field_2d = FiredrakeScalarExpression(
-        Constant(0.0), help='Field to be recovered').tag(config=True)
+        Constant(0.0), help='Field to recover the gradient of').tag(config=True)
 
     @unfrozen
     def __init__(self, field_2d, gradient_2d):

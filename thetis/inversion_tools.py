@@ -654,12 +654,20 @@ class GradientRegularizationCalculator(RegularizationCalculator):
     .. math::
         J = \gamma \| (\Delta x) \nabla f \|^2,
 
-    where :math:`\nabla f` is the gradient of the field `f`.
+    where:
+
+    - :math:`\nabla f` is the gradient of the field `f`.
+    - :math:`\Delta x` is the characteristic element size (cell size)
+      used to scale the gradient regularization.
+
+    The element size defaults to varying spatially with the mesh,
+    but can be set constant with the smallest element size by specifying
+    the `use_local_element_size` flag to be False.
     """
-    def __init__(self, function, gamma, scaling=1.0, use_local_element_size=True):
+    def __init__(self, function, gradient_penalty, scaling=1.0, use_local_element_size=True):
         """
         :arg function: Control :class:`Function`
-        :arg gamma: Gradient penalty coefficient
+        :arg gradient_penalty: Gradient penalty coefficient
         :kwarg scaling: Optional global scaling for the regularization term
         """
         super().__init__(function, scaling=scaling)
@@ -682,7 +690,7 @@ class GradientRegularizationCalculator(RegularizationCalculator):
             h = fd.Function(V).assign(global_min)
 
         # Regularization term: |grad(f)|^2 * h^2
-        self.regularization_expr = gamma * fd.inner(self.gradient_2d, self.gradient_2d) * h**2
+        self.regularization_expr = gradient_penalty * fd.inner(self.gradient_2d, self.gradient_2d) * h**2
 
     def eval_cost_function(self):
         self.gradient_recoverer.solve()
@@ -697,12 +705,20 @@ class HessianRegularizationCalculator(RegularizationCalculator):
     .. math::
         J = \gamma \| (\Delta x)^2 H(f) \|^2,
 
-    where :math:`H` is the Hessian of field :math:`f`.
+    where:
+
+        - :math:`H` is the Hessian of field :math:`f`.
+        - :math:`\Delta x` is the characteristic element size (cell size)
+      used to scale the gradient regularization.
+
+    The element size defaults to varying spatially with the mesh,
+    but can be set constant with the smallest element size by specifying
+    the `use_local_element_size` flag to be False.
     """
-    def __init__(self, function, gamma, scaling=1.0, use_local_element_size=True):
+    def __init__(self, function, hessian_penalty, scaling=1.0, use_local_element_size=True):
         """
         :arg function: Control :class:`Function`
-        :arg gamma: Hessian penalty coefficient
+        :arg hessian_penalty: Hessian penalty coefficient
         """
         super().__init__(function, scaling=scaling)
         # solvers to evaluate the gradient of the control
@@ -724,7 +740,7 @@ class HessianRegularizationCalculator(RegularizationCalculator):
         # regularization expression |hessian|^2
         # NOTE this is normalized by the mesh element size
         # d^2 u/dx^2 * dx^2 ~ du^2
-        self.regularization_expr = gamma * fd.inner(hessian_2d, hessian_2d) * h**4
+        self.regularization_expr = hessian_penalty * fd.inner(hessian_2d, hessian_2d) * h**4
 
     def eval_cost_function(self):
         self.hessian_calculator.solve()
