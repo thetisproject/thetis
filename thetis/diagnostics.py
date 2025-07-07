@@ -4,8 +4,9 @@ Classes for computing diagnostics.
 from .utility import *
 from .configuration import *
 from abc import ABCMeta, abstractmethod
+from firedrake import project
 
-__all__ = ["VorticityCalculator2D", "HessianRecoverer2D", "KineticEnergyCalculator",
+__all__ = ["VorticityCalculator2D", "GradientRecoverer2D", "HessianRecoverer2D", "KineticEnergyCalculator",
            "ShallowWaterDualWeightedResidual2D", "TracerDualWeightedResidual2D"]
 
 
@@ -75,6 +76,28 @@ class VorticityCalculator2D(DiagnosticCalculator):
     @PETSc.Log.EventDecorator("thetis.VorticityCalculator2D.solve")
     def solve(self):
         self.solver.solve()
+
+
+class GradientRecoverer2D(DiagnosticCalculator):
+    r"""
+    Gradient recovery via L2 projection.
+    """
+    field_2d = FiredrakeScalarExpression(
+        Constant(0.0), help='Field to recover the gradient of').tag(config=True)
+
+    @unfrozen
+    def __init__(self, field_2d, gradient_2d):
+        self.field_2d = field_2d
+        self.gradient_2d = gradient_2d
+
+    @PETSc.Log.EventDecorator("thetis.GradientRecoverer2D.solve")
+    def solve(self):
+        self.gradient_2d.assign(
+            project(
+                ufl.grad(self.field_2d),
+                self.gradient_2d.function_space()
+            )
+        )
 
 
 class HessianRecoverer2D(DiagnosticCalculator):
