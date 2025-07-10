@@ -90,11 +90,14 @@ station_names = [
 ]
 sta_manager = inversion_tools.StationObservationManager(
     mesh2d, output_directory=options.output_directory)
+# TODO: Update scaling to depend on number of DOFs in the problem
+cost_function_scaling = domain_constant(100000 * solver_obj.dt / options.simulation_end_time, mesh2d)
+sta_manager.cost_function_scaling = cost_function_scaling
 sta_manager.load_elev_observation_data(observation_data_dir, station_names, variable)
 sta_manager.set_model_field(solver_obj.fields.elev_2d)
 
-# Define the scaling for the cost function so that J ~ O(1)
-J_scalar = domain_constant(solver_obj.dt / options.simulation_end_time, mesh2d)
+# Define the scaling for the cost function so that dJ/dm ~ O(1)
+J_scalar = sta_manager.cost_function_scaling
 
 # Create inversion manager and add controls
 inv_manager = inversion_tools.InversionManager(
@@ -109,8 +112,8 @@ for control_name in controls:
     elif control_name == 'InitialElev':
         inv_manager.add_control(elev_init_2d)
 
-# Extract the regularized cost function
-cost_function = inv_manager.get_cost_function(solver_obj)
+# Extract the regularized cost function, note we could use gradient based as well by changing manager
+cost_function = inv_manager.get_cost_function(solver_obj, regularisation_manager="Hessian")
 cost_function_callback = inversion_tools.CostFunctionCallback(solver_obj, cost_function)
 solver_obj.add_callback(cost_function_callback, 'timestep')
 

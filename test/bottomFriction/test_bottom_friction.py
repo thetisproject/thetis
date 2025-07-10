@@ -40,7 +40,7 @@ def run_bottom_friction(do_assert=True, do_export=False, **model_options):
     mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x', reorder=True)
 
     print_output('Exporting to ' + outputdir)
-    dt = 25.0
+    dt = 250.0
     t_end = 5 * 3600.0  # sufficient to reach ~steady state
     t_export = 400.0
     u_mag = 1.0

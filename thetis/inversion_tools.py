@@ -5,7 +5,7 @@ from .configuration import FrozenHasTraits
 from .solver2d import FlowSolver2d
 from .utility import create_directory, print_function_value_range, get_functionspace, unfrozen, domain_constant
 from .log import print_output
-from .diagnostics import HessianRecoverer2D
+from .diagnostics import GradientRecoverer2D, HessianRecoverer2D
 from .exporter import HDF5Exporter
 from .callback import DiagnosticCallback
 import abc
@@ -14,6 +14,7 @@ import h5py
 from scipy.interpolate import interp1d
 import time as time_mod
 import os
+from mpi4py import MPI
 
 
 def group_consecutive_elements(indices):
@@ -324,7 +325,8 @@ class InversionManager(FrozenHasTraits):
         }
         return params
 
-    def get_cost_function(self, solver_obj, weight_by_variance=False):
+    def get_cost_function(self, solver_obj, weight_by_variance=False, regularisation_manager="Hessian",
+                          use_local_element_size=True):
         r"""
         Get a sum of square errors cost function for the problem:
 
@@ -342,14 +344,38 @@ class InversionManager(FrozenHasTraits):
         :arg solver_obj: the :class:`FlowSolver2d` instance
         :kwarg weight_by_variance: should the observation data be
             weighted by the variance at each station?
+        :kwarg regularisation_manager: which regularisation to apply
+            ("Hessian" or "Gradient")
+        :kwarg use_local_element_size: choose whether to use local
+            (varying) element size to normalise regularisation units
         """
         assert isinstance(solver_obj, FlowSolver2d)
+        if self.real:
+            calculator = RSpaceRegularizationCalculator
+            calculator_kwargs = None
+            print_output("R-space regularisation being applied (real case).")
+        else:
+            calculator_kwargs = {"use_local_element_size": use_local_element_size}
+            if regularisation_manager == "Hessian":
+                calculator = HessianRegularizationCalculator
+                print_output("Hessian regularisation being applied.")
+            elif regularisation_manager == "Gradient":
+                calculator = GradientRegularizationCalculator
+                print_output("Gradient regularisation being applied.")
+            else:
+                raise ValueError(
+                    f"Unsupported regularisation_manager: '{regularisation_manager}'. "
+                    "Must be one of: 'Hessian', 'Gradient'."
+                )
+
         if len(self.penalty_parameters) > 0:
             self.reg_manager = ControlRegularizationManager(
                 self.control_coeff_list,
                 self.penalty_parameters,
                 self.cost_function_scaling,
-                RSpaceRegularizationCalculator if self.real else HessianRegularizationCalculator)
+                calculator,
+                calculator_kwargs=calculator_kwargs
+            )
         self.J_reg = 0
         self.J_misfit = 0
         if self.reg_manager is not None:
@@ -858,6 +884,56 @@ class RegularizationCalculator(abc.ABC):
         return fd.assemble(expr, ad_block_tag="reg_eval")
 
 
+class GradientRegularizationCalculator(RegularizationCalculator):
+    r"""
+    Computes the following regularization term for a control Function `f`:
+
+    .. math::
+        J = \gamma \| (\Delta x) \nabla f \|^2,
+
+    where:
+
+    - :math:`\nabla f` is the gradient of the field `f`.
+    - :math:`\Delta x` is the characteristic element size (cell size)
+      used to scale the gradient regularization.
+
+    The element size defaults to varying spatially with the mesh,
+    but can be set constant with the smallest element size by specifying
+    the `use_local_element_size` flag to be False.
+    """
+    def __init__(self, function, gradient_penalty, scaling=1.0, use_local_element_size=True):
+        """
+        :arg function: Control :class:`Function`
+        :arg gradient_penalty: Gradient penalty coefficient
+        :kwarg scaling: Optional global scaling for the regularization term
+        """
+        super().__init__(function, scaling=scaling)
+
+        # Setup continuous vector function space
+        P1v_2d = get_functionspace(self.mesh, "CG", 1, vector=True)
+        self.gradient_2d = fd.Function(P1v_2d, name=f"{self.name} gradient")
+
+        # Recover gradient using projection
+        self.gradient_recoverer = GradientRecoverer2D(
+            function, self.gradient_2d)
+
+        h = fd.CellSize(self.mesh)
+        if not use_local_element_size:
+            V = fd.FunctionSpace(self.mesh, "DG", 0)
+            h_ = fd.Function(V)
+            h_.project(h)
+            local_min = h_.dat.data.min()
+            global_min = self.mesh.comm.allreduce(local_min, op=MPI.MIN)
+            h = fd.Function(V).assign(global_min)
+
+        # Regularization term: |grad(f)|^2 * h^2
+        self.regularization_expr = gradient_penalty * fd.inner(self.gradient_2d, self.gradient_2d) * h**2
+
+    def eval_cost_function(self):
+        self.gradient_recoverer.solve()
+        return super().eval_cost_function()
+
+
 class HessianRegularizationCalculator(RegularizationCalculator):
     r"""
     Computes the following regularization term for a cost function
@@ -866,12 +942,20 @@ class HessianRegularizationCalculator(RegularizationCalculator):
     .. math::
         J = \gamma \| (\Delta x)^2 H(f) \|^2,
 
-    where :math:`H` is the Hessian of field :math:`f`.
+    where:
+
+        - :math:`H` is the Hessian of field :math:`f`.
+        - :math:`\Delta x` is the characteristic element size (cell size)
+      used to scale the gradient regularization.
+
+    The element size defaults to varying spatially with the mesh,
+    but can be set constant with the smallest element size by specifying
+    the `use_local_element_size` flag to be False.
     """
-    def __init__(self, function, gamma, scaling=1.0):
+    def __init__(self, function, hessian_penalty, scaling=1.0, use_local_element_size=True):
         """
         :arg function: Control :class:`Function`
-        :arg gamma: Hessian penalty coefficient
+        :arg hessian_penalty: Hessian penalty coefficient
         """
         super().__init__(function, scaling=scaling)
         # solvers to evaluate the gradient of the control
@@ -883,10 +967,17 @@ class HessianRegularizationCalculator(RegularizationCalculator):
             function, hessian_2d, gradient_2d)
 
         h = fd.CellSize(self.mesh)
+        if not use_local_element_size:
+            V = fd.FunctionSpace(self.mesh, "DG", 0)
+            h_ = fd.Function(V)
+            h_.project(h)
+            local_min = h_.dat.data.min()
+            global_min = self.mesh.comm.allreduce(local_min, op=MPI.MIN)
+            h = fd.Function(V).assign(global_min)
         # regularization expression |hessian|^2
         # NOTE this is normalized by the mesh element size
         # d^2 u/dx^2 * dx^2 ~ du^2
-        self.regularization_expr = gamma * fd.inner(hessian_2d, hessian_2d) * h**4
+        self.regularization_expr = hessian_penalty * fd.inner(hessian_2d, hessian_2d) * h**4
 
     def eval_cost_function(self):
         self.hessian_calculator.solve()
@@ -926,18 +1017,20 @@ class ControlRegularizationManager:
     Handles regularization of multiple control fields
     """
     def __init__(self, function_list, gamma_list, penalty_term_scaling=None,
-                 calculator=HessianRegularizationCalculator):
+                 calculator=HessianRegularizationCalculator, calculator_kwargs=None):
         """
         :arg function_list: list of control functions
         :arg gamma_list: list of penalty parameters
         :kwarg penalty_term_scaling: Penalty term scaling factor
         :kwarg calculator: class used for obtaining regularization
         """
+        if calculator_kwargs is None:
+            calculator_kwargs = {}
         self.reg_calculators = []
         assert len(function_list) == len(gamma_list), \
             'Number of control functions and parameters must match'
         self.reg_calculators = [
-            calculator(f, g, scaling=penalty_term_scaling)
+            calculator(f, g, scaling=penalty_term_scaling, **calculator_kwargs)
             for f, g in zip(function_list, gamma_list)
         ]
 
