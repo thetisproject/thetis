@@ -176,8 +176,7 @@ stations = [
     ('stationD', (3*lx/4, 3*ly/4)),
     ('stationE', (9*lx/10, ly/2)),
 ]
-sta_manager = inversion_tools.StationObservationManager(mesh2d, output_directory=options.output_directory,
-                                                        observation_param='uv')
+sta_manager = inversion_tools.StationObservationManager(mesh2d, output_directory=options.output_directory)
 print_output('Station Manager instantiated.')
 station_names, observation_coords, observation_time, observation_u, observation_v = [], [], [], [], []
 for name, (sta_x, sta_y) in stations:
@@ -214,19 +213,16 @@ if selected_case == 'Constant':
     manning_const = Constant(0.03, name='Manning', domain=mesh2d)
     manning_2d.project(manning_const)
     inv_manager.add_control(manning_const)
-elif selected_case == 'Regions' or selected_case == 'IndependentPointsScheme':
+elif selected_case in ('Regions', 'IndependentPointsScheme'):
     m_values = [Constant(0.03 - 0.0005 * i, domain=mesh2d) for i in range(M)]
     manning_2d.assign(0)
     for m_, mask_ in zip(m_values, masks):
         manning_2d += m_ * mask_
-    for i, control in enumerate(m_values):
-        if i == 0:
-            inv_manager.add_control(control, masks[0], new_map=True)
-        else:
-            inv_manager.add_control(control, masks[i])
+    inv_manager.add_control(m_values, mappings=masks)
 else:
     manning_2d.assign(0.04)
     inv_manager.add_control(manning_2d)
+
 if not no_exports:
     VTKFile(output_dir_invert + '/manning_init.pvd').write(manning_2d)
 

@@ -17,24 +17,6 @@ import os
 from mpi4py import MPI
 
 
-def group_consecutive_elements(indices):
-    grouped_list = []
-    current_group = []
-
-    for index in indices:
-        if not current_group or index == current_group[-1]:
-            current_group.append(index)
-        else:
-            grouped_list.append(current_group)
-            current_group = [index]
-
-    # Append the last group
-    if current_group:
-        grouped_list.append(current_group)
-
-    return grouped_list
-
-
 class CostFunctionCallback(DiagnosticCallback):
     def __init__(self, solver_obj, cost_function, **kwargs):
         # Disable logging and HDF5 export
@@ -59,6 +41,109 @@ class CostFunctionCallback(DiagnosticCallback):
     def message_str(self, cost_value):
         # Return a string representation of the cost function value
         return f"Cost function value: {cost_value}"
+
+
+class ControlManager:
+    """
+    Handles an individual control (Function or Constant) and its export logic.
+    """
+
+    def __init__(self, control, output_dir, index, no_exports=False, mappings=None):
+        self.output_dir = output_dir
+        self.index = index
+        self.no_exports = no_exports
+
+        self.controls = control if isinstance(control, list) else [control]
+        self.mappings = mappings
+        self.is_multi_constant = mappings is not None
+        self.is_domain_constant = False
+        self.is_field = False
+
+        self.mesh = None
+        self.projection_space = None
+
+        # Exporters
+        self.vtk_file = None
+        self.hdf5_exporter = None
+        self.gradient_vtk_file = None
+
+        # Identify type and setup projection space
+        if self.is_multi_constant:
+            self.is_domain_constant = False
+            self.is_field = False
+            self.mesh = self.controls[0].ufl_domain()
+            if self.mesh is None:
+                raise ValueError("Constants must have a domain to be exported.")
+            self.projection_space = fd.FunctionSpace(self.mesh, "CG", 1, variant="equispaced")
+        elif control.function_space().ufl_element().family() == "Real":
+            self.is_domain_constant = True
+            self.is_field = False
+            self.mesh = control.ufl_domain()
+            if self.mesh is None:
+                raise ValueError("Constant must have a domain to be exported.")
+            self.projection_space = fd.FunctionSpace(self.mesh, "CG", 1)
+        else:
+            self.is_field = True
+            self.mesh = control.function_space().mesh()
+            self.projection_space = None
+
+        if not no_exports:
+            fs = self.projection_space if not self.is_field else control.function_space()
+            self.vtk_file = fd.VTKFile(f"{output_dir}/control_progress_{index:02d}.pvd")
+            prefix = f"control_{index:02d}"
+            self.hdf5_exporter = HDF5Exporter(fs, output_dir + "/hdf5", prefix)
+            self.gradient_vtk_file = fd.VTKFile(f"{output_dir}/gradient_progress_{index:02d}.pvd")
+
+    def project_control(self, updated_controls):
+        field = fd.Function(self.projection_space, name="control")
+        field.assign(0)
+        if self.is_multi_constant:
+            for m_, mask_ in zip(updated_controls, self.mappings):
+                field += m_ * mask_
+        elif self.is_domain_constant:
+            field.project(updated_controls[0])  # single constant
+        else:
+            raise RuntimeError("project_control called for a field control?")
+        return field
+
+    def export(self, updated_control):
+        if self.no_exports:
+            return
+        if self.is_field:
+            if isinstance(updated_control, list):
+                assert len(updated_control) == 1, "Field export got multiple controls!"
+                updated_control = updated_control[0]
+            updated_control.rename(self.controls[0].name())
+            field = updated_control
+        else:
+            if not isinstance(updated_control, list):
+                updated_control = [updated_control]
+            field = self.project_control(updated_control)
+        self.vtk_file.write(field)
+        self.hdf5_exporter.export(field)
+
+    def export_gradient(self, updated_gradient):
+        if self.no_exports:
+            return
+
+        if self.is_field:
+            if isinstance(updated_gradient, list):
+                assert len(updated_gradient) == 1, "Field export got multiple controls!"
+                updated_gradient = updated_gradient[0]
+            updated_gradient.rename("Gradient")
+            gradient = updated_gradient
+        else:
+            if not isinstance(updated_gradient, list):
+                updated_gradient = [updated_gradient]
+            gradient = fd.Function(self.projection_space, name="Gradient")
+            gradient.assign(0)
+            if self.is_multi_constant:
+                for g_, mask_ in zip(updated_gradient, self.mappings):
+                    gradient += g_ * mask_
+            elif self.is_domain_constant:
+                gradient.project(updated_gradient[0])
+
+        self.gradient_vtk_file.write(gradient)
 
 
 class InversionManager(FrozenHasTraits):
@@ -91,16 +176,12 @@ class InversionManager(FrozenHasTraits):
         self.output_dir = output_dir
         self.no_exports = no_exports or real
         self.real = real
-        self.maps = []
         self.penalty_parameters = penalty_parameters
         self.cost_function_scaling = cost_function_scaling or fd.Constant(1.0)
         self.sta_manager.cost_function_scaling = self.cost_function_scaling
         self.test_consistency = test_consistency
         self.test_gradient = test_gradient
-        self.outfiles_m = []
-        self.outfiles_dJdm = []
-        self.outfile_index = []
-        self.control_exporters = []
+        self.control_managers = []
         self.initialized = False
 
         self.J = 0  # cost function value (float)
@@ -117,9 +198,6 @@ class InversionManager(FrozenHasTraits):
         self.i = 0
         self.tic = None
         self.nb_grad_evals = 0
-        self.control_coeff_list = []
-        self.control_list = []
-        self.control_family = []
 
     def initialize(self):
         if not self.no_exports:
@@ -127,58 +205,42 @@ class InversionManager(FrozenHasTraits):
                 raise ValueError("Exports are not supported in Real mode.")
             create_directory(self.output_dir)
             create_directory(self.output_dir + '/hdf5')
-            for i in range(max(self.outfile_index)+1):
-                self.outfiles_m.append(
-                    fd.VTKFile(f'{self.output_dir}/control_progress_{i:02d}.pvd'))
-                self.outfiles_dJdm.append(
-                    fd.VTKFile(f'{self.output_dir}/gradient_progress_{i:02d}.pvd'))
         self.initialized = True
 
-    def add_control(self, f, mapping=None, new_map=False):
+    def add_control(self, controls, mappings=None):
         """
-        Add a control field.
+        Add control(s).
 
         Can be called multiple times in case of multiparameter optimization.
 
-        :arg f: Function or Constant to be used as a control variable.
-        :kwarg mapping: map that dictates how each Control relates to the function being altered
-        :kwarg new_map: if True, create a new exporter
+        :param controls: Function, Constant, or list of them representing control variables.
+        :param mappings: Optional list of masks (functions) for multi-control point cases.
         """
-        if len(self.control_coeff_list) == 0:
-            new_map = True
-        if mapping:
-            self.maps.append(mapping)
+        if not isinstance(controls, (list, tuple)):
+            controls = [controls]
+        if mappings is not None:
+            index = len(self.control_managers)
+            cm = ControlManager(controls, self.output_dir, index, no_exports=self.no_exports, mappings=mappings)
+            self.control_managers.append(cm)
         else:
-            self.maps.append(None)
-        self.control_coeff_list.append(f)
-        self.control_list.append(Control(f))
-        function_space = f.function_space()
-        element = function_space.ufl_element()
-        family = element.family()
-        self.control_family.append(family)
-        if isinstance(f, fd.Function) and not self.no_exports:
-            j = len(self.control_coeff_list) - 1
-            prefix = f'control_{j:02d}'
-            if family == 'Real':  # i.e. Control is a Constant (assigned to a mesh, so won't register as one)
-                if new_map:
-                    self.control_exporters.append(
-                        HDF5Exporter(get_functionspace(self.sta_manager.mesh, 'CG', 1), self.output_dir + '/hdf5',
-                                     prefix)
-                    )
-                    if len(self.control_coeff_list) == 1:
-                        self.outfile_index.append(0)
-                    else:
-                        self.outfile_index.append(self.outfile_index[-1] + 1)
-                else:
-                    self.outfile_index.append(self.outfile_index[-1])
-            else:  # i.e. Control is a Function
-                self.control_exporters.append(
-                    HDF5Exporter(function_space, self.output_dir + '/hdf5', prefix)
-                )
-                if len(self.control_coeff_list) == 1:
-                    self.outfile_index.append(0)
-                else:
-                    self.outfile_index.append(self.outfile_index[-1] + 1)
+            for f in controls:
+                index = len(self.control_managers)
+                cm = ControlManager(f, self.output_dir, index, no_exports=self.no_exports)
+                self.control_managers.append(cm)
+
+    @property
+    def control_coeff_list(self):
+        coeffs = []
+        for cm in self.control_managers:
+            coeffs.extend(cm.controls)
+        return coeffs
+
+    @property
+    def control_list(self):
+        controls = []
+        for cm in self.control_managers:
+            controls.extend([Control(c) for c in cm.controls])
+        return controls
 
     def reset_counters(self):
         self.nb_grad_evals = 0
@@ -240,7 +302,7 @@ class InversionManager(FrozenHasTraits):
         self.J_reg_progress.append(self.J_reg)
         self.J_misfit_progress.append(self.J_misfit)
         self.dJdm_progress.append(djdm)
-        comm = self.control_coeff_list[0].comm
+        comm = self.dJdm_list[0].comm
         if comm.rank == 0 and not self.no_exports:
             if self.real:
                 numpy.save(f'{self.output_dir}/m_progress', self.m_progress)
@@ -257,54 +319,14 @@ class InversionManager(FrozenHasTraits):
                      f'grad_ev={self.nb_grad_evals}, duration {elapsed}')
 
         if not self.no_exports:
-            grouped_indices = group_consecutive_elements(self.outfile_index)
             ref_index = 0
-            for j in range(len(self.outfiles_m)):
-                m = self.m_list[ref_index]
-                o_m = self.outfiles_m[j]
-                o_jm = self.outfiles_dJdm[j]
-                self.dJdm_list[ref_index].rename('Gradient')
-                e = self.control_exporters[j]
-                if len(grouped_indices[j]) > 1:
-                    # can only be Constants
-                    mesh2d = self.sta_manager.mesh
-                    P1_2d = get_functionspace(mesh2d, 'CG', 1)
-                    # vtk format
-                    field = fd.Function(P1_2d, name='control')
-                    self.update_n(field, self.m_list[ref_index:ref_index + len(grouped_indices[j])],
-                                  ref_index, ref_index + len(grouped_indices[j]))
-                    o_m.write(field)
-                    # hdf5 format
-                    e.export(field)
-                    # gradient output
-                    gradient = fd.Function(P1_2d, name='Gradient')
-                    self.update_n(gradient, self.dJdm_list[ref_index:ref_index + len(grouped_indices[j])],
-                                  ref_index, ref_index + len(grouped_indices[j]))
-                    o_jm.write(gradient)
-                else:
-                    if self.control_family[ref_index] == 'Real':
-                        mesh2d = self.sta_manager.mesh
-                        P1_2d = get_functionspace(mesh2d, 'CG', 1)
-                        # vtk format
-                        field = fd.Function(P1_2d, name='control')
-                        field.assign(domain_constant(m, mesh2d))
-                        o_m.write(field)
-                        # hdf5 format
-                        e.export(field)
-                        # gradient output
-                        gradient = fd.Function(P1_2d, name='Gradient')
-                        gradient.assign(domain_constant(self.dJdm_list[ref_index], mesh2d))
-                        o_jm.write(gradient)
-                    else:
-                        # control output
-                        # vtk format
-                        m.rename(self.control_coeff_list[j].name())
-                        o_m.write(m)
-                        # hdf5 format
-                        e.export(m)
-                        # gradient output
-                        o_jm.write(self.dJdm_list[ref_index])
-                ref_index += len(grouped_indices[j])
+            for cm in self.control_managers:
+                num_controls = len(cm.mappings) if cm.mappings is not None else 1
+                controls_slice = self.m_list[ref_index: ref_index + num_controls]
+                cm.export(controls_slice)
+                gradient_slice = self.dJdm_list[ref_index: ref_index + num_controls]
+                cm.export_gradient(gradient_slice)
+                ref_index += num_controls
 
         self.i += 1
         self.reset_counters()
@@ -444,25 +466,6 @@ class InversionManager(FrozenHasTraits):
                 self.sta_manager.dump_time_series()
 
         return optimization_callback
-
-    def update_n(self, n, m, start_index, end_index):
-        """
-        Update the function `n` by adding weighted masks from `m`.
-
-        This method resets `n` to zero and then adds the weighted masks defined in
-        `self.maps` to `n`. Each element in `m` is multiplied by the corresponding
-        mask before being added to `n`.
-
-        :param n: Function or Field to be updated.
-        :param m: List of Constants/Functions to be combined with the masks.
-        :param start_index: Starting map.
-        :param end_index: Final map.
-        :raises ValueError: If the lengths of `m` and `self.maps` do not match.
-        """
-        n.assign(0)
-        # Add the weighted masks to n
-        for m_, mask_ in zip(m, self.maps[start_index:end_index]):
-            n += m_ * mask_
 
     def minimize(self, opt_method="BFGS", bounds=None, **opt_options):
         """
