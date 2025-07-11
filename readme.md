@@ -2,6 +2,7 @@
 
 [![Build Status](https://github.com/thetisproject/thetis/actions/workflows/build.yml/badge.svg)](https://github.com/thetisproject/thetis/actions/workflows/build.yml)
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)
+[![Coverage Status](https://codecov.io/gh/thetisproject/thetis/branch/master/graph/badge.svg?token=YOUR_TOKEN_HERE)](https://codecov.io/gh/thetisproject/thetis)
 
 **Thetis** is an open-source, finite element framework for simulating **coastal and estuarine flows** with advanced numerics, high flexibility, and easy extensibility.
 
