@@ -48,7 +48,3 @@ docs = [
   "sphinxcontrib-youtube",
   "vtk",  # needed to resolve API
 ]
-
-dev = [
-  "pytest-cov",
-]

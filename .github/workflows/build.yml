@@ -48,7 +48,7 @@ jobs:
           : # Pass '--system-site-packages' so Firedrake can be found
           python3 -m venv --system-site-packages venv-thetis
           . venv-thetis/bin/activate
-          pip install ./thetis-repo[dev]
+          pip install ./thetis-repo
           pip list
 
       - name: Lint
@@ -63,8 +63,7 @@ jobs:
         run: |
           . venv-thetis/bin/activate
           : # Run the serial tests
-          export COVERAGE_FILE=".coverage.serial"
-          python -m pytest --cov=thetis -n 12 --verbose --durations=0 --durations-min=60.0 \
+          python -m pytest -n 12 --verbose --durations=0 --durations-min=60.0 \
           -m "parallel[1] or not parallel" thetis-repo/test
 
       - name: Test Thetis (parallel)
@@ -72,8 +71,7 @@ jobs:
         run: |
           . venv-thetis/bin/activate
           : # Run the parallel tests (note that xdist is not valid in parallel)
-          mpiexec -n 2 bash -c 'export COVERAGE_FILE=".coverage.mpi.${OMPI_COMM_WORLD_RANK}"; \
-          python -m pytest --cov=thetis --verbose --durations=0 --durations-min=60.0 \
+          mpiexec -n 2 python -m pytest --verbose --durations=0 --durations-min=60.0 \
           -m parallel[2] thetis-repo/test'
 
       - name: Test Thetis adjoint
@@ -81,23 +79,7 @@ jobs:
         run: |
           firedrake-clean
           . venv-thetis/bin/activate
-          export COVERAGE_FILE=".coverage.adjoint"
-          python -m pytest --cov=thetis -n 12 --verbose --durations=0 thetis-repo/test_adjoint
-          ls -alh .coverage*
-
-      - name: Combine coverage
-        run: |
-          . venv-thetis/bin/activate
-          export COVERAGE_FILE=".coverage"
-          coverage combine
-          coverage xml
-          coverage report
-
-      - name: Upload coverage to Codecov (dry run)
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./coverage.xml
-          dry_run: true  # fail_ci_if_error: true
+          python -m pytest -n 12 --verbose --durations=0 thetis-repo/test_adjoint
 
       - name: Post-cleanup
         if: always()
