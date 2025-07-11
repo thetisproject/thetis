@@ -51,8 +51,8 @@ for i, sta in enumerate(station_names):
     g = output_dir_invert + f'/diagnostic_timeseries_progress_{sta}_uv.hdf5'
     with h5py.File(g, 'r') as h5file:
         iter_times = h5file['time'][:].flatten()
-        u_iter_vals = h5file['u'][:]
-        v_iter_vals = h5file['v'][:]
+        u_iter_vals = h5file['uv_u_component'][:]
+        v_iter_vals = h5file['uv_v_component'][:]
 
     niter = u_iter_vals.shape[0] - 1
 

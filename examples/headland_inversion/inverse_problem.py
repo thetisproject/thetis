@@ -192,7 +192,7 @@ for name, (sta_x, sta_y) in stations:
         observation_v.append(var[:, 1])
 observation_x, observation_y = numpy.array(observation_coords).T
 sta_manager.register_observation_data(station_names, variable, observation_time, observation_x, observation_y,
-                                      u=observation_u, v=observation_v, start_times=None, end_times=None)
+                                      data=(observation_u, observation_v), start_times=None, end_times=None)
 print_output('Data registered.')
 sta_manager.construct_evaluator()
 sta_manager.set_model_field(solver_obj.fields.uv_2d)
@@ -242,7 +242,7 @@ inv_manager.stop_annotating()
 # Run inversion
 opt_verbose = -1  # scipy diagnostics -1, 0, 1, 99, 100, 101
 opt_options = {
-    'maxiter': 20,  # NOTE increase to run iteration longer
+    'maxiter': 10,  # NOTE increase to run iteration longer
     'ftol': 1e-5,
     'disp': opt_verbose if mesh2d.comm.rank == 0 else -1,
 }

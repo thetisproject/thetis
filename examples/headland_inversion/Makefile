@@ -2,14 +2,10 @@ all: invert plot
 
 CASE        ?= Constant # Regions IndependentPointsScheme NodalFreedom
 STATIONS    = stationA stationB stationC stationD stationE
-PARALLEL    ?= 0 # Default to serial execution
+PARALLEL    = 1
 
 invert:
-ifeq ($(PARALLEL), 0)
-	python3 inverse_problem.py --case $(CASE) --no-consistency-test --no-taylor-test
-else
-	mpiexec -np $(PARALLEL) python inverse_problem.py --case $(CASE) --no-consistency-test --no-taylor-test;
-endif
+	mpiexec -np $(PARALLEL) python inverse_problem.py --case $(CASE) --no-consistency-test --no-taylor-test
 
 plot:
 	for station in $(STATIONS); do \

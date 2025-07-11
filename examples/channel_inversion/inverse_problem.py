@@ -93,7 +93,7 @@ sta_manager = inversion_tools.StationObservationManager(
 # TODO: Update scaling to depend on number of DOFs in the problem
 cost_function_scaling = domain_constant(100000 * solver_obj.dt / options.simulation_end_time, mesh2d)
 sta_manager.cost_function_scaling = cost_function_scaling
-sta_manager.load_elev_observation_data(observation_data_dir, station_names, variable)
+sta_manager.load_scalar_observation_data(observation_data_dir, station_names, variable)
 sta_manager.set_model_field(solver_obj.fields.elev_2d)
 
 # Define the scaling for the cost function so that dJ/dm ~ O(1)

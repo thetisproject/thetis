@@ -383,17 +383,19 @@ class InversionManager(FrozenHasTraits):
         self.J = self.J_reg
 
         if weight_by_variance:
-            var = fd.Function(self.sta_manager.fs_points_0d)
+            var = fd.Function(self.sta_manager.fs_points_0d_scalar)
             # in parallel access to .dat.data should be collective
             if len(var.dat.data[:]) > 0:
                 for i, j in enumerate(self.sta_manager.local_station_index):
-                    if self.sta_manager.obs_param == 'elev':
-                        var.dat.data[i] = numpy.var(self.sta_manager.observation_elev[j])
+                    if self.sta_manager.observed_quantity_is_scalar:
+                        obs = self.sta_manager.observation_data[j]
+                        var.dat.data[i] = numpy.var(obs)
                     else:
-                        obs_speed = numpy.sqrt(
-                            numpy.array(self.sta_manager.observation_u[j]) ** 2
-                            + numpy.array(self.sta_manager.observation_v[j]) ** 2)
-                        var.dat.data[i] = numpy.var(obs_speed)
+                        u_list, v_list = self.sta_manager.observation_data
+                        u = u_list[j]
+                        v = v_list[j]
+                        magnitude = numpy.sqrt(u ** 2 + v ** 2)
+                        var.dat.data[i] = numpy.var(magnitude)
                 assert numpy.all(numpy.isfinite(var.dat.data[:])), \
                     (f"[{fd.COMM_WORLD.rank}] ERROR: Check for NaNs. Found non-finite variances of "
                      f"observation data: {var.dat.data[:]}")
@@ -539,13 +541,9 @@ class StationObservationManager:
         self.cost_function_scaling = fd.Constant(1.0)
         self.output_directory = output_directory
         # keep observation time series in memory
-        self.obs_func_elev_list = []
-        self.obs_func_u_list = []
-        self.obs_func_v_list = []
+        self.obs_func_list = []
         # keep model time series in memory during optimization progress
-        self.station_value_elev_progress = []
-        self.station_value_u_progress = []
-        self.station_value_v_progress = []
+        self.station_value_progress = []
         # model time when cost function was evaluated
         self.simulation_time = []
         self.obs_param = observation_param
@@ -553,33 +551,42 @@ class StationObservationManager:
         self.initialized = False
 
     def register_observation_data(self, station_names, variable, time,
-                                  x, y, u=None, v=None, elev=None, start_times=None, end_times=None):
+                                  x, y, data=None, start_times=None, end_times=None):
         """
         Add station time series data to the object.
 
         The `x`, and `y` coordinates must be such that
         they allow extraction of model data at the same coordinates.
 
-        Observation data is either elevation or velocity u, v components.
+        Supports arbitrary scalar or 2D vector data for observation data.
 
         :arg list station_names: list of station names
-        :arg str variable: canonical variable name, e.g. 'elev'
+        :arg str variable: canonical variable name, e.g. 'elev', 'uv'
         :arg list time: array of time stamps, one for each station
-        :arg list elev: array of elevation observations, one for each station
+        :arg list data:
+            - scalar: list of arrays, one per station
+            - vector: tuple (list of arrays, list of arrays)
         :arg list x: list of station x coordinates
         :arg list y: list of station y coordinates
         :kwarg list start_times: optional start times for the observation periods
         :kwarg list end_times: optional end times for the observation periods
         """
-        if elev is None and (u is None or v is None):
-            raise ValueError("Either 'elev' must be provided, or both 'u' and 'v' must be provided.")
+        if data is None:
+            raise ValueError("Must provide observation data.")
+        if isinstance(data, tuple) or isinstance(data, list) and len(data) == 2:
+            u, v = data
+            if not isinstance(u, list) or not isinstance(v, list):
+                raise ValueError("For vector data, 'data' must be a tuple/list of two lists.")
+            self.observed_quantity_is_scalar = False
+        elif isinstance(data, list):
+            self.observed_quantity_is_scalar = True
+        else:
+            raise ValueError("Invalid data format. Must be list (scalar) or tuple/list of two lists (vector).")
 
         self.station_names = station_names
         self.variable = variable
         self.observation_time = time
-        self.observation_elev = elev
-        self.observation_u = u
-        self.observation_v = v
+        self.observation_data = data
         self.observation_x = x
         self.observation_y = y
         num_stations = len(station_names)
@@ -592,14 +599,14 @@ class StationObservationManager:
         """
         self.model_observation_field = function
 
-    def load_elev_observation_data(self, observation_data_dir, station_names, variable,
-                                   start_times=None, end_times=None):
+    def load_scalar_observation_data(self, observation_data_dir, station_names, variable,
+                                     start_times=None, end_times=None):
         """
-        Load elevation observation data from disk.
+        Load scalar observation data (e.g. elevation) from disk.
 
-        Assumes that elevation observation data were stored with
-        `TimeSeriesCallback2D` during the forward run. For generic case, use
-        `register_observation_data` instead.
+        This assumes the data was stored with `TimeSeriesCallback2D` during the
+        forward run. For generic/custom sources (or vectors e.g. velocity), use
+        `register_observation_data` directly.
 
         :arg str observation_data_dir: directory where observation data is stored
         :arg list station_names: list of station names
@@ -617,7 +624,7 @@ class StationObservationManager:
         observation_values = []
         observation_coords = []
         for f in file_list:
-            with h5py.File(f) as h5file:
+            with h5py.File(f, 'r') as h5file:
                 t = h5file['time'][:].flatten()
                 v = h5file[variable][:].flatten()
                 x = h5file.attrs['x']
@@ -629,7 +636,7 @@ class StationObservationManager:
         observation_x, observation_y = numpy.array(observation_coords).T
         self.register_observation_data(
             station_names, variable, observation_time,
-            observation_x, observation_y, elev=observation_values,
+            observation_x, observation_y, data=observation_values,
             start_times=start_times, end_times=end_times,
         )
         self.construct_evaluator()
@@ -642,7 +649,7 @@ class StationObservationManager:
         """
         if not hasattr(self, 'obs_start_times'):
             self.construct_evaluator()
-        in_use = fd.Function(self.fs_points_0d)
+        in_use = fd.Function(self.fs_points_0d_scalar)
         in_use.dat.data[:] = numpy.array(
             numpy.bitwise_and(
                 self.obs_start_times <= t, t <= self.obs_end_times
@@ -656,33 +663,29 @@ class StationObservationManager:
         # Create 0D mesh for station evaluation
         xy = numpy.array((self.observation_x, self.observation_y)).T
         mesh0d = fd.VertexOnlyMesh(self.mesh, xy)
-        self.fs_points_0d = fd.FunctionSpace(mesh0d, 'DG', 0)
-        if self.obs_param == 'elev':
-            self.obs_values_0d_elev = fd.Function(self.fs_points_0d, name='elev observations')
-            self.mod_values_0d_elev = fd.Function(self.fs_points_0d, name='elev model values')
+        self.fs_points_0d_scalar = fd.FunctionSpace(mesh0d, 'DG', 0)
+        if self.observed_quantity_is_scalar:
+            self.fs_points_0d = self.fs_points_0d_scalar
         else:
-            self.obs_values_0d_u = fd.Function(self.fs_points_0d, name='u observations')
-            self.obs_values_0d_v = fd.Function(self.fs_points_0d, name='v observations')
-            self.mod_values_0d_u = fd.Function(self.fs_points_0d, name='u model values')
-            self.mod_values_0d_v = fd.Function(self.fs_points_0d, name='v model values')
-        self.indicator_0d = fd.Function(self.fs_points_0d, name='station use indicator')
+            self.fs_points_0d = fd.VectorFunctionSpace(mesh0d, 'DG', 0, dim=2)
+        self.obs_values_0d = fd.Function(self.fs_points_0d, name='observations')
+        self.mod_values_0d = fd.Function(self.fs_points_0d, name='model values')
+        self.indicator_0d = fd.Function(self.fs_points_0d_scalar, name='station use indicator')
         self.indicator_0d.assign(1.0)
         self.cost_function_scaling_0d = fd.Constant(0.0, domain=mesh0d)
         self.cost_function_scaling_0d.assign(self.cost_function_scaling)
-        self.station_weight_0d = fd.Function(self.fs_points_0d, name='station-wise weighting')
+        self.station_weight_0d = fd.Function(self.fs_points_0d_scalar, name='station-wise weighting')
         self.station_weight_0d.assign(1.0)
         interp_kw = {}
         if numpy.isfinite(self._start_times).any() or numpy.isfinite(self._end_times).any():
             interp_kw.update({'bounds_error': False, 'fill_value': 0.0})
 
         # Construct timeseries interpolator
-        self.station_interpolators_elev = []
-        self.station_interpolators_u = []
-        self.station_interpolators_v = []
+        self.station_interpolators = []
         self.local_station_index = []
 
         if len(mesh0d.coordinates.dat.data[:]) > 0:
-            for i in range(self.fs_points_0d.dof_dset.size):
+            for i in range(self.fs_points_0d_scalar.dof_dset.size):
                 # loop over local DOFs and match coordinates to observations
                 # NOTE this must be done manually as VertexOnlyMesh reorders points
                 x_mesh, y_mesh = mesh0d.coordinates.dat.data[i, :]
@@ -698,18 +701,14 @@ class StationObservationManager:
                 msg = 'bad station location ' \
                       f'{j} {i} {x} {x_mesh} {y} {y_mesh} {x - x_mesh} {y - y_mesh}'
                 assert numpy.allclose([x, y], [x_mesh, y_mesh]), msg
-                if self.obs_param == 'elev':
-                    elev = self.observation_elev[j]
-                    # create temporal interpolator
-                    ip_elev = interp1d(t, elev, **interp_kw)
-                    self.station_interpolators_elev.append(ip_elev)
+                if self.observed_quantity_is_scalar:
+                    ip = interp1d(t, self.observation_data[j], **interp_kw)
+                    self.station_interpolators.append(ip)
                 else:
-                    u = self.observation_u[j]
-                    v = self.observation_v[j]
-                    ip_u = interp1d(t, u, **interp_kw)
-                    ip_v = interp1d(t, v, **interp_kw)
-                    self.station_interpolators_u.append(ip_u)
-                    self.station_interpolators_v.append(ip_v)
+                    u_data, v_data = self.observation_data
+                    ip_u = interp1d(t, u_data[j], **interp_kw)
+                    ip_v = interp1d(t, v_data[j], **interp_kw)
+                    self.station_interpolators.append((ip_u, ip_v))
 
         # Process start and end times for observations
         self.obs_start_times = numpy.array([
@@ -720,13 +719,11 @@ class StationObservationManager:
         ])
 
         # expressions for cost function
-        if self.obs_param == 'elev':
-            self.misfit_expr_elev = self.obs_values_0d_elev - self.mod_values_0d_elev
-            self.misfit_expr = self.misfit_expr_elev
+        if self.observed_quantity_is_scalar:
+            self.misfit_expr = self.obs_values_0d - self.mod_values_0d
         else:
-            self.misfit_expr_u = self.obs_values_0d_u - self.mod_values_0d_u
-            self.misfit_expr_v = self.obs_values_0d_v - self.mod_values_0d_v
-            self.misfit_expr = (self.misfit_expr_u ** 2 + self.misfit_expr_v ** 2) ** (1/2)
+            diff = self.obs_values_0d - self.mod_values_0d
+            self.misfit_expr = fd.sqrt(fd.inner(diff, diff))
         self.initialized = True
 
     def eval_observation_at_time(self, t):
@@ -737,13 +734,13 @@ class StationObservationManager:
         :returns: list of observation time series values at time `t`
         """
         self.update_stations_in_use(t)
-        if self.obs_param == 'elev':
-            ip = [float(ip(t)) for ip in self.station_interpolators_elev]
+        if self.observed_quantity_is_scalar:
+            ip = [float(ip(t)) for ip in self.station_interpolators]
             return ip
         else:
-            ip1 = [float(ip(t)) for ip in self.station_interpolators_u]
-            ip2 = [float(ip(t)) for ip in self.station_interpolators_v]
-            return ip1, ip2
+            ip_u = [float(ip_u(t)) for ip_u, _ in self.station_interpolators]
+            ip_v = [float(ip_v(t)) for _, ip_v in self.station_interpolators]
+            return ip_u, ip_v
 
     def eval_cost_function(self, t):
         """
@@ -754,40 +751,32 @@ class StationObservationManager:
         assert self.initialized, 'Not initialized, call construct_evaluator first.'
         assert self.model_observation_field is not None, 'Model field not set.'
         self.simulation_time.append(t)
-        # evaluate observations at simulation time and stash the result
-        if self.obs_param == 'elev':
-            obs_func_elev = fd.Function(self.fs_points_0d)
-            obs_func_elev.dat.data[:] = self.eval_observation_at_time(t)
-            self.obs_func_elev_list.append(obs_func_elev)
 
-            # compute square error
-            self.obs_values_0d_elev.assign(obs_func_elev)
-            P1_2d = get_functionspace(self.mesh, 'CG', 1)
-            elev_mod = fd.Function(P1_2d, name='elev')
-            elev_mod.project(self.model_observation_field)
-            self.mod_values_0d_elev.interpolate(elev_mod, ad_block_tag='elev observation')
-            s = self.cost_function_scaling_0d * self.indicator_0d * self.station_weight_0d
-            self.J_misfit = fd.assemble(s * self.misfit_expr ** 2 * fd.dx, ad_block_tag='misfit_eval')
-            return self.J_misfit
+        # observed data
+        obs_func = fd.Function(self.fs_points_0d)
+        if self.observed_quantity_is_scalar:
+            obs_func.dat.data[:] = self.eval_observation_at_time(t)
+            self.obs_func_list.append(obs_func)
         else:
-            obs_func_u, obs_func_v = fd.Function(self.fs_points_0d), fd.Function(self.fs_points_0d)
-            obs_func_u.dat.data[:], obs_func_v.dat.data[:] = self.eval_observation_at_time(t)
-            self.obs_func_u_list.append(obs_func_u)
-            self.obs_func_v_list.append(obs_func_v)
+            obs_u_data, obs_v_data = self.eval_observation_at_time(t)
+            obs_func.dat.data[:, 0] = obs_u_data
+            obs_func.dat.data[:, 1] = obs_v_data
+            self.obs_func_list.append(obs_func)
+        self.obs_values_0d.assign(obs_func)
 
-            # compute square error
-            self.obs_values_0d_u.assign(obs_func_u)
-            self.obs_values_0d_v.assign(obs_func_v)
+        # modelled data
+        if self.observed_quantity_is_scalar:
             P1_2d = get_functionspace(self.mesh, 'CG', 1)
-            u_mod = fd.Function(P1_2d, name='u velocity')
-            v_mod = fd.Function(P1_2d, name='v velocity')
-            u_mod.project(self.model_observation_field[0])
-            v_mod.project(self.model_observation_field[1])
-            self.mod_values_0d_u.interpolate(u_mod, ad_block_tag='u observation')
-            self.mod_values_0d_v.interpolate(v_mod, ad_block_tag='v observation')
-            s = self.cost_function_scaling_0d * self.indicator_0d * self.station_weight_0d
-            self.J_misfit = fd.assemble(s * self.misfit_expr ** 2 * fd.dx, ad_block_tag='misfit_eval')
-            return self.J_misfit
+            mod_func = fd.Function(P1_2d, name=self.variable)
+        else:
+            P1_2vd = get_functionspace(self.mesh, 'CG', 1, vector=True)
+            mod_func = fd.Function(P1_2vd, name=self.variable)
+        mod_func.project(self.model_observation_field)
+        self.mod_values_0d.interpolate(mod_func, ad_block_tag=f'{self.variable} observation')
+        # compute square error
+        s = self.cost_function_scaling_0d * self.indicator_0d * self.station_weight_0d
+        self.J_misfit = fd.assemble(s * self.misfit_expr ** 2 * fd.dx, ad_block_tag='misfit_eval')
+        return self.J_misfit
 
     def dump_time_series(self):
         """
@@ -796,69 +785,46 @@ class StationObservationManager:
         Obtains station time series from the last optimization iteration,
         and stores the data to disk.
 
-        The output files are have the format
+        The output files have the format
         `{odir}/diagnostic_timeseries_progress_{station_name}_{variable}.hdf5`
 
         The file contains the simulation time in the `time` array, and the
         station name and coordinates as attributes. The time series data is
-        stored as a 2D (n_iterations, n_time_steps) array.
+        stored as a 2D (n_iterations, n_time_steps) array for scalar,
+        or 3D (n_iterations, n_time_steps, 2) for vector quantities.
         """
         assert self.station_names is not None
 
         create_directory(self.output_directory)
         tape = get_working_tape()
-        if self.obs_param == 'elev':
-            blocks_elev = tape.get_blocks(tag='elev observation')
-            ts_data_elev = [b.get_outputs()[0].saved_output.dat.data for b in blocks_elev]
-            # shape (ntimesteps, nstations)
-            ts_data_elev = numpy.array(ts_data_elev)
-            # append
-            self.station_value_elev_progress.append(ts_data_elev)
-            var = self.variable
-            for ilocal, iglobal in enumerate(self.local_station_index):
-                name = self.station_names[iglobal]
-                # collect time series data, shape (niters, ntimesteps)
-                ts_elev = numpy.array([s[:, ilocal] for s in self.station_value_elev_progress])
-                fn = f'diagnostic_timeseries_progress_{name}_{var}.hdf5'
-                fn = os.path.join(self.output_directory, fn)
-                with h5py.File(fn, 'w') as hdf5file:
-                    hdf5file.create_dataset('elev', data=ts_elev)
-                    hdf5file.create_dataset('time', data=numpy.array(self.simulation_time))
-                    attrs = {
-                        'x': self.observation_x[iglobal],
-                        'y': self.observation_y[iglobal],
-                        'location_name': name,
-                    }
-                    hdf5file.attrs.update(attrs)
-        else:
-            blocks_u = tape.get_blocks(tag='u observation')
-            blocks_v = tape.get_blocks(tag='v observation')
-            ts_data_u = [b.get_outputs()[0].saved_output.dat.data for b in blocks_u]
-            ts_data_v = [b.get_outputs()[0].saved_output.dat.data for b in blocks_v]
-            # shape (ntimesteps, nstations)
-            ts_data_u = numpy.array(ts_data_u)
-            ts_data_v = numpy.array(ts_data_v)
-            # append
-            self.station_value_u_progress.append(ts_data_u)
-            self.station_value_v_progress.append(ts_data_v)
-            var = self.variable
-            for ilocal, iglobal in enumerate(self.local_station_index):
-                name = self.station_names[iglobal]
-                # collect time series data, shape (niters, ntimesteps)
-                ts_u = numpy.array([s[:, ilocal] for s in self.station_value_u_progress])
-                ts_v = numpy.array([s[:, ilocal] for s in self.station_value_v_progress])
-                fn = f'diagnostic_timeseries_progress_{name}_{var}.hdf5'
-                fn = os.path.join(self.output_directory, fn)
-                with h5py.File(fn, 'w') as hdf5file:
-                    hdf5file.create_dataset('u', data=ts_u)
-                    hdf5file.create_dataset('v', data=ts_v)
-                    hdf5file.create_dataset('time', data=numpy.array(self.simulation_time))
-                    attrs = {
-                        'x': self.observation_x[iglobal],
-                        'y': self.observation_y[iglobal],
-                        'location_name': name,
-                    }
-                    hdf5file.attrs.update(attrs)
+
+        var = self.variable
+
+        blocks = tape.get_blocks(tag=f'{self.variable} observation')
+        ts_data = [b.get_outputs()[0].saved_output.dat.data for b in blocks]
+        ts_data = numpy.array(ts_data)  # shape (ntimesteps, nstations, ndims) ndims = 2 for vector
+        self.station_value_progress.append(ts_data)
+
+        for ilocal, iglobal in enumerate(self.local_station_index):
+            name = self.station_names[iglobal]
+            ts = numpy.array([s[:, ilocal] for s in self.station_value_progress])  # shape (niters, ntimesteps, ?)
+
+            fn = f'diagnostic_timeseries_progress_{name}_{var}.hdf5'
+            fn = os.path.join(self.output_directory, fn)
+
+            with h5py.File(fn, 'w') as hdf5file:
+                if self.observed_quantity_is_scalar:
+                    hdf5file.create_dataset(var, data=ts)  # scalar data
+                else:
+                    hdf5file.create_dataset(f'{var}_u_component', data=ts[:, :, 0])
+                    hdf5file.create_dataset(f'{var}_v_component', data=ts[:, :, 1])
+                hdf5file.create_dataset('time', data=numpy.array(self.simulation_time))
+                attrs = {
+                    'x': self.observation_x[iglobal],
+                    'y': self.observation_y[iglobal],
+                    'location_name': name,
+                }
+                hdf5file.attrs.update(attrs)
 
 
 class RegularizationCalculator(abc.ABC):
