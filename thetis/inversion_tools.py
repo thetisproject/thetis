@@ -394,6 +394,9 @@ class InversionManager(FrozenHasTraits):
                             numpy.array(self.sta_manager.observation_u[j]) ** 2
                             + numpy.array(self.sta_manager.observation_v[j]) ** 2)
                         var.dat.data[i] = numpy.var(obs_speed)
+                assert numpy.all(numpy.isfinite(var.dat.data[:])), \
+                    (f"[{fd.COMM_WORLD.rank}] ERROR: Check for NaNs. Found non-finite variances of "
+                     f"observation data: {var.dat.data[:]}")
             self.sta_manager.station_weight_0d.interpolate(1 / var)
 
         def cost_fn():
