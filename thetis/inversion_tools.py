@@ -523,13 +523,8 @@ class StationObservationManager:
     interpolates the observations time series to the model time, computes the
     error functional, and also stores the model's time series data to disk.
 
-    :param observation_param: The type of observation being compared. It can be either
-                              'elev' for elevation data or 'uv' for velocity data.
-                              Elevation data refers to the surface elevation time series,
-                              while velocity data ('uv') refers to the horizontal velocity
-                              components (u, v) at each station location.
     """
-    def __init__(self, mesh, output_directory='outputs', observation_param='elev'):
+    def __init__(self, mesh, output_directory='outputs'):
         """
         :arg mesh: the 2D mesh object.
         :kwarg output_directory: directory where model time series are stored.
@@ -546,7 +541,6 @@ class StationObservationManager:
         self.station_value_progress = []
         # model time when cost function was evaluated
         self.simulation_time = []
-        self.obs_param = observation_param
         self.model_observation_field = None
         self.initialized = False
 
