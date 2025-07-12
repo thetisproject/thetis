@@ -1,6 +1,6 @@
 all: invert plot
 
-CASE        ?= Constant # Regions IndependentPointsScheme NodalFreedom
+CASE        ?= Uniform # Regions IndependentPointsScheme GradientReg HessianReg
 STATIONS    = stationA stationB stationC stationD stationE
 PARALLEL    = 1
 

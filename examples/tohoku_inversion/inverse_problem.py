@@ -91,6 +91,7 @@ J_scalar = sta_manager.cost_function_scaling
 # Create inversion manager and add controls
 no_exports = os.getenv("THETIS_REGRESSION_TEST") is not None
 real_mode = source_model in ("box", "radial", "okada")
+# TODO: gamma should be assigned relative to the cost function scaling
 gamma = 0 if no_regularization else 1e-04 if real_mode else 1e-01
 inv_manager = inversion_tools.InversionManager(
     sta_manager, real=real_mode, cost_function_scaling=J_scalar,

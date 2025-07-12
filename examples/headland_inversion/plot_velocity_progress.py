@@ -16,7 +16,7 @@ parser.add_argument('-s', '--station', nargs='+',
                     )
 parser.add_argument('--case', nargs='+',
                     help='Method of Manning field representation',
-                    choices=['Constant', 'Regions', 'IndependentPointsScheme', 'NodalFreedom'],
+                    choices=['Uniform', 'Regions', 'IndependentPointsScheme', 'GradientReg', 'HessianReg'],
                     default=['IndependentPointsScheme'],
                     )
 args = parser.parse_args()
@@ -25,10 +25,11 @@ station_names = sorted(args.station)
 station_str = '-'.join(station_names)
 
 case_to_output_dir = {
-    'Constant': 'constant_friction',
+    'Uniform': 'uniform_friction',
     'Regions': 'region_based',
     'IndependentPointsScheme': 'independent_points_scheme',
-    'NodalFreedom': 'full_nodal_flexibility'
+    'GradientReg': 'gradient_regularised',
+    'HessianReg': 'hessian_regularised'
 }
 
 selected_case = args.case[0]

@@ -61,7 +61,7 @@ for control_name in controls:
     elif control_name == 'Manning':
         manning_2d.assign(1.0e-03)
         bounds = [1e-4, 1e-1]
-        gamma_hessian = Constant(1.0)
+        gamma_hessian = Constant(1.0)  # TODO: should be assigned relative to the cost function scaling
     elif control_name == 'InitialElev':
         elev_init_2d.assign(0.5)
         bounds = [-10., 10.]

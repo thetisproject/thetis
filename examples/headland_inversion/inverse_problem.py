@@ -23,7 +23,7 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument('--case', nargs='+',
                     help='Method of Manning field representation',
-                    choices=['Constant', 'Regions', 'IndependentPointsScheme', 'NodalFreedom'],
+                    choices=['Uniform', 'Regions', 'IndependentPointsScheme', 'GradientReg', 'HessianReg'],
                     default=['IndependentPointsScheme'],
                     )
 parser.add_argument('--no-consistency-test', action='store_true',
@@ -36,10 +36,11 @@ do_taylor_test = not args.no_taylor_test
 no_exports = os.getenv('THETIS_REGRESSION_TEST') is not None
 
 case_to_output_dir = {
-    'Constant': 'constant_friction',
+    'Uniform': 'uniform_friction',
     'Regions': 'region_based',
     'IndependentPointsScheme': 'independent_points_scheme',
-    'NodalFreedom': 'full_nodal_flexibility'
+    'GradientReg': 'gradient_regularised',
+    'HessianReg': 'hessian_regularised'
 }
 
 selected_case = args.case[0]
@@ -82,7 +83,7 @@ masks, M, m_true = None, 0, []
 # Create a FunctionSpace on the mesh (corresponds to Manning)
 V = get_functionspace(mesh2d, 'CG', 1)
 
-if selected_case == 'Constant':
+if selected_case == 'Uniform':
     manning_const = Constant(0.02, name='Manning')  # TODO - do we need to set up like this?
     manning_2d.assign(domain_constant(manning_const, mesh2d))
 elif selected_case == 'Regions':
@@ -149,20 +150,6 @@ elif selected_case == 'IndependentPointsScheme':
 else:
     pass
 
-# Setup controls and regularization parameters (regularisation only needed where lots of values are being changed)
-gamma_hessian_list = []
-control_bounds_list = []
-gamma_hessian = None
-bounds = [0.01, 0.06]
-if selected_case == 'NodalFreedom':
-    gamma_hessian = Constant(1.0)
-if gamma_hessian is not None:
-    print_output(f'Manning regularization params: hess={float(gamma_hessian):.3g}')
-    gamma_hessian_list.append(gamma_hessian)
-control_bounds_list.append(bounds)
-# reshape to [[lo1, lo2, ...], [hi1, hi2, ...]]
-control_bounds = numpy.array(control_bounds_list).T
-
 # Assign initial conditions
 print_output('Exporting to ' + options.output_directory)
 
@@ -177,6 +164,12 @@ stations = [
     ('stationE', (9*lx/10, ly/2)),
 ]
 sta_manager = inversion_tools.StationObservationManager(mesh2d, output_directory=options.output_directory)
+if selected_case in ('GradientReg', 'HessianReg'):
+    cfs_scalar = 1e2 * solver_obj.dt / options.simulation_end_time
+else:
+    cfs_scalar = 1e4 * solver_obj.dt / options.simulation_end_time
+cost_function_scaling = domain_constant(cfs_scalar, mesh2d)
+sta_manager.cost_function_scaling = cost_function_scaling
 print_output('Station Manager instantiated.')
 station_names, observation_coords, observation_time, observation_u, observation_v = [], [], [], [], []
 for name, (sta_x, sta_y) in stations:
@@ -199,17 +192,31 @@ print_output('Station Manager set-up complete.')
 
 # -------------------------------------- Step 3: define the optimisation problem ---------------------------------------
 
-# Define the scaling for the cost function so that J ~ O(1)
-J_scalar = Constant(solver_obj.dt / options.simulation_end_time, domain=mesh2d)
+# Define the scaling for the cost function so that dJ/dm ~ O(1)
+J_scalar = sta_manager.cost_function_scaling
+
+# Setup controls and regularization parameters (regularisation only needed where lots of values are being changed)
+gamma_penalty_list = []
+control_bounds_list = []
+gamma_penalty = None
+bounds = [0.01, 0.06]
+if selected_case in ('GradientReg', 'HessianReg'):
+    gamma_factor = 1e6
+    gamma_penalty = Constant(gamma_factor * cfs_scalar)  # scaling is significant due to unit normalisation
+    print_output(f'Manning regularization params: gamma={float(gamma_penalty):.3g}')
+    gamma_penalty_list.append(gamma_penalty)
+control_bounds_list.append(bounds)
+# reshape to [[lo1, lo2, ...], [hi1, hi2, ...]]
+control_bounds = numpy.array(control_bounds_list).T
 
 # Create inversion manager and add controls
 inv_manager = inversion_tools.InversionManager(
-    sta_manager, output_dir=options.output_directory, no_exports=False, penalty_parameters=gamma_hessian_list,
+    sta_manager, output_dir=options.output_directory, no_exports=False, penalty_parameters=gamma_penalty_list,
     cost_function_scaling=J_scalar, test_consistency=False, test_gradient=False)
 
 print_output('Inversion Manager instantiated.')
 
-if selected_case == 'Constant':
+if selected_case == 'Uniform':
     manning_const = Constant(0.03, name='Manning', domain=mesh2d)
     manning_2d.project(manning_const)
     inv_manager.add_control(manning_const)
@@ -227,7 +234,11 @@ if not no_exports:
     VTKFile(output_dir_invert + '/manning_init.pvd').write(manning_2d)
 
 # Extract the regularized cost function
-cost_function = inv_manager.get_cost_function(solver_obj, weight_by_variance=True)
+if selected_case == 'GradientReg':
+    cost_function = inv_manager.get_cost_function(solver_obj,
+                                                  weight_by_variance=True, regularisation_manager='Gradient')
+else:
+    cost_function = inv_manager.get_cost_function(solver_obj, weight_by_variance=True)
 cost_function_callback = inversion_tools.CostFunctionCallback(solver_obj, cost_function)
 solver_obj.add_callback(cost_function_callback, 'timestep')
 
@@ -251,7 +262,7 @@ if isinstance(control_opt_list, Function):
 for oc, cc in zip(control_opt_list, inv_manager.control_coeff_list):
     print_function_value_range(oc, prefix='Optimal')
     # NOTE: This would need to be updated to match the controls if bathymetry was also added!
-    if selected_case == 'Constant':
+    if selected_case == 'Uniform':
         P1_2d = get_functionspace(mesh2d, 'CG', 1)
         manning_2d = Function(P1_2d, name='Manning coefficient')
         manning_2d.assign(domain_constant(inv_manager.m_list[-1], mesh2d))
