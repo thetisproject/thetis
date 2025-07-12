@@ -16,6 +16,7 @@ os.environ['THETIS_REGRESSION_TEST'] = "1"
 adjoint_files = [
     'tidalfarm/tidalfarm.py',
     'channel_inversion/inverse_problem.py',
+    'headland_inversion/inverse_problem.py',
 ]
 
 cwd = os.path.abspath(os.path.dirname(__file__))
