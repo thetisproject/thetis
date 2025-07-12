@@ -64,7 +64,7 @@ jobs:
           . venv-thetis/bin/activate
           : # Run the serial tests
           python -m pytest -n 12 --verbose --durations=0 --durations-min=60.0 \
-          -m "parallel[1] or not parallel" thetis-repo/test
+            -m "parallel[1] or not parallel" thetis-repo/test
 
       - name: Test Thetis (parallel)
         if: success() || steps.install.conclusion == 'success'
@@ -72,7 +72,7 @@ jobs:
           . venv-thetis/bin/activate
           : # Run the parallel tests (note that xdist is not valid in parallel)
           mpiexec -n 2 python -m pytest --verbose --durations=0 --durations-min=60.0 \
-          -m parallel[2] thetis-repo/test'
+            -m parallel[2] thetis-repo/test
 
       - name: Test Thetis adjoint
         if: success() || steps.install.conclusion == 'success'
