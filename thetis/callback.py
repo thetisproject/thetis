@@ -525,6 +525,11 @@ class DetectorsCallback(DiagnosticCallback):
         else:
             assert ndetectors == len(detector_names), "Different number of detector locations and names"
             self.detector_names = detector_names
+        for i, det_name in enumerate(self.detector_names):
+            self.var_attrs[det_name] = {
+                'x': detector_locations[i][0],
+                'y': detector_locations[i][1]
+            }
         self._variable_names = self.detector_names
         self.detector_locations = detector_locations
         self.field_names = field_names
