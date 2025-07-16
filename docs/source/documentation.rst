@@ -37,6 +37,50 @@ simulations that demonstrate basic functionality.
     2D tracer advection with multiple tracers <demos/demo_2d_multiple_tracers.py>
     2D North Sea tidal model<demos/demo_2d_north_sea.py>
 
+Jupyter Notebooks
+=================
+
+Thetis provides a few example Jupyter notebooks that demonstrate how to run typical simulations
+in an interactive, editable format. These are designed to help you get familiar with setting up and
+running Thetis models, and to experiment with different scenarios.
+
+Running the notebooks locally
+-----------------------------
+
+To run the notebooks on your own machine, you will first need to install
+`Jupyter <https://jupyter.org/install.html>`_ in the same Python environment where you installed Firedrake and Thetis:
+
+.. code-block:: bash
+
+    source ~/venv-firedrake/bin/activate
+    pip install jupyterlab notebook
+
+The notebooks are available in your Thetis source directory under ``demos/``.
+
+Running the notebooks on Google Colab
+-------------------------------------
+
+Thanks to `FEM on Colab <https://fem-on-colab.github.io/index.html>`__ by `Francesco
+Ballarin <https://www.francescoballarin.it>`__, you can also run these notebooks
+directly in your web browser without installing anything locally.
+
+You can launch the notebooks using the Colab badge below each notebook link.
+
+Available notebooks:
+--------------------
+
+- `01-2d-channel.ipynb <https://github.com/thetisproject/thetis/blob/master/demos/01-2d-channel.ipynb>`_
+
+  .. image:: https://colab.research.google.com/assets/colab-badge.svg
+     :target: https://colab.research.google.com/github/thetisproject/thetis/blob/master/demos/01-2d-channel.ipynb
+     :alt: Open In Colab
+
+- `02-2d-tsunami.ipynb <https://github.com/thetisproject/thetis/blob/master/demos/02-2d-tsunami.ipynb>`_
+
+  .. image:: https://colab.research.google.com/assets/colab-badge.svg
+     :target: https://colab.research.google.com/github/thetisproject/thetis/blob/master/demos/02-2d-tsunami.ipynb
+     :alt: Open In Colab
+
 Manual
 ======
 
