@@ -17,6 +17,7 @@ demos_dir = os.path.abspath(os.path.join(cwd, '..', '..', 'demos'))
 
 all_demos = glob.glob(os.path.join(demos_dir, '*.py'))
 
+
 @pytest.fixture(params=all_demos)
 def demo_file(request):
     return os.path.abspath(request.param)
