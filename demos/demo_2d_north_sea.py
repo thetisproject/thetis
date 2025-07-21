@@ -110,10 +110,10 @@ t_export = 3600.0
 
 # .. raw:: html
 #
-#    <!-- in the CI we only run a few timesteps; commented out in html for the web version
+#    <!-- in the CI we only run two timesteps; commented out in html for the web version
 
 if os.environ.get('THETIS_REGRESSION_TEST'):
-    end_date = datetime.datetime(2022, 1, 15, 9, tzinfo=sim_tz)
+    end_date = datetime.datetime(2022, 1, 15, 2, tzinfo=sim_tz)
 
 # .. raw:: html
 #
