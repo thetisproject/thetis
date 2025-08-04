@@ -1,6 +1,5 @@
 from .utility import *
 from .log import warning
-# from thetis import solver2d
 
 
 class CorrectiveVelocityFactor:
@@ -137,8 +136,6 @@ class SedimentModel(object):
 
         ksp = Function(self.P1_2d).interpolate(3*self.average_size)
 
-        # seime.temp.TidalInlet set-up
-        # ksp = Function(self.P1_2d).interpolate(Constant(0.0015))
         self.a = Function(self.P1_2d).interpolate(self.bed_reference_height/2)
 
         if self.options.sediment_model_options.morphological_viscosity is None:
@@ -173,9 +170,6 @@ class SedimentModel(object):
                                                                               conditional(self.average_size <= 1e-03, (10*self.viscosity/self.average_size)
                                                                                           * (sqrt(1 + 0.01*((self.R*self.g*(self.average_size**3))
                                                                                              / (self.viscosity**2)))-1), 1.1*sqrt(self.g*self.average_size*self.R))))
-
-        # # seime.TidalInlet fixed settling velocity:
-        # self.settling_velocity = Function(self.P1_2d).interpolate(Constant(0.011))
 
         # first step: project velocity to CG
         self.uv_cg = Function(self.P1v_2d).project(self.uv)
@@ -312,7 +306,7 @@ class SedimentModel(object):
             calfamod = (self.calfa + (tt1*bathymetry.dx(0)))/angle_norm
             salfamod = (self.salfa + (tt1*bathymetry.dx(1)))/angle_norm
 
-        if self.use_secondary_current: # seime. no waves effects here either
+        if self.use_secondary_current:
             # accounts for helical flow effect in a curver channel
             # use z_n1 and equals so can use an implicit method in Exner
             free_surface_dx = self.depth_tot.dx(0) - bathymetry.dx(0)
