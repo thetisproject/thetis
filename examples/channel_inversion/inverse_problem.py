@@ -112,8 +112,8 @@ for control_name in controls:
     elif control_name == 'InitialElev':
         inv_manager.add_control(elev_init_2d)
 
-# Extract the regularized cost function
-cost_function = inv_manager.get_cost_function(solver_obj)
+# Extract the regularized cost function, note we could use gradient based as well by changing manager
+cost_function = inv_manager.get_cost_function(solver_obj, regularisation_manager="Hessian")
 
 # Solve and setup reduced functional
 solver_obj.iterate(export_func=cost_function)  # note that export time should equal dt if not using a custom callback

@@ -943,7 +943,7 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
         super(ShallowWaterEquations, self).__init__(function_space, depth, options)
 
         u_test, eta_test = TestFunctions(function_space)
-        u_space, eta_space = function_space.subfunctions
+        u_space, eta_space = function_space.subspaces
 
         self.add_momentum_terms(u_test, u_space, eta_space, depth, options, tidal_farms=tidal_farms)
 
@@ -982,7 +982,7 @@ class ModeSplit2DEquations(BaseShallowWaterEquation):
         super(ModeSplit2DEquations, self).__init__(function_space, depth, options)
 
         u_test, eta_test = TestFunctions(function_space)
-        u_space, eta_space = function_space.subfunctions
+        u_space, eta_space = function_space.subspaces
 
         self.add_momentum_terms(u_test, u_space, eta_space, depth, options)
 
