@@ -250,9 +250,51 @@ field_metadata['w_2d'] = {
     'unit': 'm s-1',
     'filename': 'VertVelo2d',
 }
+field_metadata['rad_stress_2d'] = {
+    'name': 'Gradient of radiations stress',
+    'shortname': 'Grad radiation stress',
+    'unit': 'kg m-1 s-2',
+    'filename': 'GradRadStress2d',
+}
+field_metadata['roller_2d'] = {
+    'name': 'Roller effects',
+    'shortname': 'Roller effects',
+    'unit': 'kg m-1 s-2',
+    'filename': 'Roller2d',
+}
 field_metadata['turbine_density_2d'] = {
     'name': 'Turbine density',
     'shortname': 'Turbine density',
     'unit': 'm-2',
     'filename': 'turbine_density_2d'
+}
+field_metadata['wave_height_2d'] = {
+    'name': 'Significant wave height',
+    'shortname': 'Hs',
+    'unit': 'm',
+    'filename': 'WaveHeight2d',
+}
+field_metadata['wave_peak_freq_2d'] = {
+    'name': 'Peak wave frequency',
+    'shortname': 'Fp',
+    'unit': 's-1',
+    'filename': 'WavPeakFreq2d',
+}
+field_metadata['wave_dir_2d'] = {
+    'name': 'Wave direction',
+    'shortname': 'Wdir',
+    'unit': 'deg (meteo)',
+    'filename': 'WaveDir2d',
+}
+field_metadata['wave_orbital_vel_2d'] = {
+    'name': 'Near-bed wave orbital velocity magnitude',
+    'shortname': 'Uw',
+    'unit': 'm/s',
+    'filename': 'WaveOrbVel2d',
+}
+field_metadata['wave_mean_period_2d'] = {
+    'name': 'Mean wave period',
+    'shortname': 'Tm',
+    'unit': 's',
+    'filename': 'WaveMeanPeriod2d',
 }

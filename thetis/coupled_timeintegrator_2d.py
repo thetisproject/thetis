@@ -199,12 +199,11 @@ class NonHydrostaticTimeIntegrator2D(CoupledTimeIntegrator2D):
         self.timesteppers.swe2d.initialize(self.fields.solution_2d)
         if self.nh_options.update_free_surface:
             self.timesteppers.fs2d.initialize(self.fields.elev_2d)
+            self.elev_old.assign(self.fields.elev_2d)
 
     @PETSc.Log.EventDecorator("thetis.NonHydrostaticTimeIntegrator2D.advance")
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
-        if self.nh_options.update_free_surface:
-            self.elev_old.assign(self.fields.elev_2d)
         if self.serial_advancing:
             # --- advance in serial ---
             self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
@@ -214,6 +213,7 @@ class NonHydrostaticTimeIntegrator2D(CoupledTimeIntegrator2D):
             if self.nh_options.update_free_surface:
                 self.fields.elev_2d.assign(self.elev_old)
                 self.timesteppers.fs2d.advance(t, update_forcings=update_forcings)
+                self.elev_old.assign(self.fields.elev_2d)
             # update old solution
             if self.options.swe_timestepper_type == 'SSPIMEX':
                 self.timesteppers.swe2d.erk.solution_old.assign(self.fields.solution_2d)
@@ -234,3 +234,4 @@ class NonHydrostaticTimeIntegrator2D(CoupledTimeIntegrator2D):
                     elif last_stage:
                         self.fields.elev_2d.assign(self.elev_old)
                         self.timesteppers.fs2d.advance(t, update_forcings=update_forcings)
+                        self.elev_old.assign(self.fields.elev_2d)

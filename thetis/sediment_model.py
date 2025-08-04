@@ -1,5 +1,6 @@
 from .utility import *
 from .log import warning
+# from thetis import solver2d
 
 
 class CorrectiveVelocityFactor:
@@ -56,7 +57,10 @@ class CorrectiveVelocityFactor:
 
 
 class SedimentModel(object):
-    def __init__(self, options, mesh2d, uv, elev, depth):
+    # def __init__(self, options, mesh2d, uv, elev, depth):
+    def __init__(self, options, mesh2d, uv, elev, depth, 
+                 uw=Constant(0), hs=Constant(0), wdir=Constant(0), fp=Constant(0), tm=Constant(0)):
+    # def __init__(self, options, mesh2d, uv, elev, depth, uw):
 
         """
         Set up a full morphological model simulation based on provided velocity and elevation functions.
@@ -90,6 +94,19 @@ class SedimentModel(object):
         self.use_slope_mag_correction = options.sediment_model_options.use_slope_mag_correction
         self.use_advective_velocity_correction = options.sediment_model_options.use_advective_velocity_correction
         self.use_secondary_current = options.sediment_model_options.use_secondary_current
+        # seime. use this option to activate wave action on sediment transport
+        self.use_wave_forcing = options.sediment_model_options.wave_forcing
+        self.use_vanRijn_2007_bedload = options.sediment_model_options.van_Rijn_bedload
+
+        self.uw = uw # near-bed wave-orbital velocity magnitude [m/s]
+        self.fp = fp # peak wave frequency [s-1]
+        self.tm = tm # mean wave period [s]
+        self.wdir = wdir # wave direction [deg]
+        self.hs = hs # significant wave height [m]
+        # bedload transport constants, Van Rijn, 2007
+        self.eta = Constant(1.0)
+        self.gamma = Constant(0.5)
+        self.d_sand = Constant(0.000062)
 
         self.mesh2d = mesh2d
 
@@ -119,6 +136,9 @@ class SedimentModel(object):
         kappa = physical_constants['von_karman']
 
         ksp = Function(self.P1_2d).interpolate(3*self.average_size)
+
+        # seime.temp.TidalInlet set-up
+        # ksp = Function(self.P1_2d).interpolate(Constant(0.0015))
         self.a = Function(self.P1_2d).interpolate(self.bed_reference_height/2)
 
         if self.options.sediment_model_options.morphological_viscosity is None:
@@ -137,12 +157,12 @@ class SedimentModel(object):
         self.R = self.rhos/self.rhow - Constant(1)
 
         self.dstar = Function(self.P1_2d).interpolate(self.average_size*((self.g*self.R)/(self.viscosity**2))**(1/3))
-        if float(max(self.dstar.dat.data[:])) < 1:
-            raise ValueError('dstar value less than 1')
+        # if float(max(self.dstar.dat.data[:])) < 1:
+        #     raise ValueError('dstar value less than 1')
         self.thetacr = Function(self.P1_2d).interpolate(conditional(self.dstar < 4, 0.24*(self.dstar**(-1)),
                                                         conditional(self.dstar < 10, 0.14*(self.dstar**(-0.64)),
                                                         conditional(self.dstar < 20, 0.04*(self.dstar**(-0.1)),
-                                                                    conditional(self.dstar < 150, 0.013*(self.dstar**(0.29)), 0.055)))))
+                                                        conditional(self.dstar < 150, 0.013*(self.dstar**(0.29)), 0.055)))))
 
         # critical bed shear stress
         self.taucr = Function(self.P1_2d).interpolate((self.rhos-self.rhow)*self.g*self.average_size*self.thetacr)
@@ -153,6 +173,9 @@ class SedimentModel(object):
                                                                               conditional(self.average_size <= 1e-03, (10*self.viscosity/self.average_size)
                                                                                           * (sqrt(1 + 0.01*((self.R*self.g*(self.average_size**3))
                                                                                              / (self.viscosity**2)))-1), 1.1*sqrt(self.g*self.average_size*self.R))))
+
+        # # seime.TidalInlet fixed settling velocity:
+        # self.settling_velocity = Function(self.P1_2d).interpolate(Constant(0.011))
 
         # first step: project velocity to CG
         self.uv_cg = Function(self.P1v_2d).project(self.uv)
@@ -174,15 +197,49 @@ class SedimentModel(object):
         self.mu = conditional(self.qfc > Constant(0), cfactor/self.qfc, Constant(0))
 
         # calculate bed shear stress
-        self.unorm = (self.u**2) + (self.v**2)
 
-        self.bed_stress = Function(self.P1_2d).interpolate(self.rhow*Constant(0.5)*self.qfc*self.unorm)
+        # 1. calculate shear velocity due to currents
+        self.unorm = (self.u**2) + (self.v**2)
+        ustar_c_norm = Constant(0.5)*self.qfc*self.unorm
+        ustar_c = sqrt(ustar_c_norm)
+
+        # 2. calculate shear velocity due to waves
+        if self.use_wave_forcing:
+            ustar_w_norm = Constant(0.5)*self.qfc*self.uw
+            ustar_w = sqrt(ustar_w_norm)
+            # # Angle between waves and currents
+            # current_dir_rad = atan2(self.v, self.u)
+            # wave_dir_rad = self.wdir * pi / 180.0
+            # phase_shift = wave_dir_rad - current_dir_rad
+
+            # Compute angle between waves and currents (converted to radians)
+            CDIR = atan2(self.v, self.u)*180.0/pi
+            WDIR = (90.0 - self.wdir) # convert from meteo format (0deg North) to math system (0deg East)
+            # WDIR = self.wdir
+            # smallest angular difference in degrees
+            diff = abs(CDIR - WDIR)
+            diff = min_value(diff,
+                             min_value(abs(180.0 - diff),
+                                       360.0 - diff))
+            phase_shift = diff * pi/180.0
+            # the wave source file has weird wave direction pattern
+            # so not using it for now. -> perhaps specify as option for sediments?
+            # ustar_wc_norm = ustar_c**2 + ustar_w**2 + 2.*ustar_c*ustar_w * cos(phase_shift)
+
+            ustar_wc_norm = ustar_c**2 + ustar_w**2
+            ustar = sqrt(ustar_wc_norm)
+        else:
+            ustar = ustar_c
+
+        # 3. calculate shear velocity
+        self.ustar = ustar
+        self.bed_stress = Function(self.P1_2d).interpolate(self.rhow * self.ustar**2)
 
         if self.solve_suspended_sediment:
             # deposition flux - calculating coefficient to account for stronger conc at bed
             self.B = conditional(self.a > self.depth_tot, Constant(1.0), self.a/self.depth_tot)
-            ustar = sqrt(Constant(0.5)*self.qfc*self.unorm)
-            self.rouse_number = (self.settling_velocity/(kappa*ustar)) - Constant(1)
+
+            self.rouse_number = (self.settling_velocity/(kappa*self.ustar)) - Constant(1)
 
             self.intermediate_step = conditional(abs(self.rouse_number) > Constant(1e-04),
                                                  self.B*(Constant(1)-self.B**min_value(self.rouse_number, Constant(3)))/min_value(self.rouse_number,
@@ -191,9 +248,9 @@ class SedimentModel(object):
             self.integrated_rouse = max_value(conditional(self.intermediate_step > Constant(1e-12), Constant(1)/self.intermediate_step,
                                                           Constant(1e12)), Constant(1))
 
-            # erosion flux - above critical velocity bed is eroded
-            self.transport_stage_param = conditional(self.rhow*Constant(0.5)*self.qfc*self.unorm*self.mu > Constant(0),
-                                                     (self.rhow*Constant(0.5)*self.qfc*self.unorm*self.mu - self.taucr)/self.taucr,
+            # erosion flux - above critical velocity bed is eroded\
+            self.transport_stage_param = conditional(self.rhow * self.ustar**2 * self.mu > Constant(0),
+                                                     (self.rhow * self.ustar**2 * self.mu - self.taucr)/self.taucr,
                                                      Constant(-1))
 
             self.erosion_concentration = Function(self.P1DG_2d).project(Constant(0.015)*(self.average_size/self.a)
@@ -202,7 +259,7 @@ class SedimentModel(object):
 
             if self.use_advective_velocity_correction:
                 self.correction_factor_model = CorrectiveVelocityFactor(self.depth_tot, ksp,
-                                                                        self.settling_velocity, ustar, self.a)
+                                                                        self.settling_velocity, self.ustar, self.a)
                 self.velocity_correction_factor = self.correction_factor_model.velocity_correction_factor
             self.equilibrium_tracer = Function(self.P1DG_2d).interpolate(self.erosion_concentration/self.integrated_rouse)
 
@@ -212,12 +269,12 @@ class SedimentModel(object):
 
         if self.use_bedload:
             # calculate angle of flow
-            self.calfa = Function(self.P1_2d).interpolate(self.uv_cg[0]/sqrt(self.unorm))
+            self.calfa = Function(self.P1_2d).interpolate(self.uv_cg[0]/sqrt(self.unorm)) #seime. consider waves dir and vel here
             self.salfa = Function(self.P1_2d).interpolate(self.uv_cg[1]/sqrt(self.unorm))
 
             if self.use_angle_correction:
                 # slope effect angle correction due to gravity
-                self.stress = Function(self.P1DG_2d).interpolate(self.rhow*Constant(0.5)*self.qfc*self.unorm)
+                self.stress = Function(self.P1DG_2d).interpolate(self.rhow * self.ustar**2)
 
     def get_bedload_term(self, bathymetry):
         """
@@ -255,7 +312,7 @@ class SedimentModel(object):
             calfamod = (self.calfa + (tt1*bathymetry.dx(0)))/angle_norm
             salfamod = (self.salfa + (tt1*bathymetry.dx(1)))/angle_norm
 
-        if self.use_secondary_current:
+        if self.use_secondary_current: # seime. no waves effects here either
             # accounts for helical flow effect in a curver channel
             # use z_n1 and equals so can use an implicit method in Exner
             free_surface_dx = self.depth_tot.dx(0) - bathymetry.dx(0)
@@ -285,7 +342,7 @@ class SedimentModel(object):
             salfanew = t_2/t4
 
         # implement meyer-peter-muller bedload transport formula
-        thetaprime = self.mu*(self.rhow*Constant(0.5)*self.qfc*self.unorm)/((self.rhos-self.rhow)*self.g*self.average_size)
+        thetaprime = self.mu*(self.rhow * self.ustar**2)/((self.rhos-self.rhow)*self.g*self.average_size)
 
         # if velocity above a certain critical value then transport occurs
         phi = conditional(thetaprime < self.thetacr, Constant(0), Constant(8)*(thetaprime-self.thetacr)**1.5)
@@ -295,6 +352,10 @@ class SedimentModel(object):
             qb_total = slopecoef_secc*phi*sqrt(self.g*self.R*self.average_size**3)
         else:
             qb_total = slopecoef*phi*sqrt(self.g*self.R*self.average_size**3)
+
+            if (self.use_vanRijn_2007_bedload):
+                tauprime = self.rhow * self.ustar**2 
+                qb_total = self.gamma * self.d_sand * self.dstar**(-0.3) * sqrt(tauprime/self.rhow) * ( (tauprime - self.taucr) / self.taucr )**self.eta
 
         # formulate bedload transport flux with correct angle depending on corrections implemented
         if self.use_angle_correction and self.use_secondary_current is False:
