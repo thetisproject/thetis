@@ -57,7 +57,7 @@ jobs:
           pip install flake8
           make -C thetis-repo lint
 
-      - name: Test Thetis
+      - name: Test Thetis (serial)
         # Run even if the step above failed
         if: success() || steps.install.conclusion == 'success'
         run: |
@@ -65,6 +65,11 @@ jobs:
           : # Run the serial tests
           python -m pytest -n 12 --verbose --durations=0 --durations-min=60.0 \
             -m "parallel[1] or not parallel" thetis-repo/test
+
+      - name: Test Thetis (parallel)
+        if: success() || steps.install.conclusion == 'success'
+        run: |
+          . venv-thetis/bin/activate
           : # Run the parallel tests (note that xdist is not valid in parallel)
           mpiexec -n 2 python -m pytest --verbose --durations=0 --durations-min=60.0 \
             -m parallel[2] thetis-repo/test
