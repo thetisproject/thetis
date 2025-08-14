@@ -8,6 +8,78 @@ import h5py
 import argparse
 from mpi4py import MPI
 
+# ROL interface
+try:
+    from pyadjoint import ROLSolver
+    _HAS_ROL = True
+except Exception:
+    _HAS_ROL = False
+
+from contextlib import contextmanager
+
+@contextmanager
+def mute_nonroot_output(comm):
+    """
+    Mute both Python-level and C/C++-level stdout/stderr on all ranks != 0.
+
+    Redirects sys.stdout/sys.stderr AND dup2's the underlying file descriptors.
+    Restores everything afterward, even if exceptions occur.
+    """
+    rank = comm.Get_rank()
+    if rank == 0:
+        # Root prints normally
+        yield
+        return
+
+    # Flush Python streams before redirecting fds
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    try:
+        sys.stderr.flush()
+    except Exception:
+        pass
+
+    # Save original Python objects
+    old_py_out, old_py_err = sys.stdout, sys.stderr
+
+    # Save original file descriptors
+    saved_out_fd = os.dup(1)
+    saved_err_fd = os.dup(2)
+
+    # Open devnull once
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)
+    devnull_file = os.fdopen(os.dup(devnull_fd), 'w', buffering=1)
+
+    try:
+        # Redirect Python-level streams
+        sys.stdout = devnull_file
+        sys.stderr = devnull_file
+
+        # Redirect C/C++-level file descriptors
+        os.dup2(devnull_fd, 1)
+        os.dup2(devnull_fd, 2)
+
+        yield
+    finally:
+        # Restore file descriptors
+        os.dup2(saved_out_fd, 1)
+        os.dup2(saved_err_fd, 2)
+        os.close(saved_out_fd)
+        os.close(saved_err_fd)
+
+        # Restore Python streams
+        sys.stdout = old_py_out
+        sys.stderr = old_py_err
+
+        # Close our devnull fds
+        try:
+            devnull_file.close()
+        except Exception:
+            pass
+        os.close(devnull_fd)
+
 # ---------------------------------------- Step 1: set up mesh and ground truth ----------------------------------------
 
 # parse user input
@@ -21,6 +93,11 @@ parser.add_argument('--case', nargs='+',
                     choices=['Uniform', 'Regions', 'IndependentPointsScheme', 'GradientReg', 'HessianReg'],
                     default=['IndependentPointsScheme'],
                     )
+parser.add_argument('--optimiser', nargs='+',
+                    help='Optimiser to use for inversion problem',
+                    choices=['L-BFGS-B', 'ROL'],
+                    default=['ROL'],
+                    )
 parser.add_argument('--no-consistency-test', action='store_true',
                     help='Skip consistency test')
 parser.add_argument('--no-taylor-test', action='store_true',
@@ -28,6 +105,7 @@ parser.add_argument('--no-taylor-test', action='store_true',
 args = parser.parse_args()
 do_consistency_test = not args.no_consistency_test
 do_taylor_test = not args.no_taylor_test
+optimiser = args.optimiser[0]
 no_exports = os.getenv('THETIS_REGRESSION_TEST') is not None
 
 case_to_output_dir = {
@@ -41,7 +119,7 @@ case_to_output_dir = {
 selected_case = args.case[0]
 pwd = os.path.abspath(os.path.dirname(__file__))
 output_dir_forward = os.path.join(pwd, 'outputs', 'outputs_forward')
-output_dir_invert = os.path.join(pwd, 'outputs', 'outputs_inverse', case_to_output_dir[selected_case])
+output_dir_invert = os.path.join(pwd, 'outputs', 'outputs_inverse', optimiser, case_to_output_dir[selected_case])
 
 continue_annotation()
 
@@ -187,8 +265,10 @@ if selected_case in ('GradientReg', 'HessianReg'):
     gamma_penalty_list.append(gamma_penalty)
 control_bounds_list.append(bounds)
 # reshape to [[lo1, lo2, ...], [hi1, hi2, ...]]
-control_bounds = numpy.array(control_bounds_list).T
-
+if optimiser == "L-BFGS-B":
+    control_bounds = numpy.array(control_bounds_list).T
+else:
+    control_bounds = control_bounds_list.pop()
 # Create inversion manager and add controls
 inv_manager = inversion_tools.InversionManager(
     sta_manager, output_dir=options.output_directory, no_exports=False, penalty_parameters=gamma_penalty_list,
@@ -228,15 +308,39 @@ inv_manager.stop_annotating()
 
 # Run inversion
 opt_verbose = -1  # scipy diagnostics -1, 0, 1, 99, 100, 101
-opt_options = {
+scipy_options = {
     'maxiter': 10,  # NOTE increase to run iteration longer
     'ftol': 1e-5,
     'disp': opt_verbose if mesh2d.comm.rank == 0 else -1,
 }
+rol_options = {
+    "General": {
+        "Secant": {
+            "Type": "Limited-Memory",
+            "Maximum Storage": 10,
+        },
+        # root prints at the chosen level; others stay silent
+        "Print Verbosity": 0 if mesh2d.comm.rank == 0 else -1,
+    },
+    "Step": {
+        "Type": "Line Search",
+        "Line Search": {
+            "Descent Method": {"Type": "Quasi-Newton"},
+            "Curvature Condition": {"Type": "Strong Wolfe Conditions"},
+            "User Defined Line Search": False,
+        },
+    },
+    "Status Test": {
+        "Iteration Limit": 10,
+    }
+}
+
+opt_options = scipy_options if optimiser == 'L-BFGS-B' else rol_options
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
-    opt_options['maxiter'] = 1
-control_opt_list = inv_manager.minimize(
-    opt_method='L-BFGS-B', bounds=control_bounds, **opt_options)
+    opt_options['maxiter'] = 1  # only SciPy for testing
+with mute_nonroot_output(comm):
+    control_opt_list = inv_manager.minimize(
+        opt_method=optimiser, bounds=control_bounds, **opt_options)
 if isinstance(control_opt_list, Function):
     control_opt_list = [control_opt_list]
 for oc, cc in zip(control_opt_list, inv_manager.control_coeff_list):
@@ -265,3 +369,41 @@ for oc, cc in zip(control_opt_list, inv_manager.control_coeff_list):
 
 if selected_case == 'Regions' or selected_case == 'IndependentPointsScheme':
     print_output("Optimised vector m:\n" + str([np.round(control_opt_list[i].dat.data[0], 4) for i in range(len(control_opt_list))]))
+
+iteration_data = inv_manager.iteration_data
+iters, times, mems, cost = zip(*iteration_data)
+
+import matplotlib.pyplot as plt
+
+if rank == 0:
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Primary axis: Memory usage
+    ax.plot(times, mems, marker='o', linestyle='-', label="Memory usage", color='tab:blue')
+
+    for it, t in zip(iters, times):
+        ax.axvline(x=t, color='gray', linestyle='--', alpha=0.5, label='Optimisation Iteration' if it == 0 else None)
+        ax.text(t, np.max(mems) * 1.01, f'{it}', rotation=90,
+                verticalalignment='bottom', horizontalalignment='center', fontsize=8)
+
+    ax.set_title(f"Memory consumption ({size} threads)")
+    ax.set_ylim((0, 1.05*np.max(mems)))
+    ax.set_xlabel("Cumulative Time (s)")
+    ax.set_ylabel("Memory Usage (MB)", color='tab:blue')
+    ax.tick_params(axis='y', labelcolor='tab:blue')
+
+    # Secondary axis: Cost
+    ax2 = ax.twinx()
+    ax2.plot(times, cost, marker='x', linestyle='-', color='tab:red', label="Cost")
+    ax2.set_yscale('log')  # Log scale for cost
+    ax2.set_ylabel("Cost (log scale)", color='tab:red')
+    ax2.tick_params(axis='y', labelcolor='tab:red')
+
+    # Combine legends from both axes
+    lines, labels = ax.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax2.legend(lines + lines2, labels + labels2)
+
+    ax.grid(True)
+    plt.tight_layout()
+    plt.savefig(f"{optimiser}_{size}procs.png")

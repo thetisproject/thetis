@@ -20,6 +20,11 @@ parser.add_argument('--case', nargs='+',
                     choices=['Uniform', 'Regions', 'IndependentPointsScheme', 'GradientReg', 'HessianReg'],
                     default=['IndependentPointsScheme'],
                     )
+parser.add_argument('--optimiser', nargs='+',
+                    help='Optimiser to use for inversion problem',
+                    choices=['L-BFGS-B', 'ROL'],
+                    default=['ROL'],
+                    )
 args = parser.parse_args()
 station_names = sorted(args.station)
 
@@ -34,8 +39,9 @@ case_to_output_dir = {
 }
 
 selected_case = args.case[0]
+optimiser = args.optimiser[0]
 output_dir_forward = os.path.join('outputs', 'outputs_forward')
-output_dir_invert = os.path.join('outputs', 'outputs_inverse', case_to_output_dir[selected_case])
+output_dir_invert = os.path.join('outputs', 'outputs_inverse', optimiser, case_to_output_dir[selected_case])
 
 niter = 0
 nplots = len(station_names)

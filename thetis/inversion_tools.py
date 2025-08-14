@@ -16,6 +16,10 @@ import time as time_mod
 from pyadjoint.optimization.optimization import SciPyConvergenceError
 import os
 from mpi4py import MPI
+import psutil
+from petsc4py import PETSc
+import gc
+comm = MPI.COMM_WORLD
 
 
 class CostFunctionCallback(DiagnosticCallback):
@@ -203,6 +207,14 @@ class InversionManager(FrozenHasTraits):
         self.i = 0
         self.tic = None
         self.nb_grad_evals = 0
+        self.skip_first_cb = True
+
+        self.start_time = time_mod.time()
+        self.t = 0.
+        self.process = psutil.Process(os.getpid())
+        self.mem_mb = self.process.memory_info().rss / 1024 / 1024
+        self.total_mem = comm.allreduce(self.mem_mb, op=MPI.SUM)
+        self.iteration_data = [(numpy.nan, 0, self.total_mem, numpy.nan)]
 
     def initialize(self):
         if not self.no_exports:
@@ -339,9 +351,15 @@ class InversionManager(FrozenHasTraits):
             djdm = f"[{numpy.min(djdm):.4e} .. {numpy.max(djdm):.4e}]"
         else:
             djdm = "[" + ", ".join([f"{dj:.4e}" for dj in djdm]) + "]"
+        process = psutil.Process(os.getpid())
+        mem_mb = process.memory_info().rss / 1024 / 1024
+        total_mem = comm.allreduce(mem_mb, op=MPI.SUM)
+        self.t = time_mod.time() - self.start_time
+        self.iteration_data.append((self.i, self.t, total_mem, self.J / self.J_progress[0]))
         print_output(f'line search {self.i:2d}: '
                      f'J={self.J:.3e}, dJdm={djdm}, '
-                     f'grad_ev={self.nb_grad_evals}, duration {elapsed}')
+                     f'grad_ev={self.nb_grad_evals}, duration {elapsed}, '
+                     f'memory={total_mem:.2f} MB')
 
         if not self.no_exports:
             ref_index = 0
@@ -507,16 +525,49 @@ class InversionManager(FrozenHasTraits):
         self.set_initial_state(J, self.reduced_functional.derivative(apply_riesz=True), self.control_coeff_list)
         if not self.no_exports:
             self.sta_manager.dump_time_series()
-        try:
-            return minimize(
-                self.reduced_functional, method=opt_method, bounds=bounds,
-                callback=self.get_optimization_callback(), options=opt_options)
-        except SciPyConvergenceError as e:
-            if "TOTAL NO. OF ITERATIONS REACHED LIMIT" in str(e):
-                print_output("Optimization stopped: reached iteration limit.")
-                return self.control_coeff_list
-            else:
-                raise
+        method_lower = str(opt_method).lower()
+        if method_lower in {'l-bfgs-b', 'slsqp', 'tnc', 'cg', 'bfgs', 'neldermead', 'powell', 'newton-cg', 'anneal',
+                            'basinhopping', 'cobyla'}:
+            try:
+                return minimize(
+                    self.reduced_functional, method=opt_method, bounds=bounds,
+                    callback=self.get_optimization_callback(), options=opt_options)
+            except SciPyConvergenceError as e:
+                if "TOTAL NO. OF ITERATIONS REACHED LIMIT" in str(e):
+                    print_output("Optimization stopped: reached iteration limit.")
+                    return self.control_coeff_list
+                else:
+                    raise
+        elif method_lower == "rol":
+            # ROL interface
+            try:
+                from pyadjoint import ROLSolver
+            except Exception:
+                raise ImportError(
+                    "ROL is not available. Please install PyROL/ROL (pyroltrilinos) and ensure pyadjoint can "
+                    "import ROLSolver.")
+            lb, ub = bounds
+            bounds_rol = [(lb, ub)] * len(self.control_coeff_list)
+            opt_cb = self.get_optimization_callback()
+
+            def wrapped_eval_cb_post(func_value, controls):
+                if self.J_progress[-1] - self.J == 0:
+                    return
+                if self.nb_grad_evals > 0:
+                    coeffs = self.control_coeff_list
+                    opt_cb(coeffs)
+
+            self.reduced_functional.eval_cb_post = wrapped_eval_cb_post
+            problem = MinimizationProblem(self.reduced_functional, bounds=bounds_rol)
+            # inner_product options: "L2" or others supported by your controls
+            solver = ROLSolver(problem, parameters=opt_options, inner_product="L2")
+            result = solver.solve()
+            return result
+        else:
+            raise ValueError(f"Unsupported optimization method: '{opt_method}'.")
+
+    def iteration_data(self):
+        return self.iteration_data
 
     def consistency_test(self):
         """
