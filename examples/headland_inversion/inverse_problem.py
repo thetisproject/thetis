@@ -148,6 +148,18 @@ V = get_functionspace(mesh2d, 'CG', 1)
 if selected_case == 'Uniform':
     manning_2d.assign(domain_constant(0.02, mesh2d, name='Manning'))
 elif selected_case == 'Regions':
+    def smooth_mask(mask, V_cg, eps=1e-2, alpha=1.0):
+        """Return a smoothed version of a binary mask."""
+        v = TestFunction(V_cg)
+        m = TrialFunction(V_cg)
+        mask_smooth = Function(V_cg)
+
+        a = (alpha * dot(grad(m), grad(v)) + eps * m * v) * dx
+        L = (eps * mask * v) * dx
+
+        solve(a == L, mask_smooth)
+        return mask_smooth
+
     # Define our values for n
     mask_values = np.array([
         ((x < lx / 2) & (y < ly / 6)),
@@ -166,6 +178,7 @@ elif selected_case == 'Regions':
     masks = [Function(V) for _ in range(len(mask_values))]
     for mask, values in zip(masks, mask_values):
         mask.dat.data[:] = values
+    masks = [smooth_mask(mask, V, eps=1e-2, alpha=1000.0) for mask in masks]
 
     M = len(m_true)
 
