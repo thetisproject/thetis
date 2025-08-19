@@ -55,10 +55,10 @@ Check the [website](https://thetisproject.org/contact.html) for ways of reaching
 
 If Thetis is helpful in your research, please cite:
 
-> Kärnä, T., Kramer, S. C., Mitchell, L., Ham, D. A., & Piggott, M. D. (2018).  
+> Kärnä, T., Kramer, S. C., Mitchell, L., Ham, D. A., Piggott, M. D. & Baptista, A. M. (2018).  
 > *Thetis coastal ocean model: discontinuous Galerkin discretization for the three-dimensional hydrostatic equations.*  
-> Geoscientific Model Development, 11(11), 4359–4382.  
-> [DOI](https://doi.org/10.5194/gmd-11-4359-2018)
+> Geoscientific Model Development, 11: 4359–4382.  
+> doi: [10.5194/gmd-11-4359-2018](https://doi.org/10.5194/gmd-11-4359-2018)
 
 ---
 
