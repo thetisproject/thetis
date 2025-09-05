@@ -9,7 +9,9 @@ Two callbacks are used - one for the overall farm and one for discrete turbines.
 from thetis import *
 from firedrake.output.vtk_output import VTKFile
 from turbine_callback import TidalPowerCallback
+import os
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Set output directory, load mesh, set simulation export and end times
 outputdir = 'outputs'
@@ -80,7 +82,7 @@ farm_options_AR2000.turbine_coordinates = [[Constant(x), Constant(y)]
                                            for y in numpy.arange(260, 341, 40)]
 
 # we can tidy up data loading by using YAML or JSON files
-farm_options_AR1500 = turbine_loader.load_turbine("turbine_files/AR1500.yaml", mesh2d)
+farm_options_AR1500 = turbine_loader.load_turbine(os.path.join(script_dir, "turbine_files", "AR1500.yaml"), mesh2d)
 farm_options_AR1500.turbine_coordinates = [[Constant(940), Constant(y)] for y in numpy.arange(260, 341, 40)]
 
 

@@ -6,6 +6,8 @@ from firedrake.adjoint import *
 from pyadjoint import minimize
 import numpy as np
 import random
+import os
+script_dir = os.path.dirname(os.path.abspath(__file__))
 op2.init(log_level=INFO)
 
 output_dir = 'outputs_optimisation'
@@ -66,7 +68,7 @@ solver_obj.bnd_functions['shallow_water'] = {
 }
 
 # initialise discrete turbine farm characteristics using YAML file
-farm_options = turbine_loader.load_turbine("turbine_files/AR2000.yaml", mesh2d)
+farm_options = turbine_loader.load_turbine(os.path.join(script_dir, "turbine_files", "AR2000.yaml"), mesh2d)
 farm_options.upwind_correction = False  # higher SNES tolerance required when using upwind correction
 
 site_x = 320.
