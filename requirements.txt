@@ -1,6 +1,4 @@
 scipy
-yaml
-json
 netCDF4
 pyproj
 uptide
