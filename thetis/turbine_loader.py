@@ -1,6 +1,6 @@
 """
-I/O utilities for loading turbine and farm configurations from YAML/JSON
-into Thetis DiscreteTidalTurbineFarmOptions objects.
+I/O utilities for loading turbine configurations from YAML/JSON
+into DiscreteTidalTurbineFarmOptions objects.
 """
 from firedrake import *
 from .options import DiscreteTidalTurbineFarmOptions
