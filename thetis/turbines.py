@@ -44,8 +44,6 @@ class TidalTurbine:
         return thrust_area/2./alpha**2
 
     def rotor_averaged_velocity(self, uv, depth, hub_height=None):
-        self._check_depth(depth, context="rotor_averaged_velocity")
-
         if not getattr(self, "apply_shear_profile", False):
             return uv
 
