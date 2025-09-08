@@ -469,6 +469,11 @@ class TidalTurbineOptions(FrozenHasTraits):
         0., help='Thrust coefficient for support structure').tag(config=True)
     A_support = NonNegativeFloat(
         0., help='Cross section of support structure').tag(config=True)
+    apply_shear_profile = Bool(False, help="Apply vertical shear to depth-averaged velocity").tag(config=True)
+    shear_alpha = Float(1.0, help="Exponent in generic shear profile").tag(config=True)
+    shear_beta = Float(0.0, help="Offset in shear profile").tag(config=True)
+    hub_height = PositiveFloat(None, allow_none=True,
+                               help="Hub height above seabed (defaults to fraction of depth)").tag(config=True)
 
 
 class ConstantTidalTurbineOptions(TidalTurbineOptions):

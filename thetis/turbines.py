@@ -18,6 +18,10 @@ class TidalTurbine:
         self.C_support = options.C_support
         self.A_support = options.A_support
         self.upwind_correction = upwind_correction
+        self.apply_shear_profile = options.apply_shear_profile
+        self.shear_alpha = options.shear_alpha
+        self.shear_beta = options.shear_beta
+        self.hub_height = options.hub_height
 
     def _thrust_area(self, uv):
         C_T = self.thrust_coefficient(uv)
@@ -39,11 +43,32 @@ class TidalTurbine:
         alpha = self.velocity_correction(uv, depth)
         return thrust_area/2./alpha**2
 
+    def rotor_averaged_velocity(self, uv, depth, hub_height=None):
+        self._check_depth(depth, context="rotor_averaged_velocity")
+
+        if not getattr(self, "apply_shear_profile", False):
+            return uv
+
+        hub = hub_height or 0.67 * depth
+
+        N = 10  # sample the rotor at N points vertically, hardcoded weightings
+        z_vals = numpy.linspace(hub - depth / 2, hub + depth / 2, N)
+
+        alpha = getattr(self, "shear_alpha", 7.0)
+        beta = getattr(self, "shear_beta", 0.4)
+
+        # power-law shear profile
+        u_samples = dot(uv, uv)**0.5 * (z_vals / (beta * depth)) ** (1 / alpha)
+        weightings = np.array([0.052, 0.0903, 0.1099, 0.1212, 0.1266, 0.1266, 0.1212, 0.1099, 0.0903, 0.052])
+        rotor_avg = sum(u_samples * weightings)
+        return rotor_avg
+
     def power(self, uv, depth):
         # ratio of discrete to upstream velocity (NOTE: should include support drag!)
         alpha = self.velocity_correction(uv, depth)
         A_T = pi * self.diameter**2 / 4  # power is based on true turbine diameter
-        uv3 = dot(uv, uv)**1.5 / alpha**3  # upwind cubed velocity
+        uv_eff = self.rotor_averaged_velocity(uv, depth, getattr(self, "hub_height", None))
+        uv3 = dot(uv_eff, uv_eff)**1.5 / alpha**3  # upwind cubed velocity
         C_P = self.power_coefficient(uv3**(1/3))
         # this assumes the velocity through the turbine does not change due to the support (is this correct?)
         return 0.5*physical_constants['rho0']*A_T*C_P*uv3  # units: W
@@ -149,11 +174,8 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
 
     def add_turbines(self, coordinates):
         """
-        :param coords: Array with turbine coordinates to be positioned
-        :param function: turbine density function to be adapted
-        :param mesh: computational mesh domain
-        :param radius: radius where the bump will be applied
-        :return: updated turbine density field
+        :param coordinates: Array with turbine coordinates to be positioned
+        :return: updated turbine density field (in place)
         """
         x = SpatialCoordinate(self.mesh)
 

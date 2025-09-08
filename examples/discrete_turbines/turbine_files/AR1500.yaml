@@ -1,6 +1,9 @@
 name: AR1500
 turbine_thrust_def: table  # or "constant"
 diameter: 18.0
+hub_height: 14.0
+bottom_clearance: 3.5
+top_clearance: 8.0
 upwind_correction: true
 
 support_structure:
