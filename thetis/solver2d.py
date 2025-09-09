@@ -897,18 +897,18 @@ class FlowSolver2d(FrozenClass):
         if t is None:
             # prefer metadata time if available
             t = metadata.get('time', iteration * self.dt)
+            if 'initial_time_iso' in metadata and metadata['initial_time_iso'] is not None:
+                initial_time = metadata['initial_time_iso']
+                if isinstance(initial_time, str):
+                    self.options.simulation_initial_date = datetime.datetime.fromisoformat(initial_time)
+                else:
+                    self.options.simulation_initial_date = initial_time
+        else:
+            # user override: keep the simulation start date and time they provided
+            self.options.simulation_initial_date = self.options.simulation_initial_date
 
         self.iteration = iteration
         self.simulation_time = t
-
-        # if initial_time stored in file, update options
-        if 'initial_time_iso' in metadata and metadata['initial_time_iso'] is not None:
-            initial_time = metadata['initial_time_iso']
-            if isinstance(initial_time, str):
-                self.options.simulation_initial_date = datetime.datetime.fromisoformat(initial_time)
-            else:
-                # already a datetime object
-                self.options.simulation_initial_date = initial_time
 
         # for next export
         self.export_initial_state = outputdir != self.options.output_directory
