@@ -5,6 +5,7 @@ from .utility import *
 from firedrake.output.vtk_output import is_cg, VTKFile
 from collections import OrderedDict
 import itertools
+import datetime
 
 
 def is_2d(fs):
@@ -176,13 +177,24 @@ class HDF5Exporter(ExporterBase):
             with CheckpointFile(filename, 'w') as f:
                 mesh = function.function_space().mesh()
                 f.save_mesh(mesh)
-                f.save_function(function)
+
+                # include timestepping info if requested
+                ts_info = {}
                 if self.include_time:
                     if time is None:
                         raise ValueError("time must be provided when include_time=True")
-                    f.file.attrs['time'] = time
+                    ts_info['time'] = float(time)
                     if self.initial_time is not None:
-                        f.file.attrs['initial_time'] = self.initial_time
+                        f.set_attr(
+                            "/",
+                            "initial_time_iso",
+                            self.initial_time.isoformat()
+                        )
+
+                # store function with timestepping info
+                idx = 0 if ts_info else None
+                f.save_function(function, idx=float(idx), timestepping_info=ts_info)
+
         self.next_export_ix = iexport + 1
 
     @PETSc.Log.EventDecorator("thetis.HDF5Exporter.export")
@@ -221,11 +233,17 @@ class HDF5Exporter(ExporterBase):
                     raise IOError('When loading fields from hdf5 checkpoint files, you should also read the mesh from checkpoint. See the documentation for `read_mesh_from_checkpoint()`')
                 g = f.load_function(mesh, function.name())
                 function.assign(g)
-                # Try to recover metadata
-                if 'time' in f.file.attrs:
-                    metadata['time'] = float(f.file.attrs['time'])
-                if 'initial_time' in f.file.attrs:
-                    metadata['initial_time'] = f.file.attrs['initial_time']
+
+                # Recover timestepping info (numeric float time)
+                ts_history = f.get_timestepping_history(mesh, function.name())
+                metadata['time'] = ts_history.get('time', [None])[0]
+
+                try:
+                    initial_time_iso = f.get_attr("/", "initial_time_iso")
+                    metadata['initial_time'] = datetime.datetime.fromisoformat(initial_time_iso)
+                except (KeyError, AttributeError):
+                    metadata['initial_time'] = None
+
         return metadata
 
 
