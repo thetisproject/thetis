@@ -724,7 +724,9 @@ class FlowSolver2d(FrozenClass):
                                        field_metadata,
                                        export_type='hdf5',
                                        verbose=self.options.verbose > 0,
-                                       preproc_funcs=self._field_preproc_funcs)
+                                       preproc_funcs=self._field_preproc_funcs,
+                                       include_time=True,
+                                       initial_time=getattr(self.options, 'simulation_initial_date', None))
             self.exporters['hdf5'] = e
 
     def initialize(self):
@@ -865,9 +867,16 @@ class FlowSolver2d(FrozenClass):
                                    export_type='hdf5',
                                    legacy_mode=legacy_mode,
                                    verbose=self.options.verbose > 0)
-        e.exporters['uv_2d'].load(i_stored, self.fields.uv_2d)
-        e.exporters['elev_2d'].load(i_stored, self.fields.elev_2d)
+
+        # Load both fields and collect metadata
+        meta_uv = e.exporters['uv_2d'].load(i_stored, self.fields.uv_2d)
+        meta_elev = e.exporters['elev_2d'].load(i_stored, self.fields.elev_2d)
         self.assign_initial_conditions()
+
+        # choose metadata from one file (they should agree)
+        metadata = {}
+        metadata.update(meta_uv)
+        metadata.update(meta_elev)
 
         # time stepper bookkeeping for export time step
         if i_export is None:
@@ -877,9 +886,15 @@ class FlowSolver2d(FrozenClass):
         if iteration is None:
             iteration = int(numpy.ceil(self.next_export_t/self.dt))
         if t is None:
-            t = iteration*self.dt
+            # prefer metadata time if available
+            t = metadata.get('time', iteration * self.dt)
+
         self.iteration = iteration
         self.simulation_time = t
+
+        # if initial_time stored in file, update options
+        if 'initial_time' in metadata:
+            self.options.simulation_initial_date = metadata['initial_time']
 
         # for next export
         self.export_initial_state = outputdir != self.options.output_directory

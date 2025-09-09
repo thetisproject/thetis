@@ -8,8 +8,8 @@ import itertools
 
 
 def is_2d(fs):
-    """Tests wether a function space is 2D or 3D"""
-    return fs.mesh().geometric_dimension == 2
+    """Tests whether a function space is 2D or 3D"""
+    return fs.mesh().geometric_dimension() == 2
 
 
 @PETSc.Log.EventDecorator("thetis.get_visu_space")
@@ -125,7 +125,8 @@ class HDF5Exporter(ExporterBase):
     """
     @PETSc.Log.EventDecorator("thetis.HDF5Exporter.__init__")
     def __init__(self, function_space, outputdir, filename_prefix,
-                 next_export_ix=0, legacy_mode=False, verbose=False):
+                 next_export_ix=0, legacy_mode=False, verbose=False,
+                 include_time=False, initial_time=None):
         """
         Create exporter object for given function.
 
@@ -142,6 +143,8 @@ class HDF5Exporter(ExporterBase):
                                            next_export_ix, verbose)
         self.function_space = function_space
         self.dumb_checkpoint = legacy_mode
+        self.include_time = include_time
+        self.initial_time = initial_time
 
     def gen_filename(self, iexport):
         """
@@ -154,7 +157,7 @@ class HDF5Exporter(ExporterBase):
             filename += '.h5'
         return os.path.join(self.outputdir, filename)
 
-    def export_as_index(self, iexport, function):
+    def export_as_index(self, iexport, function, time=None):
         """
         Export function to disk using the specified export index number
 
@@ -174,10 +177,16 @@ class HDF5Exporter(ExporterBase):
                 mesh = function.function_space().mesh()
                 f.save_mesh(mesh)
                 f.save_function(function)
+                if self.include_time:
+                    if time is None:
+                        raise ValueError("time must be provided when include_time=True")
+                    f.file.attrs['time'] = time
+                    if self.initial_time is not None:
+                        f.file.attrs['initial_time'] = self.initial_time
         self.next_export_ix = iexport + 1
 
     @PETSc.Log.EventDecorator("thetis.HDF5Exporter.export")
-    def export(self, function):
+    def export(self, function, time=None):
         """
         Export function to disk.
 
@@ -185,12 +194,13 @@ class HDF5Exporter(ExporterBase):
 
         :arg function: :class:`Function` to export
         """
-        self.export_as_index(self.next_export_ix, function)
+        self.export_as_index(self.next_export_ix, function, time=time)
 
     @PETSc.Log.EventDecorator("thetis.HDF5Exporter.load")
     def load(self, iexport, function):
         """
-        Loads nodal values from disk and assigns to the given function
+        Loads nodal values from disk and assigns to the given function.
+        Returns a dict of metadata (time, initial_time) if available.
 
         :arg int iexport: export index >= 0
         :arg function: target :class:`Function`
@@ -200,6 +210,7 @@ class HDF5Exporter(ExporterBase):
         filename = self.gen_filename(iexport)
         if self.verbose:
             print_output('loading {:} state from {:}'.format(function.name(), filename))
+        metadata = {}
         if self.dumb_checkpoint:
             with DumbCheckpoint(filename, mode=FILE_READ, comm=function.comm) as f:
                 f.load(function)
@@ -210,6 +221,12 @@ class HDF5Exporter(ExporterBase):
                     raise IOError('When loading fields from hdf5 checkpoint files, you should also read the mesh from checkpoint. See the documentation for `read_mesh_from_checkpoint()`')
                 g = f.load_function(mesh, function.name())
                 function.assign(g)
+                # Try to recover metadata
+                if 'time' in f.file.attrs:
+                    metadata['time'] = float(f.file.attrs['time'])
+                if 'initial_time' in f.file.attrs:
+                    metadata['initial_time'] = f.file.attrs['initial_time']
+        return metadata
 
 
 class ExportManager(object):
@@ -228,10 +245,12 @@ class ExportManager(object):
         e.export()
 
     """
+
     def __init__(self, outputdir, fields_to_export, functions, field_metadata,
                  export_type='vtk', next_export_ix=0, verbose=False,
                  legacy_mode=False,
-                 preproc_funcs={}):
+                 preproc_funcs={},
+                 include_time=False, initial_time=None):
         """
         :arg string outputdir: directory where files are stored
         :arg fields_to_export: list of fields to export
@@ -252,6 +271,8 @@ class ExportManager(object):
         self.field_metadata = field_metadata
         self.verbose = verbose
         self.preproc_callbacks = preproc_funcs
+        self.include_time = include_time
+        self.initial_time = initial_time
         # for each field create an exporter
         self.exporters = OrderedDict()
         for key in fields_to_export:
@@ -280,7 +301,7 @@ class ExportManager(object):
         :kwarg string shortname: override shortname defined in field_metadata
         :kwarg string filename: override filename defined in field_metadata
         :kwarg bool legacy_mode: use legacy `DumbCheckpoint` hdf5 format
-        :kwarg preproc_func: optional funtion that will be called prior to
+        :kwarg preproc_func: optional function that will be called prior to
             exporting. E.g. for computing diagnostic fields.
         """
         if outputdir is None:
@@ -307,14 +328,16 @@ class ExportManager(object):
                 self.exporters[fieldname] = HDF5Exporter(native_space,
                                                          outputdir, filename,
                                                          legacy_mode=legacy_mode,
-                                                         next_export_ix=next_export_ix)
+                                                         next_export_ix=next_export_ix,
+                                                         include_time=self.include_time,
+                                                         initial_time=self.initial_time)
 
     def set_next_export_ix(self, next_export_ix):
         """Set export index to all child exporters"""
         for k in self.exporters:
             self.exporters[k].set_next_export_ix(next_export_ix)
 
-    def export(self):
+    def export(self, time=None):
         """
         Export all designated functions to disk
 
@@ -330,7 +353,10 @@ class ExportManager(object):
                     sys.stdout.flush()
                 if key in self.preproc_callbacks:
                     self.preproc_callbacks[key]()
-                self.exporters[key].export(field)
+                if isinstance(self.exporters[key], HDF5Exporter):
+                    self.exporters[key].export(field, time=time)
+                else:
+                    self.exporters[key].export(field)
         if self.verbose and COMM_WORLD.rank == 0:
             sys.stdout.write('\n')
             sys.stdout.flush()
