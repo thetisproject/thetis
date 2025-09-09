@@ -233,7 +233,7 @@ class HDF5Exporter(ExporterBase):
                     raise IOError('When loading fields from hdf5 checkpoint files, you should also read the mesh from checkpoint. See the documentation for `read_mesh_from_checkpoint()`')
                 try:
                     g = f.load_function(mesh, function.name(), idx=0)
-                except:
+                except AssertionError:
                     g = f.load_function(mesh, function.name())
                 function.assign(g)
 
