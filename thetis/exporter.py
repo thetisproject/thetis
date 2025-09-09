@@ -6,6 +6,16 @@ from firedrake.output.vtk_output import is_cg, VTKFile
 from collections import OrderedDict
 import itertools
 import datetime
+import h5py
+
+
+def has_timestepping(filename):
+    with h5py.File(filename, "r") as h5f:
+        def visitor(name, obj):
+            if isinstance(obj, h5py.Dataset) and "timestepping" in obj.attrs:
+                return True
+        found = h5f.visititems(visitor)
+        return bool(found)
 
 
 def is_2d(fs):
@@ -231,9 +241,10 @@ class HDF5Exporter(ExporterBase):
                 mesh = function.function_space().mesh()
                 if not hasattr(mesh, 'sfXC'):
                     raise IOError('When loading fields from hdf5 checkpoint files, you should also read the mesh from checkpoint. See the documentation for `read_mesh_from_checkpoint()`')
-                try:
+                if has_timestepping(filename):
+                    # this will always be idx = 0 because we output single files per run
                     g = f.load_function(mesh, function.name(), idx=0)
-                except AssertionError:
+                else:
                     g = f.load_function(mesh, function.name())
                 function.assign(g)
 
