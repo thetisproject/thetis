@@ -243,9 +243,9 @@ class HDF5Exporter(ExporterBase):
 
                 try:
                     initial_time_iso = f.get_attr("/", "initial_time_iso")
-                    metadata['initial_time'] = datetime.datetime.fromisoformat(initial_time_iso)
+                    metadata['initial_time_iso'] = datetime.datetime.fromisoformat(initial_time_iso)
                 except (KeyError, AttributeError):
-                    metadata['initial_time'] = None
+                    metadata['initial_time_iso'] = None
 
         return metadata
 
