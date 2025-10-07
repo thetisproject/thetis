@@ -18,7 +18,7 @@ jobs:
     runs-on: [self-hosted, Linux]
     # The docker container to use.
     container:
-      image: firedrakeproject/firedrake-vanilla-default:latest
+      image: firedrakeproject/firedrake-vanilla-default:dev-release
     env:
       # Make sure that tests with >2 processes are not silently skipped
       PYTEST_MPI_MAX_NPROCS: 2
