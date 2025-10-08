@@ -918,7 +918,7 @@ def select_and_move_detectors(mesh, detector_locations, detector_names=None,
     for location, name in zip(detector_locations, names):
         try:
             v(location)
-        except PointNotInDomainError:
+        except VertexOnlyMeshMissingPointsError:
             moved_dist, location = move_to_nearest_cell_center(location)
             if moved_dist > maximum_distance:
                 continue
