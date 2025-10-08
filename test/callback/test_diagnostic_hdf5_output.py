@@ -88,9 +88,8 @@ def test_callbacks(tmp_outputdir):
 
         def __call__(self):
             value = self.const_val
-            c = Constant(self.const_val,
-                         domain=solver_obj.mesh)
-            integral = assemble(c*dx)
+            c = Constant(self.const_val)
+            integral = assemble(c*dx(domain=solver_obj.mesh))
             return value, integral
 
         def message_str(self, *args):
