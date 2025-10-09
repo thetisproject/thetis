@@ -114,7 +114,7 @@ class VTKExporter(ExporterBase):
                 self.cast_operators[function] = op
             op.project()
         else:
-            interpolate(function, tmp_proj_func.function_space())
+            tmp_proj_func.interpolate(function)
         # ensure correct output function name
         old_name = tmp_proj_func.name()
         tmp_proj_func.rename(name=self.func_name)
