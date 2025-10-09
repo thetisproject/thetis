@@ -334,7 +334,7 @@ class InversionManager(FrozenHasTraits):
         self.reset_counters()
         self.start_clock()
         J = float(self.reduced_functional(self.control_coeff_list))
-        self.set_initial_state(J, self.reduced_functional.derivative(), self.control_coeff_list)
+        self.set_initial_state(J, self.reduced_functional.derivative(apply_riesz=True), self.control_coeff_list)
         if not self.no_exports:
             self.sta_manager.dump_time_series()
         return minimize(
