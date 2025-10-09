@@ -4,6 +4,7 @@ Basic example of discrete turbine optimisation in a channel
 from thetis import *
 from firedrake.adjoint import *
 from pyadjoint import minimize
+from pyadjoint.optimization.optimization import SciPyConvergenceError
 import numpy as np
 import random
 op2.init(log_level=INFO)
@@ -234,5 +235,14 @@ if optimise:
     # box constraints, but use SLSQP which also handles more general constraints
     # see https://docs.scipy.org/doc/scipy/reference/optimize.minimize-slsqp.html
     # for further options
-    td_opt = minimize(rf, method='SLSQP', constraints=mdc, bounds=[lb, ub],
-                      options={'maxiter': 75, 'ftol': 1e-06})
+    try:
+        td_opt = minimize(rf, method='SLSQP', constraints=mdc, bounds=[lb, ub],
+                          options={'maxiter': 75, 'ftol': 1e-06})
+    except SciPyConvergenceError as e:
+        msg = str(e).lower()
+        if "iteration limit" in msg:
+            print_output("Optimization stopped: reached iteration limit.")
+            td_opt = None  # or some last-known state if you want
+        else:
+            raise
+
