@@ -245,4 +245,3 @@ if optimise:
             td_opt = None  # or some last-known state if you want
         else:
             raise
-
