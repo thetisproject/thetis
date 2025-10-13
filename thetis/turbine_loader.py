@@ -35,5 +35,5 @@ def load_turbine(path, mesh2d, include_support=True):
     opts.upwind_correction = data.get("upwind_correction", True)
 
     opts.turbine_density = Function(FunctionSpace(mesh2d, "CG", 1),
-                                    name=f"turbine_density_{data['name']}").assign(0.0)
+                                    name=f"turbine_density_{data['name']}")
     return opts
