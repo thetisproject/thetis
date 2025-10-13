@@ -13,6 +13,7 @@ import numpy
 import h5py
 from scipy.interpolate import interp1d
 import time as time_mod
+from pyadjoint.optimization.optimization import SciPyConvergenceError
 import os
 from mpi4py import MPI
 
@@ -479,12 +480,19 @@ class InversionManager(FrozenHasTraits):
         self.reset_counters()
         self.start_clock()
         J = float(self.reduced_functional(self.control_coeff_list))
-        self.set_initial_state(J, self.reduced_functional.derivative(), self.control_coeff_list)
+        self.set_initial_state(J, self.reduced_functional.derivative(apply_riesz=True), self.control_coeff_list)
         if not self.no_exports:
             self.sta_manager.dump_time_series()
-        return minimize(
-            self.reduced_functional, method=opt_method, bounds=bounds,
-            callback=self.get_optimization_callback(), options=opt_options)
+        try:
+            return minimize(
+                self.reduced_functional, method=opt_method, bounds=bounds,
+                callback=self.get_optimization_callback(), options=opt_options)
+        except SciPyConvergenceError as e:
+            if "TOTAL NO. OF ITERATIONS REACHED LIMIT" in str(e):
+                print_output("Optimization stopped: reached iteration limit.")
+                return self.control_coeff_list
+            else:
+                raise
 
     def consistency_test(self):
         """
