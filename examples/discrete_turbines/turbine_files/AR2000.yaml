@@ -1,5 +1,5 @@
 name: AR2000
-turbine_thrust_def: table
+turbine_thrust_def: table  # or "constant"
 diameter: 20.0
 upwind_correction: true
 
