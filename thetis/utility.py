@@ -248,7 +248,7 @@ def element_continuity(ufl_element):
         horiz_type = 'hdiv'
         vert_type = 'hdiv'
     elif isinstance(base_element, firedrake.TensorProductElement):
-        a, b = base_element.sub_elements
+        a, b = base_element.factor_elements
         horiz_type = elem_types[a.family()]
         vert_type = elem_types[b.family()]
     else:
@@ -335,7 +335,7 @@ def get_facet_mask(function_space, facet='bottom'):
     assert isinstance(elem, TensorProductElement), \
         f'function space must be defined on an extruded 3D mesh: {elem}'
     # figure out number of nodes in sub elements
-    h_elt, v_elt = elem.sub_elements
+    h_elt, v_elt = elem.factor_elements
     nb_nodes_h = create_finat_element(h_elt).space_dimension()
     nb_nodes_v = create_finat_element(v_elt).space_dimension()
     # compute top/bottom facet indices
@@ -918,7 +918,7 @@ def select_and_move_detectors(mesh, detector_locations, detector_names=None,
     for location, name in zip(detector_locations, names):
         try:
             v(location)
-        except PointNotInDomainError:
+        except VertexOnlyMeshMissingPointsError:
             moved_dist, location = move_to_nearest_cell_center(location)
             if moved_dist > maximum_distance:
                 continue

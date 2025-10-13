@@ -310,7 +310,7 @@ class DerivativeConstantControlOptimisationCallback(DiagnosticOptimisationCallba
         derivatives = args[1]
         if self.array_dim != len(derivatives):
             raise ValueError("Need array_dim argument in ConstantControlOptimisationCallback set to the number of controls")
-        return [[float(d) for d in derivatives]]
+        return [[float(d.dat.data[0]) for d in derivatives]]
 
     def message_str(self, *derivatives):
         return 'Derivatives: {}'.format(derivatives)
