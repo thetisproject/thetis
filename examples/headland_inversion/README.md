@@ -13,7 +13,7 @@ take various 'mappings', which are covered case-by-case in the Inversion run sec
 node on the mesh, within the prescribed lower and upper limits. Gradient or Hessian regularisation (of the control 
 field) can be used to ensure node-to-node changes are not too severe. See [Kärnä et al., 2023](https://doi.org/10.1029/2022MS003169) for detailed 
 explanations.
-- Uniform bed friction: the `Control` is one `Constant` value, which keeps the bed friction uniform across the domain.
+- Uniform bed friction: the `Control` is one uniform value, which keeps the bed friction uniform across the domain.
 - Region-based friction: the `Control` is a set of values, corresponding to certain regions of the model. These regions 
 may be a simple split between areas of the domain or may be based on seabed particle data - see 
 [Warder et al., 2022](http://dx.doi.org/https://doi.org/10.1007/s10236-022-01507-x), for example.
@@ -38,14 +38,13 @@ is used at the left hand boundary to provide some model stability.
 ## Inversion run
 
 The inversion problem is currently run from a `Makefile`. User arguments are specified here i.e. mapping to use, number
-of cores, and then the Makefile runs the scripts with the inputs provided.
+of threads, and then the Makefile runs the scripts with the inputs provided.
 
 The solver object is set up using `construct_solver` and then initial values for each field (in this case we only 
-optimise for bed friction) are specified. The station manager, `StationObservationManager` , is then instantiated, which 
-contains the field we are optimising for and the data itself. As we are optimising for the velocity, we cannot use the
-`load_scalar_observation_data` that is used in the channel inversion example. Instead, we must register this data 
-ourselves with `register_observation_data`. The `StationObservationManager` can interpolate the observation time series 
-to the model time and also stores the time series data on disk. 
+optimise for bed friction) are specified. The station manager, `StationObservationManager`, is then instantiated, which 
+contains the field we are optimising for and the data itself. We register the synthetic ground truth data with 
+`register_observation_data`. The `StationObservationManager` can interpolate the observation time series to the model 
+time and also stores the time series data on disk. 
 
 We can then set up the inversion manager, `InversionManager`, again from the inversion tools of Thetis. The station 
 manager is the first argument and the two key other arguments are the penalty parameters and cost scaling. We will use
@@ -83,7 +82,7 @@ In these cases, the friction values can vary freely within the lower and upper l
 However, the cost function is regularised by an additional term, in this case, the Hessian (second derivative) of the 
 Manning coefficient field. This prevents overfitting of the Manning field i.e. having a highly variable field.
 The penalty parameters are the regularisation parameters that control the strength of the regularisation. Higher values 
-increase the  weight of the penalty term, leading to a smoother friction field, while lower values allow more 
+increase the weight of the penalty term, leading to a smoother friction field, while lower values allow more 
 variability. The cost scaling normalises the regularisation term by the local mesh element size, so that the degree of 
 penalization adapts to the local mesh resolution. In regions with finer mesh resolution, the scaling ensures that higher
 variability in friction is allowed, whilst in regions of lower resolution less variability is allowed to prevent 
@@ -104,13 +103,15 @@ below.
 
 Firstly, we do not need penalty parameters in the inversion problem as we will not have any variation across the field
 and thus there is no smoothing required. Now, instead of adding the Manning field as a `Control`, we will define the 
-friction through a `Constant`, and then project this `Constant` onto the Manning field. This `Constant` then becomes our
-`Control`, and as it is a `Constant`, it cannot vary. This is inherently dealt with by `Firedrake` and `pyadjoint`. 
+friction through a uniform value which is projected onto the Manning field. This uniform value then becomes our
+`Control`, and as it is defined as a uniform value, it cannot vary. This is inherently dealt with by `Firedrake` and 
+`pyadjoint`. 
 
 We need to export the Manning at each iteration, so we need to extract the mesh from the `StationObservationManager`, 
 extract the function space and create a `Function` to assign the `Control` value to. This can then be exported to `.vtu` 
-at each iteration. This is done with the `ControlManager`, which deals with determining if our Controls are a single 
-function, a Constant or a set of values (i.e. for the next set of cases) and then dealing with the exporting.
+at each iteration. This is done with the `ControlManager`, which deals with determining if our Control is a function 
+that can spatially vary, a uniform value or a set of values (i.e. for the next set of cases) and then deals with the 
+exporting.
 
 ### Region Based Bed Friction
 
@@ -120,45 +121,14 @@ make invert CASE=Regions
 ```
 
 For region-based bed friction, we need to create a mapping that relates the Manning values to the regions of the mesh. 
-We use a `Constant` for each area, and each `Constant` is one `Control`. The adjoint works on graphical connections, so 
-we need to ensure that the adjoint process can back-propagate through the various layers to our `Controls`. This is why
-we need to store our values as `Functions` on our `mesh` `FunctionSpace`.  We can simply pass our list of Controls and 
-the `ControlManager` will deal with them. In this case, we need to pass an additional term `mappings=masks` when we use 
-`add_control` so the `ControlManager` can export our Manning coefficient field correctly.
-
-We can define four regions, for example, in the following manner:
-
-```
-mask_values = [np.logical_and(x < 50e3, y < 6e3).astype(float),
-               np.logical_and(x < 50e3, y >= 6e3).astype(float),
-               np.logical_and(x >= 50e3, y < 6e3).astype(float),
-               np.logical_and(x >= 50e3, y >= 6e3).astype(float)]
-               
-# Create Function objects to store the coefficients
-m_true = [Constant(i+1., domain=mesh2d) for i in range(len(mask_values))]
-masks = [Function(V) for _ in range(len(m_true))]
-
-# Assign the mask values to the Functions
-for i, mask_ in enumerate(masks):
-    mask_.dat.data[:] = mask_values[i]
-```
+We can simply pass our list of Controls; which are uniform values per region; and the `ControlManager` will deal with 
+them. In this case, we need to pass an additional term `mappings=masks` when we use `add_control` so the 
+`ControlManager` can export our Manning coefficient field correctly.
 
 Importantly, the masks i.e. our regions, will remain consistent. The only thing that will change will be the values 
 associated with each mask. This means we can define each mask by assigning its values from `NumPy` operators using 
 `mask.dat.data[:] = mask_values[i]`. In the case of bed particle size mapping, this is important, because it would be 
-challenging to have to define a series of `conditional` or other operators to define each area. Note that if we 
-included this assignment of the masks at each iteration of the adjoint, it would not work as there is no graphical 
-connection when we do assignments with `function.dat.data[:] = values`. We can then map our values as follows:
-
-```
-manning_2d.assign(0)
-# Add the weighted masks to n
-for m_, mask_ in zip(m_true, masks):
-    manning_2d += m_ * mask_
-```
-
-We then iterate through each mask (region) and then add the corresponding value of Manning (n) friction. We now have a 
-mapping that `PyAdjoint` can understand.
+challenging to have to define a series of `conditional` or other operators to define each area. N
 
 As for the `InversionManager`, we can then provide this mapping through an `update_n` function which allows us to export
 the `Control` and `Gradient` fields correctly, rather than having `m` outputs for `m` controls. We can then run the 
@@ -172,46 +142,13 @@ make invert CASE=IndependentPointsScheme
 ```
 
 The independent point scheme approach works in the same way as the region-based approach, where we have a mapping 
-function which tells us how the Manning field changes with respect to our input independent point values. We can use the
-same `InversionManager` updates, and the only thing we need to do is change the masks we generate. For a linear 
-interpolation of the points, this mapping is generated as follows:
+function which tells us how the Manning field changes with respect to our input independent point values. The only thing 
+we need to do is change the masks we generate. 
 
-```
-# Get domain limits, define independent points and specify their values
-lx, ly = np.max(x), np.max(y)  # done differently in parallel
-points = [(lx/4, ly/4), (lx/4, 3*ly/4), (lx/2, ly/4), (lx/2, 3*ly/4),
-          (3*lx/4, ly/4), (3*lx/4, 3*ly/4)]
-m_true = [Constant(0.01*(i+1), domain=mesh2d) for i in range(len(points))]
-M = len(m_true)
-
-# Use Python's numpy to create arrays for the interpolation points
-interp_x = np.array([p[0] for p in points])
-interp_y = np.array([p[1] for p in points])
-points = np.column_stack((interp_x, interp_y))
-
-# Create the interpolators, use nearest neighbour interpolation outside the convex 
-# hull of the linear interpolator
-linear_interpolator = LinearNDInterpolator(points, np.eye(len(points)))
-nearest_interpolator = NearestNDInterpolator(points, np.eye(len(points)))
-
-# Apply the interpolators to the mesh coordinates to get linear coefficients 
-# (these do not depend on the magnitude of the points)
-linear_coefficients = linear_interpolator(coordinates)
-nan_mask = np.isnan(linear_coefficients).any(axis=1)
-linear_coefficients[nan_mask] = nearest_interpolator(coordinates[nan_mask])
-
-# Create Function objects to store the coefficients
-masks = [Function(V) for _ in range(len(points))]
-
-# Assign the linear coefficients to the masks
-for i, mask in enumerate(masks):
-    mask.dat.data[:] = linear_coefficients[:, i]
-```
-
-Now, instead of masks with 0/1 values, we have masks which describe the contribution of each point to the rest of the 
+Instead of masks with 0/1 values, we have masks which describe the contribution of each point to the rest of the 
 domain. Note that this will only work for linear interpolation, as we cannot generate static coefficients for non-linear
 mappings (RBF, quadratic, cubic etc.). In those cases, we would need to 'annotate' the interpolation functions for 
-`PyAdjoint` to track the gradient through. We can generate a mapping in the same way to force a smooth surface, but it 
+`pyadjoint` to track the gradient through. We can generate a mapping in the same way to force a smooth surface, but it 
 would not be true RBF/quadratic/cubic interpolation.
 
 ## Post-processing
@@ -237,3 +174,6 @@ PARALLEL option, e.g.:
 source ~/firedrake/bin/activate
 make invert CASE=IndependentPointsScheme PARALLEL=4
 ```
+
+Note that if you try to use too many threads, the communication time between processes will dominate the runtime and 
+actually slow things down!
