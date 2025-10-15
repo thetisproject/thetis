@@ -2,6 +2,7 @@ import h5py
 import matplotlib
 import matplotlib.pyplot as plt
 import argparse
+import os
 
 matplotlib.rc('font', size=18)
 
@@ -33,8 +34,8 @@ case_to_output_dir = {
 }
 
 selected_case = args.case[0]
-output_dir_forward = 'outputs//outputs_forward'
-output_dir_invert = 'outputs/outputs_inverse/' + case_to_output_dir[selected_case]
+output_dir_forward = os.path.join('outputs', 'outputs_forward')
+output_dir_invert = os.path.join('outputs', 'outputs_inverse', case_to_output_dir[selected_case])
 
 niter = 0
 nplots = len(station_names)
@@ -42,14 +43,14 @@ nplots = len(station_names)
 for i, sta in enumerate(station_names):
     fig, ax = plt.subplots(2, 1, figsize=(12, 10))
 
-    f = output_dir_forward + f'/diagnostic_timeseries_{sta}_uv.hdf5'
+    f = os.path.join(output_dir_forward, f'diagnostic_timeseries_{sta}_uv.hdf5')
     with h5py.File(f, 'r') as h5file:
         time = h5file['time'][:].flatten()
         var = h5file[sta][:]
         u_vals = var[:, 0]
         v_vals = var[:, 1]
 
-    g = output_dir_invert + f'/diagnostic_timeseries_progress_{sta}_uv.hdf5'
+    g = os.path.join(output_dir_invert, f'diagnostic_timeseries_progress_{sta}_uv.hdf5')
     with h5py.File(g, 'r') as h5file:
         iter_times = h5file['time'][:].flatten()
         u_iter_vals = h5file['uv_u_component'][:]
@@ -72,7 +73,6 @@ for i, sta in enumerate(station_names):
 
     ax[0].text(0.5, 1.1, f'Optimizing Manning, {niter} iterations', ha='center', transform=ax[0].transAxes)
 
-    # plt.show()
-    imgfile = f'{output_dir_invert}/optimization_progress_{selected_case}_{station_str}_ts.png'
+    imgfile = os.path.join(output_dir_invert, f'optimization_progress_{selected_case}_{station_str}_ts.png')
     print(f'Saving to {imgfile}')
     plt.savefig(imgfile, dpi=200, bbox_inches='tight')

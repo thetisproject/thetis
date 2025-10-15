@@ -5,7 +5,7 @@ STATIONS    = stationA stationB stationC stationD stationE
 PARALLEL    = 1
 
 invert:
-	mpiexec -np $(PARALLEL) python inverse_problem.py --case $(CASE) --no-consistency-test --no-taylor-test
+	mpiexec --use-hwthread-cpus -np $(PARALLEL) python inverse_problem.py --case $(CASE) --no-consistency-test --no-taylor-test
 
 plot:
 	for station in $(STATIONS); do \
