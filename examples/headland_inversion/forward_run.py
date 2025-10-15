@@ -6,16 +6,10 @@ from model_config import construct_solver
 from shapely.geometry import Point
 from mpi4py import MPI
 
-# Initialize MPI
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-size = comm.Get_size()
-
-
 # ---------------------------------------- Step 1: set up mesh and ground truth ----------------------------------------
 
 pwd = os.path.abspath(os.path.dirname(__file__))
-output_dir_forward = f'{pwd}/outputs/outputs_forward'
+output_dir_forward = os.path.join(pwd, 'outputs', 'outputs_forward')
 
 solver_obj, update_forcings = construct_solver(
     output_directory=output_dir_forward,
@@ -30,25 +24,14 @@ elev_init_2d = solver_obj.fields.elev_2d
 
 coordinates = mesh2d.coordinates.dat.data[:]
 x, y = coordinates[:, 0], coordinates[:, 1]
-local_lx = np.max(x)  # for parallel runs, the mesh is partioned so we need to get the maximum from each processor!
-local_ly = np.max(y)
-
-all_lx = comm.gather(local_lx, root=0)
-all_ly = comm.gather(local_ly, root=0)
-if rank == 0:
-    lx_ = np.max(all_lx)
-    ly_ = np.max(all_ly)
-else:
-    lx_ = None
-    ly_ = None
-lx = comm.bcast(lx_, root=0)
-ly = comm.bcast(ly_, root=0)
+lx = mesh2d.comm.allreduce(np.max(x), MPI.MAX)
+ly = mesh2d.comm.allreduce(np.max(y), MPI.MAX)
 
 # Create a FunctionSpace on the mesh (corresponds to Manning)
 V = get_functionspace(mesh2d, 'CG', 1)
 
 # Load the shapefile
-shapefile_path = 'inputs/bed_classes.shp'
+shapefile_path = os.path.join(pwd, 'inputs', 'bed_classes.shp')
 gdf = gpd.read_file(shapefile_path)
 polygons_by_id = gdf.groupby('id')
 
@@ -65,7 +48,7 @@ masks = [Function(V) for _ in range(len(polygons_by_id))]
 m_true = []
 
 for i, (region_id, group) in enumerate(polygons_by_id):
-    multi_polygon = group.unary_union
+    multi_polygon = group.union_all()
 
     # Get the sediment type for this region (assuming one sediment type per ID)
     sediment_type = group['Sediment'].iloc[0]
@@ -81,7 +64,7 @@ for i, (region_id, group) in enumerate(polygons_by_id):
             values.append(0)
 
     mask_values.append(values)
-    m_true.append(Constant(manning_value, domain=mesh2d))
+    m_true.append(domain_constant(manning_value, mesh2d))
 
 overlap_counts = np.zeros(len(x))
 
@@ -100,7 +83,7 @@ manning_2d.assign(0)
 for m_, mask_ in zip(m_true, masks):
     manning_2d += m_ * mask_
 
-VTKFile(output_dir_forward + '/manning_init.pvd').write(manning_2d)
+VTKFile(os.path.join(output_dir_forward, 'manning_init.pvd')).write(manning_2d)
 
 print_output('Exporting to ' + solver_obj.options.output_directory)
 
