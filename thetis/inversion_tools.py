@@ -3,7 +3,7 @@ from firedrake.adjoint import *
 import ufl
 from .configuration import FrozenHasTraits
 from .solver2d import FlowSolver2d
-from .utility import create_directory, print_function_value_range, get_functionspace, unfrozen
+from .utility import create_directory, print_function_value_range, get_functionspace, unfrozen, domain_constant
 from .log import print_output
 from .diagnostics import GradientRecoverer2D, HessianRecoverer2D
 from .exporter import HDF5Exporter
