@@ -14,6 +14,7 @@ dependencies = [
   "traitlets",
   "uptide",
   "vtk",
+  "pyyaml",
 ]
 authors = [
   {name = "Tuomas Karna", email = "tuomas.karna@gmail.com" },
