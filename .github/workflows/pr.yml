@@ -1,0 +1,13 @@
+name: Test Pull Requests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+
+jobs:
+  test:
+    uses: ./.github/workflows/core.yml
+    with:
+      branch: ${{ github.head_ref }}
+      image: firedrakeproject/firedrake-vanilla-default:dev-main
+    secrets: inherit

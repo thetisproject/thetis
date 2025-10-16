@@ -1,27 +1,30 @@
-name: Build Thetis
+name: Core Build & Test
 
 on:
-  # Push to master or PR
-  push:
-    branches:
-      - master
-  pull_request:
-  schedule:
-    # * is a special character in YAML so you have to quote this string
-    # Scheduled build at 0230 UTC on Monday mornings to detect bitrot.
-    - cron:  '30 2 * * 1'
+  workflow_call:
+    inputs:
+      branch:
+        description: 'Branch to test (e.g. master or release)'
+        required: true
+        type: string
+      image:
+        description: 'Docker image to use for Firedrake'
+        required: true
+        type: string
 
 jobs:
   build:
-    name: "Build Thetis"
+    name: "Build & Test (${{ inputs.branch }})"
     # The type of runner that the job will run on
     runs-on: [self-hosted, Linux]
     # The docker container to use.
     container:
-      image: firedrakeproject/firedrake-vanilla-default:latest
+      image: ${{ inputs.image }}
     env:
       # Make sure that tests with >2 processes are not silently skipped
       PYTEST_MPI_MAX_NPROCS: 2
+      FIREDRAKE_IMAGE_MAIN: firedrakeproject/firedrake-vanilla-default:dev-main
+      FIREDRAKE_IMAGE_RELEASE: firedrakeproject/firedrake-vanilla-default:latest
     steps:
       - name: Fix HOME
         # For unknown reasons GitHub actions overwrite HOME to /github/home
@@ -29,17 +32,27 @@ jobs:
         # (https://github.com/actions/runner/issues/863)
         run: echo "HOME=/root" >> "$GITHUB_ENV"
 
+      - name: Info
+        run: |
+          echo "===================================="
+          echo "Running Thetis CI"
+          echo "Branch: ${{ inputs.branch }}"
+          echo "Firedrake Docker image: ${{ inputs.image }}"
+          echo "===================================="
+
       - name: Pre-cleanup
         run: |
           : # Wipe everything away in the current directory
-          find . -delete
-          firedrake-clean
+          find . -delete || true
+          firedrake-clean || true
 
-      - uses: actions/checkout@v4
+      - name: Checkout Thetis
+        uses: actions/checkout@v5
         with:
           # Download Thetis into a subdirectory not called 'thetis' to make sure
           # that the package installs correctly. Otherwise 'import thetis' may
           # work even if the installation failed because it is a subdirectory.
+          ref: ${{ inputs.branch }}
           path: thetis-repo
 
       - name: Install Thetis
@@ -79,10 +92,10 @@ jobs:
         run: |
           firedrake-clean
           . venv-thetis/bin/activate
-          python -m pytest -n 12 --verbose --durations=0 thetis-repo/test_adjoint
+          python -m pytest -n 8 --verbose --durations=0 thetis-repo/test_adjoint
 
       - name: Post-cleanup
         if: always()
         run: |
-          find . -delete
-          firedrake-clean
+          find . -delete || true
+          firedrake-clean || true
