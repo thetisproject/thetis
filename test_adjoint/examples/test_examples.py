@@ -17,6 +17,8 @@ adjoint_files = [
     'tidalfarm/tidalfarm.py',
     'channel_inversion/inverse_problem.py',
     'headland_inversion/inverse_problem.py',
+    'tohoku_inversion/inverse_problem.py',
+    'discrete_turbines/channel-optimisation.py',
 ]
 
 cwd = os.path.abspath(os.path.dirname(__file__))
