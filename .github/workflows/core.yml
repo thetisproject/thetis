@@ -92,7 +92,7 @@ jobs:
         run: |
           firedrake-clean
           . venv-thetis/bin/activate
-          python -m pytest -n 8 --verbose --durations=0 thetis-repo/test_adjoint
+          python -m pytest -n 12 --verbose --durations=0 thetis-repo/test_adjoint
 
       - name: Post-cleanup
         if: always()

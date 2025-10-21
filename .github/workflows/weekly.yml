@@ -1,14 +1,26 @@
-name: Weekly Master Test
+name: Weekly tests
 
 on:
   schedule:
-    # 02:30 UTC every Monday
+    # Master: 02:30 UTC every Monday
     - cron: '30 2 * * 1'
+    # Release: 04:30 UTC every Monday
+    - cron: '30 4 * * 1'
 
 jobs:
-  weekly-test:
+  weekly-master:
+    name: Weekly master test
     uses: ./.github/workflows/core.yml
     with:
       branch: master
       image: firedrakeproject/firedrake-vanilla-default:dev-main
     secrets: inherit
+
+  weekly-release:
+    name: Weekly release test
+    uses: ./.github/workflows/core.yml
+    with:
+      branch: release
+      image: firedrakeproject/firedrake-vanilla-default:latest
+    secrets: inherit
+
