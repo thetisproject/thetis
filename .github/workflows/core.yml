@@ -14,7 +14,7 @@ on:
 
 jobs:
   build:
-    name: "Build & Test (${{ inputs.branch }})"
+    name: "Build & Test"
     # The type of runner that the job will run on
     runs-on: [self-hosted, Linux]
     # The docker container to use.
