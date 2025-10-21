@@ -11,6 +11,7 @@ import thetis.limiter as limiter      # NOQA
 import thetis.interpolation as interpolation      # NOQA
 import thetis.coordsys as coordsys      # NOQA
 import thetis.timezone as timezone      # NOQA
+import thetis.turbine_loader  # NOQA
 import thetis.turbines  # NOQA
 import thetis.optimisation  # NOQA
 import thetis.diagnostics  # NOQA
