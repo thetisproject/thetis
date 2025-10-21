@@ -6,16 +6,6 @@ from firedrake.output.vtk_output import is_cg, VTKFile
 from collections import OrderedDict
 import itertools
 import datetime
-import h5py
-
-
-def has_timestepping(filename):
-    with h5py.File(filename, "r") as h5f:
-        def visitor(name, obj):
-            if isinstance(obj, h5py.Dataset) and "timestepping" in obj.attrs:
-                return True
-        found = h5f.visititems(visitor)
-        return bool(found)
 
 
 def is_2d(fs):
@@ -189,21 +179,14 @@ class HDF5Exporter(ExporterBase):
                 f.save_mesh(mesh)
 
                 # include timestepping info if requested
-                ts_info = {}
                 if self.include_time:
                     if time is None:
                         raise ValueError("time must be provided when include_time=True")
-                    ts_info['time'] = float(time)
+                    f.set_attr("/", "time", float(time))
                     if self.initial_time is not None:
-                        f.set_attr(
-                            "/",
-                            "initial_time_iso",
-                            self.initial_time.isoformat()
-                        )
+                        f.set_attr("/", "initial_time_iso", self.initial_time.isoformat())
 
-                # store function with timestepping info
-                idx = 0 if ts_info else None
-                f.save_function(function, idx=float(idx), timestepping_info=ts_info)
+                f.save_function(function)
 
         self.next_export_ix = iexport + 1
 
@@ -241,21 +224,19 @@ class HDF5Exporter(ExporterBase):
                 mesh = function.function_space().mesh()
                 if not hasattr(mesh, 'sfXC'):
                     raise IOError('When loading fields from hdf5 checkpoint files, you should also read the mesh from checkpoint. See the documentation for `read_mesh_from_checkpoint()`')
-                if has_timestepping(filename):
-                    # this will always be idx = 0 because we output single files per run
-                    g = f.load_function(mesh, function.name(), idx=0)
-                else:
-                    g = f.load_function(mesh, function.name())
+                g = f.load_function(mesh, function.name())
                 function.assign(g)
 
-                # Recover timestepping info (numeric float time)
-                ts_history = f.get_timestepping_history(mesh, function.name())
-                metadata['time'] = ts_history.get('time', [None])[0]
+                # Read time and initial_time_iso from file attributes
+                try:
+                    metadata['time'] = f.get_attr("/", "time")
+                except KeyError:
+                    metadata['time'] = None
 
                 try:
                     initial_time_iso = f.get_attr("/", "initial_time_iso")
                     metadata['initial_time_iso'] = datetime.datetime.fromisoformat(initial_time_iso)
-                except (KeyError, AttributeError):
+                except (KeyError, AttributeError, TypeError, ValueError):
                     metadata['initial_time_iso'] = None
 
         return metadata
