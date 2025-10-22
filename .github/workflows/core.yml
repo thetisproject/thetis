@@ -23,8 +23,6 @@ jobs:
     env:
       # Make sure that tests with >2 processes are not silently skipped
       PYTEST_MPI_MAX_NPROCS: 2
-      FIREDRAKE_IMAGE_MAIN: firedrakeproject/firedrake-vanilla-default:dev-main
-      FIREDRAKE_IMAGE_RELEASE: firedrakeproject/firedrake-vanilla-default:latest
     steps:
       - name: Fix HOME
         # For unknown reasons GitHub actions overwrite HOME to /github/home

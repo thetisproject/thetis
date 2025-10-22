@@ -9,5 +9,5 @@ jobs:
     uses: ./.github/workflows/core.yml
     with:
       branch: ${{ github.head_ref }}
-      image: firedrakeproject/firedrake-vanilla-default:dev-main
+      image: ${{ github.base_ref == 'release' && 'firedrakeproject/firedrake-vanilla-default:latest' || 'firedrakeproject/firedrake-vanilla-default:dev-main' }}
     secrets: inherit
