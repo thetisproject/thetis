@@ -39,8 +39,12 @@ class TidalTurbine:
             return 1
 
     def friction_coefficient(self, uv, depth):
-        thrust_area = self._thrust_area(uv)
-        alpha = self.velocity_correction(uv, depth)
+        if getattr(self, "apply_shear_profile", False):
+            uv_eff = self.rotor_averaged_velocity(uv, depth, getattr(self, "hub_height", None))
+        else:
+            uv_eff = uv
+        thrust_area = self._thrust_area(uv_eff)
+        alpha = self.velocity_correction(uv_eff, depth)
         return thrust_area/2./alpha**2
 
     def rotor_averaged_velocity(self, uv, depth, hub_height=None):
@@ -50,7 +54,7 @@ class TidalTurbine:
         hub = hub_height or 0.67 * depth
 
         N = 10  # sample the rotor at N points vertically, hardcoded weightings
-        z_vals = numpy.linspace(hub - depth / 2, hub + depth / 2, N)
+        z_vals = numpy.linspace(hub - self.diameter / 2, hub + self.diameter / 2, N)
 
         alpha = getattr(self, "shear_alpha", 7.0)
         beta = getattr(self, "shear_beta", 0.4)
@@ -58,7 +62,8 @@ class TidalTurbine:
         # power-law shear profile
         u_samples = dot(uv, uv)**0.5 * (z_vals / (beta * depth)) ** (1 / alpha)
         weightings = np.array([0.052, 0.0903, 0.1099, 0.1212, 0.1266, 0.1266, 0.1212, 0.1099, 0.0903, 0.052])
-        rotor_avg = sum(u_samples * weightings)
+        u_cubed = u_samples ** 3
+        rotor_avg = (sum(u_cubed * weightings)) ** (1 / 3)
         return rotor_avg
 
     def power(self, uv, depth):

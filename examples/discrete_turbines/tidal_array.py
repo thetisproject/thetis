@@ -80,13 +80,18 @@ farm_options_AR2000.turbine_density = turbine_density
 farm_options_AR2000.turbine_coordinates = [[Constant(x), Constant(y)]
                                            for x in numpy.arange(1000, 1061, 60)
                                            for y in numpy.arange(260, 341, 40)]
+farm_options_AR2000.turbine_options.apply_shear_profile = True
+farm_options_AR2000.turbine_options.hub_height = 14.0  # TODO: should be loaded
+farm_options_AR2000.turbine_options.shear_alpha = 7.0   # 1/7th power law
+farm_options_AR2000.turbine_options.shear_beta = 0.4
 
 # we can tidy up data loading by using YAML or JSON files
 farm_options_AR1500 = turbine_loader.load_turbine(os.path.join(script_dir, "turbine_files", "AR1500.yaml"), mesh2d)
 farm_options_AR1500.turbine_coordinates = [[Constant(940), Constant(y)] for y in numpy.arange(260, 341, 40)]
 # We can also use estimate the rotor-averaged velocity using a power law, albeit with some significant caveats when
 # turbines are in one another's wake. Note that this is still a depth-averaged example and this is just an estimation!
-farm_options_AR1500.turbine_options.apply_shear_profile = False
+farm_options_AR1500.turbine_options.apply_shear_profile = True
+farm_options_AR1500.turbine_options.hub_height = 14.0  # TODO: should be loaded
 farm_options_AR1500.turbine_options.shear_alpha = 7.0   # 1/7th power law
 farm_options_AR1500.turbine_options.shear_beta = 0.4
 
