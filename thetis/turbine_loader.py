@@ -11,10 +11,7 @@ import yaml
 def load_turbine(path, mesh2d, include_support=True):
     """Load a single turbine definition into a DiscreteTidalTurbineFarmOptions."""
     with open(path) as f:
-        if path.endswith(".json"):
-            data = json.load(f)
-        else:
-            data = yaml.safe_load(f)
+        data = yaml.safe_load(f) if path.endswith((".yaml", ".yml")) else json.load(f)
 
     opts = DiscreteTidalTurbineFarmOptions()
     opts.turbine_type = data.get("turbine_thrust_def", "constant")
@@ -24,10 +21,12 @@ def load_turbine(path, mesh2d, include_support=True):
         opts.turbine_options.thrust_coefficients = data["curves"]["thrust"]
         opts.turbine_options.power_coefficients = data["curves"]["power"]
     else:
-        opts.turbine_options.thrust_coefficient = data["defaults"]["thrust_coefficient"]
-        opts.turbine_options.power_coefficient = data["defaults"]["power_coefficient"]
+        opts.turbine_options.thrust_coefficient = data["thrust_coefficient"]
+        opts.turbine_options.power_coefficient = data["power_coefficient"]
 
     if include_support and "support_structure" in data:
+        opts.turbine_options.structure_type = data["support_structure"]["type"]
+        opts.turbine_options.rel_hub_height = data["support_structure"]["rel_hub_height"]
         opts.turbine_options.C_support = data["support_structure"]["C_support"]
         opts.turbine_options.A_support = data["support_structure"]["A_support"]
 

@@ -18,6 +18,11 @@ class TidalTurbine:
         self.C_support = options.C_support
         self.A_support = options.A_support
         self.upwind_correction = upwind_correction
+        self.apply_shear_profile = options.apply_shear_profile
+        self.shear_alpha = options.shear_alpha
+        self.shear_beta = options.shear_beta
+        self.rel_hub_height = options.rel_hub_height
+        self.structure_type = options.structure_type
 
     def _thrust_area(self, uv):
         C_T = self.thrust_coefficient(uv)
@@ -35,15 +40,46 @@ class TidalTurbine:
             return 1
 
     def friction_coefficient(self, uv, depth):
-        thrust_area = self._thrust_area(uv)
-        alpha = self.velocity_correction(uv, depth)
+        if self.apply_shear_profile:
+            uv_eff = self.rotor_averaged_velocity(uv, depth)
+        else:
+            uv_eff = uv
+        thrust_area = self._thrust_area(uv_eff)
+        alpha = self.velocity_correction(uv_eff, depth)
         return thrust_area/2./alpha**2
+
+    def rotor_averaged_velocity(self, uv, depth):
+        if not self.apply_shear_profile:
+            return uv
+
+        if self.rel_hub_height is None:
+            raise ValueError("`rel_hub_height` must be specified when applying a shear profile.")
+
+        # Determine hub elevation depending on structure type
+        if self.structure_type == "bottom-fixed":
+            hub = self.rel_hub_height  # height above seabed
+        elif self.structure_type == "floating":
+            hub = depth - self.rel_hub_height  # depth below free surface
+        else:
+            raise ValueError(f"Unknown turbine structure type '{self.structure_type}'")
+
+        # Vertical sampling
+        N = 10  # sample the rotor at N points vertically, hardcoded weightings
+        z_vals = numpy.linspace(hub - self.diameter / 2, hub + self.diameter / 2, N)
+
+        # power-law shear profile
+        u_samples = dot(uv, uv)**0.5 * (z_vals / (self.shear_beta * depth)) ** (1.0 / self.shear_alpha)
+        weightings = np.array([0.052, 0.0903, 0.1099, 0.1212, 0.1266, 0.1266, 0.1212, 0.1099, 0.0903, 0.052])
+        u_cubed = u_samples ** 3
+        rotor_avg = (sum(u_cubed * weightings)) ** (1 / 3)
+        return rotor_avg
 
     def power(self, uv, depth):
         # ratio of discrete to upstream velocity (NOTE: should include support drag!)
         alpha = self.velocity_correction(uv, depth)
         A_T = pi * self.diameter**2 / 4  # power is based on true turbine diameter
-        uv3 = dot(uv, uv)**1.5 / alpha**3  # upwind cubed velocity
+        uv_eff = self.rotor_averaged_velocity(uv, depth)
+        uv3 = dot(uv_eff, uv_eff)**1.5 / alpha**3  # upwind cubed velocity
         C_P = self.power_coefficient(uv3**(1/3))
         # this assumes the velocity through the turbine does not change due to the support (is this correct?)
         return 0.5*physical_constants['rho0']*A_T*C_P*uv3  # units: W
@@ -149,11 +185,8 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
 
     def add_turbines(self, coordinates):
         """
-        :param coords: Array with turbine coordinates to be positioned
-        :param function: turbine density function to be adapted
-        :param mesh: computational mesh domain
-        :param radius: radius where the bump will be applied
-        :return: updated turbine density field
+        :param coordinates: Array with turbine coordinates to be positioned
+        :return: updated turbine density field (in place)
         """
         x = SpatialCoordinate(self.mesh)
 
