@@ -46,7 +46,7 @@ class CostFunctionCallback(DiagnosticCallback):
 
 class ControlManager:
     """
-    Handles an individual control (Function or Constant) and its export logic.
+    Handles an individual control and its export logic, used internally in InversionManager
     """
 
     def __init__(self, control, output_dir, index, no_exports=False, mappings=None):
