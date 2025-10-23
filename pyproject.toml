@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "thetis"
-version = "0.0.1"
+version = "2025.10.1"
 dependencies = [
   "netCDF4",
   "pylit",

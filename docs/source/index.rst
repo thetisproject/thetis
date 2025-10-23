@@ -2,7 +2,7 @@
 
 .. only:: html
 
-  .. sidebar:: Current development status
+  .. sidebar:: Current release branch status
 
     .. container:: buildstatus
 
@@ -12,8 +12,8 @@
     <https://github.com/thetisproject/thetis/>`__ and is being
     continually tested using GitHub Actions.
 
-    .. |thetisbuild| image:: https://github.com/thetisproject/thetis/actions/workflows/build.yml/badge.svg
-                             :target: https://github.com/thetisproject/thetis/actions/workflows/build.yml
+    .. |thetisbuild| image:: https://github.com/thetisproject/thetis/actions/workflows/weekly.yml/badge.svg?branch=release
+                             :target: https://github.com/thetisproject/thetis/actions/workflows/weekly.yml?query=branch%3Arelease
 
 The Thetis project
 ==================
