@@ -46,7 +46,8 @@ class CostFunctionCallback(DiagnosticCallback):
 
 class ControlManager:
     """
-    Handles an individual control and its export logic, used internally in InversionManager
+    Handles an individual control (spatially varying Function, masked combination of Functions,
+    or uniform value Function) and its export logic, used internally in InversionManager.
     """
 
     def __init__(self, control, output_dir, index, no_exports=False, mappings=None):
@@ -54,14 +55,11 @@ class ControlManager:
         self.index = index
         self.no_exports = no_exports
 
+        # Wrap single controls in list
         self.controls = control if isinstance(control, list) else [control]
         self.mappings = mappings
-        self.is_multi_constant = mappings is not None
-        self.is_domain_constant = False
+        self.is_masked_combination = mappings is not None
         self.is_field = False
-
-        self.mesh = None
-        self.projection_space = None
 
         # Exporters
         self.vtk_file = None
@@ -69,54 +67,58 @@ class ControlManager:
         self.gradient_vtk_file = None
 
         # Identify type and setup projection space
-        if self.is_multi_constant:
-            self.is_domain_constant = False
-            self.is_field = False
-            self.mesh = self.controls[0].ufl_domain()
-            if self.mesh is None:
-                raise ValueError("Constants must have a domain to be exported.")
+        if self.is_masked_combination:
+            for c in self.controls:
+                if not isinstance(c, fd.Function):
+                    raise ValueError("All masked combination controls must be Functions")
+            self.mesh = self.controls[0].function_space().mesh()
             self.projection_space = fd.FunctionSpace(self.mesh, "CG", 1, variant="equispaced")
-        elif control.function_space().ufl_element().family() == "Real":
-            self.is_domain_constant = True
             self.is_field = False
-            self.mesh = control.ufl_domain()
-            if self.mesh is None:
-                raise ValueError("Constant must have a domain to be exported.")
-            self.projection_space = fd.FunctionSpace(self.mesh, "CG", 1)
+        elif self.controls[0].function_space().ufl_element().family() == "Real":
+            # domain_constant (uniform value Function in the real space)
+            self.mesh = self.controls[0].function_space().mesh()
+            self.projection_space = fd.FunctionSpace(self.mesh, "CG", 1, variant="equispaced")
+            self.is_field = False
         else:
-            self.is_field = True
-            self.mesh = control.function_space().mesh()
+            # Spatially varying field
+            if not isinstance(self.controls[0], fd.Function):
+                raise TypeError("Control must be a Firedrake Function")
+            self.mesh = self.controls[0].function_space().mesh()
             self.projection_space = None
+            self.is_field = True
 
+        # Initialize exporters if needed
         if not no_exports:
-            fs = self.projection_space if not self.is_field else control.function_space()
+            fs = self.projection_space if not self.is_field else self.controls[0].function_space()
             self.vtk_file = fd.VTKFile(f"{output_dir}/control_progress_{index:02d}.pvd")
             prefix = f"control_{index:02d}"
             self.hdf5_exporter = HDF5Exporter(fs, output_dir + "/hdf5", prefix)
             self.gradient_vtk_file = fd.VTKFile(f"{output_dir}/gradient_progress_{index:02d}.pvd")
 
     def project_control(self, updated_controls):
+        """Project masked combination or domain_constant to CG1 field for export."""
         field = fd.Function(self.projection_space, name="control")
         field.assign(0)
-        if self.is_multi_constant:
+        if self.is_masked_combination:
             for m_, mask_ in zip(updated_controls, self.mappings):
                 field += m_ * mask_
-        elif self.is_domain_constant:
-            field.project(updated_controls[0])  # single constant
         else:
-            raise RuntimeError("project_control called for a field control?")
+            field.project(updated_controls[0])  # domain_constant
         return field
 
     def export(self, updated_control):
+        """Export control to VTK/HDF5 files."""
         if self.no_exports:
             return
         if self.is_field:
+            # spatially varying field written directly
             if isinstance(updated_control, list):
                 assert len(updated_control) == 1, "Field export got multiple controls!"
                 updated_control = updated_control[0]
             updated_control.rename(self.controls[0].name())
             field = updated_control
         else:
+            # masked combination or domain_constant -> project
             if not isinstance(updated_control, list):
                 updated_control = [updated_control]
             field = self.project_control(updated_control)
@@ -124,6 +126,7 @@ class ControlManager:
         self.hdf5_exporter.export(field)
 
     def export_gradient(self, updated_gradient):
+        """Export gradient to VTK/HDF5 files."""
         if self.no_exports:
             return
 
@@ -138,10 +141,10 @@ class ControlManager:
                 updated_gradient = [updated_gradient]
             gradient = fd.Function(self.projection_space, name="Gradient")
             gradient.assign(0)
-            if self.is_multi_constant:
+            if self.is_masked_combination:
                 for g_, mask_ in zip(updated_gradient, self.mappings):
                     gradient += g_ * mask_
-            elif self.is_domain_constant:
+            else:  # domain_constant
                 gradient.project(updated_gradient[0])
 
         self.gradient_vtk_file.write(gradient)
@@ -182,6 +185,7 @@ class InversionManager(FrozenHasTraits):
         self.sta_manager.cost_function_scaling = self.cost_function_scaling
         self.test_consistency = test_consistency
         self.test_gradient = test_gradient
+        self._controls_wrapped = []
         self.control_managers = []
         self.initialized = False
 
@@ -214,34 +218,54 @@ class InversionManager(FrozenHasTraits):
 
         Can be called multiple times in case of multiparameter optimization.
 
-        :param controls: Function, Constant, or list of them representing control variables.
-        :param mappings: Optional list of masks (functions) for multi-control point cases.
+        Parameters
+        ----------
+        controls : fd.Function or list/tuple of fd.Function
+            The Function(s) representing the control parameters.
+        mappings : list of fd.Function, optional
+            Masks for multi-control cases. If provided, `controls` must be a list of Functions
+            matching the masks.
+
+        Notes
+        -----
+        - Pyadjoint `Control` objects are created immediately upon adding the control.
+          This marks the current state on the tape.
+        - The value of a control Function should not be altered during a forward solve
+          outside of the inversion machinery. Changing it beforehand is allowed,
+          but changing it mid-solve may lead to incorrect gradients or mis-evaluation
+          of the ReducedFunctional.
+        - Masked combinations are supported via lists of Functions combined with masks.
         """
         if not isinstance(controls, (list, tuple)):
             controls = [controls]
+        for c in controls:
+            if not isinstance(c, fd.Function):
+                raise TypeError(f"Control {c} is not a Firedrake Function")
         if mappings is not None:
             index = len(self.control_managers)
             cm = ControlManager(controls, self.output_dir, index, no_exports=self.no_exports, mappings=mappings)
             self.control_managers.append(cm)
+            # store Pyadjoint Control objects
+            for c in controls:
+                self._controls_wrapped.append(Control(c))
         else:
             for f in controls:
                 index = len(self.control_managers)
                 cm = ControlManager(f, self.output_dir, index, no_exports=self.no_exports)
                 self.control_managers.append(cm)
+                self._controls_wrapped.append(Control(f))
 
     @property
     def control_coeff_list(self):
-        coeffs = []
-        for cm in self.control_managers:
-            coeffs.extend(cm.controls)
-        return coeffs
+        """
+        Return a flat list of the underlying Firedrake Functions
+        used as controls, in the order they were added.
+        """
+        return [c for cm in self.control_managers for c in cm.controls]
 
     @property
     def control_list(self):
-        controls = []
-        for cm in self.control_managers:
-            controls.extend([Control(c) for c in cm.controls])
-        return controls
+        return self._controls_wrapped
 
     def reset_counters(self):
         self.nb_grad_evals = 0

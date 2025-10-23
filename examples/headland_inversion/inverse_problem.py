@@ -68,8 +68,7 @@ masks, M, m_true = None, 0, []
 V = get_functionspace(mesh2d, 'CG', 1)
 
 if selected_case == 'Uniform':
-    manning_const = Constant(0.02, name='Manning')
-    manning_2d.assign(domain_constant(manning_const, mesh2d))
+    manning_2d.assign(domain_constant(0.02, mesh2d, name='Manning'))
 elif selected_case == 'Regions':
     # Define our values for n
     mask_values = np.array([
