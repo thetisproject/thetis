@@ -69,16 +69,16 @@ You can launch the notebooks using the Colab badge below each notebook link.
 Available notebooks:
 --------------------
 
-- `01-2d-channel.ipynb <https://github.com/thetisproject/thetis/blob/master/demos/01-2d-channel.ipynb>`_
+- `01-2d-channel.ipynb <https://github.com/thetisproject/thetis/blob/main/demos/01-2d-channel.ipynb>`_
 
   .. image:: https://colab.research.google.com/assets/colab-badge.svg
-     :target: https://colab.research.google.com/github/thetisproject/thetis/blob/master/demos/01-2d-channel.ipynb
+     :target: https://colab.research.google.com/github/thetisproject/thetis/blob/main/demos/01-2d-channel.ipynb
      :alt: Open In Colab
 
-- `02-2d-tsunami.ipynb <https://github.com/thetisproject/thetis/blob/master/demos/02-2d-tsunami.ipynb>`_
+- `02-2d-tsunami.ipynb <https://github.com/thetisproject/thetis/blob/main/demos/02-2d-tsunami.ipynb>`_
 
   .. image:: https://colab.research.google.com/assets/colab-badge.svg
-     :target: https://colab.research.google.com/github/thetisproject/thetis/blob/master/demos/02-2d-tsunami.ipynb
+     :target: https://colab.research.google.com/github/thetisproject/thetis/blob/main/demos/02-2d-tsunami.ipynb
      :alt: Open In Colab
 
 Manual
