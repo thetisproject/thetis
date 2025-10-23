@@ -795,8 +795,8 @@ class StationObservationManager:
 
         The file contains the simulation time in the `time` array, and the
         station name and coordinates as attributes. The time series data is
-        stored as a 2D (n_iterations, n_time_steps) array for scalar,
-        or 3D (n_iterations, n_time_steps, 2) for vector quantities.
+        stored as a rank 2 (n_iterations, n_time_steps) array for scalar,
+        or rank 3 (n_iterations, n_time_steps, 2) for vector quantities.
         """
         assert self.station_names is not None
 
