@@ -34,7 +34,7 @@ virtual environment::
 
 .. note::
 
-   If you want to install the developer **master** branch of Thetis, you will need to
+   If you want to install the developer **main** branch of Thetis, you will need to
    install the corresponding development branch (**main**) of Firedrake.
    Please follow the instructions on the `Firedrake website <http://firedrakeproject.org/install.html>`_
    to do this.
@@ -76,7 +76,7 @@ If you have SSH keys set up with GitHub, you can use the SSH-based clone instead
 
 .. note::
 
-   For development, the default branch of Thetis is **master**. This tracks the **main** branch of Firedrake. If
+   For development, the default branch of Thetis is **main**. This tracks the **main** branch of Firedrake. If
    you do not intend on developing Thetis, please ensure that you checkout the release branch for compatibility.
 
 

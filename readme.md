@@ -1,6 +1,6 @@
 # 🌊 Thetis
 
-[![Weekly Tests (master)](https://github.com/thetisproject/thetis/actions/workflows/weekly-master.yml/badge.svg?branch=master)](https://github.com/thetisproject/thetis/actions/workflows/weekly-master.yml)
+[![Weekly Tests (main)](https://github.com/thetisproject/thetis/actions/workflows/weekly-main.yml/badge.svg?branch=main)](https://github.com/thetisproject/thetis/actions/workflows/weekly-main.yml)
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)
 
 **Thetis** is an open-source, finite element framework for simulating **coastal and estuarine flows** with advanced numerics, high flexibility, and easy extensibility.
@@ -44,7 +44,7 @@ git checkout <branch_name>
 pip install -e .
 ```
 > **Note**
-> The latest development branch of Thetis (master) will require the corresponding main branch of Firedrake. See the
+> The latest development branch of Thetis (main) will require the corresponding main branch of Firedrake. See the
 > website for more details.
 
 ### Release branch weekly status

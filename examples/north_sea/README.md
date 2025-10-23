@@ -52,7 +52,7 @@ For the purposes of this demo, we use the NOAA
 From the ETOPO1 webpage, you can select a latitude-longitude region of
 interest and download the bathymetry data as a NetCDF file. We have
 included an example here as `etopo1.nc`. For a different example, see the
-[Tohoku tsunami](https://github.com/thetisproject/thetis/tree/master/examples/tohoku_inversion)
+[Tohoku tsunami](https://github.com/thetisproject/thetis/tree/main/examples/tohoku_inversion)
 example.
 
 ### Tidal forcings
