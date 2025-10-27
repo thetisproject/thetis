@@ -25,7 +25,7 @@ coord_system = coordsys.UTMCoordinateSystem(utm_zone=30)
 # Having imported all the relevant packages, the first thing we need is a mesh of the
 # domain of interest. This part is skipped for the purposes of this demo, but details
 # can be found in the corresponding
-# `example <https://github.com/thetisproject/thetis/tree/master/examples/north_sea>`__
+# `example <https://github.com/thetisproject/thetis/tree/main/examples/north_sea>`__
 # in the Thetis source code. It involves extracting coastline data from the GSHHS
 # coastline data set :cite:`GSHHS:1996` and using this to generate a mesh using qmesh
 # :cite:`qmesh:2018`. The mesh is stored as a GMSH file named `north_sea.msh` and is
@@ -50,7 +50,7 @@ coord_system = coordsys.UTMCoordinateSystem(utm_zone=30)
 # interpolated onto the unstructured mesh using SciPy. An
 # `interpolate_bathymetry` function is provided in model_config module in the
 # `example
-# <https://github.com/thetisproject/thetis/tree/master/examples/north_sea>`__
+# <https://github.com/thetisproject/thetis/tree/main/examples/north_sea>`__
 # in the Thetis source code, which follows the `recommendations in the
 # Firedrake documentation for interpolating data
 # <https://firedrakeproject.org/interpolation.html#interpolation-from-external-data>`__.
@@ -71,7 +71,7 @@ with CheckpointFile("runfiles/north_sea_bathymetry.h5", "r") as f:
 # Observe that the plot also includes eight orange crosses. These indicate tide
 # gauges where we would like to compare our tidal model against real data. For
 # details on obtaining such data, we refer to the
-# `example <https://github.com/thetisproject/thetis/tree/master/examples/north_sea>`__
+# `example <https://github.com/thetisproject/thetis/tree/main/examples/north_sea>`__
 # in the source code. For the purposes of this demo, we have included a CSV file
 # named `stations_elev.csv` containing the gauge locations. We can read it as follows:
 
@@ -247,7 +247,7 @@ solver_obj.iterate(update_forcings=update_forcings)
 #    :align: center
 #
 # Scripts for generating all of the figures in this demo can be found in the
-# `example <https://github.com/thetisproject/thetis/tree/master/examples/north_sea>`__
+# `example <https://github.com/thetisproject/thetis/tree/main/examples/north_sea>`__
 # in the source code.
 #
 # This tutorial can be dowloaded as a Python script `here <demo_2d_north_sea.py>`__.
