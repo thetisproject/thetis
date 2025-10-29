@@ -1,5 +1,5 @@
 """
-Classes related to tidal turbine farms in Thetis.
+Classes and utilities related to tidal turbine farms in Thetis.
 """
 from firedrake import *
 from firedrake.petsc import PETSc
@@ -7,12 +7,15 @@ from .log import *
 from .callback import DiagnosticCallback
 from .physical_constants import physical_constants
 from .optimisation import DiagnosticOptimisationCallback
+from .options import TidalTurbineFarmOptions, DiscreteTidalTurbineFarmOptions
 import pyadjoint
 import numpy
+import json
+import yaml
 
 
 class TidalTurbine:
-    def __init__(self, options, upwind_correction=False):
+    def __init__(self, options, upwind_correction=False, rotor_weightings=None):
         self.diameter = options.diameter
         self.projected_diameter = options.projected_diameter or self.diameter
         self.C_support = options.C_support
@@ -23,6 +26,12 @@ class TidalTurbine:
         self.shear_beta = options.shear_beta
         self.rel_hub_height = options.rel_hub_height
         self.structure_type = options.structure_type
+        self.rotor_weightings = (
+            np.array(rotor_weightings)
+            if rotor_weightings is not None else
+            np.array([0.052, 0.0903, 0.1099, 0.1212, 0.1266,
+                      0.1266, 0.1212, 0.1099, 0.0903, 0.052])
+        )
 
     def _thrust_area(self, uv):
         C_T = self.thrust_coefficient(uv)
@@ -64,14 +73,13 @@ class TidalTurbine:
             raise ValueError(f"Unknown turbine structure type '{self.structure_type}'")
 
         # Vertical sampling
-        N = 10  # sample the rotor at N points vertically, hardcoded weightings
+        N = len(self.rotor_weightings)  # sample the rotor at N points vertically, hardcoded weightings
         z_vals = numpy.linspace(hub - self.diameter / 2, hub + self.diameter / 2, N)
 
         # power-law shear profile
         u_samples = dot(uv, uv)**0.5 * (z_vals / (self.shear_beta * depth)) ** (1.0 / self.shear_alpha)
-        weightings = np.array([0.052, 0.0903, 0.1099, 0.1212, 0.1266, 0.1266, 0.1212, 0.1099, 0.0903, 0.052])
         u_cubed = u_samples ** 3
-        rotor_avg = (sum(u_cubed * weightings)) ** (1 / 3)
+        rotor_avg = (sum(u_cubed * self.rotor_weightings)) ** (1 / 3)
         return rotor_avg
 
     def power(self, uv, depth):
@@ -356,3 +364,56 @@ class MinimumDistanceConstraints(pyadjoint.InequalityConstraint):
                 row += 1
 
         return grad_h
+
+
+def load_turbine(path, mesh2d, include_support=True, discrete=True):
+    """
+    Load a single tidal turbine definition file into a DiscreteTidalTurbineFarmOptions instance.
+
+    This function reads a turbine configuration from a YAML or JSON file and
+    constructs a `DiscreteTidalTurbineFarmOptions` object containing the turbine's
+    physical and operational parameters. It supports both constant and table-based
+    thrust and power coefficient definitions, and optionally includes support structure data.
+
+    :param path: Path to the turbine definition file. The file must be in YAML
+    (``.yaml`` / ``.yml``) or JSON format.
+    :param mesh2d: The 2D mesh object used to construct the turbine density
+        Function.
+    :param include_support: Whether to include support structure parameters
+        (if present in the file). If ``False``, support structure data is ignored
+        even if provided.
+    :param discrete: Whether to create a discrete turbine farm representation.
+        If ``True``, returns a :class:`DiscreteTidalTurbineFarmOptions` object.
+        If ``False``, returns a :class:`TidalTurbineFarmOptions` object suitable
+        for continuous turbine density modelling.
+    :returns: A configured turbine farm options object with parameters loaded
+        from the file.
+    """
+    with open(path) as f:
+        data = yaml.safe_load(f) if path.endswith((".yaml", ".yml")) else json.load(f)
+
+    opts_cls = DiscreteTidalTurbineFarmOptions if discrete else TidalTurbineFarmOptions
+    opts = opts_cls()
+    opts.turbine_type = data.get("turbine_thrust_def", "constant")
+
+    if opts.turbine_type == "table":
+        opts.turbine_options.thrust_speeds = data["curves"]["speeds"]
+        opts.turbine_options.thrust_coefficients = data["curves"]["thrust"]
+        opts.turbine_options.power_coefficients = data["curves"]["power"]
+    else:
+        opts.turbine_options.thrust_coefficient = data["thrust_coefficient"]
+        opts.turbine_options.power_coefficient = data["power_coefficient"]
+
+    if include_support and "support_structure" in data:
+        opts.turbine_options.structure_type = data["support_structure"]["type"]
+        opts.turbine_options.rel_hub_height = data["support_structure"]["rel_hub_height"]
+        opts.turbine_options.C_support = data["support_structure"]["C_support"]
+        opts.turbine_options.A_support = data["support_structure"]["A_support"]
+
+    opts.turbine_options.diameter = data["diameter"]
+    if discrete:
+        opts.upwind_correction = data.get("upwind_correction", True)
+
+    opts.turbine_density = Function(FunctionSpace(mesh2d, "CG", 1),
+                                    name=f"turbine_density_{data['name']}")
+    return opts
