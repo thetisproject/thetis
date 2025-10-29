@@ -927,7 +927,7 @@ class TidalBoundaryForcing(ABC):
         self._empty_set = self.nodes.size == 0
 
         # construct local coordinates
-        on_sphere = function_space.mesh().geometric_dimension() == 3
+        on_sphere = function_space.mesh().geometric_dimension == 3
 
         if on_sphere:
             x, y, z = SpatialCoordinate(function_space.mesh())

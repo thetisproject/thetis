@@ -9,7 +9,7 @@ import itertools
 
 def is_2d(fs):
     """Tests wether a function space is 2D or 3D"""
-    return fs.mesh().geometric_dimension() == 2
+    return fs.mesh().geometric_dimension == 2
 
 
 @PETSc.Log.EventDecorator("thetis.get_visu_space")
