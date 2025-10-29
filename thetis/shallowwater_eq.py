@@ -219,7 +219,7 @@ class ShallowWaterTerm(Term):
         self.cellsize = CellSize(self.mesh)
 
         assert self.mesh.cell_dimension() == 2
-        self.on_the_sphere = self.mesh.geometric_dimension() == 3
+        self.on_the_sphere = self.mesh.geometric_dimension == 3
 
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
