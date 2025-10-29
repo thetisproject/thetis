@@ -1,0 +1,16 @@
+name: Weekly release test
+
+on:
+  schedule:
+    # Release: 04:30 UTC every Monday
+    - cron: '30 4 * * 1'
+  workflow_dispatch:  # allows manual runs
+
+jobs:
+  weekly-release:
+    name: Weekly release test
+    uses: ./.github/workflows/core.yml
+    with:
+      branch: release
+      image: firedrakeproject/firedrake-vanilla-default:latest
+    secrets: inherit

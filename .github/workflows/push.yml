@@ -1,0 +1,15 @@
+name: Test push
+
+on:
+  push:
+    branches:
+      - main
+      - release
+
+jobs:
+  test:
+    uses: ./.github/workflows/core.yml
+    with:
+      branch: ${{ github.ref_name }}
+      image: ${{ github.ref_name == 'release' && 'firedrakeproject/firedrake-vanilla-default:latest' || 'firedrakeproject/firedrake-vanilla-default:dev-main' }}
+    secrets: inherit
