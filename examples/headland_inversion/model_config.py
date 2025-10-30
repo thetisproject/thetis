@@ -96,8 +96,9 @@ def construct_solver(store_station_time_series=True, **model_options):
     bathymetry_2d.project(bathy)
 
     x, y = SpatialCoordinate(mesh2d)
-    lx = mesh2d.comm.allreduce(np.max(x), MPI.MAX)
-    ly = mesh2d.comm.allreduce(np.max(y), MPI.MAX)
+    coordinates = mesh2d.coordinates.dat.data[:]
+    lx = mesh2d.comm.allreduce(np.max(coordinates[:, 0]), MPI.MAX)
+    ly = mesh2d.comm.allreduce(np.max(coordinates[:, 1]), MPI.MAX)
 
     # friction Manning coefficient
     manning_2d = Function(P1_2d, name='Manning coefficient')
