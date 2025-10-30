@@ -663,7 +663,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         self.location_name = location_name
         attrs = {'x': x, 'y': y}
         attrs['location_name'] = self.location_name
-        self.on_sphere = solver_obj.mesh2d.geometric_dimension() == 3
+        self.on_sphere = solver_obj.mesh2d.geometric_dimension == 3
         if self.on_sphere:
             assert z is not None, 'z coordinate must be defined on a manifold mesh'
             attrs['z'] = z

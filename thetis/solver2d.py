@@ -183,7 +183,7 @@ class FlowSolver2d(FrozenClass):
         """
         nnodes = self.function_spaces.P1_2d.dim()
         P1DG_2d = self.function_spaces.P1DG_2d
-        nelem2d = int(P1DG_2d.dim()/P1DG_2d.ufl_cell().num_vertices())
+        nelem2d = int(P1DG_2d.dim()/P1DG_2d.ufl_cell().num_vertices)
         dofs_elev2d = self.function_spaces.H_2d.dim()
         dofs_u2d = self.function_spaces.U_2d.dim()
         dofs_tracer2d = self.function_spaces.Q_2d.dim()
@@ -311,13 +311,13 @@ class FlowSolver2d(FrozenClass):
         Function spaces are accessible via :attr:`.function_spaces`
         object.
         """
-        on_the_sphere = self.mesh2d.geometric_dimension() == 3
+        on_the_sphere = self.mesh2d.geometric_dimension == 3
         if on_the_sphere:
             assert self.options.element_family in ['rt-dg', 'bdm-dg'], \
                 'Spherical mesh requires \'rt-dg\' or \'bdm-dg\' ' \
                 'element family.'
         # ----- function spaces: elev in H, uv in U, mixed is W
-        DG = 'DG' if self.mesh2d.ufl_cell().cellname() == 'triangle' else 'DQ'
+        DG = 'DG' if self.mesh2d.ufl_cell().cellname == 'triangle' else 'DQ'
         self.function_spaces.P0_2d = get_functionspace(self.mesh2d, DG, 0, name='P0_2d')
         self.function_spaces.P1_2d = get_functionspace(self.mesh2d, 'CG', 1, name='P1_2d')
         self.function_spaces.P1v_2d = get_functionspace(self.mesh2d, 'CG', 1, name='P1v_2d',
@@ -329,7 +329,7 @@ class FlowSolver2d(FrozenClass):
         if self.options.element_family in ['rt-dg', 'bdm-dg']:
             family_prefix = self.options.element_family.split('-')[0].upper()
             family_suffix = {'triangle': 'F', 'quadrilateral': 'CF'}
-            cell = self.mesh2d.ufl_cell().cellname()
+            cell = self.mesh2d.ufl_cell().cellname
             fam = family_prefix + family_suffix[cell]
             degree = self.options.polynomial_degree + 1
             self.function_spaces.U_2d = get_functionspace(self.mesh2d, fam, degree, name='U_2d')

@@ -565,7 +565,7 @@ class StationObservationManager:
         :kwarg output_directory: directory where model time series are stored.
         """
         self.mesh = mesh
-        on_sphere = self.mesh.geometric_dimension() == 3
+        on_sphere = self.mesh.geometric_dimension == 3
         if on_sphere:
             raise NotImplementedError('Sphere meshes are not supported yet.')
         self.cost_function_scaling = fd.Constant(1.0)

@@ -50,7 +50,7 @@ class VorticityCalculator2D(DiagnosticCalculator):
         """
         self.uv_2d = uv_2d
         fs = vorticity_2d.function_space()
-        dim = fs.mesh().topological_dimension()
+        dim = fs.mesh().topological_dimension
         if dim != 2:
             raise ValueError(f'Dimension {dim} not supported')
         if element_continuity(fs.ufl_element()).horizontal != 'cg':
@@ -129,7 +129,7 @@ class HessianRecoverer2D(DiagnosticCalculator):
         self.gradient_2d = gradient_2d
         Sigma = hessian_2d.function_space()
         mesh = Sigma.mesh()
-        dim = mesh.topological_dimension()
+        dim = mesh.topological_dimension
         if dim != 2:
             raise ValueError(f'Dimension {dim} not supported')
         n = FacetNormal(mesh)
@@ -279,8 +279,8 @@ class DualWeightedResidual2D(DiagnosticCalculator):
             which will replace the test function
         """
         mesh2d = solver_obj.mesh2d
-        if mesh2d.topological_dimension() != 2:
-            dim = mesh2d.topological_dimension()
+        if mesh2d.topological_dimension != 2:
+            dim = mesh2d.topological_dimension
             raise ValueError(f"Expected a mesh of dimension 2, not {dim}")
         if mesh2d != dual.ufl_domain():
             raise ValueError(f"Mismatching meshes ({mesh2d} vs {func.ufl_domain()})")
