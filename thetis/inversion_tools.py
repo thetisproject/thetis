@@ -7,6 +7,7 @@ from .utility import create_directory, print_function_value_range, get_functions
 from .log import print_output
 from .diagnostics import GradientRecoverer2D, HessianRecoverer2D
 from .exporter import HDF5Exporter
+from .callback import DiagnosticCallback
 import abc
 import numpy
 import h5py
@@ -15,6 +16,138 @@ import time as time_mod
 from pyadjoint.optimization.optimization import SciPyConvergenceError
 import os
 from mpi4py import MPI
+
+
+class CostFunctionCallback(DiagnosticCallback):
+    def __init__(self, solver_obj, cost_function, **kwargs):
+        # Disable logging and HDF5 export
+        kwargs.setdefault('append_to_log', False)
+        kwargs.setdefault('export_to_hdf5', False)
+        super().__init__(solver_obj, **kwargs)
+        self.cost_function = cost_function
+
+    @property
+    def name(self):
+        return 'cost_function_callback'
+
+    @property
+    def variable_names(self):
+        return ['cost_function']
+
+    def __call__(self):
+        # Evaluate the cost function
+        cost_value = self.cost_function()
+        return [cost_value]
+
+    def message_str(self, cost_value):
+        # Return a string representation of the cost function value
+        return f"Cost function value: {cost_value}"
+
+
+class ControlManager:
+    """
+    Handles an individual control (spatially varying Function, masked combination of Functions,
+    or uniform value Function) and its export logic, used internally in InversionManager.
+    """
+
+    def __init__(self, control, output_dir, index, no_exports=False, mappings=None):
+        self.output_dir = output_dir
+        self.index = index
+        self.no_exports = no_exports
+
+        # Wrap single controls in list
+        self.controls = control if isinstance(control, list) else [control]
+        self.mappings = mappings
+        self.is_masked_combination = mappings is not None
+        self.is_field = False
+
+        # Exporters
+        self.vtk_file = None
+        self.hdf5_exporter = None
+        self.gradient_vtk_file = None
+
+        # Identify type and setup projection space
+        if self.is_masked_combination:
+            for c in self.controls:
+                if not isinstance(c, fd.Function):
+                    raise ValueError("All masked combination controls must be Functions")
+            self.mesh = self.controls[0].function_space().mesh()
+            self.projection_space = fd.FunctionSpace(self.mesh, "CG", 1, variant="equispaced")
+            self.is_field = False
+        elif self.controls[0].function_space().ufl_element().family() == "Real":
+            # domain_constant (uniform value Function in the real space)
+            self.mesh = self.controls[0].function_space().mesh()
+            self.projection_space = fd.FunctionSpace(self.mesh, "CG", 1, variant="equispaced")
+            self.is_field = False
+        else:
+            # Spatially varying field
+            if not isinstance(self.controls[0], fd.Function):
+                raise TypeError("Control must be a Firedrake Function")
+            self.mesh = self.controls[0].function_space().mesh()
+            self.projection_space = None
+            self.is_field = True
+
+        # Initialize exporters if needed
+        if not no_exports:
+            fs = self.projection_space if not self.is_field else self.controls[0].function_space()
+            self.vtk_file = fd.VTKFile(f"{output_dir}/control_progress_{index:02d}.pvd")
+            prefix = f"control_{index:02d}"
+            self.hdf5_exporter = HDF5Exporter(fs, output_dir + "/hdf5", prefix)
+            self.gradient_vtk_file = fd.VTKFile(f"{output_dir}/gradient_progress_{index:02d}.pvd")
+
+    def project_control(self, updated_controls):
+        """Project masked combination or domain_constant to CG1 field for export."""
+        field = fd.Function(self.projection_space, name="control")
+        field.assign(0)
+        if self.is_masked_combination:
+            for m_, mask_ in zip(updated_controls, self.mappings):
+                field += m_ * mask_
+        else:
+            field.project(updated_controls[0])  # domain_constant
+        return field
+
+    def export(self, updated_control):
+        """Export control to VTK/HDF5 files."""
+        if self.no_exports:
+            return
+        if self.is_field:
+            # spatially varying field written directly
+            if isinstance(updated_control, list):
+                assert len(updated_control) == 1, "Field export got multiple controls!"
+                updated_control = updated_control[0]
+            updated_control.rename(self.controls[0].name())
+            field = updated_control
+        else:
+            # masked combination or domain_constant -> project
+            if not isinstance(updated_control, list):
+                updated_control = [updated_control]
+            field = self.project_control(updated_control)
+        self.vtk_file.write(field)
+        self.hdf5_exporter.export(field)
+
+    def export_gradient(self, updated_gradient):
+        """Export gradient to VTK/HDF5 files."""
+        if self.no_exports:
+            return
+
+        if self.is_field:
+            if isinstance(updated_gradient, list):
+                assert len(updated_gradient) == 1, "Field export got multiple controls!"
+                updated_gradient = updated_gradient[0]
+            updated_gradient.rename("Gradient")
+            gradient = updated_gradient
+        else:
+            if not isinstance(updated_gradient, list):
+                updated_gradient = [updated_gradient]
+            gradient = fd.Function(self.projection_space, name="Gradient")
+            gradient.assign(0)
+            if self.is_masked_combination:
+                for g_, mask_ in zip(updated_gradient, self.mappings):
+                    gradient += g_ * mask_
+            else:  # domain_constant
+                gradient.project(updated_gradient[0])
+
+        self.gradient_vtk_file.write(gradient)
 
 
 class InversionManager(FrozenHasTraits):
@@ -52,9 +185,8 @@ class InversionManager(FrozenHasTraits):
         self.sta_manager.cost_function_scaling = self.cost_function_scaling
         self.test_consistency = test_consistency
         self.test_gradient = test_gradient
-        self.outfiles_m = []
-        self.outfiles_dJdm = []
-        self.control_exporters = []
+        self._controls_wrapped = []
+        self.control_managers = []
         self.initialized = False
 
         self.J = 0  # cost function value (float)
@@ -71,8 +203,6 @@ class InversionManager(FrozenHasTraits):
         self.i = 0
         self.tic = None
         self.nb_grad_evals = 0
-        self.control_coeff_list = []
-        self.control_list = []
 
     def initialize(self):
         if not self.no_exports:
@@ -80,29 +210,62 @@ class InversionManager(FrozenHasTraits):
                 raise ValueError("Exports are not supported in Real mode.")
             create_directory(self.output_dir)
             create_directory(self.output_dir + '/hdf5')
-            for i in range(len(self.control_coeff_list)):
-                self.outfiles_m.append(
-                    fd.VTKFile(f'{self.output_dir}/control_progress_{i:02d}.pvd'))
-                self.outfiles_dJdm.append(
-                    fd.VTKFile(f'{self.output_dir}/gradient_progress_{i:02d}.pvd'))
         self.initialized = True
 
-    def add_control(self, f):
+    def add_control(self, controls, mappings=None):
         """
-        Add a control field.
+        Add control(s).
 
         Can be called multiple times in case of multiparameter optimization.
 
-        :arg f: Function or Constant to be used as a control variable.
+        Parameters
+        ----------
+        controls : fd.Function or list/tuple of fd.Function
+            The Function(s) representing the control parameters.
+        mappings : list of fd.Function, optional
+            Masks for multi-control cases. If provided, `controls` must be a list of Functions
+            matching the masks.
+
+        Notes
+        -----
+        - Pyadjoint `Control` objects are created immediately upon adding the control.
+          This marks the current state on the tape.
+        - The value of a control Function should not be altered during a forward solve
+          outside of the inversion machinery. Changing it beforehand is allowed,
+          but changing it mid-solve may lead to incorrect gradients or mis-evaluation
+          of the ReducedFunctional.
+        - Masked combinations are supported via lists of Functions combined with masks.
         """
-        self.control_coeff_list.append(f)
-        self.control_list.append(Control(f))
-        if isinstance(f, fd.Function) and not self.no_exports:
-            j = len(self.control_coeff_list) - 1
-            prefix = f'control_{j:02d}'
-            self.control_exporters.append(
-                HDF5Exporter(f.function_space(), self.output_dir + '/hdf5', prefix)
-            )
+        if not isinstance(controls, (list, tuple)):
+            controls = [controls]
+        for c in controls:
+            if not isinstance(c, fd.Function):
+                raise TypeError(f"Control {c} is not a Firedrake Function")
+        if mappings is not None:
+            index = len(self.control_managers)
+            cm = ControlManager(controls, self.output_dir, index, no_exports=self.no_exports, mappings=mappings)
+            self.control_managers.append(cm)
+            # store Pyadjoint Control objects
+            for c in controls:
+                self._controls_wrapped.append(Control(c))
+        else:
+            for f in controls:
+                index = len(self.control_managers)
+                cm = ControlManager(f, self.output_dir, index, no_exports=self.no_exports)
+                self.control_managers.append(cm)
+                self._controls_wrapped.append(Control(f))
+
+    @property
+    def control_coeff_list(self):
+        """
+        Return a flat list of the underlying Firedrake Functions
+        used as controls, in the order they were added.
+        """
+        return [c for cm in self.control_managers for c in cm.controls]
+
+    @property
+    def control_list(self):
+        return self._controls_wrapped
 
     def reset_counters(self):
         self.nb_grad_evals = 0
@@ -147,7 +310,7 @@ class InversionManager(FrozenHasTraits):
         toc = self.stop_clock()
         if self.i == 0:
             for f in self.control_coeff_list:
-                print_function_value_range(f, prefix='Initial')
+                print_function_value_range(f, name=f.name, prefix='Initial')
 
         elapsed = '-' if self.tic is None else f'{toc - self.tic:.1f} s'
         self.tic = toc
@@ -164,7 +327,7 @@ class InversionManager(FrozenHasTraits):
         self.J_reg_progress.append(self.J_reg)
         self.J_misfit_progress.append(self.J_misfit)
         self.dJdm_progress.append(djdm)
-        comm = self.control_coeff_list[0].comm
+        comm = self.dJdm_list[0].comm
         if comm.rank == 0 and not self.no_exports:
             if self.real:
                 numpy.save(f'{self.output_dir}/m_progress', self.m_progress)
@@ -181,21 +344,14 @@ class InversionManager(FrozenHasTraits):
                      f'grad_ev={self.nb_grad_evals}, duration {elapsed}')
 
         if not self.no_exports:
-            # control output
-            for j in range(len(self.control_coeff_list)):
-                m = self.m_list[j]
-                # vtk format
-                o = self.outfiles_m[j]
-                m.rename(self.control_coeff_list[j].name())
-                o.write(m)
-                # hdf5 format
-                e = self.control_exporters[j]
-                e.export(m)
-            # gradient output
-            for f, o in zip(self.dJdm_list, self.outfiles_dJdm):
-                # store gradient in vtk format
-                f.rename('Gradient')
-                o.write(f)
+            ref_index = 0
+            for cm in self.control_managers:
+                num_controls = len(cm.mappings) if cm.mappings is not None else 1
+                controls_slice = self.m_list[ref_index: ref_index + num_controls]
+                cm.export(controls_slice)
+                gradient_slice = self.dJdm_list[ref_index: ref_index + num_controls]
+                cm.export_gradient(gradient_slice)
+                ref_index += num_controls
 
         self.i += 1
         self.reset_counters()
@@ -274,10 +430,23 @@ class InversionManager(FrozenHasTraits):
         self.J = self.J_reg
 
         if weight_by_variance:
-            var = fd.Function(self.sta_manager.fs_points_0d)
-            for i, j in enumerate(self.sta_manager.local_station_index):
-                var.dat.data[i] = numpy.var(self.sta_manager.observation_values[j])
-            self.sta_manager.station_weight_0d.interpolate(1/var)
+            var = fd.Function(self.sta_manager.fs_points_0d_scalar)
+            # in parallel access to .dat.data should be collective
+            if len(var.dat.data[:]) > 0:
+                for i, j in enumerate(self.sta_manager.local_station_index):
+                    if self.sta_manager.observed_quantity_is_scalar:
+                        obs = self.sta_manager.observation_data[j]
+                        var.dat.data[i] = numpy.var(obs)
+                    else:
+                        u_list, v_list = self.sta_manager.observation_data
+                        u = u_list[j]
+                        v = v_list[j]
+                        magnitude = numpy.sqrt(u ** 2 + v ** 2)
+                        var.dat.data[i] = numpy.var(magnitude)
+                assert numpy.all(numpy.isfinite(var.dat.data[:])), \
+                    (f"[{fd.COMM_WORLD.rank}] ERROR: Check for NaNs. Found non-finite variances of "
+                     f"observation data: {var.dat.data[:]}")
+            self.sta_manager.station_weight_0d.interpolate(1 / var)
 
         def cost_fn():
             t = solver_obj.simulation_time
@@ -388,6 +557,7 @@ class StationObservationManager:
     This object evaluates the model fields at the station locations,
     interpolates the observations time series to the model time, computes the
     error functional, and also stores the model's time series data to disk.
+
     """
     def __init__(self, mesh, output_directory='outputs'):
         """
@@ -410,26 +580,42 @@ class StationObservationManager:
         self.initialized = False
 
     def register_observation_data(self, station_names, variable, time,
-                                  values, x, y, start_times=None, end_times=None):
+                                  x, y, data=None, start_times=None, end_times=None):
         """
         Add station time series data to the object.
 
         The `x`, and `y` coordinates must be such that
         they allow extraction of model data at the same coordinates.
 
+        Supports arbitrary scalar or 2D vector data for observation data.
+
         :arg list station_names: list of station names
-        :arg str variable: canonical variable name, e.g. 'elev'
+        :arg str variable: canonical variable name, e.g. 'elev', 'uv'
         :arg list time: array of time stamps, one for each station
-        :arg list values: array of observations, one for each station
+        :arg list data:
+            - scalar: list of arrays, one per station
+            - vector: tuple (list of arrays, list of arrays)
         :arg list x: list of station x coordinates
         :arg list y: list of station y coordinates
         :kwarg list start_times: optional start times for the observation periods
         :kwarg list end_times: optional end times for the observation periods
         """
+        if data is None:
+            raise ValueError("Must provide observation data.")
+        if isinstance(data, tuple) or isinstance(data, list) and len(data) == 2:
+            u, v = data
+            if not isinstance(u, list) or not isinstance(v, list):
+                raise ValueError("For vector data, 'data' must be a tuple/list of two lists.")
+            self.observed_quantity_is_scalar = False
+        elif isinstance(data, list):
+            self.observed_quantity_is_scalar = True
+        else:
+            raise ValueError("Invalid data format. Must be list (scalar) or tuple/list of two lists (vector).")
+
         self.station_names = station_names
         self.variable = variable
         self.observation_time = time
-        self.observation_values = values
+        self.observation_data = data
         self.observation_x = x
         self.observation_y = y
         num_stations = len(station_names)
@@ -442,14 +628,14 @@ class StationObservationManager:
         """
         self.model_observation_field = function
 
-    def load_observation_data(self, observation_data_dir, station_names, variable,
-                              start_times=None, end_times=None):
+    def load_scalar_observation_data(self, observation_data_dir, station_names, variable,
+                                     start_times=None, end_times=None):
         """
-        Load observation data from disk.
+        Load scalar observation data (e.g. elevation) from disk.
 
-        Assumes that observation data were stored with
-        `TimeSeriesCallback2D` during the forward run. For generic case, use
-        `register_observation_data` instead.
+        This assumes the data was stored with `TimeSeriesCallback2D` during the
+        forward run. For generic/custom sources (or vectors e.g. velocity), use
+        `register_observation_data` directly.
 
         :arg str observation_data_dir: directory where observation data is stored
         :arg list station_names: list of station names
@@ -467,7 +653,7 @@ class StationObservationManager:
         observation_values = []
         observation_coords = []
         for f in file_list:
-            with h5py.File(f) as h5file:
+            with h5py.File(f, 'r') as h5file:
                 t = h5file['time'][:].flatten()
                 v = h5file[variable][:].flatten()
                 x = h5file.attrs['x']
@@ -479,7 +665,7 @@ class StationObservationManager:
         observation_x, observation_y = numpy.array(observation_coords).T
         self.register_observation_data(
             station_names, variable, observation_time,
-            observation_values, observation_x, observation_y,
+            observation_x, observation_y, data=observation_values,
             start_times=start_times, end_times=end_times,
         )
         self.construct_evaluator()
@@ -492,7 +678,7 @@ class StationObservationManager:
         """
         if not hasattr(self, 'obs_start_times'):
             self.construct_evaluator()
-        in_use = fd.Function(self.fs_points_0d)
+        in_use = fd.Function(self.fs_points_0d_scalar)
         in_use.dat.data[:] = numpy.array(
             numpy.bitwise_and(
                 self.obs_start_times <= t, t <= self.obs_end_times
@@ -506,14 +692,18 @@ class StationObservationManager:
         # Create 0D mesh for station evaluation
         xy = numpy.array((self.observation_x, self.observation_y)).T
         mesh0d = fd.VertexOnlyMesh(self.mesh, xy)
-        self.fs_points_0d = fd.FunctionSpace(mesh0d, 'DG', 0)
+        self.fs_points_0d_scalar = fd.FunctionSpace(mesh0d, 'DG', 0)
+        if self.observed_quantity_is_scalar:
+            self.fs_points_0d = self.fs_points_0d_scalar
+        else:
+            self.fs_points_0d = fd.VectorFunctionSpace(mesh0d, 'DG', 0, dim=2)
         self.obs_values_0d = fd.Function(self.fs_points_0d, name='observations')
         self.mod_values_0d = fd.Function(self.fs_points_0d, name='model values')
-        self.indicator_0d = fd.Function(self.fs_points_0d, name='station use indicator')
+        self.indicator_0d = fd.Function(self.fs_points_0d_scalar, name='station use indicator')
         self.indicator_0d.assign(1.0)
         self.cost_function_scaling_0d = domain_constant(0.0, mesh0d)
         self.cost_function_scaling_0d.assign(self.cost_function_scaling)
-        self.station_weight_0d = fd.Function(self.fs_points_0d, name='station-wise weighting')
+        self.station_weight_0d = fd.Function(self.fs_points_0d_scalar, name='station-wise weighting')
         self.station_weight_0d.assign(1.0)
         interp_kw = {}
         if numpy.isfinite(self._start_times).any() or numpy.isfinite(self._end_times).any():
@@ -522,8 +712,9 @@ class StationObservationManager:
         # Construct timeseries interpolator
         self.station_interpolators = []
         self.local_station_index = []
+
         if len(mesh0d.coordinates.dat.data[:]) > 0:
-            for i in range(self.fs_points_0d.dof_dset.size):
+            for i in range(self.fs_points_0d_scalar.dof_dset.size):
                 # loop over local DOFs and match coordinates to observations
                 # NOTE this must be done manually as VertexOnlyMesh reorders points
                 x_mesh, y_mesh = mesh0d.coordinates.dat.data[i, :]
@@ -534,15 +725,19 @@ class StationObservationManager:
 
                 x, y = xy[j, :]
                 t = self.observation_time[j]
-                v = self.observation_values[j]
                 x_mesh, y_mesh = mesh0d.coordinates.dat.data[i, :]
 
                 msg = 'bad station location ' \
-                    f'{j} {i} {x} {x_mesh} {y} {y_mesh} {x-x_mesh} {y-y_mesh}'
+                      f'{j} {i} {x} {x_mesh} {y} {y_mesh} {x - x_mesh} {y - y_mesh}'
                 assert numpy.allclose([x, y], [x_mesh, y_mesh]), msg
-                # create temporal interpolator
-                ip = interp1d(t, v, **interp_kw)
-                self.station_interpolators.append(ip)
+                if self.observed_quantity_is_scalar:
+                    ip = interp1d(t, self.observation_data[j], **interp_kw)
+                    self.station_interpolators.append(ip)
+                else:
+                    u_data, v_data = self.observation_data
+                    ip_u = interp1d(t, u_data[j], **interp_kw)
+                    ip_v = interp1d(t, v_data[j], **interp_kw)
+                    self.station_interpolators.append((ip_u, ip_v))
 
         # Process start and end times for observations
         self.obs_start_times = numpy.array([
@@ -553,7 +748,11 @@ class StationObservationManager:
         ])
 
         # expressions for cost function
-        self.misfit_expr = self.obs_values_0d - self.mod_values_0d
+        if self.observed_quantity_is_scalar:
+            self.misfit_expr = self.obs_values_0d - self.mod_values_0d
+        else:
+            diff = self.obs_values_0d - self.mod_values_0d
+            self.misfit_expr = fd.sqrt(fd.inner(diff, diff))
         self.initialized = True
 
     def eval_observation_at_time(self, t):
@@ -564,7 +763,13 @@ class StationObservationManager:
         :returns: list of observation time series values at time `t`
         """
         self.update_stations_in_use(t)
-        return [float(ip(t)) for ip in self.station_interpolators]
+        if self.observed_quantity_is_scalar:
+            ip = [float(ip(t)) for ip in self.station_interpolators]
+            return ip
+        else:
+            ip_u = [float(ip_u(t)) for ip_u, _ in self.station_interpolators]
+            ip_v = [float(ip_v(t)) for _, ip_v in self.station_interpolators]
+            return ip_u, ip_v
 
     def eval_cost_function(self, t):
         """
@@ -575,14 +780,29 @@ class StationObservationManager:
         assert self.initialized, 'Not initialized, call construct_evaluator first.'
         assert self.model_observation_field is not None, 'Model field not set.'
         self.simulation_time.append(t)
-        # evaluate observations at simulation time and stash the result
-        obs_func = fd.Function(self.fs_points_0d)
-        obs_func.dat.data[:] = self.eval_observation_at_time(t)
-        self.obs_func_list.append(obs_func)
 
-        # compute square error
+        # observed data
+        obs_func = fd.Function(self.fs_points_0d)
+        if self.observed_quantity_is_scalar:
+            obs_func.dat.data[:] = self.eval_observation_at_time(t)
+            self.obs_func_list.append(obs_func)
+        else:
+            obs_u_data, obs_v_data = self.eval_observation_at_time(t)
+            obs_func.dat.data[:, 0] = obs_u_data
+            obs_func.dat.data[:, 1] = obs_v_data
+            self.obs_func_list.append(obs_func)
         self.obs_values_0d.assign(obs_func)
-        self.mod_values_0d.interpolate(self.model_observation_field, ad_block_tag='observation')
+
+        # modelled data
+        if self.observed_quantity_is_scalar:
+            P1_2d = get_functionspace(self.mesh, 'CG', 1)
+            mod_func = fd.Function(P1_2d, name=self.variable)
+        else:
+            P1_2vd = get_functionspace(self.mesh, 'CG', 1, vector=True)
+            mod_func = fd.Function(P1_2vd, name=self.variable)
+        mod_func.project(self.model_observation_field)
+        self.mod_values_0d.interpolate(mod_func, ad_block_tag=f'{self.variable} observation')
+        # compute square error
         s = self.cost_function_scaling_0d * self.indicator_0d * self.station_weight_0d
         self.J_misfit = fd.assemble(s * self.misfit_expr ** 2 * fd.dx, ad_block_tag='misfit_eval')
         return self.J_misfit
@@ -594,32 +814,39 @@ class StationObservationManager:
         Obtains station time series from the last optimization iteration,
         and stores the data to disk.
 
-        The output files are have the format
+        The output files have the format
         `{odir}/diagnostic_timeseries_progress_{station_name}_{variable}.hdf5`
 
         The file contains the simulation time in the `time` array, and the
         station name and coordinates as attributes. The time series data is
-        stored as a 2D (n_iterations, n_time_steps) array.
+        stored as a rank 2 (n_iterations, n_time_steps) array for scalar,
+        or rank 3 (n_iterations, n_time_steps, 2) for vector quantities.
         """
         assert self.station_names is not None
 
         create_directory(self.output_directory)
         tape = get_working_tape()
-        blocks = tape.get_blocks(tag='observation')
-        ts_data = [b.get_outputs()[0].saved_output.dat.data for b in blocks]
-        # shape (ntimesteps, nstations)
-        ts_data = numpy.array(ts_data)
-        # append
-        self.station_value_progress.append(ts_data)
+
         var = self.variable
+
+        blocks = tape.get_blocks(tag=f'{self.variable} observation')
+        ts_data = [b.get_outputs()[0].saved_output.dat.data for b in blocks]
+        ts_data = numpy.array(ts_data)  # shape (ntimesteps, nstations, ndims) ndims = 2 for vector
+        self.station_value_progress.append(ts_data)
+
         for ilocal, iglobal in enumerate(self.local_station_index):
             name = self.station_names[iglobal]
-            # collect time series data, shape (niters, ntimesteps)
-            ts = numpy.array([s[:, ilocal] for s in self.station_value_progress])
+            ts = numpy.array([s[:, ilocal] for s in self.station_value_progress])  # shape (niters, ntimesteps, ?)
+
             fn = f'diagnostic_timeseries_progress_{name}_{var}.hdf5'
             fn = os.path.join(self.output_directory, fn)
+
             with h5py.File(fn, 'w') as hdf5file:
-                hdf5file.create_dataset(var, data=ts)
+                if self.observed_quantity_is_scalar:
+                    hdf5file.create_dataset(var, data=ts)  # scalar data
+                else:
+                    hdf5file.create_dataset(f'{var}_u_component', data=ts[:, :, 0])
+                    hdf5file.create_dataset(f'{var}_v_component', data=ts[:, :, 1])
                 hdf5file.create_dataset('time', data=numpy.array(self.simulation_time))
                 attrs = {
                     'x': self.observation_x[iglobal],
