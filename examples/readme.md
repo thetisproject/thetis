@@ -24,6 +24,7 @@ Each subfolder includes a Python script (e.g. `channel2d.py`), which you can run
 | **dome**                 | Idealized dome-shaped bathymetry to test internal waves.                            |
 | **freshwaterCylinder**   | Freshwater release into denser ambient fluid around cylinder.                       |
 | **geostrophicGyre**      | Steady geostrophic circulation in a closed basin.                                   |
+| **headland_inversion**   | Calibration of bottom friction around a headland using velocity observations.       |
 | **idealizedEstuary**     | Idealized estuarine flow with salt intrusion.                                       |
 | **katophillips**         | Shows implementation of Kato-Phillips internal wave closure.                        |
 | **lockExchange**         | Classic lock-exchange buoyant flow test.                                            |

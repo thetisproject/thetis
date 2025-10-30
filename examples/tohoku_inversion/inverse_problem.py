@@ -77,7 +77,7 @@ sta_manager = inversion_tools.StationObservationManager(
 # TODO: Update scaling to depend on number of DOFs in the problem
 cost_function_scaling = domain_constant(10000000 * solver_obj.dt / options.simulation_end_time, mesh2d)
 sta_manager.cost_function_scaling = cost_function_scaling
-sta_manager.load_observation_data(
+sta_manager.load_scalar_observation_data(
     observation_data_dir,
     station_names,
     variable,
@@ -91,6 +91,7 @@ J_scalar = sta_manager.cost_function_scaling
 # Create inversion manager and add controls
 no_exports = os.getenv("THETIS_REGRESSION_TEST") is not None
 real_mode = source_model in ("box", "radial", "okada")
+# TODO: gamma should be assigned relative to the cost function scaling
 gamma = 0 if no_regularization else 1e-04 if real_mode else 1e-01
 inv_manager = inversion_tools.InversionManager(
     sta_manager, real=real_mode, cost_function_scaling=J_scalar,
@@ -102,9 +103,11 @@ for c in source.controls:
 
 # Extract the regularized cost function
 cost_function = inv_manager.get_cost_function(solver_obj, weight_by_variance=True)
+cost_function_callback = inversion_tools.CostFunctionCallback(solver_obj, cost_function)
+solver_obj.add_callback(cost_function_callback, 'timestep')
 
 # Solve and setup the reduced functional
-solver_obj.iterate(export_func=cost_function)
+solver_obj.iterate()
 inv_manager.stop_annotating()
 
 # Run inversion
