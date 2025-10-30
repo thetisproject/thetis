@@ -158,8 +158,7 @@ class InversionManager(FrozenHasTraits):
 
     @unfrozen
     def __init__(self, sta_manager, output_dir='outputs', no_exports=False, real=False,
-                 penalty_parameters=[], cost_function_scaling=None,
-                 test_consistency=True, test_gradient=True):
+                 penalty_parameters=[], test_consistency=True, test_gradient=True):
         """
         :arg sta_manager: the :class:`StationManager` instance
         :kwarg output_dir: model output directory
@@ -167,22 +166,18 @@ class InversionManager(FrozenHasTraits):
         :kwarg real: is the inversion in the Real space?
         :kwarg penalty_parameters: a list of penalty parameters to pass
             to the :class:`ControlRegularizationManager`
-        :kwarg cost_function_scaling: global scaling for the cost function.
-            As rule of thumb, it's good to scale the functional to J < 1.
         :kwarg test_consistency: toggle testing the correctness with
             which the :class:`ReducedFunctional` can recompute values
         :kwarg test_gradient: toggle testing the correctness with
             which the :class:`ReducedFunctional` can recompute gradients
         """
-        assert isinstance(sta_manager, StationObservationManager)
+        assert isinstance(sta_manager, StationObservationManager) or isinstance(sta_manager, MultiStationObservationManager)
         self.sta_manager = sta_manager
         self.reg_manager = None
         self.output_dir = output_dir
         self.no_exports = no_exports or real
         self.real = real
         self.penalty_parameters = penalty_parameters
-        self.cost_function_scaling = cost_function_scaling or fd.Constant(1.0)
-        self.sta_manager.cost_function_scaling = self.cost_function_scaling
         self.test_consistency = test_consistency
         self.test_gradient = test_gradient
         self._controls_wrapped = []
@@ -373,30 +368,52 @@ class InversionManager(FrozenHasTraits):
         return params
 
     def get_cost_function(self, solver_obj, weight_by_variance=False, regularisation_manager="Hessian",
-                          use_local_element_size=True):
+                          use_local_element_size=True, regularisation_scaling_factor=1.0):
         r"""
-        Get a sum of square errors cost function for the problem:
+        Get a sum of square errors cost function for the inverse problem.
 
-      ..math::
-            J(u) = \sum_{i=1}^{n_{ts}} \sum_{j=1}^{n_{sta}} (u_j^{(i)} - u_{j,o}^{(i)})^2,
+        .. math::
+            J(u) = J_\mathrm{reg} +
+            \sum_{i=1}^{n_{ts}}
+            \sum_{k=1}^{n_\mathrm{types}}
+            \sum_{j=1}^{n_{\mathrm{sta},k}}
+            w_k (u_{j,k}^{(i)} - u_{j,k,o}^{(i)})^2,
 
-        where :math:`u_{j,o}^{(i)}` and :math:`u_j^{(i)}` denote the
-        observed and computed values at timestep :math:`i`, and
-        :math:`n_{ts}` and :math:`n_{sta}` are the numbers of timesteps
+        where :math:`u_{j,k,o}^{(i)}` and :math:`u_{j,k}^{(i)}` denote the observed
+        and computed values for observation type :math:`k` at timestep :math:`i`,
+        and :math:`n_{ts}` and :math:`n_{\mathrm{sta},k}` are the number of timesteps
         and stations, respectively.
 
-        Regularization terms are included if a
-        :class:`RegularizationManager` instance is provided.
+        The total cost functional :math:`J(u)` may include:
+
+        * **Misfit terms** for one or more observation types (e.g. elevation, velocity),
+          combined via a :class:`MultiStationObservationManager`.
+        * **Station-wise weighting** by the inverse of the variance of the observed
+          data, ensuring stations with larger signal magnitudes do not dominate.
+        * **Regularization terms** on the control fields, computed once at setup
+          using either *Hessian*, *Gradient*, or *R-space* smoothness penalties.
+
+        The function returns a callable ``cost_fn()`` that should be evaluated at
+        each model export during the forward simulation to accumulate the
+        time-dependent misfit contribution.
 
         :arg solver_obj: the :class:`FlowSolver2d` instance
-        :kwarg weight_by_variance: should the observation data be
-            weighted by the variance at each station?
+        :kwarg weight_by_variance: whether to weight each station by the inverse
+            of its data variance to balance different magnitude signals
         :kwarg regularisation_manager: which regularisation to apply
-            ("Hessian" or "Gradient")
-        :kwarg use_local_element_size: choose whether to use local
-            (varying) element size to normalise regularisation units
+            (``"Hessian"`` or ``"Gradient"``; ``"R-space"`` is used automatically
+            for real-valued controls)
+        :kwarg use_local_element_size: whether to use local (spatially varying)
+            element size to normalise regularisation units
+        :kwarg regularisation_scaling_factor: global factor applied *only* to
+            regularization terms
+
+        :returns: a callable ``cost_fn`` that accumulates the misfit term at each
+            timestep during the forward model run
         """
         assert isinstance(solver_obj, FlowSolver2d)
+
+        # --- Regularisation setup ---
         if self.real:
             calculator = RSpaceRegularizationCalculator
             calculator_kwargs = None
@@ -415,30 +432,34 @@ class InversionManager(FrozenHasTraits):
                     "Must be one of: 'Hessian', 'Gradient'."
                 )
 
+        # --- Build regularisation manager ---
         if len(self.penalty_parameters) > 0:
             self.reg_manager = ControlRegularizationManager(
                 self.control_coeff_list,
                 self.penalty_parameters,
-                self.cost_function_scaling,
+                regularisation_scaling_factor,
                 calculator,
                 calculator_kwargs=calculator_kwargs
             )
+        # --- Compute regularisation term once ---
         self.J_reg = 0
-        self.J_misfit = 0
         if self.reg_manager is not None:
             self.J_reg = self.reg_manager.eval_cost_function()
+
+        # --- Initialize J ---
+        self.J_misfit = 0
         self.J = self.J_reg
 
+        # --- Station variance weighting ---
         if weight_by_variance:
-            var = fd.Function(self.sta_manager.fs_points_0d_scalar)
-            # in parallel access to .dat.data should be collective
-            if len(var.dat.data[:]) > 0:
-                for i, j in enumerate(self.sta_manager.local_station_index):
-                    if self.sta_manager.observed_quantity_is_scalar:
-                        obs = self.sta_manager.observation_data[j]
+            def apply_weighting(sta_mgr):
+                var = fd.Function(sta_mgr.fs_points_0d_scalar)
+                for i, j in enumerate(sta_mgr.local_station_index):
+                    if sta_mgr.observed_quantity_is_scalar:
+                        obs = sta_mgr.observation_data[j]
                         var.dat.data[i] = numpy.var(obs)
                     else:
-                        u_list, v_list = self.sta_manager.observation_data
+                        u_list, v_list = sta_mgr.observation_data
                         u = u_list[j]
                         v = v_list[j]
                         magnitude = numpy.sqrt(u ** 2 + v ** 2)
@@ -446,13 +467,26 @@ class InversionManager(FrozenHasTraits):
                 assert numpy.all(numpy.isfinite(var.dat.data[:])), \
                     (f"[{fd.COMM_WORLD.rank}] ERROR: Check for NaNs. Found non-finite variances of "
                      f"observation data: {var.dat.data[:]}")
-            self.sta_manager.station_weight_0d.interpolate(1 / var)
+                # in parallel some mesh partitions will have no stations so we need a conditional to avoid div by 0
+                sta_mgr.station_weight_0d.interpolate(fd.conditional(fd.gt(var, 0.0), 1./var, 0.0))
 
+            if isinstance(self.sta_manager, MultiStationObservationManager):
+                for sub_mgr in self.sta_manager.observation_managers.values():
+                    apply_weighting(sub_mgr)
+            else:
+                apply_weighting(self.sta_manager)
+
+        # --- Time-dependent cost function (only adds misfit) ---
         def cost_fn():
             t = solver_obj.simulation_time
-            misfit = self.sta_manager.eval_cost_function(t)
-            self.J_misfit += misfit
-            self.J += misfit
+            if isinstance(self.sta_manager, MultiStationObservationManager):
+                J_total, components = self.sta_manager.eval_cost_function(t)
+                self.J_misfit += J_total
+                self.J += J_total
+            else:
+                misfit = self.sta_manager.eval_cost_function(t)
+                self.J_misfit += misfit
+                self.J += misfit
 
         return cost_fn
 
@@ -602,15 +636,18 @@ class StationObservationManager:
         """
         if data is None:
             raise ValueError("Must provide observation data.")
-        if isinstance(data, tuple) or isinstance(data, list) and len(data) == 2:
+        if isinstance(data, tuple):
             u, v = data
             if not isinstance(u, list) or not isinstance(v, list):
                 raise ValueError("For vector data, 'data' must be a tuple/list of two lists.")
             self.observed_quantity_is_scalar = False
         elif isinstance(data, list):
+            # always treat as scalar
             self.observed_quantity_is_scalar = True
         else:
-            raise ValueError("Invalid data format. Must be list (scalar) or tuple/list of two lists (vector).")
+            raise ValueError("Invalid data format. Must be list (scalar) or tuple (vector).")
+        print_output(f"Data registered as {'scalar' if self.observed_quantity_is_scalar else 'vector'} for variable "
+                     f"'{variable}' with {len(station_names)} station(s).")
 
         self.station_names = station_names
         self.variable = variable
@@ -854,6 +891,39 @@ class StationObservationManager:
                     'location_name': name,
                 }
                 hdf5file.attrs.update(attrs)
+
+
+class MultiStationObservationManager:
+    """
+    Manage multiple StationObservationManager instances (e.g. elevation + velocity).
+    Combines their cost functions into a single scalar J.
+    """
+
+    def __init__(self, managers, weights=None):
+        """
+        :param managers: dict {name: StationObservationManager}
+        :param weights: optional dict of {variable_name: weight}
+        """
+        self.observation_managers = managers
+        self.weights = weights or {}
+
+    def eval_cost_function(self, t):
+        """
+        Evaluate combined cost function for all registered observation sets.
+        Returns a tuple (total_J, component_dict)
+        """
+        J_total = 0.0
+        components = {}
+        for name, som in self.observation_managers.items():
+            J = som.eval_cost_function(t)  # individual manager will assert initialized
+            w = self.weights.get(name, 1.0)
+            components[name] = float(J)
+            J_total += w * J
+        return J_total, components
+
+    def dump_time_series(self):
+        for som in self.observation_managers.values():
+            som.dump_time_series()
 
 
 class RegularizationCalculator(abc.ABC):
