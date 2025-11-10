@@ -88,8 +88,15 @@ for sta in station_names:
             v_iter_vals = h5file['uv_v_component'][:]
             niter = max(niter, u_iter_vals.shape[0] - 1)
 
-    # --- Set up figure panels dynamically ---
-    n_panels = (1 if elev_vals is not None else 0) + (2 if u_vals is not None else 0)
+    # --- Determine which panels to plot ---
+    plot_elev = elev_vals is not None and elev_iter_vals is not None
+    plot_uv = u_vals is not None and v_vals is not None and u_iter_vals is not None and v_iter_vals is not None
+
+    n_panels = (1 if plot_elev else 0) + (2 if plot_uv else 0)
+    if n_panels == 0:
+        print(f"No data to plot for {sta}, skipping.")
+        continue
+
     fig, ax = plt.subplots(n_panels, 1, figsize=(12, 5 * n_panels))
     if n_panels == 1:
         ax = [ax]  # make iterable for uniform handling
@@ -97,13 +104,12 @@ for sta in station_names:
     panel_idx = 0
 
     # --- Plot elevation ---
-    if elev_vals is not None:
+    if plot_elev:
         init = True
         a = ax[panel_idx]
         a.plot(time, elev_vals, 'k:', lw=1.3, label='observation', zorder=3)
-        if elev_iter_vals is not None:
-            for j, eta in enumerate(elev_iter_vals):
-                a.plot(iter_times, eta, lw=0.5, label=f'iteration {j}')
+        for j, eta in enumerate(elev_iter_vals):
+            a.plot(iter_times, eta, lw=0.5, label=f'iteration {j}')
         a.set_ylabel('Elevation (m)')
         a.set_title(f'{sta} (elevation)', size='small')
         a.grid(True)
@@ -111,18 +117,17 @@ for sta in station_names:
         panel_idx += 1
 
     # --- Plot velocity ---
-    if u_vals is not None and v_vals is not None:
+    if plot_uv:
         a_u = ax[panel_idx]
         a_v = ax[panel_idx + 1]
 
         a_u.plot(time, u_vals, 'k:', lw=1.3, label='observation', zorder=3)
         a_v.plot(time, v_vals, 'k:', lw=1.3, label='observation', zorder=3)
 
-        if u_iter_vals is not None and v_iter_vals is not None:
-            for j, u in enumerate(u_iter_vals):
-                a_u.plot(iter_times, u, lw=0.5, label=f'iteration {j}' if not init else None)
-            for j, v in enumerate(v_iter_vals):
-                a_v.plot(iter_times, v, lw=0.5)
+        for j, u in enumerate(u_iter_vals):
+            a_u.plot(iter_times, u, lw=0.5, label=f'iteration {j}' if not init else None)
+        for j, v in enumerate(v_iter_vals):
+            a_v.plot(iter_times, v, lw=0.5)
 
         a_u.set_ylabel('u (m/s)')
         a_v.set_ylabel('v (m/s)')
@@ -131,7 +136,6 @@ for sta in station_names:
         a_u.grid(True)
         a_v.grid(True)
         a_u.legend(prop={'size': 10})
-        init = True
 
     # --- Annotate and save ---
     ax[0].text(
