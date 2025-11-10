@@ -548,7 +548,7 @@ class InversionManager(FrozenHasTraits):
         except SciPyConvergenceError as e:
             if "TOTAL NO. OF ITERATIONS REACHED LIMIT" in str(e):
                 print_output("Optimization stopped: reached iteration limit.")
-                return self.control_coeff_list
+                return self.m_list
             else:
                 raise
 
