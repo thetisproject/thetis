@@ -152,8 +152,12 @@ if selected_case in ('GradientReg', 'HessianReg'):
     cfs_scalar = 1e2 * solver_obj.dt / options.simulation_end_time
 else:
     cfs_scalar = 1e4 * solver_obj.dt / options.simulation_end_time
+# we can change the weightings for the cost function scaling for each station manager separately
+# here, we have smooth signals from the model for both observation types, and the velocity error will be dominant, so if
+# we leave the weightings the same and apply variance weighting then our cost function will correctly reflect this and
+# we do not need to worry about any further weighting!
 cfs_scalar_vel = cfs_scalar
-cfs_scalar_elev = cfs_scalar * 1e5
+cfs_scalar_elev = cfs_scalar
 
 # --- Velocity station manager ---
 variable = 'uv'
