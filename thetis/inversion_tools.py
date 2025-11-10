@@ -4,7 +4,7 @@ import ufl
 from .configuration import FrozenHasTraits
 from .solver2d import FlowSolver2d
 from .utility import create_directory, print_function_value_range, get_functionspace, unfrozen, domain_constant
-from .log import print_output
+from .log import print_output, info, warning
 from .diagnostics import GradientRecoverer2D, HessianRecoverer2D
 from .exporter import HDF5Exporter
 from .callback import DiagnosticCallback
@@ -451,6 +451,12 @@ class InversionManager(FrozenHasTraits):
         self.J = self.J_reg
 
         # --- Station variance weighting ---
+        if isinstance(self.sta_manager, MultiStationObservationManager) and not weight_by_variance:
+            names = list(self.sta_manager.observation_managers.keys())
+            warning(
+                f"You are using a MultiStationObservationManager with weight_by_variance=False. "
+                f"Consider enabling weight_by_variance to avoid magnitude bias between observation types: {names}"
+            )
         if weight_by_variance:
             def apply_weighting(sta_mgr):
                 var = fd.Function(sta_mgr.fs_points_0d_scalar)
@@ -897,15 +903,48 @@ class MultiStationObservationManager:
     """
     Manage multiple StationObservationManager instances (e.g. elevation + velocity).
     Combines their cost functions into a single scalar J.
+
+    NOTE: It is recommended that `weight_by_variance=True` for each manager to
+    avoid magnitude bias between observation types.
     """
 
-    def __init__(self, managers, weights=None):
+    def __init__(self, managers):
         """
         :param managers: dict {name: StationObservationManager}
-        :param weights: optional dict of {variable_name: weight}
         """
         self.observation_managers = managers
-        self.weights = weights or {}
+
+        # --- Diagnostic checks on scaling factors ---
+        scalings = {}
+        print_output("Initialising MultiStationObservationManager with station managers:")
+        for name, som in self.observation_managers.items():
+            if hasattr(som, "cost_function_scaling"):
+                try:
+                    scal = float(som.cost_function_scaling)
+                except Exception:
+                    scal = None
+                scalings[name] = scal
+                print_output(f"  - {name}: cost_function_scaling = {scal}")
+            else:
+                warning(f"  - {name}: missing cost_function_scaling attribute")
+
+        # --- Check for uninitialised or inconsistent scaling ---
+        for name, val in scalings.items():
+            if val == 1.0:
+                warning(
+                    f"Station manager '{name}' has cost_function_scaling=1.0 "
+                    "(default value). Did you set it before construct_evaluator()?"
+                )
+
+        unique_vals = {v for v in scalings.values() if v is not None}
+        if len(unique_vals) > 1:
+            diff_list = ", ".join([f"{n}: {v}" for n, v in scalings.items()])
+            warning(
+                f"Detected differing cost_function_scaling values between managers: {diff_list}. "
+                "Ensure these reflect your intended relative weighting."
+            )
+        else:
+            info("All station managers share consistent cost_function_scaling values.")
 
     def eval_cost_function(self, t):
         """
@@ -916,9 +955,8 @@ class MultiStationObservationManager:
         components = {}
         for name, som in self.observation_managers.items():
             J = som.eval_cost_function(t)  # individual manager will assert initialized
-            w = self.weights.get(name, 1.0)
             components[name] = float(J)
-            J_total += w * J
+            J_total += J
         return J_total, components
 
     def dump_time_series(self):
