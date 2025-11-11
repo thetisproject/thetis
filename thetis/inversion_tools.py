@@ -3,7 +3,7 @@ from firedrake.adjoint import *
 import ufl
 from .configuration import FrozenHasTraits
 from .solver2d import FlowSolver2d
-from .utility import create_directory, print_function_value_range, get_functionspace, unfrozen
+from .utility import create_directory, print_function_value_range, get_functionspace, unfrozen, domain_constant
 from .log import print_output
 from .diagnostics import GradientRecoverer2D, HessianRecoverer2D
 from .exporter import HDF5Exporter
@@ -17,9 +17,6 @@ from pyadjoint.optimization.optimization import SciPyConvergenceError
 import os
 from mpi4py import MPI
 import psutil
-from petsc4py import PETSc
-import gc
-comm = MPI.COMM_WORLD
 
 
 class CostFunctionCallback(DiagnosticCallback):
@@ -213,7 +210,7 @@ class InversionManager(FrozenHasTraits):
         self.t = 0.
         self.process = psutil.Process(os.getpid())
         self.mem_mb = self.process.memory_info().rss / 1024 / 1024
-        self.total_mem = comm.allreduce(self.mem_mb, op=MPI.SUM)
+        self.total_mem = self.sta_manager.mesh.comm.allreduce(self.mem_mb, op=MPI.SUM)
         self.iteration_data = [(numpy.nan, 0, self.total_mem, numpy.nan)]
 
     def initialize(self):

@@ -351,7 +351,7 @@ rol_options = {
 opt_options = scipy_options if optimiser == 'L-BFGS-B' else rol_options
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
     opt_options['maxiter'] = 1  # only SciPy for testing
-with mute_nonroot_output(comm):
+with mute_nonroot_output(mesh2d.comm):
     control_opt_list = inv_manager.minimize(
         opt_method=optimiser, bounds=control_bounds, **opt_options)
 if isinstance(control_opt_list, Function):
@@ -399,7 +399,7 @@ if rank == 0:
         ax.text(t, np.max(mems) * 1.01, f'{it}', rotation=90,
                 verticalalignment='bottom', horizontalalignment='center', fontsize=8)
 
-    ax.set_title(f"Memory consumption ({size} threads)")
+    ax.set_title(f"Memory consumption ({mesh2d.comm.size} threads)")
     ax.set_ylim((0, 1.05*np.max(mems)))
     ax.set_xlabel("Cumulative Time (s)")
     ax.set_ylabel("Memory Usage (MB)", color='tab:blue')
@@ -419,4 +419,4 @@ if rank == 0:
 
     ax.grid(True)
     plt.tight_layout()
-    plt.savefig(f"{optimiser}_{size}procs.png")
+    plt.savefig(f"{optimiser}_{mesh2d.comm.size}procs.png")
