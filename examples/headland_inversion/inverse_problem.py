@@ -7,6 +7,8 @@ from scipy.interpolate import LinearNDInterpolator, NearestNDInterpolator
 import h5py
 import argparse
 from mpi4py import MPI
+from checkpoint_schedules import SingleMemoryStorageSchedule
+import logging
 
 # ROL interface
 try:
@@ -123,6 +125,21 @@ output_dir_invert = os.path.join(pwd, 'outputs', 'outputs_inverse', optimiser, c
 
 continue_annotation()
 
+tape = get_working_tape()
+output_logger.handlers = []
+output_logger.propagate = False
+tape.enable_checkpointing(
+    SingleMemoryStorageSchedule(),
+    gc_timestep_frequency=1000000,  # len(tape.timestep)
+    gc_generation=2
+)
+if COMM_WORLD.rank == 0:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(message)s'))
+    output_logger.addHandler(handler)
+else:
+    output_logger.addHandler(logging.NullHandler())
+print_output([len(tape.timesteps), len(tape.timesteps[0])])
 solver_obj, update_forcings = construct_solver(
     output_directory=output_dir_invert,
     store_station_time_series=False,
@@ -316,7 +333,9 @@ cost_function_callback = inversion_tools.CostFunctionCallback(solver_obj, cost_f
 solver_obj.add_callback(cost_function_callback, 'timestep')
 
 # Solve and setup reduced functional
+print_output([len(tape.timesteps), len(tape.timesteps[0]), len(tape.get_blocks())])
 solver_obj.iterate(update_forcings=update_forcings)
+print_output([len(tape.timesteps), len(tape.timesteps[0]), len(tape.get_blocks())])
 inv_manager.stop_annotating()
 
 # Run inversion
@@ -400,7 +419,7 @@ if rank == 0:
                 verticalalignment='bottom', horizontalalignment='center', fontsize=8)
 
     ax.set_title(f"Memory consumption ({mesh2d.comm.size} threads)")
-    ax.set_ylim((0, 1.05*np.max(mems)))
+    ax.set_ylim((0.95*np.min(mems), 1.05*np.max(mems)))
     ax.set_xlabel("Cumulative Time (s)")
     ax.set_ylabel("Memory Usage (MB)", color='tab:blue')
     ax.tick_params(axis='y', labelcolor='tab:blue')

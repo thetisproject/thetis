@@ -352,11 +352,12 @@ class InversionManager(FrozenHasTraits):
         mem_mb = process.memory_info().rss / 1024 / 1024
         total_mem = comm.allreduce(mem_mb, op=MPI.SUM)
         self.t = time_mod.time() - self.start_time
-        self.iteration_data.append((self.i, self.t, total_mem, self.J / self.J_progress[0]))
-        print_output(f'line search {self.i:2d}: '
-                     f'J={self.J:.3e}, dJdm={djdm}, '
-                     f'grad_ev={self.nb_grad_evals}, duration {elapsed}, '
-                     f'memory={total_mem:.2f} MB')
+        # self.iteration_data.append((self.i, self.t, total_mem, self.J / self.J_progress[0]))
+        if comm.rank == 0:
+            print_output(f'line search {self.i:2d}: '
+                         f'J={self.J}, dJdm={djdm}, '
+                         f'grad_ev={self.nb_grad_evals}, duration {elapsed}, '
+                         f'memory={total_mem:.2f} MB')
 
         if not self.no_exports:
             ref_index = 0
