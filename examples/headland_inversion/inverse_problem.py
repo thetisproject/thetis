@@ -130,7 +130,7 @@ output_logger.handlers = []
 output_logger.propagate = False
 tape.enable_checkpointing(
     SingleMemoryStorageSchedule(),
-    gc_timestep_frequency=1000000,  # len(tape.timestep)
+    gc_timestep_frequency=8,  # len(tape.timestep)
     gc_generation=2
 )
 if COMM_WORLD.rank == 0:
@@ -333,9 +333,35 @@ cost_function_callback = inversion_tools.CostFunctionCallback(solver_obj, cost_f
 solver_obj.add_callback(cost_function_callback, 'timestep')
 
 # Solve and setup reduced functional
-print_output([len(tape.timesteps), len(tape.timesteps[0]), len(tape.get_blocks())])
-solver_obj.iterate(update_forcings=update_forcings)
-print_output([len(tape.timesteps), len(tape.timesteps[0]), len(tape.get_blocks())])
+num_steps = int(np.ceil(solver_obj.options.simulation_end_time / solver_obj.dt))
+adj_timestepper = tape.timestepper(iter(range(num_steps)))
+print_output(f'Number of timesteps: {num_steps}')
+
+
+def print_tape_structure(timesteps, indent=0):
+    """Recursively print the structure of tape.timesteps."""
+    prefix = "  " * indent
+    if hasattr(timesteps, "__len__"):
+        print_output(f"{prefix}len = {len(timesteps)}")
+        # If elements are lists/tuples themselves, recurse
+        if len(timesteps) > 0 and hasattr(timesteps[0], "__len__"):
+            for i, ts in enumerate(timesteps):
+                print_output(f"{prefix} timestep {i}:")
+                print_tape_structure(ts, indent + 1)
+    else:
+        print_output(f"{prefix}{timesteps}")
+
+
+# Example usage
+print_output("=== Tape Structure ===")
+print_tape_structure(tape.timesteps)
+print_output("=== No. of Tape Blocks ===")
+print_output(len(tape.get_blocks()))
+solver_obj.iterate(update_forcings=update_forcings, adj_timestepper=adj_timestepper)
+print_output("=== Tape Structure ===")
+print_tape_structure(tape.timesteps)
+print_output("=== No. of Tape Blocks ===")
+print_output(len(tape.get_blocks()))
 inv_manager.stop_annotating()
 
 # Run inversion
