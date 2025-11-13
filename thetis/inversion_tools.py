@@ -340,7 +340,8 @@ class InversionManager(FrozenHasTraits):
         else:
             djdm = "[" + ", ".join([f"{dj:.4e}" for dj in djdm]) + "]"
         print_output(f'line search {self.i:2d}: '
-                     f'J={self.J:.3e}, dJdm={djdm}, '
+                     f'{"J={:.3e}, ".format(self.J) if self.J is not None else "J=None, "}'
+                     f'dJdm={djdm}, '
                      f'grad_ev={self.nb_grad_evals}, duration {elapsed}')
 
         if not self.no_exports:

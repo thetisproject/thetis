@@ -7,6 +7,8 @@ from scipy.interpolate import LinearNDInterpolator, NearestNDInterpolator
 import h5py
 import argparse
 from mpi4py import MPI
+from checkpoint_schedules import SingleMemoryStorageSchedule
+import logging
 
 # ---------------------------------------- Step 1: set up mesh and ground truth ----------------------------------------
 
@@ -44,6 +46,21 @@ output_dir_forward = os.path.join(pwd, 'outputs', 'outputs_forward')
 output_dir_invert = os.path.join(pwd, 'outputs', 'outputs_inverse', case_to_output_dir[selected_case])
 
 continue_annotation()
+
+tape = get_working_tape()
+output_logger.handlers = []
+output_logger.propagate = False
+tape.enable_checkpointing(
+    SingleMemoryStorageSchedule(),
+    gc_timestep_frequency=28,  # every 28 time steps we will do garbage collection
+    gc_generation=2
+)
+if COMM_WORLD.rank == 0:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(message)s'))
+    output_logger.addHandler(handler)
+else:
+    output_logger.addHandler(logging.NullHandler())
 
 solver_obj, update_forcings = construct_solver(
     output_directory=output_dir_invert,
@@ -223,7 +240,9 @@ cost_function_callback = inversion_tools.CostFunctionCallback(solver_obj, cost_f
 solver_obj.add_callback(cost_function_callback, 'timestep')
 
 # Solve and setup reduced functional
-solver_obj.iterate(update_forcings=update_forcings)
+num_steps = int(np.ceil(solver_obj.options.simulation_end_time / solver_obj.dt))
+adj_timestepper = tape.timestepper(iter(range(num_steps)))
+solver_obj.iterate(update_forcings=update_forcings, adj_timestepper=adj_timestepper)
 inv_manager.stop_annotating()
 
 # Run inversion
