@@ -363,12 +363,20 @@ class InversionManager(FrozenHasTraits):
         Default keyword arguments to pass to the
         :class:`ReducedFunctional` class.
         """
+
+        def functional_eval_cb(j, m):
+            """Called after functional evaluation"""
+            self.J = float(j)
+            return j
+
         def gradient_eval_cb(j, djdm, m):
-            self.set_control_state(j, djdm, m)
+            """Called after gradient evaluation"""
+            self.set_control_state(self.J, djdm, m)
             self.nb_grad_evals += 1
             return djdm
 
         params = {
+            'eval_cb_post': functional_eval_cb,
             'derivative_cb_post': gradient_eval_cb,
         }
         return params
