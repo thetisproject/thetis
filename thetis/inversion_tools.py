@@ -284,12 +284,6 @@ class InversionManager(FrozenHasTraits):
         self.dJdm_list = djdm_list
         self.m_list = m_list
 
-        tape = get_working_tape()
-        reg_blocks = tape.get_blocks(tag="reg_eval")
-        self.J_reg = sum([b.get_outputs()[0].saved_output for b in reg_blocks])
-        misfit_blocks = tape.get_blocks(tag="misfit_eval")
-        self.J_misfit = sum([b.get_outputs()[0].saved_output for b in misfit_blocks])
-
     def start_clock(self):
         self.tic = time_mod.perf_counter()
 
@@ -340,8 +334,7 @@ class InversionManager(FrozenHasTraits):
         else:
             djdm = "[" + ", ".join([f"{dj:.4e}" for dj in djdm]) + "]"
         print_output(f'line search {self.i:2d}: '
-                     f'{"J={:.3e}, ".format(self.J) if self.J is not None else "J=None, "}'
-                     f'dJdm={djdm}, '
+                     f'J={self.J:.3e}, dJdm={djdm}, '
                      f'grad_ev={self.nb_grad_evals}, duration {elapsed}')
 
         if not self.no_exports:
@@ -367,6 +360,11 @@ class InversionManager(FrozenHasTraits):
         def functional_eval_cb(j, m):
             """Called after functional evaluation"""
             self.J = float(j)
+            tape = get_working_tape()
+            reg_blocks = tape.get_blocks(tag="reg_eval")
+            self.J_reg = sum([b.get_outputs()[0].saved_output for b in reg_blocks])
+            misfit_blocks = tape.get_blocks(tag="misfit_eval")
+            self.J_misfit = sum([b.get_outputs()[0].saved_output for b in misfit_blocks])
             return j
 
         def gradient_eval_cb(j, djdm, m):
