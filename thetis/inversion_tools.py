@@ -360,16 +360,18 @@ class InversionManager(FrozenHasTraits):
         def functional_eval_cb(j, m):
             """Called after functional evaluation"""
             self.J = float(j)
+            # collect additional data we want before it is discarded if we have garbage collection
             tape = get_working_tape()
             reg_blocks = tape.get_blocks(tag="reg_eval")
             self.J_reg = sum([b.get_outputs()[0].saved_output for b in reg_blocks])
             misfit_blocks = tape.get_blocks(tag="misfit_eval")
             self.J_misfit = sum([b.get_outputs()[0].saved_output for b in misfit_blocks])
+            self.sta_manager.collect_time_series(self.i)
             return j
 
         def gradient_eval_cb(j, djdm, m):
             """Called after gradient evaluation"""
-            self.set_control_state(self.J, djdm, m)
+            self.set_control_state(self.J, djdm, m)  # must be self.J as j is reset by garbage collection
             self.nb_grad_evals += 1
             return djdm
 
@@ -513,6 +515,7 @@ class InversionManager(FrozenHasTraits):
         J = float(self.reduced_functional(self.control_coeff_list))
         self.set_initial_state(J, self.reduced_functional.derivative(apply_riesz=True), self.control_coeff_list)
         if not self.no_exports:
+            self.sta_manager.collect_time_series(self.i)
             self.sta_manager.dump_time_series()
         try:
             return minimize(
@@ -585,6 +588,7 @@ class StationObservationManager:
         self.simulation_time = []
         self.model_observation_field = None
         self.initialized = False
+        self.last_recorded_iteration = -1
 
     def register_observation_data(self, station_names, variable, time,
                                   x, y, data=None, start_times=None, end_times=None):
@@ -814,12 +818,36 @@ class StationObservationManager:
         self.J_misfit = fd.assemble(s * self.misfit_expr ** 2 * fd.dx, ad_block_tag='misfit_eval')
         return self.J_misfit
 
+    def collect_time_series(self, current_iteration):
+        """
+        Collect the model time-series from the current forward solve.
+
+        This extracts the saved station-observation values from the PyAdjoint
+        tape *before it is cleared*, and stores them in memory.
+
+        If multiple forward solves occur within the same optimisation iteration
+        (e.g. due to a line search), the time-series for that iteration is
+        *updated* rather than appended — ensuring that only the final accepted
+        forward model state is stored.
+        """
+
+        tape = get_working_tape()
+
+        blocks = tape.get_blocks(tag=f'{self.variable} observation')
+        ts_data = [b.get_outputs()[0].saved_output.dat.data for b in blocks]  # .copy()?
+        ts_data = numpy.array(ts_data)  # shape (ntimesteps, nstations, ndims) ndims = 2 for vector
+        if current_iteration == self.last_recorded_iteration:
+            self.station_value_progress[-1] = ts_data
+        else:
+            self.station_value_progress.append(ts_data)
+        self.last_recorded_iteration = current_iteration
+
     def dump_time_series(self):
         """
-        Stores model time series to disk.
+        Write the collected model time-series to disk.
 
-        Obtains station time series from the last optimization iteration,
-        and stores the data to disk.
+        Station time series should be obtained from the last optimization
+        iteration using collect_time_series(iteration_number) before calling.
 
         The output files have the format
         `{odir}/diagnostic_timeseries_progress_{station_name}_{variable}.hdf5`
@@ -830,16 +858,15 @@ class StationObservationManager:
         or rank 3 (n_iterations, n_time_steps, 2) for vector quantities.
         """
         assert self.station_names is not None
+        assert self.last_recorded_iteration >= 0, (
+            "dump_time_series() called before any time-series were collected. "
+            "Ensure collect_time_series() is called at least once (e.g. via "
+            "the functional post-evaluation callback)."
+        )
 
         create_directory(self.output_directory)
-        tape = get_working_tape()
 
         var = self.variable
-
-        blocks = tape.get_blocks(tag=f'{self.variable} observation')
-        ts_data = [b.get_outputs()[0].saved_output.dat.data for b in blocks]
-        ts_data = numpy.array(ts_data)  # shape (ntimesteps, nstations, ndims) ndims = 2 for vector
-        self.station_value_progress.append(ts_data)
 
         for ilocal, iglobal in enumerate(self.local_station_index):
             name = self.station_names[iglobal]
