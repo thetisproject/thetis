@@ -140,7 +140,7 @@ class HorizontalKineticEnergyCalculator(DiagnosticCallback):
         uv_3d = self.solver_obj.fields.uv_3d
         rho_3d = self.solver_obj.fields.density_3d + physical_constants['rho0']
         ke_calculator = thetis.diagnostics.KineticEnergyCalculator(
-            uv_3d, ke_3d, rho_3d, horizontal=True, project=True,
+            uv_3d, ke_3d, rho_3d, horizontal=True,
         )
         self.solver_obj.add_new_field(
             ke_3d, 'ke_3d', 'Kinetic energy', 'KineticEnergy3d',
