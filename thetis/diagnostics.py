@@ -237,7 +237,7 @@ class KineticEnergyCalculator(DiagnosticCalculator):
         if project:
             self.projector = Projector(self.ke_expr, self.ke)
         else:
-            self.interpolator = get_interpolator(interpolate(self.ke_expr, self.ke))
+            self.interpolator = get_interpolator(interpolate(self.ke_expr, self.ke.function_space()))
 
     @PETSc.Log.EventDecorator("thetis.KineticEnergyCalculator.solve")
     def solve(self):
