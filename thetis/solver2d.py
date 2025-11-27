@@ -942,7 +942,7 @@ class FlowSolver2d(FrozenClass):
         sys.stdout.flush()
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.iterate")
-    def iterate(self, update_forcings=None, export_func=None):
+    def iterate(self, update_forcings=None, export_func=None, adj_timestepper=None):
         """
         Runs the simulation
 
@@ -955,13 +955,17 @@ class FlowSolver2d(FrozenClass):
             (if any).
         :kwarg export_func: User-defined function (with no arguments) that will
             be called on every export.
+        :kwarg adj_timestepper: Optional iterator that drives checkpointing/adjoint
+            scheduling (e.g., `tape.timestepper(iter(range(num_steps)))`). Each
+            iteration corresponds to a single logical timestep for the tape.
         """
         for _ in self.create_iterator(update_forcings=update_forcings,
-                                      export_func=export_func):
+                                      export_func=export_func,
+                                      adj_timestepper=adj_timestepper):
             pass
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_iterator")
-    def create_iterator(self, update_forcings=None, export_func=None):
+    def create_iterator(self, update_forcings=None, export_func=None, adj_timestepper=None):
         """
         Creates a generator to iterate through the simulation and return access
         to time advancing function when time control is handled externally.
@@ -990,6 +994,9 @@ class FlowSolver2d(FrozenClass):
             (if any).
         :kwarg export_func: User-defined function (with no arguments) that will
             be called on every export.
+        :kwarg adj_timestepper: Optional iterator that drives checkpointing/adjoint
+            scheduling (e.g., `tape.timestepper(iter(range(num_steps)))`). Each
+            iteration corresponds to a single logical timestep for the tape.
         """
 
         if not self._initialized:
@@ -1078,6 +1085,9 @@ class FlowSolver2d(FrozenClass):
 
         while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
             self.timestepper.advance(self.simulation_time, update_forcings)
+
+            if adj_timestepper is not None:
+                next(adj_timestepper)  # tick tape/checkpoint scheduler
 
             # returns internal simulation time
             yield self.simulation_time
