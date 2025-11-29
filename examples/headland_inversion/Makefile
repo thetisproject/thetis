@@ -1,7 +1,7 @@
 all: invert plot
 
 CASE        ?= Uniform # Regions IndependentPointsScheme GradientReg HessianReg
-STATIONS    = stationA stationB stationC stationD stationE
+STATIONS    = stationA stationB stationC stationD stationE stationF stationG
 PARALLEL    = 1
 
 invert:
