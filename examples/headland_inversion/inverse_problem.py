@@ -55,6 +55,7 @@ tape.enable_checkpointing(
     gc_timestep_frequency=28,  # every 28 time steps we will do garbage collection
     gc_generation=2
 )
+# TODO: this is a logging workaround - update when Firedrake #4753 is addressed
 if COMM_WORLD.rank == 0:
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter('%(message)s'))
