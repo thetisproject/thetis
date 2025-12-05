@@ -151,9 +151,11 @@ def construct_solver(store_station_time_series=True, **model_options):
             ('stationC', (3*lx/4, ly/4)),
             ('stationD', (3*lx/4, 3*ly/4)),
             ('stationE', (9*lx/10, ly/2)),
+            ('stationF', (lx/4, ly/4)),
+            ('stationG', (lx/4, 3*ly/4)),
         ]
         for name, (sta_x, sta_y) in stations:
-            cb = DetectorsCallback(solver_obj, [(sta_x, sta_y)], ['uv_2d'], name='timeseries_'+name+'_uv',
+            cb = DetectorsCallback(solver_obj, [(sta_x, sta_y)], ['elev_2d', 'uv_2d'], name='timeseries_'+name,
                                    detector_names=[name], append_to_log=False)
             solver_obj.add_callback(cb)
 

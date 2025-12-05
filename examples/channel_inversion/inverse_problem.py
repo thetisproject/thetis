@@ -91,18 +91,15 @@ station_names = [
 sta_manager = inversion_tools.StationObservationManager(
     mesh2d, output_directory=options.output_directory)
 # TODO: Update scaling to depend on number of DOFs in the problem
+# Define the scaling for the cost function so that dJ/dm ~ O(1)
 cost_function_scaling = domain_constant(100000 * solver_obj.dt / options.simulation_end_time, mesh2d)
 sta_manager.cost_function_scaling = cost_function_scaling
 sta_manager.load_scalar_observation_data(observation_data_dir, station_names, variable)
 sta_manager.set_model_field(solver_obj.fields.elev_2d)
 
-# Define the scaling for the cost function so that dJ/dm ~ O(1)
-J_scalar = sta_manager.cost_function_scaling
-
 # Create inversion manager and add controls
 inv_manager = inversion_tools.InversionManager(
-    sta_manager, output_dir=options.output_directory, no_exports=no_exports,
-    penalty_parameters=gamma_hessian_list, cost_function_scaling=J_scalar,
+    sta_manager, output_dir=options.output_directory, no_exports=no_exports, penalty_parameters=gamma_hessian_list,
     test_consistency=do_consistency_test, test_gradient=do_taylor_test)
 for control_name in controls:
     if control_name == 'Bathymetry':
