@@ -993,7 +993,17 @@ class MultiStationObservationManager:
             J_total += J
         return J_total, components
 
+    def collect_time_series(self, current_iteration):
+        """
+        Forward the collect_time_series call to each station manager.
+        """
+        for name, som in self.observation_managers.items():
+            som.collect_time_series(current_iteration)
+
     def dump_time_series(self):
+        """
+        Forward the dump_time_series call to each station manager.
+        """
         for som in self.observation_managers.values():
             som.dump_time_series()
 
