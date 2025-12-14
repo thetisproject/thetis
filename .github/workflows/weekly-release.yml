@@ -9,7 +9,7 @@ on:
 jobs:
   weekly-release:
     name: Weekly release test
-    uses: ./.github/workflows/core.yml
+    uses: thetisproject/thetis/.github/workflows/core.yml@release
     with:
       branch: release
       image: firedrakeproject/firedrake-vanilla-default:latest
