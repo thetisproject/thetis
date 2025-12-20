@@ -27,10 +27,10 @@ class TidalTurbine:
         self.rel_hub_height = options.rel_hub_height
         self.structure_type = options.structure_type
         self.rotor_weightings = (
-            np.array(rotor_weightings)
+            numpy.array(rotor_weightings)
             if rotor_weightings is not None else
-            np.array([0.052, 0.0903, 0.1099, 0.1212, 0.1266,
-                      0.1266, 0.1212, 0.1099, 0.0903, 0.052])
+            numpy.array([0.052, 0.0903, 0.1099, 0.1212, 0.1266,
+                         0.1266, 0.1212, 0.1099, 0.0903, 0.052])
         )
 
     def _thrust_area(self, uv):
