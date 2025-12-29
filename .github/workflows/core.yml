@@ -67,10 +67,6 @@ jobs:
           pip install ./thetis-repo
           pip list
 
-      - name: Show cores
-        run:
-          echo "$(nproc)"
-
       - name: Lint
         run: |
           . venv-thetis/bin/activate
@@ -84,13 +80,13 @@ jobs:
           . venv-thetis/bin/activate
           if [ "${{ matrix.target }}" = "thetis" ]; then
             : # Run the serial tests
-            python -m pytest -n 6 --verbose --durations=0 --durations-min=60.0 \
+            python -m pytest -n 12 --verbose --durations=0 --durations-min=60.0 \
                 -m "parallel[1] or not parallel" thetis-repo/test
           else
             : # Run the serial tests
             echo "Running Thetis adjoint serial tests on half cores..."
             firedrake-clean
-            python -m pytest -n 6 --verbose --durations=0 thetis-repo/test_adjoint
+            python -m pytest -n 12 --verbose --durations=0 thetis-repo/test_adjoint
           fi
 
       - name: Test Thetis (parallel)

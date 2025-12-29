@@ -12,12 +12,15 @@ from firedrake.adjoint import *
 import numpy as np
 import random
 import pytest
+import os
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 def run_discrete_turbine_optimisation():
     continue_annotation()
 
-    mesh2d = Mesh('mesh.msh')
+    mesh2d = Mesh(os.path.join(script_dir, 'mesh.msh'))
     H = 50
     h_viscosity = Constant(2.)
 
