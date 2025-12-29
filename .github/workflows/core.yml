@@ -84,9 +84,8 @@ jobs:
                 -m "parallel[1] or not parallel" thetis-repo/test
           else
             : # Run the serial tests
-            echo "Running Thetis adjoint serial tests on half cores..."
-            firedrake-clean
-            python -m pytest -n 12 --verbose --durations=0 thetis-repo/test_adjoint
+            python -m pytest -n 12 --verbose --durations=0 \
+                -m "parallel[1] or not parallel" thetis-repo/test_adjoint
           fi
 
       - name: Test Thetis (parallel)
@@ -94,11 +93,9 @@ jobs:
         run: |
           . venv-thetis/bin/activate
           if [ "${{ matrix.target }}" = "thetis" ]; then
-            echo "Running Thetis parallel MPI tests..."
             mpiexec -n 2 python -m pytest --verbose --durations=0 --durations-min=60.0 \
                 -m parallel[2] thetis-repo/test
           else
-            echo "Running Thetis adjoint parallel MPI tests..."
             mpiexec -n 2 python -m pytest --verbose --durations=0 \
                 -m parallel[2] thetis-repo/test_adjoint
           fi
