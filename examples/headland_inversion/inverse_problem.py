@@ -5,6 +5,7 @@ from firedrake.adjoint import *
 from model_config import construct_solver
 from scipy.interpolate import LinearNDInterpolator, NearestNDInterpolator
 import h5py
+import numpy as np
 import argparse
 from mpi4py import MPI
 from checkpoint_schedules import SingleMemoryStorageSchedule

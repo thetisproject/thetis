@@ -1,5 +1,6 @@
 from thetis import *
 from firedrake import VTKFile
+import numpy as np
 
 
 def generate_bathymetry(mesh, H, output_directory, exporting=True):
