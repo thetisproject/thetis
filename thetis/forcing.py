@@ -89,7 +89,7 @@ class AtmosphericForcingInterpolator(object):
                  ncfile, init_date,
                  vect_rotator=None,
                  east_wind_var_name='u10', north_wind_var_name='v10',
-                 pressure_var_name='sp', time_var_name='time',
+                 pressure_var_name='msl', time_var_name='valid_time',
                  pressure_units="pa", temporal_interpolator=interpolation.NetCDFTimeParser,
                  fill_mode=None, fill_value=numpy.nan,
                  verbose=False):
