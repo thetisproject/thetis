@@ -28,7 +28,7 @@ def assert_function_space(fs, family, degree):
 
     if ufl_elem.family() == 'TensorProductElement':
         # extruded mesh
-        A, B = ufl_elem.sub_elements
+        A, B = ufl_elem.factor_elements
         assert A.family() in fam_list, \
             'horizontal space must be one of {0:s}'.format(fam_list)
         assert B.family() in fam_list, \
@@ -70,7 +70,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         else:
             super(VertexBasedP1DGLimiter, self).__init__(p1dg_space)
         self.mesh = self.P0.mesh()
-        self.is_2d = self.mesh.geometric_dimension() == 2
+        self.is_2d = self.mesh.geometric_dimension == 2
         self.time_dependent_mesh = time_dependent_mesh
 
     def _construct_centroid_solver(self):

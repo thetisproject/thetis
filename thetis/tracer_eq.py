@@ -276,7 +276,7 @@ class HorizontalDiffusionTerm(TracerTerm):
         f += inner(grad_test, diff_flux)*self.dx
 
         if self.horizontal_dg:
-            h_cell = self.mesh.ufl_cell().sub_cells()[0]
+            h_cell = self.mesh.ufl_cell().sub_cells[0]
             p, q = self.function_space.ufl_element().degree()
             cp = (p + 1) * (p + 2) / 2 if h_cell == triangle else (p + 1)**2
             # by default the factor is multiplied by 2 to ensure convergence

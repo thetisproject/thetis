@@ -144,8 +144,8 @@ def domain_constant(value, mesh, **kwargs):
         shape = value.ufl_shape
         value = value.dat.data.flatten()
     except AttributeError:
-        shape = np.shape(value)
-        value = np.asarray(value).flatten()
+        shape = numpy.shape(value)
+        value = numpy.asarray(value).flatten()
 
     if len(shape) == 0:
         R = FunctionSpace(mesh, "R", 0)
@@ -184,7 +184,7 @@ def get_functionspace(mesh, h_family, h_degree, v_family=None, v_degree=None,
             v_family = h_family
         if v_degree is None:
             v_degree = h_degree
-        h_cell, v_cell = mesh.ufl_cell().sub_cells()
+        h_cell, v_cell = mesh.ufl_cell().sub_cells
         h_elt = FiniteElement(h_family, h_cell, h_degree, variant=variant)
         v_elt = FiniteElement(v_family, v_cell, v_degree, variant=v_variant)
         elt = TensorProductElement(h_elt, v_elt)
@@ -248,7 +248,7 @@ def element_continuity(ufl_element):
         horiz_type = 'hdiv'
         vert_type = 'hdiv'
     elif isinstance(base_element, firedrake.TensorProductElement):
-        a, b = base_element.sub_elements
+        a, b = base_element.factor_elements
         horiz_type = elem_types[a.family()]
         vert_type = elem_types[b.family()]
     else:
@@ -335,7 +335,7 @@ def get_facet_mask(function_space, facet='bottom'):
     assert isinstance(elem, TensorProductElement), \
         f'function space must be defined on an extruded 3D mesh: {elem}'
     # figure out number of nodes in sub elements
-    h_elt, v_elt = elem.sub_elements
+    h_elt, v_elt = elem.factor_elements
     nb_nodes_h = create_finat_element(h_elt).space_dimension()
     nb_nodes_v = create_finat_element(v_elt).space_dimension()
     # compute top/bottom facet indices
@@ -502,7 +502,7 @@ def extend_function_to_3d(func, mesh_extruded):
     function.
     """
     fs = func.function_space()
-    assert fs.mesh().geometric_dimension() == 2, 'Function must be in 2D space'
+    assert fs.mesh().geometric_dimension == 2, 'Function must be in 2D space'
     ufl_elem = fs.ufl_element()
     family = ufl_elem.family()
     degree = ufl_elem.degree()
@@ -670,7 +670,7 @@ def get_minimum_angles_2d(mesh2d):
     cosine rule. The minimum angles are outputted as a P0 field.
     """
     try:
-        assert mesh2d.topological_dimension() == 2
+        assert mesh2d.topological_dimension == 2
         assert mesh2d.ufl_cell() == ufl.triangle
     except AssertionError:
         raise NotImplementedError("Minimum angle only currently implemented for triangles.")
@@ -719,7 +719,7 @@ def get_cell_widths_2d(mesh2d):
     between components of vertex coordinates.
     """
     try:
-        assert mesh2d.topological_dimension() == 2
+        assert mesh2d.topological_dimension == 2
         assert mesh2d.ufl_cell() == ufl.triangle
     except AssertionError:
         raise NotImplementedError("Cell widths only currently implemented for triangles.")
@@ -918,7 +918,7 @@ def select_and_move_detectors(mesh, detector_locations, detector_names=None,
     for location, name in zip(detector_locations, names):
         try:
             v(location)
-        except PointNotInDomainError:
+        except VertexOnlyMeshMissingPointsError:
             moved_dist, location = move_to_nearest_cell_center(location)
             if moved_dist > maximum_distance:
                 continue

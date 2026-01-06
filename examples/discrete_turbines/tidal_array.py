@@ -9,8 +9,10 @@ Two callbacks are used - one for the overall farm and one for discrete turbines.
 from thetis import *
 from firedrake.output.vtk_output import VTKFile
 from turbine_callback import TidalPowerCallback
-from copy import deepcopy
+import numpy as np
+import os
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Set output directory, load mesh, set simulation export and end times
 outputdir = 'outputs'
@@ -74,31 +76,26 @@ if include_support_structure:
     farm_options_AR2000.turbine_options.A_support = 2.6 * 14.0  # cross-sectional area of support structure
 farm_options_AR2000.turbine_options.diameter = 20
 farm_options_AR2000.upwind_correction = True  # See https://arxiv.org/abs/1506.03611 for more details
-turbine_density = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_density_AR2000').assign(0.0)
+turbine_density = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_density_AR2000')
 farm_options_AR2000.turbine_density = turbine_density
 farm_options_AR2000.turbine_coordinates = [[Constant(x), Constant(y)]
                                            for x in numpy.arange(1000, 1061, 60)
                                            for y in numpy.arange(260, 341, 40)]
+# We can also use estimate the rotor-averaged velocity using a power law, albeit with some significant caveats when
+# turbines are in one another's wake. Note that this is just an estimation for the influence of position along the water
+# column in a depth-averaged model.
+farm_options_AR2000.turbine_options.apply_shear_profile = True
+farm_options_AR2000.turbine_options.structure_type = "bottom-fixed"  # or floating
+farm_options_AR2000.turbine_options.rel_hub_height = 14.0  # from seabed, or from water surface if floating
+farm_options_AR2000.turbine_options.shear_alpha = 7.0   # 1/7th power law
+farm_options_AR2000.turbine_options.shear_beta = 0.4
 
-# Now create a second farm with AR1500s
-speeds_AR1500 = speeds_AR2000.copy()
-powers_AR1500 = [0.00953, 0.0291, 0.035, 0.106, 0.405, 0.405, 0.32, 0.257, 0.209, 0.173, 0.145, 0.122, 0.104, 0.0919,
-                 0.0551, 0.00471, 0.00139, 0.000821, 0.000602, 0.000483, 0.000408, 0.000355, 0.000315, 0.000285]
-thrusts_AR1500 = [0.00955, 0.0293, 0.0353, 0.109, 0.468, 0.468, 0.355, 0.278, 0.223, 0.182, 0.15, 0.126, 0.107, 0.0942,
-                  0.0559, 0.00472, 0.00139, 0.000821, 0.000602, 0.000483, 0.000408, 0.000355, 0.000315, 0.000285]
-farm_options_AR1500 = deepcopy(farm_options_AR2000)
-if turbine_thrust_def == 'table':
-    farm_options_AR1500.turbine_options.thrust_speeds = speeds_AR1500
-    farm_options_AR1500.turbine_options.thrust_coefficients = thrusts_AR1500
-    farm_options_AR1500.turbine_options.power_coefficients = powers_AR1500
-else:
-    farm_options_AR1500.turbine_options.thrust_coefficient = 0.6
-    farm_options_AR1500.turbine_options.power_coefficient = 0.55
-farm_options_AR1500.turbine_options.diameter = 18
-turbine_density = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_density_AR1500').assign(0.0)
-farm_options_AR1500.turbine_density = turbine_density
+# we can tidy up data loading by using YAML or JSON files
+farm_options_AR1500 = turbines.load_turbine(os.path.join(script_dir, "turbine_files", "AR1500.yaml"), mesh2d)
 farm_options_AR1500.turbine_coordinates = [[Constant(940), Constant(y)] for y in numpy.arange(260, 341, 40)]
-
+farm_options_AR1500.turbine_options.apply_shear_profile = True
+farm_options_AR1500.turbine_options.shear_alpha = 7.0   # 1/7th power law
+farm_options_AR1500.turbine_options.shear_beta = 0.4
 
 # --- create solver ---
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)

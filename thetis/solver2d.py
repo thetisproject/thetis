@@ -183,7 +183,7 @@ class FlowSolver2d(FrozenClass):
         """
         nnodes = self.function_spaces.P1_2d.dim()
         P1DG_2d = self.function_spaces.P1DG_2d
-        nelem2d = int(P1DG_2d.dim()/P1DG_2d.ufl_cell().num_vertices())
+        nelem2d = int(P1DG_2d.dim()/P1DG_2d.ufl_cell().num_vertices)
         dofs_elev2d = self.function_spaces.H_2d.dim()
         dofs_u2d = self.function_spaces.U_2d.dim()
         dofs_tracer2d = self.function_spaces.Q_2d.dim()
@@ -311,13 +311,13 @@ class FlowSolver2d(FrozenClass):
         Function spaces are accessible via :attr:`.function_spaces`
         object.
         """
-        on_the_sphere = self.mesh2d.geometric_dimension() == 3
+        on_the_sphere = self.mesh2d.geometric_dimension == 3
         if on_the_sphere:
             assert self.options.element_family in ['rt-dg', 'bdm-dg'], \
                 'Spherical mesh requires \'rt-dg\' or \'bdm-dg\' ' \
                 'element family.'
         # ----- function spaces: elev in H, uv in U, mixed is W
-        DG = 'DG' if self.mesh2d.ufl_cell().cellname() == 'triangle' else 'DQ'
+        DG = 'DG' if self.mesh2d.ufl_cell().cellname == 'triangle' else 'DQ'
         self.function_spaces.P0_2d = get_functionspace(self.mesh2d, DG, 0, name='P0_2d')
         self.function_spaces.P1_2d = get_functionspace(self.mesh2d, 'CG', 1, name='P1_2d')
         self.function_spaces.P1v_2d = get_functionspace(self.mesh2d, 'CG', 1, name='P1v_2d',
@@ -329,7 +329,7 @@ class FlowSolver2d(FrozenClass):
         if self.options.element_family in ['rt-dg', 'bdm-dg']:
             family_prefix = self.options.element_family.split('-')[0].upper()
             family_suffix = {'triangle': 'F', 'quadrilateral': 'CF'}
-            cell = self.mesh2d.ufl_cell().cellname()
+            cell = self.mesh2d.ufl_cell().cellname
             fam = family_prefix + family_suffix[cell]
             degree = self.options.polynomial_degree + 1
             self.function_spaces.U_2d = get_functionspace(self.mesh2d, fam, degree, name='U_2d')
@@ -942,12 +942,12 @@ class FlowSolver2d(FrozenClass):
         sys.stdout.flush()
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.iterate")
-    def iterate(self, update_forcings=None,
-                export_func=None):
+    def iterate(self, update_forcings=None, export_func=None, adj_timestepper=None):
         """
         Runs the simulation
 
-        Iterates over the time loop until time ``options.simulation_end_time`` is reached.
+        Wrapper for function for `create_iterator` generator and automatically
+        iterates over the time loop until time ``options.simulation_end_time`` is reached.
         Exports fields to disk on ``options.simulation_export_time`` intervals.
 
         :kwarg update_forcings: User-defined function that takes simulation
@@ -955,7 +955,50 @@ class FlowSolver2d(FrozenClass):
             (if any).
         :kwarg export_func: User-defined function (with no arguments) that will
             be called on every export.
+        :kwarg adj_timestepper: Optional iterator that drives checkpointing/adjoint
+            scheduling (e.g., `tape.timestepper(iter(range(num_steps)))`). Each
+            iteration corresponds to a single logical timestep for the tape.
         """
+        for _ in self.create_iterator(update_forcings=update_forcings,
+                                      export_func=export_func,
+                                      adj_timestepper=adj_timestepper):
+            pass
+
+    @PETSc.Log.EventDecorator("thetis.FlowSolver2d.create_iterator")
+    def create_iterator(self, update_forcings=None, export_func=None, adj_timestepper=None):
+        """
+        Creates a generator to iterate through the simulation and return access
+        to time advancing function when time control is handled externally.
+
+        Iterates over the time loop until time ``options.simulation_end_time`` is reached.
+        Exports fields to disk on ``options.simulation_export_time`` intervals.
+
+        For example:
+
+        .. code-block:: python
+
+            for t in solver_obj.create_iterator():
+                # user code
+
+        or, to get per time-step control:
+
+        .. code-block:: python
+
+            thetis_timestepper = solver_obj.create_iterator()
+
+            while t_Thetis<t_end - timestep and .... :
+                t_Thetis = next(thetis_timestepper)
+
+        :kwarg update_forcings: User-defined function that takes simulation
+            time as an argument and updates time-dependent boundary conditions
+            (if any).
+        :kwarg export_func: User-defined function (with no arguments) that will
+            be called on every export.
+        :kwarg adj_timestepper: Optional iterator that drives checkpointing/adjoint
+            scheduling (e.g., `tape.timestepper(iter(range(num_steps)))`). Each
+            iteration corresponds to a single logical timestep for the tape.
+        """
+
         if not self._initialized:
             self.initialize()
 
@@ -1043,6 +1086,12 @@ class FlowSolver2d(FrozenClass):
         while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
             self.timestepper.advance(self.simulation_time, update_forcings)
 
+            if adj_timestepper is not None:
+                next(adj_timestepper)  # tick tape/checkpoint scheduler
+
+            # returns internal simulation time
+            yield self.simulation_time
+
             # Move to next time step
             self.iteration += 1
             internal_iteration += 1
@@ -1062,3 +1111,5 @@ class FlowSolver2d(FrozenClass):
                 self.export()
                 if export_func is not None:
                     export_func()
+
+        return self.simulation_time

@@ -9,7 +9,7 @@ import itertools
 
 def is_2d(fs):
     """Tests wether a function space is 2D or 3D"""
-    return fs.mesh().geometric_dimension() == 2
+    return fs.mesh().geometric_dimension == 2
 
 
 @PETSc.Log.EventDecorator("thetis.get_visu_space")
@@ -31,8 +31,6 @@ def get_visu_space(fs):
                                     tensor=True)
     else:
         visu_fs = get_functionspace(mesh, family, 1, family, 1)
-    # make sure that you always get the same temp work function
-    visu_fs.max_work_functions = 1
     return visu_fs
 
 
@@ -104,28 +102,21 @@ class VTKExporter(ExporterBase):
     @PETSc.Log.EventDecorator("thetis.VTKExporter.export")
     def export(self, function):
         """Exports given function to disk"""
-        assert self.fs_visu.max_work_functions == 1
-        tmp_proj_func = self.fs_visu.get_work_function()
-        # NOTE tmp function must be invariant as the projector is built only once
         op = self.cast_operators.get(function)
         if self.project_output:
             if op is None:
-                op = Projector(function, tmp_proj_func)
+                op = Projector(function, self.fs_visu)
                 self.cast_operators[function] = op
-            op.project()
+            output = op.project()
         else:
             if op is None:
-                op = Interpolator(function, tmp_proj_func)
+                op = get_interpolator(interpolate(function, self.fs_visu))
                 self.cast_operators[function] = op
-            op.interpolate()
+            output = op.assemble()
         # ensure correct output function name
-        old_name = tmp_proj_func.name()
-        tmp_proj_func.rename(name=self.func_name)
-        self.outfile.write(tmp_proj_func, time=self.next_export_ix)
+        output.rename(name=self.func_name)
+        self.outfile.write(output, time=self.next_export_ix)
         self.next_export_ix += 1
-        # restore old name
-        tmp_proj_func.rename(name=old_name)
-        self.fs_visu.restore_work_function(tmp_proj_func)
 
 
 class HDF5Exporter(ExporterBase):

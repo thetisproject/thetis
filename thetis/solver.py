@@ -301,7 +301,7 @@ class FlowSolver(FrozenClass):
         """
         nnodes = self.function_spaces.P1_2d.dim()
         P1DG_2d = self.function_spaces.P1DG_2d
-        nelem2d = int(P1DG_2d.dim()/P1DG_2d.ufl_cell().num_vertices())
+        nelem2d = int(P1DG_2d.dim()/P1DG_2d.ufl_cell().num_vertices)
         nlayers = self.mesh.topology.layers - 1
         nprisms = nelem2d*nlayers
         dofs_elev2d = self.function_spaces.H_2d.dim()
@@ -424,7 +424,7 @@ class FlowSolver(FrozenClass):
         if self.options.element_family in ['rt-dg', 'bdm-dg']:
             h_family_prefix = self.options.element_family.split('-')[0].upper()
             h_family_suffix = {'triangle': 'F', 'quadrilateral': 'CF'}
-            h_cell = self.mesh2d.ufl_cell().cellname()
+            h_cell = self.mesh2d.ufl_cell().cellname
             hfam = h_family_prefix + h_family_suffix[h_cell]
             h_degree = self.options.polynomial_degree + 1
             self.function_spaces.U = get_functionspace(self.mesh, hfam, h_degree, 'DG', self.options.polynomial_degree, name='U', hdiv=True)
@@ -530,7 +530,7 @@ class FlowSolver(FrozenClass):
                 self.fields.coriolis_3d = extend_function_to_3d(self.options.coriolis_frequency, self.mesh)
         if self.options.wind_stress is not None:
             if isinstance(self.options.wind_stress, Function):
-                assert self.options.wind_stress.function_space().mesh().geometric_dimension() == 3, \
+                assert self.options.wind_stress.function_space().mesh().geometric_dimension == 3, \
                     'wind stress field must be a 3D function'
                 self.fields.wind_stress_3d = self.options.wind_stress
             elif isinstance(self.options.wind_stress, Constant):

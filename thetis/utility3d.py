@@ -503,7 +503,8 @@ class ExpandFunctionTo3d(object):
         family_2d = self.fs_2d.ufl_element().family()
         base_element_3d = get_extruded_base_element(self.fs_3d.ufl_element())
         assert isinstance(base_element_3d, firedrake.TensorProductElement)
-        family_3dh = base_element_3d.sub_elements[0].family()
+        h_elt, v_elt = base_element_3d.factor_elements
+        family_3dh = h_elt.family()
         if family_2d != family_3dh:
             raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
         self.do_hdiv_scaling = family_2d in ['Raviart-Thomas', 'RTCF', 'Brezzi-Douglas-Marini', 'BDMCF']
@@ -626,7 +627,8 @@ class SubFunctionExtractor(object):
         family_2d = self.fs_2d.ufl_element().family()
         base_element_3d = get_extruded_base_element(self.fs_3d.ufl_element())
         assert isinstance(base_element_3d, firedrake.TensorProductElement)
-        family_3dh = base_element_3d.sub_elements[0].family()
+        h_elt, v_elt = base_element_3d.factor_elements
+        family_3dh = h_elt.family()
         if family_2d != family_3dh:
             raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
         self.do_hdiv_scaling = family_2d in ['Raviart-Thomas', 'RTCF', 'Brezzi-Douglas-Marini', 'BDMCF']
@@ -748,7 +750,8 @@ class ALEMeshUpdater(object):
         family_2d = self.fs_2d.ufl_element().family()
         base_element_3d = get_extruded_base_element(self.fs_3d.ufl_element())
         assert isinstance(base_element_3d, firedrake.TensorProductElement)
-        family_3dh = base_element_3d.sub_elements[0].family()
+        h_elt, v_elt = base_element_3d.factor_elements
+        family_3dh = h_elt.family()
         if family_2d != family_3dh:
             raise Exception('2D and 3D spaces do not match: "{0:s}" != "{1:s}"'.format(family_2d, family_3dh))
 

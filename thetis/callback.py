@@ -209,6 +209,7 @@ class DiagnosticCallback(ABC):
         if init_date is not None and include_time:
             time_units = 'seconds since ' + init_date.isoformat()
             self.var_attrs['time'] = {'units': time_units}
+            self.attrs['simulation_initial_date'] = init_date.isoformat()
 
     def set_write_mode(self, mode):
         """
@@ -524,6 +525,11 @@ class DetectorsCallback(DiagnosticCallback):
         else:
             assert ndetectors == len(detector_names), "Different number of detector locations and names"
             self.detector_names = detector_names
+        for i, det_name in enumerate(self.detector_names):
+            self.var_attrs[det_name] = {
+                'x': detector_locations[i][0],
+                'y': detector_locations[i][1]
+            }
         self._variable_names = self.detector_names
         self.detector_locations = detector_locations
         self.field_names = field_names
@@ -657,7 +663,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         self.location_name = location_name
         attrs = {'x': x, 'y': y}
         attrs['location_name'] = self.location_name
-        self.on_sphere = solver_obj.mesh2d.geometric_dimension() == 3
+        self.on_sphere = solver_obj.mesh2d.geometric_dimension == 3
         if self.on_sphere:
             assert z is not None, 'z coordinate must be defined on a manifold mesh'
             attrs['z'] = z
