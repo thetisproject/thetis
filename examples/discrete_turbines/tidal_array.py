@@ -9,6 +9,7 @@ Two callbacks are used - one for the overall farm and one for discrete turbines.
 from thetis import *
 from firedrake.output.vtk_output import VTKFile
 from turbine_callback import TidalPowerCallback
+import numpy as np
 import os
 
 script_dir = os.path.dirname(os.path.abspath(__file__))

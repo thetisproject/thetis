@@ -144,8 +144,8 @@ def domain_constant(value, mesh, **kwargs):
         shape = value.ufl_shape
         value = value.dat.data.flatten()
     except AttributeError:
-        shape = np.shape(value)
-        value = np.asarray(value).flatten()
+        shape = numpy.shape(value)
+        value = numpy.asarray(value).flatten()
 
     if len(shape) == 0:
         R = FunctionSpace(mesh, "R", 0)
