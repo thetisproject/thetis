@@ -137,7 +137,7 @@ class DeferredExportManager(object):
                 self.functions = [Function(function.function_space(), name=name) for function, name in zip(functions, suggested_names)]
             self.export_manager = UserExportManager(self.solver_obj_or_outputdir, self.functions, **self.kwargs)
         for function, function_arg in zip(self.functions, functions):
-            assert function.function_space() is function_arg.function_space()
+            assert function.function_space() == function_arg.function_space()
             function.assign(function_arg)
         self.export_manager.export()
 
