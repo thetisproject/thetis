@@ -111,7 +111,7 @@ class VTKExporter(ExporterBase):
             output = op.project()
         else:
             if op is None:
-                op = Interpolator(function, self.fs_visu)
+                op = get_interpolator(interpolate(function, self.fs_visu))
                 self.cast_operators[function] = op
             output = op.assemble()
         # ensure correct output function name
