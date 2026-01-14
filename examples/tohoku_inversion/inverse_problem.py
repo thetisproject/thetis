@@ -86,16 +86,13 @@ sta_manager.load_scalar_observation_data(
 )
 sta_manager.set_model_field(solver_obj.fields.elev_2d)
 
-J_scalar = sta_manager.cost_function_scaling
-
 # Create inversion manager and add controls
 no_exports = os.getenv("THETIS_REGRESSION_TEST") is not None
 real_mode = source_model in ("box", "radial", "okada")
 # TODO: gamma should be assigned relative to the cost function scaling
 gamma = 0 if no_regularization else 1e-04 if real_mode else 1e-01
 inv_manager = inversion_tools.InversionManager(
-    sta_manager, real=real_mode, cost_function_scaling=J_scalar,
-    penalty_parameters=[Constant(gamma) for c in source.controls],
+    sta_manager, real=real_mode, penalty_parameters=[Constant(gamma) for c in source.controls],
     output_dir=options.output_directory, no_exports=no_exports,
     test_consistency=do_consistency_test, test_gradient=do_taylor_test)
 for c in source.controls:
