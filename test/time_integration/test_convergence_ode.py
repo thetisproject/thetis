@@ -63,7 +63,7 @@ class SimpleODEEquation(Equation):
     """
     def __init__(self, function_space, alpha, mode='explicit'):
         super(SimpleODEEquation, self).__init__(function_space)
-        self.a_space, self.b_space = function_space.subfunctions
+        self.a_space, self.b_space = function_space.subspaces
         self.a_test, self.b_test = TestFunctions(function_space)
         self.alpha = alpha
         if mode == 'imex':
