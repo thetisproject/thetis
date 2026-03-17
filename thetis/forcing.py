@@ -79,6 +79,142 @@ def compute_wind_stress(wind_u, wind_v, method='LargeYeager2009'):
     return tau_x, tau_y
 
 
+class AtmosphericForcingInterpolator(object):
+    """
+    Generic class for atmospheric forcing (pressure and wind stress)
+    """
+    @PETSc.Log.EventDecorator("thetis.AtmosForcingInterpolator.__init__")
+    def __init__(self, function_space, wind_stress_field,
+                 atm_pressure_field, coord_system,
+                 ncfile, init_date,
+                 vect_rotator=None,
+                 east_wind_var_name='u10', north_wind_var_name='v10',
+                 pressure_var_name='msl', time_var_name='valid_time',
+                 pressure_units="pa", temporal_interpolator=interpolation.NetCDFTimeParser,
+                 fill_mode=None, fill_value=numpy.nan,
+                 verbose=False):
+        """
+        :arg function_space: Target (scalar) :class:`FunctionSpace` object onto
+            which data will be interpolated.
+        :arg wind_stress_field: A 2D vector :class:`Function` where the output
+            wind stress will be stored.
+        :arg atm_pressure_field: A 2D scalar :class:`Function` where the output
+            atmospheric pressure will be stored.
+        :arg coord_system: :class:`CoordinateSystem` object
+        :arg ncfile: A file name or file pattern for reading the atmospheric data
+        :arg init_date: A :class:`datetime` object that indicates the start
+            date/time of the Thetis simulation. Must contain time zone. E.g.
+            'datetime(2006, 5, 1, tzinfo=pytz.utc)'
+        :arg temporal_interpolator: A :class:`TimeParser` object to handle temporal interpolation.
+        :kwarg vect_rotator: function that rotates vectors from ENU coordinates
+            to target function space (optional).
+        :kwarg east_wind_var_name, north_wind_var_name, pressure_var_name, time_var_name:
+            wind components, pressure, and time field names in netCDF file.
+        :kwarg fill_mode: Determines how points outside the source grid will be
+            treated. If 'nearest', value of the nearest source point will be
+            used. Otherwise a constant fill value will be used (default).
+        :kwarg float fill_value: Set the fill value (default: NaN)
+        :kwarg bool verbose: Set True to print debug information.
+        """
+        self.function_space = function_space
+        self.wind_stress_field = wind_stress_field
+        self.atm_pressure_field = atm_pressure_field
+        self.pressure_units = pressure_units
+
+        # construct interpolators
+        self.grid_interpolator = interpolation.NetCDFLatLonInterpolator2d(
+            self.function_space, coord_system, fill_mode=fill_mode,
+            fill_value=fill_value)
+        var_list = [east_wind_var_name, north_wind_var_name, pressure_var_name]
+        self.reader = interpolation.NetCDFSpatialInterpolator(
+            self.grid_interpolator, var_list)
+        self.timesearch_obj = \
+            interpolation.NetCDFTimeSearch(ncfile,
+                                           init_date,
+                                           temporal_interpolator,
+                                           verbose=verbose,
+                                           time_variable_name=time_var_name)
+        self.time_interpolator = \
+            interpolation.LinearTimeInterpolator(self.timesearch_obj,
+                                                 self.reader)
+        lon = self.grid_interpolator.mesh_lonlat[:, 0]
+        lat = self.grid_interpolator.mesh_lonlat[:, 1]
+        if vect_rotator is None:
+            self.vect_rotator = coord_system.get_vector_rotator(lon, lat)
+        else:
+            self.vect_rotator = vect_rotator
+
+    @PETSc.Log.EventDecorator("thetis.AtmosForcingInterpolator.set_fields")
+    def set_fields(self, time):
+        """
+        Evaluates forcing fields at the given time.
+        Performs interpolation and updates the output wind stress and
+        atmospheric pressure fields in place.
+        :arg float time: Thetis simulation time in seconds.
+        """
+        east_wind, north_wind, prmsl = self.time_interpolator(time)
+        east_strs, north_strs = compute_wind_stress(east_wind, north_wind)
+        if self.wind_stress_field.ufl_shape == (3,):
+            u_strs, v_strs, z_strs = self.vect_rotator(east_strs, north_strs)
+            self.wind_stress_field.dat.data_with_halos[:, 0] = u_strs
+            self.wind_stress_field.dat.data_with_halos[:, 1] = v_strs
+            self.wind_stress_field.dat.data_with_halos[:, 2] = z_strs
+        else:
+            u_strs, v_strs = self.vect_rotator(east_strs, north_strs)
+            self.wind_stress_field.dat.data_with_halos[:, 0] = u_strs
+            self.wind_stress_field.dat.data_with_halos[:, 1] = v_strs
+        if self.pressure_units == "pa":
+            self.atm_pressure_field.dat.data_with_halos[:] = prmsl
+        elif self.pressure_units == "hpa":
+            self.atm_pressure_field.dat.data_with_halos[:] = prmsl * 100  # hPa to Pa
+
+
+class ERA5Interpolator(AtmosphericForcingInterpolator):
+    """
+    Class to use ERA5 forcing. Note most defaults are for this kind of forcing
+    """
+    def __init__(self, function_space, wind_stress_field,
+                 atm_pressure_field, coord_system,
+                 ncfile, init_date,
+                 vect_rotator=None,
+                 fill_mode=None, fill_value=numpy.nan,
+                 verbose=False):
+
+        super().__init__(function_space, wind_stress_field,
+                         atm_pressure_field, coord_system,
+                         ncfile, init_date,
+                         vect_rotator,
+                         fill_mode=fill_mode, fill_value=fill_value,
+                         verbose=verbose)
+
+
+class TCHazardsInterpolator(AtmosphericForcingInterpolator):
+    """
+    Class to use atmospheric forcing from the TCHazaRds package
+    https://github.com/AusClimateService/TCHazaRds
+    O’Grady, J. et al. (2024) ‘Evaluation of parametric tropical cyclone surface winds
+    over the Eastern Australian region’,
+    Monthly weather review, 152(1), pp. 345–361.
+    Available at: https://doi.org/10.1175/mwr-d-23-0063.1.
+    """
+    def __init__(self, function_space, wind_stress_field,
+                 atm_pressure_field, coord_system,
+                 ncfile, init_date,
+                 vect_rotator=None,
+                 fill_mode=None, fill_value=numpy.nan,
+                 verbose=False):
+
+        super().__init__(function_space, wind_stress_field,
+                         atm_pressure_field, coord_system,
+                         ncfile, init_date,
+                         vect_rotator,
+                         east_wind_var_name="Uw", north_wind_var_name="Vw",
+                         pressure_var_name="Pr", time_var_name="time",
+                         pressure_units="hpa",
+                         fill_mode=fill_mode, fill_value=fill_value,
+                         verbose=verbose)
+
+
 class ATMNetCDFTime(interpolation.NetCDFTimeParser):
     """
     A TimeParser class for reading atmosphere model output files.
@@ -93,7 +229,7 @@ class ATMNetCDFTime(interpolation.NetCDFTimeParser):
             all time steps are loaded. Default: None.
         :kwarg bool verbose: Se True to print debug information.
         """
-        super(ATMNetCDFTime, self).__init__(filename, time_variable_name=time_variable_name)
+        super().__init__(filename, time_variable_name=time_variable_name)
         # NOTE these are daily forecast files, limit time steps to one day
         self.start_time = timezone.epoch_to_datetime(float(self.time_array[0]))
         self.end_time_raw = timezone.epoch_to_datetime(float(self.time_array[-1]))
@@ -105,94 +241,36 @@ class ATMNetCDFTime(interpolation.NetCDFTimeParser):
         self.time_array = self.time_array[:self.max_steps]
         self.end_time = timezone.epoch_to_datetime(float(self.time_array[-1]))
         if verbose:
-            print_output('Parsed file {:}'.format(filename))
-            print_output('  Time span: {:} -> {:}'.format(self.start_time, self.end_time_raw))
-            print_output('  Time step: {:} h'.format(self.time_step/3600.))
+            print_output('Parsed file %s', filename)
+            print_output('  Time span: %s -> %s', self.start_time, self.end_time_raw)
+            print_output('  Time step: %.1f h', self.time_step/3600.)
             if max_duration is not None:
-                print_output('  Restricting duration to {:} h -> keeping {:} steps'.format(max_duration/3600., self.max_steps))
-                print_output('  New time span: {:} -> {:}'.format(self.start_time, self.end_time))
+                print_output('  Restricting duration to %.1f h -> keeping %d steps',
+                             max_duration/3600.,
+                             self.max_steps)
+                print_output('  New time span: %s -> %s', self.start_time, self.end_time)
 
 
-class ATMInterpolator(object):
+class ATMInterpolator(AtmosphericForcingInterpolator):
     """
     Interpolates WRF/NAM atmospheric model data on 2D fields.
     """
-    @PETSc.Log.EventDecorator("thetis.ATMInterpolator.__init__")
     def __init__(self, function_space, wind_stress_field,
                  atm_pressure_field, coord_system,
-                 ncfile_pattern, init_date,
+                 ncfile, init_date,
                  vect_rotator=None,
-                 east_wind_var_name='uwind', north_wind_var_name='vwind',
-                 pressure_var_name='prmsl', time_variable_name='time',
-                 fill_mode=None,
-                 fill_value=numpy.nan,
+                 fill_mode=None, fill_value=numpy.nan,
                  verbose=False):
-        """
-        :arg function_space: Target (scalar) :class:`FunctionSpace` object onto
-            which data will be interpolated.
-        :arg wind_stress_field: A 2D vector :class:`Function` where the output
-            wind stress will be stored.
-        :arg atm_pressure_field: A 2D scalar :class:`Function` where the output
-            atmospheric pressure will be stored.
-        :arg coord_system: :class:`CoordinateSystem` object
-        :arg ncfile_pattern: A file name pattern for reading the atmospheric
-            model output files. E.g. 'forcings/nam_air.local.2006_*.nc'
-        :arg init_date: A :class:`datetime` object that indicates the start
-            date/time of the Thetis simulation. Must contain time zone. E.g.
-            'datetime(2006, 5, 1, tzinfo=pytz.utc)'
-        :kwarg vect_rotator: function that rotates vectors from ENU coordinates
-            to target function space (optional).
-        :kwarg east_wind_var_name, north_wind_var_name, pressure_var_name:
-            wind component and pressure field names in netCDF file.
-        :kwarg fill_mode: Determines how points outside the source grid will be
-            treated. If 'nearest', value of the nearest source point will be
-            used. Otherwise a constant fill value will be used (default).
-        :kwarg float fill_value: Set the fill value (default: NaN)
-        :kwarg bool verbose: Se True to print debug information.
-        """
-        self.function_space = function_space
-        self.wind_stress_field = wind_stress_field
-        self.atm_pressure_field = atm_pressure_field
 
-        # construct interpolators
-        self.grid_interpolator = interpolation.NetCDFLatLonInterpolator2d(
-            self.function_space, coord_system, fill_mode=fill_mode,
-            fill_value=fill_value)
-        var_list = [east_wind_var_name, north_wind_var_name, pressure_var_name]
-        self.reader = interpolation.NetCDFSpatialInterpolator(
-            self.grid_interpolator, var_list)
-        self.timesearch_obj = interpolation.NetCDFTimeSearch(
-            ncfile_pattern, init_date, ATMNetCDFTime, verbose=verbose, time_variable_name=time_variable_name)
-        self.time_interpolator = interpolation.LinearTimeInterpolator(self.timesearch_obj, self.reader)
-        lon = self.grid_interpolator.mesh_lonlat[:, 0]
-        lat = self.grid_interpolator.mesh_lonlat[:, 1]
-        if vect_rotator is None:
-            self.vect_rotator = coord_system.get_vector_rotator(lon, lat)
-        else:
-            self.vect_rotator = vect_rotator
-
-    @PETSc.Log.EventDecorator("thetis.ATMInterpolator.set_fields")
-    def set_fields(self, time):
-        """
-        Evaluates forcing fields at the given time.
-
-        Performs interpolation and updates the output wind stress and
-        atmospheric pressure fields in place.
-
-        :arg float time: Thetis simulation time in seconds.
-        """
-        east_wind, north_wind, prmsl = self.time_interpolator(time)
-        east_strs, north_strs = compute_wind_stress(east_wind, north_wind)
-        if self.wind_stress_field.ufl_shape == (3,):
-            u_strs, v_strs, z_strs = self.vect_rotator(east_strs, north_strs)
-            self.wind_stress_field.dat.data_with_halos[:, 0] = u_strs
-            self.wind_stress_field.dat.data_with_halos[:, 1] = v_strs
-            self.wind_stress_field.dat.data_with_halos[:, 2] = z_strs
-        else:
-            u_strs, v_strs = self.vect_rotator(east_strs, north_strs)
-            self.wind_stress_field.dat.data_with_halos[:, 0] = u_strs
-            self.wind_stress_field.dat.data_with_halos[:, 1] = v_strs
-        self.atm_pressure_field.dat.data_with_halos[:] = prmsl
+        super().__init__(function_space, wind_stress_field,
+                         atm_pressure_field, coord_system,
+                         ncfile, init_date,
+                         vect_rotator,
+                         east_wind_var_name="uwind", north_wind_var_name="vwind",
+                         pressure_var_name="prmsl",
+                         temporal_interpolator=ATMNetCDFTime,
+                         fill_mode=fill_mode, fill_value=fill_value,
+                         verbose=verbose)
 
 
 class SpatialInterpolatorNCOMBase(interpolation.SpatialInterpolator):

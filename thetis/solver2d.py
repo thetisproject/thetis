@@ -724,7 +724,9 @@ class FlowSolver2d(FrozenClass):
                                        field_metadata,
                                        export_type='hdf5',
                                        verbose=self.options.verbose > 0,
-                                       preproc_funcs=self._field_preproc_funcs)
+                                       preproc_funcs=self._field_preproc_funcs,
+                                       include_time=True,
+                                       initial_time=getattr(self.options, 'simulation_initial_date', None))
             self.exporters['hdf5'] = e
 
     def initialize(self):
@@ -795,15 +797,24 @@ class FlowSolver2d(FrozenClass):
         self.callbacks.add(callback, eval_interval)
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.export")
-    def export(self):
+    def export(self, time=None):
         """
-        Export all fields to disk
+        Export all fields to disk.
 
         Also evaluates all callbacks set to 'export' interval.
+
+        :kwarg float time: simulation time to pass to HDF5 exporters
         """
+        # Evaluate callbacks
         self.callbacks.evaluate(mode='export')
+
+        # Export each field
         for e in self.exporters.values():
-            e.export()
+            try:
+                e.export(time=time)
+            except TypeError:
+                # exporter doesn't accept time (VTKExporter, old HDF5)
+                e.export()
 
     @PETSc.Log.EventDecorator("thetis.FlowSolver2d.load_state")
     def load_state(self, i_stored, outputdir=None, t=None, iteration=None,
@@ -865,9 +876,16 @@ class FlowSolver2d(FrozenClass):
                                    export_type='hdf5',
                                    legacy_mode=legacy_mode,
                                    verbose=self.options.verbose > 0)
-        e.exporters['uv_2d'].load(i_stored, self.fields.uv_2d)
-        e.exporters['elev_2d'].load(i_stored, self.fields.elev_2d)
+
+        # Load both fields and collect metadata
+        meta_uv = e.exporters['uv_2d'].load(i_stored, self.fields.uv_2d)
+        meta_elev = e.exporters['elev_2d'].load(i_stored, self.fields.elev_2d)
         self.assign_initial_conditions()
+
+        # choose metadata from one file (they should agree)
+        metadata = {}
+        metadata.update(meta_uv)
+        metadata.update(meta_elev)
 
         # time stepper bookkeeping for export time step
         if i_export is None:
@@ -877,7 +895,18 @@ class FlowSolver2d(FrozenClass):
         if iteration is None:
             iteration = int(numpy.ceil(self.next_export_t/self.dt))
         if t is None:
-            t = iteration*self.dt
+            # prefer metadata time if available
+            t = metadata.get('time', iteration * self.dt)
+            if 'initial_time_iso' in metadata and metadata['initial_time_iso'] is not None:
+                initial_time = metadata['initial_time_iso']
+                if isinstance(initial_time, str):
+                    self.options.simulation_initial_date = datetime.datetime.fromisoformat(initial_time)
+                else:
+                    self.options.simulation_initial_date = initial_time
+        else:
+            # user override: keep the simulation start date and time they provided
+            self.options.simulation_initial_date = self.options.simulation_initial_date
+
         self.iteration = iteration
         self.simulation_time = t
 
@@ -1077,7 +1106,7 @@ class FlowSolver2d(FrozenClass):
         # initial export
         self.print_state(0.0, print_header=True)
         if self.export_initial_state:
-            self.export()
+            self.export(time=self.simulation_time)
             if export_func is not None:
                 export_func()
             if 'vtk' in self.exporters and isinstance(self.fields.bathymetry_2d, Function):
@@ -1108,7 +1137,7 @@ class FlowSolver2d(FrozenClass):
                 cputimestamp = time_mod.perf_counter()
                 self.print_state(cputime)
 
-                self.export()
+                self.export(time=self.simulation_time)
                 if export_func is not None:
                     export_func()
 
