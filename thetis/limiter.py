@@ -26,7 +26,7 @@ def assert_function_space(fs, family, degree):
     if isinstance(ufl_elem, firedrake.VectorElement):
         ufl_elem = ufl_elem.sub_elements[0]
 
-    if ufl_elem.family() == 'TensorProductElement':
+    if isinstance(ufl_elem, firedrake.TensorProductElement):
         # extruded mesh
         A, B = ufl_elem.factor_elements
         assert A.family() in fam_list, \
