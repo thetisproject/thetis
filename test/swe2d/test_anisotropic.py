@@ -18,6 +18,7 @@ resulting from this process is used in this test. The mesh is anisotropic in the
 from thetis import *
 import thetis.diagnostics as diagnostics
 from petsc4py import PETSc
+import numpy as np
 import pytest
 import os
 

@@ -8,6 +8,6 @@ jobs:
   test:
     uses: ./.github/workflows/core.yml
     with:
-      branch: ${{ github.head_ref }}
+      branch: ${{ github.event.pull_request.head.sha }}
       image: ${{ github.base_ref == 'release' && 'firedrakeproject/firedrake-vanilla-default:latest' || 'firedrakeproject/firedrake-vanilla-default:dev-main' }}
     secrets: inherit

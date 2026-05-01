@@ -4,8 +4,10 @@ diameter: 20.0
 upwind_correction: true
 
 support_structure:
-  C_support: 0.7        # support structure thrust coefficient
-  A_support: 36.4       # 2.6 * 14.0, cross-sectional area
+  type: bottom-fixed        # or "floating"
+  rel_hub_height: 14.0      # [m] above seabed if bottom-fixed, below surface if floating
+  C_support: 0.7            # support structure thrust coefficient
+  A_support: 36.4           # 2.6 * 14.0, cross-sectional area
 
 curves:
   speeds: [0.0, 0.75, 0.85, 0.95, 1.0, 3.05, 3.3, 3.55, 3.8, 4.05, 4.3, 4.55,

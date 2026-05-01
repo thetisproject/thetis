@@ -26,7 +26,7 @@ def assert_function_space(fs, family, degree):
     if isinstance(ufl_elem, firedrake.VectorElement):
         ufl_elem = ufl_elem.sub_elements[0]
 
-    if ufl_elem.family() == 'TensorProductElement':
+    if isinstance(ufl_elem, firedrake.TensorProductElement):
         # extruded mesh
         A, B = ufl_elem.factor_elements
         assert A.family() in fam_list, \
@@ -70,7 +70,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         else:
             super(VertexBasedP1DGLimiter, self).__init__(p1dg_space)
         self.mesh = self.P0.mesh()
-        self.is_2d = self.mesh.geometric_dimension() == 2
+        self.is_2d = self.mesh.geometric_dimension == 2
         self.time_dependent_mesh = time_dependent_mesh
 
     def _construct_centroid_solver(self):

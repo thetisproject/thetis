@@ -12,8 +12,8 @@
     <https://github.com/thetisproject/thetis/>`__ and is being
     continually tested using GitHub Actions.
 
-    .. |thetisbuild| image:: https://github.com/thetisproject/thetis/actions/workflows/weekly.yml/badge.svg?branch=release
-                             :target: https://github.com/thetisproject/thetis/actions/workflows/weekly.yml?query=branch%3Arelease
+    .. |thetisbuild| image:: https://github.com/thetisproject/thetis/actions/workflows/weekly-release.yml/badge.svg?branch=release
+                             :target: https://github.com/thetisproject/thetis/actions/workflows/weekly-release.yml?query=branch%3Arelease
 
 The Thetis project
 ==================
