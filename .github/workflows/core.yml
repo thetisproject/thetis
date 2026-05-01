@@ -94,10 +94,10 @@ jobs:
           . venv-thetis/bin/activate
           if [ "${{ matrix.target }}" = "thetis" ]; then
             mpiexec -n 2 python -m pytest --verbose --durations=0 --durations-min=60.0 \
-                -m parallel[2] thetis-repo/test
+                --timeout=300 --timeout-method=thread -m parallel[2] thetis-repo/test
           else
             mpiexec -n 2 python -m pytest --verbose --durations=0 \
-                -m parallel[2] thetis-repo/test_adjoint
+                --timeout=300 --timeout-method=thread -m parallel[2] thetis-repo/test_adjoint
           fi
 
       - name: Post-cleanup
