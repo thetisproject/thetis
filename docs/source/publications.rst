@@ -8,8 +8,25 @@ Citing Thetis
 If you publish results obtained with Thetis, please cite the `2018 GMD paper <https://doi.org/10.5194/gmd-11-4359-2018>`_.
 Also see `instructions for citing Firedrake <https://firedrakeproject.org/citing.html>`_.
 
+2026
+----
+
+Hill, J., Vila-Concejo, A. and Lee, K.C.:
+Toward a digital twin of the Great Barrier Reef: Impact of extreme model resolution on tidal simulations,
+*Ocean Modelling*, 202, p. 102723,
+doi: `10.1016/j.ocemod.2026.102723 <http://doi.org/10.1016/j.ocemod.2026.102723>`_, 2026.
+
 2025
 ----
+Jordan, C., Angeloudis, A.:
+Effects of bathymetric constraints in tidal stream array layout design.
+*J. Hydraul. Res.* 63, 622–639,
+doi: `10.1080/00221686.2025.2554989 <https://doi.org/10.1080/00221686.2025.2554989>`_, 2025.
+
+Chien, N.Q., Jordan, C., Brazovskis, E., Sellar, B., Ribeiro, J., Silva, A., Angeloudis, A.:
+Operational coastal ocean modelling for tidal stream turbine arrays,
+*Appl. Ocean Res.* 165, 104847.,
+doi: `10.1016/j.apor.2025.104847 <https://doi.org/10.1016/j.apor.2025.104847>`_, 2025.
 
 Pappas, K., Nguyen, C. Q., Zilakos, I., Beevers L. and Angeloudis A.:
 On the economic feasibility of tidal range power plants,
