@@ -160,7 +160,7 @@ class InversionManager(FrozenHasTraits):
     def __init__(self, sta_manager, output_dir='outputs', no_exports=False, real=False,
                  penalty_parameters=[], test_consistency=True, test_gradient=True):
         """
-        :arg sta_manager: the :class:`StationManager` instance
+        :arg sta_manager: the :class:`StationObservationManagerBase` instance
         :kwarg output_dir: model output directory
         :kwarg no_exports: if True, nothing will be written to disk
         :kwarg real: is the inversion in the Real space?
@@ -171,7 +171,7 @@ class InversionManager(FrozenHasTraits):
         :kwarg test_gradient: toggle testing the correctness with
             which the :class:`ReducedFunctional` can recompute gradients
         """
-        assert isinstance(sta_manager, StationObservationManager) or isinstance(sta_manager, MultiStationObservationManager)
+        assert isinstance(sta_manager, StationObservationManagerBase)
         self.sta_manager = sta_manager
         self.reg_manager = None
         self.output_dir = output_dir
@@ -494,14 +494,9 @@ class InversionManager(FrozenHasTraits):
         # --- Time-dependent cost function (only adds misfit) ---
         def cost_fn():
             t = solver_obj.simulation_time
-            if isinstance(self.sta_manager, MultiStationObservationManager):
-                J_total, components = self.sta_manager.eval_cost_function(t)
-                self.J_misfit += J_total
-                self.J += J_total
-            else:
-                misfit = self.sta_manager.eval_cost_function(t)
-                self.J_misfit += misfit
-                self.J += misfit
+            misfit = self.sta_manager.eval_cost_function(t)
+            self.J_misfit += misfit
+            self.J += misfit
 
         return cost_fn
 
@@ -597,7 +592,59 @@ class InversionManager(FrozenHasTraits):
         print_output("Taylor test passed!")
 
 
-class StationObservationManager:
+class StationObservationManagerBase(abc.ABC):
+    """
+    Abstract base class defining the interface for station observation managers.
+
+    A station observation manager is responsible for evaluating the misfit
+    between model output and observational data at station locations during
+    a forward model run, and for storing the resulting model time series to
+    disk for diagnostic purposes.
+
+    Subclasses may handle a single observation variable
+    (:class:`StationObservationManager`) or combine several
+    (:class:`MultiStationObservationManager`). Both expose the same
+    interface so that :class:`InversionManager` can use either without
+    special-casing.
+    """
+
+    @abc.abstractmethod
+    def eval_cost_function(self, t) -> float:
+        """
+        Evaluate the misfit cost function at time `t`.
+
+        Should be called at every export of the forward model. Implementations
+        are expected to accumulate contributions over time so that the total
+        misfit across the simulation is available at the end of the forward solve.
+
+        :arg t: model simulation time
+        :returns: scalar misfit value at this timestep
+        """
+
+    @abc.abstractmethod
+    def collect_time_series(self, current_iteration: int):
+        """
+        Collect model time series from the current forward solve.
+
+        Should be called after the forward solve completes, before the
+        PyAdjoint tape is cleared. If called multiple times within the
+        same iteration (e.g. during a line search), the stored series
+        should be updated in-place rather than appended.
+
+        :arg current_iteration: current optimisation iteration index
+        """
+
+    @abc.abstractmethod
+    def dump_time_series(self):
+        """
+        Write collected model time series to disk.
+
+        :meth:`collect_time_series` must have been called at least once
+        before this method is invoked.
+        """
+
+
+class StationObservationManager(StationObservationManagerBase):
     """
     Implements error functional based on observation time series.
 
@@ -830,6 +877,9 @@ class StationObservationManager:
         Evaluate the cost function.
 
         Should be called at every export of the forward model.
+
+        :arg t: model simulation time
+        :returns: scalar misfit cost function value
         """
         assert self.initialized, 'Not initialized, call construct_evaluator first.'
         assert self.model_observation_field is not None, 'Model field not set.'
@@ -933,7 +983,7 @@ class StationObservationManager:
                 hdf5file.attrs.update(attrs)
 
 
-class MultiStationObservationManager:
+class MultiStationObservationManager(StationObservationManagerBase):
     """
     Manage multiple StationObservationManager instances (e.g. elevation + velocity).
     Combines their cost functions into a single scalar J.
@@ -983,21 +1033,20 @@ class MultiStationObservationManager:
     def eval_cost_function(self, t):
         """
         Evaluate combined cost function for all registered observation sets.
-        Returns a tuple (total_J, component_dict)
+
+        :arg t: model simulation time
+        :returns: scalar total cost function value (sum over all managers)
         """
         J_total = 0.0
-        components = {}
-        for name, som in self.observation_managers.items():
-            J = som.eval_cost_function(t)  # individual manager will assert initialized
-            components[name] = float(J)
-            J_total += J
-        return J_total, components
+        for som in self.observation_managers.values():
+            J_total += som.eval_cost_function(t)
+        return J_total
 
     def collect_time_series(self, current_iteration):
         """
         Forward the collect_time_series call to each station manager.
         """
-        for name, som in self.observation_managers.items():
+        for som in self.observation_managers.values():
             som.collect_time_series(current_iteration)
 
     def dump_time_series(self):
