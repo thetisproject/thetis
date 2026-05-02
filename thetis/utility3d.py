@@ -873,7 +873,7 @@ class ALEMeshUpdater(object):
 
         self.solver.mesh.coordinates.dat.data[:, 2] = self.fields.z_coord_3d.dat.data[:]
         self.update_elem_height()
-        self.solver.mesh.clear_spatial_index()
+        self.solver.mesh.clear_rtree()
 
 
 class SmagorinskyViscosity(object):
