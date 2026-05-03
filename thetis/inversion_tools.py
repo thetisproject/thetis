@@ -469,21 +469,22 @@ class InversionManager(FrozenHasTraits):
         if weight_by_variance:
             def apply_weighting(sta_mgr):
                 var = fd.Function(sta_mgr.fs_points_0d_scalar)
-                for i, j in enumerate(sta_mgr.local_station_index):
-                    if sta_mgr.observed_quantity_is_scalar:
-                        obs = sta_mgr.observation_data[j]
-                        var.dat.data[i] = numpy.var(obs)
-                    else:
-                        u_list, v_list = sta_mgr.observation_data
-                        u = u_list[j]
-                        v = v_list[j]
-                        magnitude = numpy.sqrt(u ** 2 + v ** 2)
-                        var.dat.data[i] = numpy.var(magnitude)
-                assert numpy.all(numpy.isfinite(var.dat.data[:])), \
-                    (f"[{fd.COMM_WORLD.rank}] ERROR: Check for NaNs. Found non-finite variances of "
-                     f"observation data: {var.dat.data[:]}")
-                # in parallel some mesh partitions will have no stations so we need a conditional to avoid div by 0
-                sta_mgr.station_weight_0d.interpolate(fd.conditional(fd.gt(var, 0.0), 1./var, 0.0))
+                # in parallel access to .dat.data should be collective
+                if len(var.dat.data[:]) > 0:
+                    for i, j in enumerate(sta_mgr.local_station_index):
+                        if sta_mgr.observed_quantity_is_scalar:
+                            obs = sta_mgr.observation_data[j]
+                            var.dat.data[i] = numpy.var(obs)
+                        else:
+                            u_list, v_list = sta_mgr.observation_data
+                            u = u_list[j]
+                            v = v_list[j]
+                            magnitude = numpy.sqrt(u ** 2 + v ** 2)
+                            var.dat.data[i] = numpy.var(magnitude)
+                    assert numpy.all(numpy.isfinite(var.dat.data[:])), \
+                        (f"[{fd.COMM_WORLD.rank}] ERROR: Check for NaNs. Found non-finite variances of "
+                         f"observation data: {var.dat.data[:]}")
+                sta_mgr.station_weight_0d.interpolate(1. / var)
 
             if isinstance(self.sta_manager, MultiStationObservationManager):
                 for sub_mgr in self.sta_manager.observation_managers.values():
