@@ -152,47 +152,83 @@ else:
 # Assign initial conditions
 print_output('Exporting to ' + options.output_directory)
 
-# Create station manager
-observation_data_dir = output_dir_forward
-variable = 'uv'
+# Create station managers
 stations = [
     ('stationA', (lx/10, ly/2)),
     ('stationB', (lx/2, ly/2)),
     ('stationC', (3*lx/4, ly/4)),
     ('stationD', (3*lx/4, 3*ly/4)),
     ('stationE', (9*lx/10, ly/2)),
+    ('stationF', (lx/4, ly/4)),
+    ('stationG', (lx/4, 3*ly/4)),
 ]
-sta_manager = inversion_tools.StationObservationManager(mesh2d, output_directory=options.output_directory)
+
+elev_stations = ['stationF', 'stationG']
+vel_stations = ['stationA', 'stationB', 'stationC', 'stationD', 'stationE']
+
+# Apply cost function scaling so that dJ/dm ~ O(1)
 if selected_case in ('GradientReg', 'HessianReg'):
     cfs_scalar = 1e2 * solver_obj.dt / options.simulation_end_time
 else:
     cfs_scalar = 1e4 * solver_obj.dt / options.simulation_end_time
-cost_function_scaling = domain_constant(cfs_scalar, mesh2d)
-sta_manager.cost_function_scaling = cost_function_scaling
-print_output('Station Manager instantiated.')
-station_names, observation_coords, observation_time, observation_u, observation_v = [], [], [], [], []
-for name, (sta_x, sta_y) in stations:
-    file = os.path.join(output_dir_forward, f'diagnostic_timeseries_{name}_{variable}.hdf5')
+# we can change the weightings for the cost function scaling for each station manager separately
+# here, we have smooth signals from the model for both observation types, and the velocity error will be dominant, so if
+# we leave the weightings the same and apply variance weighting then our cost function will correctly reflect this and
+# we do not need to worry about any further weighting!
+cfs_scalar_vel = cfs_scalar
+cfs_scalar_elev = cfs_scalar
+
+# --- Velocity station manager ---
+variable = 'uv'
+vel_sta_mgr = inversion_tools.StationObservationManager(mesh2d, output_directory=options.output_directory)
+vel_names, vel_coords, vel_times, vel_u, vel_v = [], [], [], [], []
+for name, (sta_x, sta_y) in [(s, (x, y)) for s, (x, y) in stations if s in vel_stations]:
+    file = os.path.join(output_dir_forward, f'diagnostic_timeseries_{name}.hdf5')
     with h5py.File(file) as h5file:
         t = h5file['time'][:].flatten()
         var = h5file[name][:]
-        station_names.append(name)
-        observation_coords.append((sta_x, sta_y))
-        observation_time.append(t)
-        observation_u.append(var[:, 0])
-        observation_v.append(var[:, 1])
-observation_x, observation_y = numpy.array(observation_coords).T
-sta_manager.register_observation_data(station_names, variable, observation_time, observation_x, observation_y,
-                                      data=(observation_u, observation_v), start_times=None, end_times=None)
-print_output('Data registered.')
-sta_manager.construct_evaluator()
-sta_manager.set_model_field(solver_obj.fields.uv_2d)
-print_output('Station Manager set-up complete.')
+        vel_names.append(name)
+        vel_coords.append((sta_x, sta_y))
+        vel_times.append(t)
+        vel_u.append(var[:, 1])
+        vel_v.append(var[:, 2])
+vel_coords_x, vel_coords_y = numpy.array(vel_coords).T
+vel_sta_mgr.register_observation_data(vel_names, variable, vel_times, vel_coords_x, vel_coords_y,
+                                      data=(vel_u, vel_v), start_times=None, end_times=None)
+# must be assigned before constructing evaluator
+vel_sta_mgr.cost_function_scaling = domain_constant(cfs_scalar_vel, mesh2d)
+vel_sta_mgr.construct_evaluator()
+vel_sta_mgr.set_model_field(solver_obj.fields.uv_2d)
+
+# --- Elevation station manager ---
+variable = 'elev'
+elev_sta_mgr = inversion_tools.StationObservationManager(mesh2d, output_directory=options.output_directory)
+elev_names, elev_coords, elev_times, elev_data = [], [], [], []
+for name, (sta_x, sta_y) in [(s, (x, y)) for s, (x, y) in stations if s in elev_stations]:
+    file = os.path.join(output_dir_forward, f'diagnostic_timeseries_{name}.hdf5')
+    with h5py.File(file) as h5file:
+        t = h5file['time'][:].flatten()
+        var = h5file[name][:]
+        elev_names.append(name)
+        elev_coords.append((sta_x, sta_y))
+        elev_times.append(t)
+        elev_data.append(var[:, 0])
+elev_coords_x, elev_coords_y = numpy.array(elev_coords).T
+elev_sta_mgr.register_observation_data(elev_names, variable, elev_times, elev_coords_x, elev_coords_y,
+                                       data=elev_data, start_times=None, end_times=None)
+elev_sta_mgr.cost_function_scaling = domain_constant(cfs_scalar_elev, mesh2d)
+elev_sta_mgr.construct_evaluator()
+elev_sta_mgr.set_model_field(solver_obj.fields.elev_2d)
+
+# --- Combine into a multi-station manager ---
+sta_manager = inversion_tools.MultiStationObservationManager({
+    'velocity': vel_sta_mgr,
+    'elevation': elev_sta_mgr
+})
+
+print_output('Multi-Station Manager set-up complete.')
 
 # -------------------------------------- Step 3: define the optimisation problem ---------------------------------------
-
-# Define the scaling for the cost function so that dJ/dm ~ O(1)
-J_scalar = sta_manager.cost_function_scaling
 
 # Setup controls and regularization parameters (regularisation only needed where lots of values are being changed)
 gamma_penalty_list = []
@@ -200,8 +236,8 @@ control_bounds_list = []
 gamma_penalty = None
 bounds = [0.01, 0.06]
 if selected_case in ('GradientReg', 'HessianReg'):
-    gamma_factor = 1e6
-    gamma_penalty = Constant(gamma_factor * cfs_scalar)  # scaling is significant due to unit normalisation
+    gamma_factor = 1e5
+    gamma_penalty = Constant(gamma_factor * cfs_scalar_vel)  # scaling is significant due to unit normalisation
     print_output(f'Manning regularization params: gamma={float(gamma_penalty):.3g}')
     gamma_penalty_list.append(gamma_penalty)
 control_bounds_list.append(bounds)
@@ -211,7 +247,7 @@ control_bounds = numpy.array(control_bounds_list).T
 # Create inversion manager and add controls
 inv_manager = inversion_tools.InversionManager(
     sta_manager, output_dir=options.output_directory, no_exports=False, penalty_parameters=gamma_penalty_list,
-    cost_function_scaling=J_scalar, test_consistency=do_consistency_test, test_gradient=do_taylor_test)
+    test_consistency=do_consistency_test, test_gradient=do_taylor_test)
 
 print_output('Inversion Manager instantiated.')
 
@@ -234,8 +270,8 @@ if not no_exports:
 
 # Extract the regularized cost function
 if selected_case == 'GradientReg':
-    cost_function = inv_manager.get_cost_function(solver_obj,
-                                                  weight_by_variance=True, regularisation_manager='Gradient')
+    cost_function = inv_manager.get_cost_function(solver_obj, weight_by_variance=True,
+                                                  regularisation_manager='Gradient')
 else:
     cost_function = inv_manager.get_cost_function(solver_obj, weight_by_variance=True)
 cost_function_callback = inversion_tools.CostFunctionCallback(solver_obj, cost_function)
@@ -285,4 +321,5 @@ for oc, cc in zip(control_opt_list, inv_manager.control_coeff_list):
             VTKFile(os.path.join(options.output_directory, f'{name}_optimised.pvd')).write(oc)
 
 if selected_case == 'Regions' or selected_case == 'IndependentPointsScheme':
-    print_output("Optimised vector m:\n" + str([np.round(control_opt_list[i].dat.data[0], 4) for i in range(len(control_opt_list))]))
+    print_output("Optimised vector m:\n" + str(
+        [np.round(control_opt_list[i].dat.data[0], 4) for i in range(len(control_opt_list))]))
