@@ -5,4 +5,6 @@ def pytest_runtest_teardown(item, nextitem):
     from pyadjoint import get_working_tape
 
     # clear the adjoint tape, so subsequent tests don't interfere
-    get_working_tape().clear_tape()
+    tape = get_working_tape()
+    if tape is not None:
+        tape.clear_tape()
