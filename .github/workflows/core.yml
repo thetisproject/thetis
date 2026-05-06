@@ -74,18 +74,9 @@ jobs:
         run: |
           . venv-thetis/bin/activate
           : # Run the serial tests, excluding examples which are tested separately
-          python -m pytest -n 8 --verbose --durations=0 --durations-min=60.0 \
+          python -m pytest -n 12 --verbose --durations=0 --durations-min=60.0 \
             --ignore=thetis-repo/test/examples \
             -m parallel[match] thetis-repo/test
-
-      - name: Test Thetis adjoint (serial)
-        if: success() || steps.install.conclusion == 'success'
-        run: |
-          firedrake-clean
-          . venv-thetis/bin/activate
-          python -m pytest -n 8 --verbose --durations=0 --durations-min=60.0 \
-            --ignore=thetis-repo/test_adjoint/examples \
-            -m parallel[match] thetis-repo/test_adjoint
 
       - name: Test Thetis (parallel)
         if: success() || steps.install.conclusion == 'success'
@@ -96,13 +87,21 @@ jobs:
             --timeout=300 --timeout-method=thread \
             -m parallel[2] thetis-repo/test thetis-repo/test_adjoint
 
-      - name: Test Thetis examples
+      - name: Test Thetis examples (serial)
         if: success() || steps.install.conclusion == 'success'
         run: |
           . venv-thetis/bin/activate
-          python -m pytest -n 8 --verbose --durations=0 --durations-min=60.0 \
+          python -m pytest -n 12 --verbose --durations=0 --durations-min=60.0 \
             -m parallel[match] \
             thetis-repo/test/examples thetis-repo/test_adjoint/examples
+
+      - name: Test Thetis adjoint (serial)
+        if: success() || steps.install.conclusion == 'success'
+        run: |
+          . venv-thetis/bin/activate
+          python -m pytest -n 2 --verbose --durations=0 --durations-min=60.0 \
+            --ignore=thetis-repo/test_adjoint/examples \
+            -m parallel[match] thetis-repo/test_adjoint
 
       - name: Post-cleanup
         if: always()
