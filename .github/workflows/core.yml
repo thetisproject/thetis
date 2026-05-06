@@ -20,10 +20,6 @@ jobs:
     # The docker container to use.
     container:
       image: ${{ inputs.image }}
-    strategy:
-      matrix:
-        target: [thetis, adjoint]
-      max-parallel: 2
     env:
       # Make sure that tests with >2 processes are not silently skipped
       PYTEST_MPI_MAX_NPROCS: 2
@@ -39,7 +35,6 @@ jobs:
           echo "===================================="
           echo "Running Thetis CI"
           echo "Branch: ${{ inputs.branch }}"
-          echo "Target: ${{ matrix.target }}"
           echo "Firedrake Docker image: ${{ inputs.image }}"
           echo "===================================="
 
@@ -78,27 +73,36 @@ jobs:
         if: success() || steps.install.conclusion == 'success'
         run: |
           . venv-thetis/bin/activate
-          if [ "${{ matrix.target }}" = "thetis" ]; then
-            : # Run the serial tests
-            python -m pytest -n 8 --verbose --durations=0 --durations-min=60.0 \
-                -m parallel[match] thetis-repo/test
-          else
-            : # Run the serial tests
-            python -m pytest -n 8 --verbose --durations=0 \
-                -m parallel[match] thetis-repo/test_adjoint
-          fi
+          : # Run the serial tests, excluding examples which are tested separately
+          python -m pytest -n 8 --verbose --durations=0 --durations-min=60.0 \
+            --ignore=thetis-repo/test/examples \
+            -m parallel[match] thetis-repo/test
+
+      - name: Test Thetis adjoint (serial)
+        if: success() || steps.install.conclusion == 'success'
+        run: |
+          firedrake-clean
+          . venv-thetis/bin/activate
+          python -m pytest -n 8 --verbose --durations=0 --durations-min=60.0 \
+            --ignore=thetis-repo/test_adjoint/examples \
+            -m parallel[match] thetis-repo/test_adjoint
 
       - name: Test Thetis (parallel)
         if: success() || steps.install.conclusion == 'success'
         run: |
           . venv-thetis/bin/activate
-          if [ "${{ matrix.target }}" = "thetis" ]; then
-            mpiexec -n 2 python -m pytest --verbose --durations=0 --durations-min=60.0 \
-                --timeout=300 --timeout-method=thread -m parallel[2] thetis-repo/test
-          else
-            mpiexec -n 2 python -m pytest --verbose --durations=0 \
-                --timeout=300 --timeout-method=thread -m parallel[2] thetis-repo/test_adjoint
-          fi
+          : # Run the parallel tests (note that xdist is not valid in parallel)
+          mpiexec -n 2 python -m pytest --verbose --durations=0 --durations-min=60.0 \
+            --timeout=300 --timeout-method=thread \
+            -m parallel[2] thetis-repo/test thetis-repo/test_adjoint
+
+      - name: Test Thetis examples
+        if: success() || steps.install.conclusion == 'success'
+        run: |
+          . venv-thetis/bin/activate
+          python -m pytest -n 8 --verbose --durations=0 --durations-min=60.0 \
+            -m parallel[match] \
+            thetis-repo/test/examples thetis-repo/test_adjoint/examples
 
       - name: Post-cleanup
         if: always()
