@@ -80,12 +80,12 @@ jobs:
           . venv-thetis/bin/activate
           if [ "${{ matrix.target }}" = "thetis" ]; then
             : # Run the serial tests
-            python -m pytest -n 12 --verbose --durations=0 --durations-min=60.0 \
-                -m "parallel[1] or not parallel" thetis-repo/test
+            python -m pytest -n 8 --verbose --durations=0 --durations-min=60.0 \
+                -m parallel[match] thetis-repo/test
           else
             : # Run the serial tests
-            python -m pytest -n 12 --verbose --durations=0 \
-                -m "parallel[1] or not parallel" thetis-repo/test_adjoint
+            python -m pytest -n 8 --verbose --durations=0 \
+                -m parallel[match] thetis-repo/test_adjoint
           fi
 
       - name: Test Thetis (parallel)
