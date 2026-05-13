@@ -16,22 +16,37 @@ Toward a digital twin of the Great Barrier Reef: Impact of extreme model resolut
 *Ocean Modelling*, 202, p. 102723,
 doi: `10.1016/j.ocemod.2026.102723 <http://doi.org/10.1016/j.ocemod.2026.102723>`_, 2026.
 
+Patel, M.D., Smyth, A.S.M., Angeloudis, A. and Adcock T.A.A.:
+The interplay and incremental development of tidal stream arrays in the Pentland Firth.
+*J. Ocean Eng. Mar. Energy*, 9,
+doi: `10.1007/s40722-026-00490-5 <https://doi.org/10.1007/s40722-026-00490-5>`_, 2026.
+
+Guichard J., Rawlinson-Smith R., Coles D. and Greaves D.:
+Energy storage from a wind, tidal, and wave farm via hydrogen.
+*Front. Energy Res.* 14, p. 1732813,
+doi: `10.3389/fenrg.2026.1732813 <https://doi.org/10.3389/fenrg.2026.1732813>`_, 2026.
+
+Bolhuis, S., Alday, M. and Lavidas, G.:
+Tidal stream energy in the Netherlands—Resource assessment and future effects due to mean sea level rise,
+*Renewable Energy*, 256, Part F, p. 124214,
+doi: `10.1016/j.renene.2025.124214 <https://doi.org/10.1016/j.renene.2025.124214>`_, 2026.
+
 2025
 ----
-Jordan, C., Angeloudis, A.:
-Effects of bathymetric constraints in tidal stream array layout design.
-*J. Hydraul. Res.* 63, 622–639,
-doi: `10.1080/00221686.2025.2554989 <https://doi.org/10.1080/00221686.2025.2554989>`_, 2025.
-
 Chien, N.Q., Jordan, C., Brazovskis, E., Sellar, B., Ribeiro, J., Silva, A., Angeloudis, A.:
 Operational coastal ocean modelling for tidal stream turbine arrays,
 *Appl. Ocean Res.* 165, 104847.,
 doi: `10.1016/j.apor.2025.104847 <https://doi.org/10.1016/j.apor.2025.104847>`_, 2025.
 
-Pappas, K., Nguyen, C. Q., Zilakos, I., Beevers L. and Angeloudis A.:
-On the economic feasibility of tidal range power plants,
-*Proc. R. Soc. A.*, 481:20230867,
-doi: `10.1098/rspa.2023.0867 <http://doi.org/10.1098/rspa.2023.0867>`_, 2025.
+Jordan, C., Angeloudis, A.:
+Effects of bathymetric constraints in tidal stream array layout design.
+*J. Hydraul. Res.* 63, 622–639,
+doi: `10.1080/00221686.2025.2554989 <https://doi.org/10.1080/00221686.2025.2554989>`_, 2025.
+
+Noble, D.R., Pennock, S., Coles, D., Delahaye, T. and Jeffrey, H.:
+Quantifying the System Benefits of Ocean Energy in the Context of Variability: A UK Example,
+*Energies*, 18:3717,
+doi: `10.3390/en18143717 <https://doi.org/10.3390/en18143717>`_, 2025.
 
 Zhang, C., Zhang, Y., Zhang, J., Cheng, X., Lin, X., Wu, C. and Ding, Z.:
 Two-Objective Optimization of Tidal Array Micro-Sitting Accounting for Yaw Angle Effects,
@@ -42,6 +57,11 @@ Jordan, C., Coles, D., Johnson, F. and Angeloudis, A.:
 On tidal array layout sensitivity to regional hydrodynamics representation,
 *International Marine Energy Journal*, 8(2):227–236,
 doi: `10.36688/imej.8.227-236 <https://doi.org/10.36688/imej.8.227-236>`_, 2025.
+
+Pappas, K., Nguyen, C. Q., Zilakos, I., Beevers L. and Angeloudis A.:
+On the economic feasibility of tidal range power plants,
+*Proc. R. Soc. A.*, 481:20230867,
+doi: `10.1098/rspa.2023.0867 <http://doi.org/10.1098/rspa.2023.0867>`_, 2025.
 
 2024
 ----
@@ -189,7 +209,7 @@ doi:`10.1111/bor.12532 <https://doi.org/10.1111/bor.12532>`_, 2021.
 
 Mackie, L., Kramer, S. C., Piggott, M. D. and Angeloudis, A.:
 Assessing impacts of tidal power lagoons of a consistent design,
-*Ocean Engineering* 240, p. 109879. 
+*Ocean Engineering* 240, p. 109879.
 doi: `10.1016/j.oceaneng.2021.109879 <https://doi.org/10.1016/j.oceaneng.2021.109879>`
 
 Pan, W., Kramer, S. C., and Piggott, M. D.:
