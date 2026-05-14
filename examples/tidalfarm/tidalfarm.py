@@ -22,27 +22,17 @@ the forward model and automatically derives the adjoint.
 from thetis import *
 from firedrake.adjoint import *
 from checkpoint_schedules import SingleMemoryStorageSchedule
-import logging
 op2.init(log_level=INFO)
 
 # start annotating all Firedrake opterations in the forward model
 continue_annotation()
 
 tape = get_working_tape()
-output_logger.handlers = []
-output_logger.propagate = False
 tape.enable_checkpointing(
     SingleMemoryStorageSchedule(),
     gc_timestep_frequency=56,  # every 56 time steps we will do garbage collection
     gc_generation=2
 )
-# TODO: this is a logging workaround - update when Firedrake #4753 is addressed
-if COMM_WORLD.rank == 0:
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter('%(message)s'))
-    output_logger.addHandler(handler)
-else:
-    output_logger.addHandler(logging.NullHandler())
 
 # setup the Thetis solver obj as usual:
 mesh2d = Mesh('headland.msh')
