@@ -48,6 +48,9 @@ with CheckpointFile(f"{pwd}/japan_sea_bathymetry.h5", "r") as f:
 source = get_source(mesh2d, source_model)
 if source_model == "okada":
     source.subfault_variables = args.okada_parameters
+    if os.getenv('THETIS_REGRESSION_TEST') is not None:
+        source.num_subfaults_par = 2
+        source.num_subfaults_perp = 2
 
 # Setup PDE
 output_dir = f"{pwd}/outputs_elev-init-optimization_{source_model}"
