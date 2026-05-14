@@ -29,4 +29,4 @@ Each tutorial is also available here, so you can run or modify them locally if y
 
 ## 📎 Further Examples
 
-Once you've got to grips with the demos, check out the [Thetis examples repository](../examples/readme.md).
+Once you've got to grips with the demos, check out the [Thetis examples repository](../examples/README.md).

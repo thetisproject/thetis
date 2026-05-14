@@ -9,15 +9,23 @@ Thetis requires installation of `Firedrake
 principle other Linux and Linux-like systems) and must be run from
 within the Firedrake virtual environment.
 
+.. note::
+
+   Before reading these instructions and installing Firedrake, please decide
+   whether you would like to use the ``release`` branch or the ``main`` branch.
+   Firedrake ``release`` is not typically compatible with Thetis ``main``, and vice
+   versa.
+
+   ``release`` is stable and is updated every 6 months. ``main`` is the development
+   branch, which requires a different installation method. It has all the latest
+   updates but depends on upstream stability. If you want to work on ``main``,
+   please see :doc:`developer_notes`.
+
 Installing Firedrake
 ---------------------
 
 You can install Firedrake by following the download documentation on the
 `Firedrake website <http://firedrakeproject.org/install.html>`_.
-
-.. note::
-
-   **Installing PETSc and Firedrake can take up to 30 minutes depending on the system.**
 
 After installation, in order to use Firedrake and install Thetis you need to activate the Firedrake
 virtual environment::
@@ -32,17 +40,15 @@ virtual environment::
 
       firedrake-check
 
-.. note::
-
-   If you want to install the developer **main** branch of Thetis, you will need to
-   install the corresponding development branch (**main**) of Firedrake.
-   Please follow the instructions on the `Firedrake website <http://firedrakeproject.org/install.html>`_
-   to do this.
-
 Installing Thetis
 ------------------
 
-You can install Thetis in your Firedrake installation by activating the Firedrake virtual environment and running:
+The instructions on this page are for installing the stable ``release`` branch of
+Thetis. If you would like to install the development branch (``main``), or are
+developing/maintaining Thetis, see :doc:`developer_notes`.
+
+To install Thetis in your Firedrake installation, activate the Firedrake virtual
+environment and run:
 
 .. code-block:: none
 
@@ -74,26 +80,22 @@ If you have SSH keys set up with GitHub, you can use the SSH-based clone instead
    git checkout <branch_name>
    pip install -e .
 
-.. note::
 
-   For development, the default branch of Thetis is **main**. This tracks the **main** branch of Firedrake. If
-   you do not intend on developing Thetis, please ensure that you checkout the release branch for compatibility.
-
-
-An IDE such as PyCharm will not recognize Thetis when installed in this fashion for any project outside the cloned repository,
-as the source is not in site-packages. It will still run, and if you would like to enable full code navigation, you
-can add the Thetis cloned repository as a content root, then add the ``thetis`` sub-directory as a sources root.
+An IDE such as PyCharm will not recognize Thetis when installed in this fashion for any project outside the cloned
+repository, as the source is not in site-packages. It will still run, and if you would like to enable full code
+navigation, you can add the Thetis cloned repository as a content root, then add the ``thetis`` sub-directory as a
+sources root.
 
 .. _alternative-installation-methods:
 
 Alternative installation methods
 ---------------------------------
 
-As well as being installable through ``pip``, Firedrake also provides Docker containers.
-Thetis is no longer distributed in Docker containers with the "latest" image, so please
-follow the standard installation instructions above.
+As well as being installable through ``pip``, Firedrake also provides Docker images.
+Thetis is no longer included in the default Firedrake Docker images, so after starting
+a container from a Firedrake image you should install Thetis inside that container
+using the standard installation instructions above.
 
 If there are any problems with the installation of Firedrake and Thetis, the Slack workspace for Firedrake contains both
 the general channel for Firedrake and a specific channel for Thetis. GitHub can also be used to report issues. Please
 follow this `link <https://thetisproject.org/contact.html>`_ for contact details and we will be happy to help.
-

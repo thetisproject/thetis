@@ -39,9 +39,25 @@ htmlcov/
 .coverage
 .coverage.*
 .cache
+.pytest_cache/
 nosetests.xml
 coverage.xml
 *,cover
+
+# IDEs/editors
+.idea/
+.vscode/
+
+# Common local virtualenvs
+.venv/
+
+# Static analysis / formatter caches
+.mypy_cache/
+.ruff_cache/
+
+# Local agent/tool state (don’t commit)
+.codex/
+.agents/
 
 # Translations
 *.mo

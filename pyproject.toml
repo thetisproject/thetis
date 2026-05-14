@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "thetis"
-version = "2025.10.1"
+version = "2026.4.0"
 dependencies = [
   "netCDF4",
   "pylit",
@@ -20,7 +20,7 @@ authors = [
   {name = "Tuomas Karna", email = "tuomas.karna@gmail.com" },
 ]
 description = "Finite element ocean model"
-readme = "readme.md"
+readme = "README.md"
 license = {file = "LICENSE"}
 classifiers = [
   "Programming Language :: Python",
@@ -48,4 +48,22 @@ docs = [
   "sphinxcontrib-svg2pdfconverter",
   "sphinxcontrib-youtube",
   "vtk",  # needed to resolve API
+]
+
+# Developer/test tooling (not required for end users)
+lint = [
+  "flake8",
+]
+
+test = [
+  "ipympl",  # needed for notebook testing
+  "matplotlib",
+  "mpi-pytest>=2026.0",
+  "nbval",
+  "pylit",
+  "pytest",
+  "pytest-timeout",
+  "pytest-xdist",
+  "vtk",
+  "decorator<=4.4.2",  # Firedrake
 ]

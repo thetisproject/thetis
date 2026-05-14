@@ -13,7 +13,9 @@ team = OrderedDict([
     ("Joe Wallwork",
      "https://www.imperial.ac.uk/people/j.wallwork16"),
     ("Mariana Clare",
-     "https://www.imperial.ac.uk/people/m.clare17")
+     "https://www.imperial.ac.uk/people/m.clare17"),
+    ("Connor Jordan",
+     "https://eng.ed.ac.uk/about/people/mr-connor-phillip-jordan")
 ])
 
 cols = 4
