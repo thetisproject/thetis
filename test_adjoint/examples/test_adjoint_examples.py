@@ -30,7 +30,7 @@ all_examples = include_files
 
 
 @pytest.fixture(params=all_examples,
-                ids=lambda x: os.path.basename(x))
+                ids=lambda x: os.path.relpath(x, examples_dir))
 def example_file(request):
     return os.path.abspath(request.param)
 
