@@ -83,6 +83,7 @@ manning_2d.assign(0)
 for m_, mask_ in zip(m_true, masks):
     manning_2d += m_ * mask_
 
+# Overwrite the default initial manning value
 VTKFile(os.path.join(output_dir_forward, 'manning_init.pvd')).write(manning_2d)
 
 print_output('Exporting to ' + solver_obj.options.output_directory)
