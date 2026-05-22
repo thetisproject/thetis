@@ -63,6 +63,7 @@ def set_thetis_loggers(comm=COMM_WORLD):
 
     for name, fmt in logger_format.items():
         logger = logging.getLogger(name)
+        logger.propagate = False
         for handler in logger.handlers:
             if isinstance(handler, logging.StreamHandler):
                 logger.removeHandler(handler)

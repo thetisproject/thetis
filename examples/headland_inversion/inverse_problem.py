@@ -9,7 +9,6 @@ import numpy as np
 import argparse
 from mpi4py import MPI
 from checkpoint_schedules import SingleMemoryStorageSchedule
-import logging
 
 # ---------------------------------------- Step 1: set up mesh and ground truth ----------------------------------------
 
@@ -49,20 +48,11 @@ output_dir_invert = os.path.join(pwd, 'outputs', 'outputs_inverse', case_to_outp
 continue_annotation()
 
 tape = get_working_tape()
-output_logger.handlers = []
-output_logger.propagate = False
 tape.enable_checkpointing(
     SingleMemoryStorageSchedule(),
     gc_timestep_frequency=28,  # every 28 time steps we will do garbage collection
     gc_generation=2
 )
-# TODO: this is a logging workaround - update when Firedrake #4753 is addressed
-if COMM_WORLD.rank == 0:
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter('%(message)s'))
-    output_logger.addHandler(handler)
-else:
-    output_logger.addHandler(logging.NullHandler())
 
 solver_obj, update_forcings = construct_solver(
     output_directory=output_dir_invert,
