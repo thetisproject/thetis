@@ -2,15 +2,34 @@
  Developer notes
 ================
 
-This page is aimed at people developing Thetis, maintaining CI, and doing
-releases.
+This page is aimed at people developing Thetis, maintaining continuous integration
+(CI), and doing releases.
+
+.. _branches-main-vs-release:
+
+Branches (**main** vs **release**)
+----------------------------------
+
+Thetis has two long-lived branches:
+
+* ``main`` is the development branch. New features should be developed here.
+  Thetis ``main`` tracks Firedrake ``main`` and generally requires Firedrake
+  ``main``.
+* ``release`` is the stable branch intended for users. It is kept compatible
+  with the latest stable Firedrake release.
+
+CI reflects this by testing ``main`` against the Firedrake ``dev-main`` Docker
+image and testing ``release`` against the Firedrake ``latest`` Docker image.
 
 
 Installing Firedrake
 ---------------------
 
-Installation of Firedrake for the ``main`` branch follows a different set
-of instructions. Firedrake has a different `website address
+If you are developing Thetis on ``main``, you will generally need Firedrake
+``main`` as well. Firedrake ``main`` follows a different set of installation
+instructions from the stable Firedrake release.
+
+Firedrake has a different `website address
 <https://www.firedrakeproject.org/firedrake>`_ for the development ``main``
 branch. You can install Firedrake by following the download documentation
 `there
@@ -58,16 +77,6 @@ Thetis and building the website:
 
    pip install -e ".[docs,lint,test]"
 
-Alternatively, the GitHub Actions workflow installs Thetis into a fresh venv *that can
-still see the Firedrake site-packages* by using ``--system-site-packages``::
-
-  python3 -m venv --system-site-packages venv-thetis
-  . venv-thetis/bin/activate
-  pip install .
-
-This pattern is useful when you want to reproduce CI locally without polluting
-your base Firedrake environment.
-
 
 CI testing
 -----------
@@ -77,7 +86,8 @@ CI is implemented with GitHub Actions workflows under ``.github/workflows/``:
 * ``push.yml`` runs on pushes to ``main`` and ``release``.
 * ``pr.yml`` runs on pull requests.
 * ``weekly-main.yml`` schedules a weekly run on ``main``.
-* ``weekly-release.yml`` schedules a weekly run on ``release``.
+* ``weekly-release.yml`` schedules a weekly run on ``release``. Note that as it is
+  triggered on ``main``, the tag in the Actions tab will show as ``main``.
 * ``core.yml`` is the reusable workflow that does the actual work.
 
 The reusable workflow (``core.yml``):
@@ -86,7 +96,8 @@ The reusable workflow (``core.yml``):
   inside a Firedrake Docker image
 * checks out the requested ref into a directory called ``thetis-repo`` (to avoid
   false positives from ``import thetis`` working without installation)
-* creates ``venv-thetis`` with ``--system-site-packages`` and installs Thetis
+* creates ``venv-thetis`` with ``--system-site-packages`` (this is only appropriate
+  where Firedrake is installed in system packages) and installs Thetis
 * runs linting via ``make -C thetis-repo lint``
 * runs tests:
 
@@ -122,17 +133,19 @@ Most changes should go via a pull request (PR) to ``main``.
   render as expected (build the Sphinx site locally if you edited
   ``docs/source/*``).
 
+**Branch hygiene**: on feature branches it is fine (and often encouraged) to clean
+up history (interactive rebase, squash, fixups) and force-push while iterating
+on a PR.
 
-Release vs main, and updating release
---------------------------------------
+**Merging**: for normal PRs into ``main`` or ``release``, choose a merge strategy
+that keeps history readable. Hard rule: PRs that merge one long-lived branch
+into another (``release`` -> ``main`` sync, or advancing ``release`` to a vetted
+``main`` commit) must use "Create a merge commit" and must not use squash/rebase
+merge.
 
-Branch intent
-~~~~~~~~~~~~~
 
-* ``main`` is the development branch and is tested against the Firedrake
-  ``dev-main`` Docker image in CI.
-* ``release`` is the stable branch and is tested against the Firedrake
-  ``latest`` Docker image in CI.
+Maintaining **release**
+-----------------------
 
 Policy (No Cherry-Picks)
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -147,83 +160,34 @@ Thetis follows a Firedrake-style branching policy:
 * ``release`` is not periodically "restarted". Users should be able to
   ``git pull`` their local ``release`` branch normally.
 
-This avoids duplicated commits and keeps merges between the branches simple.
+When Does **release** Move?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When Do We Update ``release``?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``release`` is updated in two main cases:
 
-The ``release`` branch is updated in two main cases:
+1. Firedrake makes a new stable (major) release (e.g. ``2025.10`` -> ``2026.4``)
+   and Thetis ``release`` is advanced to a recent, known-good commit from
+   ``main`` that is compatible with that Firedrake stable stack.
+2. A user-facing bugfix is needed on the stable branch.
 
-1. When Firedrake makes a new stable (major) release (e.g. ``2025.10`` -> ``2026.4``),
-   so Thetis ``release`` stays compatible with the corresponding Firedrake stable
-   Docker image. This typically advances Thetis ``release`` to a recent, known-good
-   commit from ``main``, so users on ``release`` pick up the main-branch developments
-   that are compatible with the new Firedrake stable release.
-2. When a user-facing bugfix is needed on the stable branch.
+Keep ``release`` changes minimal and compatibility-driven.
 
-Policy: keep ``release`` changes minimal and compatibility-driven. Prefer
-targeted fixes over large feature merges.
+Workflow: Hotfix on **release**
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Updating ``release`` On GitHub
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1. Create a branch from ``release`` (not from ``main``) and open a PR with base
+   branch ``release``.
+2. Merge the PR (squash merge is fine for small hotfixes if it keeps history
+   readable and the PR contains only the intended change).
+3. Sync ``release`` into ``main`` (required, see below).
 
-Thetis updates to the stable branch are done with PRs and must preserve history
-(use merge commits, not squash/rebase).
+Workflow: Advance **release** to a Vetted **main** Commit
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To update ``release``:
+This is the common workflow when Firedrake makes a new stable release and we
+want ``release`` users to get the compatible developments from ``main``.
 
-1. Open a PR with base branch ``release``.
-2. Wait for CI to pass and the PR to be reviewed.
-3. Merge using "Create a merge commit" (do not squash merge or rebase merge).
-4. Sync ``release`` into ``main`` when needed:
-
-   * Required: if the PR introduced commits that do not already exist on
-     ``main`` (for example a hotfix implemented on ``release``).
-   * Optional: if the PR only advanced ``release`` to a vetted commit that was
-     already on ``main`` (for example during a Firedrake stable release update).
-
-   Important: if branch protection requires PR branches to be "up to date",
-   GitHub may show the ``release`` -> ``main`` sync PR as out-of-date and offer
-   an "Update branch" button. Do not click this: it merges ``main`` into
-   ``release``, which breaks the "``release`` is an ancestor of ``main``"
-   policy.
-
-   Instead, create a temporary sync branch *from* ``main`` and merge ``release``
-   into it, then open a PR to ``main``:
-
-   .. code-block:: none
-
-      git checkout main
-      git pull
-      git checkout -b sync/release-into-main
-      git merge --no-ff release
-      git push -u origin sync/release-into-main
-
-   Open a PR targeting ``main`` from ``sync/release-into-main`` and merge it
-   using "Create a merge commit".
-
-If you are cutting a tagged release, bump the packaged version in
-``pyproject.toml``, push a tag, create a GitHub Release, and verify Zenodo
-archived the release (see the Zenodo section below).
-
-If the release includes documentation changes, publish the updated rendered site
-to ``thetisproject.github.io`` at the same time as merging the corresponding PRs
-in ``thetisproject/thetis``.
-
-This ensures ``main`` always contains everything that shipped on ``release``.
-
-Worked examples
-~~~~~~~~~~~~~~~
-
-1. Firedrake stable release update (advance ``release`` to a vetted ``main`` commit)
-
-   Scenario: ``main`` has progressed ``A -> B -> C -> D``. Firedrake makes a new
-   stable release, and we want ``release`` users to pick up the compatible
-   developments from ``main``.
-
-   Action: open a PR targeting ``release`` that advances it to the chosen
-   ``main`` commit (often the current ``main`` tip), using a merge commit. A
-   typical local workflow is:
+1. Create a branch from ``release`` and merge ``main`` into it:
 
    .. code-block:: none
 
@@ -233,18 +197,43 @@ Worked examples
       git merge --no-ff main
       git push -u origin release-update
 
-   Then follow the sync-to-``main`` guidance (step 4 above). In this scenario
-   the sync is often optional (because the commits already exist on ``main``),
-   but can be used to ensure ``main`` also contains the merge commit that
-   advanced ``release``.
+2. Open a PR with base branch ``release`` from ``release-update`` and merge it
+   using "Create a merge commit" (do not squash merge or rebase merge). Make sure
+   ``pyproject.toml`` is updated with the new version number if you are cutting a
+   new tagged/user-visible Thetis release (so ``pip list`` reports the intended
+   version).
+3. Sync ``release`` into ``main`` (required). This keeps ``release`` an ancestor
+   of ``main`` and ensures the merge commit that advanced ``release`` is recorded
+   in ``main`` history.
+4. Cut a tagged release (see below).
 
-2. Stable-branch bugfix (land on ``release``, then sync to ``main``)
+Syncing **release** into **main**
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-   Scenario: ``main`` is at ``A -> ... -> D``. A user-facing bugfix ``Z`` is
-   needed on the stable branch, and must also end up on ``main``.
+If branch protection requires PR branches to be "up to date", GitHub may show the
+``release`` -> ``main`` sync PR as out-of-date and offer an "Update branch"
+button. Do not click this: it merges ``main`` into ``release``.
 
-   Action: open a PR targeting ``release`` with the bugfix (merge commit), then
-   sync ``release`` back into ``main`` using the procedure in step 4 above.
+Instead, create a temporary sync branch *from* ``main`` and merge ``release``
+into it, then open a PR to ``main``:
+
+.. code-block:: none
+
+   git checkout main
+   git pull
+   git checkout -b sync/release-into-main
+   git merge --no-ff release
+   git push -u origin sync/release-into-main
+
+Merge the sync PR using "Create a merge commit" (do not squash/rebase).
+
+Cutting A Tagged Release
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+When cutting a tagged release, bump the packaged version in ``pyproject.toml``,
+push a tag, create a GitHub Release, and verify Zenodo archived the release
+(see the Zenodo section below). If the release includes documentation changes,
+update the published website at the same time.
 
 
 Tag/version convention
