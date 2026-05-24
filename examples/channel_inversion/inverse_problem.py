@@ -61,7 +61,7 @@ for control_name in controls:
     elif control_name == 'Manning':
         manning_2d.assign(1.0e-03)
         bounds = [1e-4, 1e-1]
-        gamma_hessian = Constant(1.0)
+        gamma_hessian = Constant(1.0)  # TODO: should be assigned relative to the cost function scaling
     elif control_name == 'InitialElev':
         elev_init_2d.assign(0.5)
         bounds = [-10., 10.]
@@ -93,7 +93,7 @@ sta_manager = inversion_tools.StationObservationManager(
 # TODO: Update scaling to depend on number of DOFs in the problem
 cost_function_scaling = domain_constant(100000 * solver_obj.dt / options.simulation_end_time, mesh2d)
 sta_manager.cost_function_scaling = cost_function_scaling
-sta_manager.load_observation_data(observation_data_dir, station_names, variable)
+sta_manager.load_scalar_observation_data(observation_data_dir, station_names, variable)
 sta_manager.set_model_field(solver_obj.fields.elev_2d)
 
 # Define the scaling for the cost function so that dJ/dm ~ O(1)
@@ -114,9 +114,11 @@ for control_name in controls:
 
 # Extract the regularized cost function, note we could use gradient based as well by changing manager
 cost_function = inv_manager.get_cost_function(solver_obj, regularisation_manager="Hessian")
+cost_function_callback = inversion_tools.CostFunctionCallback(solver_obj, cost_function)
+solver_obj.add_callback(cost_function_callback, 'timestep')
 
 # Solve and setup reduced functional
-solver_obj.iterate(export_func=cost_function)  # note that export time should equal dt if not using a custom callback
+solver_obj.iterate()
 inv_manager.stop_annotating()
 
 # Run inversion

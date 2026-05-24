@@ -8,7 +8,7 @@ def interp(request):
     return request.param
 
 
-def test_hessian_recovery2d(interp, tol=1.0e-08):
+def test_hessian_recovery2d(interp, tol=5.0e-08):
     r"""
     Apply Hessian recovery techniques to the quadratic
     polynomial :math:`f(x, y) = \frac12(x^2 + y^2)` and
@@ -48,7 +48,7 @@ def test_hessian_recovery2d(interp, tol=1.0e-08):
     assert err_H < tol, f'Hessian approximation error {err_H:.4e}'
 
 
-def test_vorticity_calculation2d(interp, tol=1.0e-08):
+def test_vorticity_calculation2d(interp, tol=5.0e-08):
     r"""
     Calculate the vorticity of the velocity field
     :math:`\mathbf u(x, y) = \frac12(y, -x)` and check

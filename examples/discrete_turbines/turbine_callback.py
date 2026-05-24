@@ -39,9 +39,9 @@ class TidalPowerCallback(DiagnosticCallback):
             'field_names': numpy.array(field_names, dtype='S'),
             'field_dims': self.field_dims,
         }
-        super().__init__(solver_obj, array_dim=sum(self.field_dims), attrs=attrs, **kwargs)
 
         locations = farm_options.turbine_coordinates
+        super().__init__(solver_obj, array_dim=len(locations), attrs=attrs, **kwargs)
         if turbine_names is None:
             turbine_names = ['loca{:0{fill}d}'.format(i, fill=len(str(len(locations))))
                              for i in range(len(locations))]
@@ -111,7 +111,7 @@ class TidalPowerCallback(DiagnosticCallback):
 
     def _evaluate_field(self, field_name):
         if field_name == 'pow':  # intended use
-            _uv, _eta = split(self.solver_obj.fields.solution_2d)
+            _uv, _eta = self.solver_obj.fields.solution_2d.subfunctions
             _depth = self.solver_obj.fields.bathymetry_2d
             farm = self.farm
             self.list_powers = [0] * len(self.locations)

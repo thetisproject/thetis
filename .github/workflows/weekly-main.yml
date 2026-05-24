@@ -1,0 +1,16 @@
+name: Weekly main test
+
+on:
+  schedule:
+    # Main: 02:30 UTC every Monday
+    - cron: '30 2 * * 1'
+  workflow_dispatch:  # allows manual runs
+
+jobs:
+  weekly-main:
+    name: Weekly main test
+    uses: ./.github/workflows/core.yml
+    with:
+      branch: main
+      image: firedrakeproject/firedrake-vanilla-default:dev-main
+    secrets: inherit

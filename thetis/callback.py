@@ -209,6 +209,7 @@ class DiagnosticCallback(ABC):
         if init_date is not None and include_time:
             time_units = 'seconds since ' + init_date.isoformat()
             self.var_attrs['time'] = {'units': time_units}
+            self.attrs['simulation_initial_date'] = init_date.isoformat()
 
     def set_write_mode(self, mode):
         """
@@ -662,7 +663,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         self.location_name = location_name
         attrs = {'x': x, 'y': y}
         attrs['location_name'] = self.location_name
-        self.on_sphere = solver_obj.mesh2d.geometric_dimension() == 3
+        self.on_sphere = solver_obj.mesh2d.geometric_dimension == 3
         if self.on_sphere:
             assert z is not None, 'z coordinate must be defined on a manifold mesh'
             attrs['z'] = z

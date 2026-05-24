@@ -1,5 +1,6 @@
 import pytest
 from firedrake import *
+from mpi4py import MPI
 import thetis.utility as utility
 import thetis.utility3d as utility3d
 import numpy
@@ -185,7 +186,8 @@ def test_copy_2d_field_to_3d_vec(uv_2d, uv_3d):
 
 
 def test_minimum_angle(mesh2d):
-    min_angle = utility.get_minimum_angles_2d(mesh2d).vector().gather().min()
+    min_angle_local = utility.get_minimum_angles_2d(mesh2d).dat.data_ro.min()
+    min_angle = mesh2d.comm.allreduce(min_angle_local, op=MPI.MIN)
     assert numpy.allclose(min_angle, pi/4)
 
 
