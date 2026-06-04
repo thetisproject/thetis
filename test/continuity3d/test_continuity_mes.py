@@ -127,8 +127,8 @@ def run(setup, refinement, order, do_export=True):
     w_analytical = setup_obj.w(x, y, z, lx, ly)
 
     if do_export:
-        out_w = File(os.path.join(options.output_directory, 'w.pvd'))
-        out_w_ana = File(os.path.join(options.output_directory, 'w_ana.pvd'))
+        out_w = VTKFile(os.path.join(options.output_directory, 'w.pvd'))
+        out_w_ana = VTKFile(os.path.join(options.output_directory, 'w_ana.pvd'))
 
     solver_obj.w_solver.solve()
     uvw = solver_obj.fields.uv_3d + solver_obj.fields.w_3d

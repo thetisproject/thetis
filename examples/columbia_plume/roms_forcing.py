@@ -113,8 +113,8 @@ def test_interpolator():
     salt_fn = 'tmp/salt_roms.pvd'
     temp_fn = 'tmp/temp_roms.pvd'
     print('Saving output to {:} {:}'.format(salt_fn, temp_fn))
-    out_salt = File(salt_fn)
-    out_temp = File(temp_fn)
+    out_salt = VTKFile(salt_fn)
+    out_temp = VTKFile(temp_fn)
 
     out_salt.write(salt)
     out_temp.write(temp)

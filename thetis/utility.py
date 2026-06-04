@@ -136,6 +136,30 @@ class FieldDict(AttrDict):
         super(FieldDict, self).__setattr__(key, value)
 
 
+def domain_constant(value, mesh, **kwargs):
+    """Create constant over a domain
+
+    Returns what used to be Constant(value, domain=mesh)"""
+    try:
+        shape = value.ufl_shape
+        value = value.dat.data.flatten()
+    except AttributeError:
+        shape = numpy.shape(value)
+        value = numpy.asarray(value).flatten()
+
+    if len(shape) == 0:
+        R = FunctionSpace(mesh, "R", 0)
+    elif len(shape) == 1:
+        R = VectorFunctionSpace(mesh, "R", 0, dim=shape[0])
+    elif len(shape) == 2:
+        R = TensorFunctionSpace(mesh, "R", 0, shape=shape)
+
+    c = Function(R, **kwargs)
+    c.assign(value)
+
+    return c
+
+
 def get_functionspace(mesh, h_family, h_degree, v_family=None, v_degree=None,
                       vector=False, tensor=False, hdiv=False, variant=None, v_variant=None,
                       **kwargs):
@@ -160,7 +184,7 @@ def get_functionspace(mesh, h_family, h_degree, v_family=None, v_degree=None,
             v_family = h_family
         if v_degree is None:
             v_degree = h_degree
-        h_cell, v_cell = mesh.ufl_cell().sub_cells()
+        h_cell, v_cell = mesh.ufl_cell().sub_cells
         h_elt = FiniteElement(h_family, h_cell, h_degree, variant=variant)
         v_elt = FiniteElement(v_family, v_cell, v_degree, variant=v_variant)
         elt = TensorProductElement(h_elt, v_elt)
@@ -224,7 +248,7 @@ def element_continuity(ufl_element):
         horiz_type = 'hdiv'
         vert_type = 'hdiv'
     elif isinstance(base_element, firedrake.TensorProductElement):
-        a, b = base_element.sub_elements
+        a, b = base_element.factor_elements
         horiz_type = elem_types[a.family()]
         vert_type = elem_types[b.family()]
     else:
@@ -304,14 +328,14 @@ def get_facet_mask(function_space, facet='bottom'):
         Here we assume that the mesh has been extruded upwards (along positive
         z axis).
     """
-    from tsfc.finatinterface import create_element as create_finat_element
+    from finat.element_factory import create_element as create_finat_element
 
     # get base element
     elem = get_extruded_base_element(function_space.ufl_element())
     assert isinstance(elem, TensorProductElement), \
         f'function space must be defined on an extruded 3D mesh: {elem}'
     # figure out number of nodes in sub elements
-    h_elt, v_elt = elem.sub_elements
+    h_elt, v_elt = elem.factor_elements
     nb_nodes_h = create_finat_element(h_elt).space_dimension()
     nb_nodes_v = create_finat_element(v_elt).space_dimension()
     # compute top/bottom facet indices
@@ -404,8 +428,7 @@ def comp_volume_2d(eta, bath):
 @PETSc.Log.EventDecorator("thetis.comp_volume_3d")
 def comp_volume_3d(mesh):
     """Computes volume of the 3D domain as an integral"""
-    one = Constant(1.0, domain=mesh.coordinates.ufl_domain())
-    val = assemble(one*dx)
+    val = assemble(Constant(1.0)*dx(domain=mesh))
     return val
 
 
@@ -479,7 +502,7 @@ def extend_function_to_3d(func, mesh_extruded):
     function.
     """
     fs = func.function_space()
-    assert fs.mesh().geometric_dimension() == 2, 'Function must be in 2D space'
+    assert fs.mesh().geometric_dimension == 2, 'Function must be in 2D space'
     ufl_elem = fs.ufl_element()
     family = ufl_elem.family()
     degree = ufl_elem.degree()
@@ -582,8 +605,8 @@ def compute_elem_height(zcoord, output):
                 }
             }
         }""" % {'nodes': zcoord.cell_node_map().arity,
-                'func_dim': zcoord.function_space().value_size,
-                'output_dim': output.function_space().value_size},
+                'func_dim': zcoord.function_space().block_size,
+                'output_dim': output.function_space().block_size},
         'my_kernel')
     op2.par_loop(
         kernel, fs_out.mesh().cell_set,
@@ -647,7 +670,7 @@ def get_minimum_angles_2d(mesh2d):
     cosine rule. The minimum angles are outputted as a P0 field.
     """
     try:
-        assert mesh2d.topological_dimension() == 2
+        assert mesh2d.topological_dimension == 2
         assert mesh2d.ufl_cell() == ufl.triangle
     except AssertionError:
         raise NotImplementedError("Minimum angle only currently implemented for triangles.")
@@ -696,7 +719,7 @@ def get_cell_widths_2d(mesh2d):
     between components of vertex coordinates.
     """
     try:
-        assert mesh2d.topological_dimension() == 2
+        assert mesh2d.topological_dimension == 2
         assert mesh2d.ufl_cell() == ufl.triangle
     except AssertionError:
         raise NotImplementedError("Cell widths only currently implemented for triangles.")
@@ -895,7 +918,7 @@ def select_and_move_detectors(mesh, detector_locations, detector_names=None,
     for location, name in zip(detector_locations, names):
         try:
             v(location)
-        except PointNotInDomainError:
+        except VertexOnlyMeshMissingPointsError:
             moved_dist, location = move_to_nearest_cell_center(location)
             if moved_dist > maximum_distance:
                 continue
@@ -1131,3 +1154,38 @@ def form2indicator(F):
         },
     )
     return indicator
+
+
+@PETSc.Log.EventDecorator("thetis.vom_interpolator_functions")
+def vom_interpolator_functions(solver_obj, field_names, locations):
+    r"""
+    Creates function spaces and associated Functions for interpolation
+    on a VertexOnlyMesh (VOM) and returns them for reuse.
+
+    :arg solver_obj: Thetis solver object
+    :arg field_names: List of field names to create functions for.
+    :arg locations: List of locations for interpolation.
+    :return: A dictionary mapping field names to a tuple of (f_at_points, f_at_input_points)
+             which are Functions for interpolation.
+    """
+    vom = VertexOnlyMesh(solver_obj.mesh2d, locations, redundant=True)
+
+    functions_dict = {}
+
+    for field_name in field_names:
+        field = solver_obj.fields[field_name]
+
+        if isinstance(field.function_space().ufl_element(), VectorElement):
+            P0DG = VectorFunctionSpace(vom, "DG", 0)
+            P0DG_input_ordering = VectorFunctionSpace(vom.input_ordering, "DG", 0)
+        else:
+            P0DG = FunctionSpace(vom, "DG", 0)
+            P0DG_input_ordering = FunctionSpace(vom.input_ordering, "DG", 0)
+
+        f_at_points = Function(P0DG)
+        f_at_input_points = Function(P0DG_input_ordering)
+
+        # Store the Functions in the dictionary keyed by field name
+        functions_dict[field_name] = (f_at_points, f_at_input_points)
+
+    return functions_dict

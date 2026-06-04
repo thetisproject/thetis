@@ -24,9 +24,10 @@ exclude_files = [
     'columbia_plume/plot_elevation_ts.py',
     'columbia_plume/plot_salt_profile.py',
     'columbia_plume/roms_forcing.py',
-    'columbia_plume/test_bathy_smoothing.py',
+    'columbia_plume/bath_smoothing_test.py',
     'columbia_plume/tidal_forcing.py',
     'columbia_plume/timeseries_forcing.py',
+    'discrete_turbines/channel-optimisation.py',
     'dome/diagnostics.py',
     'dome/dome_setup.py',
     'dome/plot_histogram.py',
@@ -39,6 +40,12 @@ exclude_files = [
     'tidalfarm/tidalfarm.py',
     'tidal_barrage/plotting.py',
     'channel_inversion/plot_elevation_progress.py',
+    'channel_inversion/inverse_problem.py',
+    'headland_inversion/forward_run.py',
+    'headland_inversion/inverse_problem.py',
+    'headland_inversion/inversion_tools_vel.py',
+    'headland_inversion/plot_velocity_progress.py',
+    'tohoku_inversion/inverse_problem.py',
     'tohoku_inversion/okada.py',
     'tohoku_inversion/plot_convergence.py',
     'tohoku_inversion/plot_elevation_initial_guess.py',
@@ -62,8 +69,7 @@ all_examples = glob.glob(os.path.join(examples_dir, '*/*.py'))
 all_examples = [f for f in all_examples if f not in exclude_files]
 
 
-@pytest.fixture(params=all_examples,
-                ids=lambda x: os.path.basename(x))
+@pytest.fixture(params=all_examples)
 def example_file(request):
     return os.path.abspath(request.param)
 

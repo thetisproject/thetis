@@ -312,10 +312,10 @@ def estimate_error(mesh, offset, **model_options):
 
     # Plot
     if not model_options.get("no_exports", False):
-        File("outputs/forward.pvd").write(f0)
+        VTKFile("outputs/forward.pvd").write(f0)
         a0.rename("Adjoint solution")
-        File("outputs/adjoint.pvd").write(a0)
-        File("outputs/error.pvd").write(error)
+        VTKFile("outputs/adjoint.pvd").write(a0)
+        VTKFile("outputs/error.pvd").write(error)
 
     return f0, a0, error
 

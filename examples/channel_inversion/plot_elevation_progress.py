@@ -2,7 +2,7 @@ import h5py
 import matplotlib
 import matplotlib.pyplot as plt
 import argparse
-from collections import Iterable
+from collections.abc import Iterable
 
 matplotlib.rc('font', size=10)
 
@@ -26,7 +26,7 @@ station_names = sorted(args.station)
 
 ctrl_str = '-'.join(controls)
 station_str = '-'.join(station_names)
-inv_dir = f'outputs_{ctrl_str}-opt'
+inv_dir = f'outputs_new_{ctrl_str}-opt'
 
 nplots = len(station_names)
 
@@ -45,6 +45,7 @@ for i, sta in enumerate(station_names):
 
     g = f'{inv_dir}/diagnostic_timeseries_progress_{sta}_elev.hdf5'
     with h5py.File(g, 'r') as h5file:
+        iter_times = h5file['time'][:].flatten()
         iter_vals = h5file['elev'][:]
 
     niter = iter_vals.shape[0] - 1
@@ -52,7 +53,7 @@ for i, sta in enumerate(station_names):
     ax = next(ax_iter)
     ax.plot(time, vals, 'k:', zorder=3, label='observation', lw=1.3)
     for i, v in enumerate(iter_vals):
-        ax.plot(time, v, label=f'iteration {i}', lw=0.5)
+        ax.plot(iter_times, v, label=f'iteration {i}', lw=0.5)
     ax.set_title(f'{sta}', size='small')
     ax.set_ylabel('Elevation (m)')
     ax.grid(True)

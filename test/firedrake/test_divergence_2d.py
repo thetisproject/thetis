@@ -43,8 +43,8 @@ def compute(refinement=1, order=1, do_export=False):
     if do_export:
         print('analytical div {:} {:}'.format(div_uv.dat.data.min(), div_uv.dat.data.max()))
         # export analytical solutions
-        out_uv = File('uv.pvd')
-        out_div = File('div.pvd')
+        out_uv = VTKFile('uv.pvd')
+        out_div = VTKFile('div.pvd')
         out_uv.write(uv)
         out_div.write(div_uv)
 

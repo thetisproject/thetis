@@ -36,8 +36,8 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     mesh = ExtrudedMesh(mesh2d, layers=layers, layer_height=-depth/layers)
 
     if do_export:
-        sol_file = File('sol.pvd')
-        ana_file = File('ana_sol.pvd')
+        sol_file = VTKFile('sol.pvd')
+        ana_file = VTKFile('ana_sol.pvd')
 
     # define function spaces
     fam = 'DG'

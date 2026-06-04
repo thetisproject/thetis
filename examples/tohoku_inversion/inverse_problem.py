@@ -73,7 +73,11 @@ end_times = [dat["end"] for dat in stations.values()]
 sta_manager = inversion_tools.StationObservationManager(
     mesh2d, output_directory=options.output_directory
 )
-sta_manager.load_observation_data(
+# Define the scaling for the cost function so that dJ/dm ~ O(1)
+# TODO: Update scaling to depend on number of DOFs in the problem
+cost_function_scaling = domain_constant(10000000 * solver_obj.dt / options.simulation_end_time, mesh2d)
+sta_manager.cost_function_scaling = cost_function_scaling
+sta_manager.load_scalar_observation_data(
     observation_data_dir,
     station_names,
     variable,
@@ -82,17 +86,13 @@ sta_manager.load_observation_data(
 )
 sta_manager.set_model_field(solver_obj.fields.elev_2d)
 
-# Define the scaling for the cost function so that J ~ O(1)
-t_end = (options.simulation_end_date - options.simulation_initial_date).total_seconds()
-J_scalar = Constant(solver_obj.dt / t_end)
-
 # Create inversion manager and add controls
 no_exports = os.getenv("THETIS_REGRESSION_TEST") is not None
 real_mode = source_model in ("box", "radial", "okada")
+# TODO: gamma should be assigned relative to the cost function scaling
 gamma = 0 if no_regularization else 1e-04 if real_mode else 1e-01
 inv_manager = inversion_tools.InversionManager(
-    sta_manager, real=real_mode, cost_function_scaling=J_scalar,
-    penalty_parameters=[Constant(gamma) for c in source.controls],
+    sta_manager, real=real_mode, penalty_parameters=[Constant(gamma) for c in source.controls],
     output_dir=options.output_directory, no_exports=no_exports,
     test_consistency=do_consistency_test, test_gradient=do_taylor_test)
 for c in source.controls:
@@ -100,9 +100,11 @@ for c in source.controls:
 
 # Extract the regularized cost function
 cost_function = inv_manager.get_cost_function(solver_obj, weight_by_variance=True)
+cost_function_callback = inversion_tools.CostFunctionCallback(solver_obj, cost_function)
+solver_obj.add_callback(cost_function_callback, 'timestep')
 
 # Solve and setup the reduced functional
-solver_obj.iterate(update_forcings=cost_function)
+solver_obj.iterate()
 inv_manager.stop_annotating()
 
 # Run inversion
@@ -121,6 +123,6 @@ if options.no_exports:
 source = get_source(mesh2d, source_model, initial_guess=inv_manager.control_coeff_list)
 if source_model == "okada":
     source.subfault_variables = args.okada_parameters
-outfile = File(f"{options.output_directory}/elevation_optimised.pvd")
+outfile = VTKFile(f"{options.output_directory}/elevation_optimised.pvd")
 print_function_value_range(source.elev_init, prefix="Optimal")
 outfile.write(source.elev_init)

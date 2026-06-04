@@ -360,10 +360,10 @@ class SpatialInterpolator2d(SpatialInterpolator, ABC):
             used. Otherwise a constant fill value will be used (default).
         :kwarg float fill_value: Set the fill value (default: NaN)
         """
-        assert function_space.ufl_element().value_shape == ()
+        assert function_space.value_shape == ()
 
         # construct local coordinates
-        on_sphere = function_space.mesh().geometric_dimension() == 3
+        on_sphere = function_space.mesh().geometric_dimension == 3
 
         if on_sphere:
             x, y, z = SpatialCoordinate(function_space.mesh())

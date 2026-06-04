@@ -52,6 +52,17 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d', 'baroc_head_3d',
                             'uv_dav_2d']
 
+# .. raw:: html
+#
+#    <!-- in the CI we only run one timestep; commented out in html for the web version
+
+if os.environ.get('THETIS_REGRESSION_TEST'):
+    options.simulation_end_time = 900.
+
+# .. raw:: html
+#
+#    -->
+
 # We set this simulation to be barotropic (i.e. salinity and temperature do not
 # affect water density), but we still wish to simulate salinity as a passive
 # tracer::

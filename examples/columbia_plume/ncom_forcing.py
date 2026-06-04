@@ -122,11 +122,11 @@ def test_interpolator():
     vvel_fn = 'tmp/vvel.pvd'
     elev_fn = 'tmp/elev.pvd'
     print('Saving output to {:} {:} {:} {:} {:}'.format(salt_fn, temp_fn, uvel_fn, vvel_fn, elev_fn))
-    out_salt = File(salt_fn)
-    out_temp = File(temp_fn)
-    out_uvel = File(uvel_fn)
-    out_vvel = File(vvel_fn)
-    out_elev = File(elev_fn)
+    out_salt = VTKFile(salt_fn)
+    out_temp = VTKFile(temp_fn)
+    out_uvel = VTKFile(uvel_fn)
+    out_vvel = VTKFile(vvel_fn)
+    out_elev = VTKFile(elev_fn)
 
     out_salt.write(salt)
     out_temp.write(temp)

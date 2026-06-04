@@ -100,7 +100,7 @@ def bottom_ekman_test(layers=50, verify=True, iterate=True,
             uv_ana = Function(solver_obj.function_spaces.P1DGv, name='solution')
             uv_ana.interpolate(uv_ana_expr)
 
-            out = File(options.output_directory + '/uv_analytical/uv_analytical.pvd')
+            out = VTKFile(options.output_directory + '/uv_analytical/uv_analytical.pvd')
             out.write(uv_ana)
 
             l2_tol = 0.05

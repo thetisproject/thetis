@@ -72,8 +72,8 @@ def compute_l2_error(refinement=1, fs_type='P1DGxP1DG', no_exports=True):
     mesh.coordinates.dat.data[:, 2] = new_z
 
     if not no_exports:
-        out_density = File('density.pvd')
-        out_baroc_head = File('baroc_head.pvd')
+        out_density = VTKFile('density.pvd')
+        out_baroc_head = VTKFile('baroc_head.pvd')
 
     # project initial density
     beta = -1.5/depth

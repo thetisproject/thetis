@@ -87,20 +87,20 @@ def test_steady_state_channel_mms(element_family, do_exports=False):
         solver_obj.assign_initial_conditions(uv=Constant((1.0, 0.0)))
 
         if do_exports:
-            File('source_{}.pvd'.format(i)).write(source_func)
+            VTKFile('source_{}.pvd'.format(i)).write(source_func)
         solver_obj.iterate()
 
         uv, eta = solver_obj.fields.solution_2d.subfunctions
 
         eta_ana = project(eta_expr, solver_obj.function_spaces.H_2d)
         if do_exports:
-            File('pdiff_{}.pvd'.format(i)).write(project(eta_ana-eta, solver_obj.function_spaces.H_2d, name="diff"))
+            VTKFile('pdiff_{}.pvd'.format(i)).write(project(eta_ana-eta, solver_obj.function_spaces.H_2d, name="diff"))
         eta_l2norm = assemble(pow(eta-eta_ana, 2)*dx)
         eta_errs.append(math.sqrt(eta_l2norm/area))
 
         u_ana = project(u_expr*xhat, solver_obj.function_spaces.U_2d)
         if do_exports:
-            File('udiff_{}.pvd'.format(i)).write(project(u_ana-uv, solver_obj.function_spaces.U_2d, name="diff"))
+            VTKFile('udiff_{}.pvd'.format(i)).write(project(u_ana-uv, solver_obj.function_spaces.U_2d, name="diff"))
         u_l2norm = assemble(inner(u_ana-uv, u_ana-uv)*dx)
         u_errs.append(math.sqrt(u_l2norm/area))
 

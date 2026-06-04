@@ -28,8 +28,8 @@ class RPECalculator(DiagnosticCallback):
 
     def _initialize(self):
         # compute area of 2D mesh
-        one_2d = Constant(1.0, domain=self.solver_obj.mesh2d.coordinates.ufl_domain())
-        self.area_2d = assemble(one_2d*dx)
+        one_2d = Constant(1.0)
+        self.area_2d = assemble(one_2d*dx(domain=self.solver_obj.mesh2d))
         self.rho = self.solver_obj.fields.density_3d
         fs = self.rho.function_space()
         self.test = TestFunction(fs)

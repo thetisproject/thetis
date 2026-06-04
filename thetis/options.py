@@ -462,10 +462,21 @@ class TidalTurbineOptions(FrozenHasTraits):
     name = 'Tidal turbine options'
     diameter = PositiveFloat(
         18., help='Turbine diameter').tag(config=True)
+    projected_diameter = PositiveFloat(
+        None, allow_none=True, help='Extent over which turbine drag is applied'
+                                    '(defaults to diameter if not provided)').tag(config=True)
     C_support = NonNegativeFloat(
         0., help='Thrust coefficient for support structure').tag(config=True)
     A_support = NonNegativeFloat(
         0., help='Cross section of support structure').tag(config=True)
+    apply_shear_profile = Bool(False, help="Apply vertical shear to depth-averaged velocity").tag(config=True)
+    shear_alpha = Float(7.0, help="Exponent in generic shear profile").tag(config=True)
+    shear_beta = Float(0.4, help="Offset in shear profile").tag(config=True)
+    rel_hub_height = PositiveFloat(None, allow_none=True,
+                                   help="Hub height relative to seabed (bottom-fixed) or free surface "
+                                        "(floating) [m]").tag(config=True)
+    structure_type = Enum(values=["bottom-fixed", "floating"], default_value="bottom-fixed",
+                          help="Type of support structure: 'bottom-fixed' or 'floating'").tag(config=True)
 
 
 class ConstantTidalTurbineOptions(TidalTurbineOptions):
@@ -473,16 +484,24 @@ class ConstantTidalTurbineOptions(TidalTurbineOptions):
     name = 'Constant tidal turbine options'
     thrust_coefficient = PositiveFloat(
         0.8, help='Thrust coefficient C_T').tag(config=True)
+    power_coefficient = PositiveFloat(
+        None, allow_none=True, help='Power coefficient C_P, defaults to None and will be calculated using '
+                                    'an empirical formula based on thrust coefficients unless specified (see '
+                                    'ConstantThrustTurbine).').tag(config=True)
 
 
 class TabulatedTidalTurbineOptions(TidalTurbineOptions):
     """Options for tidal turbine with tabulated thrust coefficient"""
     name = 'Tabulated tidal turbine options'
-    thrust_coefficients = List([3.0], help='Table of thrust coefficients')
     thrust_speeds = List(
-        [0.8, 0.8],
-        help="""List of speeds at which thrust_coefficients are applied.
-        First and last entry function as cut-in and cut-out speeds respectively""")
+        [0.9, 1., 3., 5., 5.001],
+        help='List of speeds at which thrust_coefficients are applied.'
+        'First and last entry function as cut-in and cut-out speeds respectively')
+    thrust_coefficients = List([0.01, 0.7, 0.7, 0.1, 0.0001], help='Table of thrust coefficients')
+    power_coefficients = List(
+        None, allow_none=True, help='Table of power coefficients. Defaults to None and will be calculated '
+                                    'using an empirical formula based on thrust coefficients unless specified (see '
+                                    'TabulatedThrustTurbine).').tag(config=True)
 
 
 @attach_paired_options("turbine_type",

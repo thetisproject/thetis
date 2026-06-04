@@ -46,8 +46,8 @@ def run_tracer_consistency(constant_c=True, **model_options):
     # create solver
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     options = solver_obj.options
-    options.use_limiter_for_tracers = not constant_c
-    options.use_nonlinear_equations = True
+    options.use_limiter_for_tracers = model_options.pop('use_limiter_for_tracers', not constant_c)
+    options.use_nonlinear_equations = model_options.pop('use_nonlinear_equations', True)
     conservative = model_options.pop('use_tracer_conservative_form', False)
     options.add_tracer_2d('tracer_2d', 'Depth averaged tracer', 'Tracer2d',
                           use_conservative_form=conservative)
@@ -60,6 +60,7 @@ def run_tracer_consistency(constant_c=True, **model_options):
     options.set_timestepper_type(model_options.pop('timestepper_type', 'CrankNicolson'))
     options.output_directory = outputdir
     options.fields_to_export = ['uv_2d', 'elev_2d', 'tracer_2d']
+    options.no_exports = (model_options.pop('no_exports', True))
     options.update(model_options)
 
     if not options.no_exports:
@@ -80,7 +81,18 @@ def run_tracer_consistency(constant_c=True, **model_options):
         tracer_init2d.interpolate(tracer_l + (tracer_r - tracer_l)*0.5*(1.0 + sign(x_2d - lx/4)))
 
     solver_obj.assign_initial_conditions(elev=elev_init, tracer=tracer_init2d)
-    solver_obj.iterate()
+
+    # time stepping
+    thetis_timestepper = solver_obj.create_iterator()
+    t_Thetis = solver_obj.simulation_time  # initial time
+    t_epsilon = 1.0e-5
+    while True:
+        try:
+            t_Thetis = next(thetis_timestepper)
+        except StopIteration as e:
+            t_Thetis = e.value
+            break
+    assert t_Thetis >= t_end - t_epsilon
 
     # TODO do these checks every export ...
     vol2d, vol2d_rerr = solver_obj.callbacks['export']['volume2d']()

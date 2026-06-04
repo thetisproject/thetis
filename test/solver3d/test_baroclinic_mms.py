@@ -279,27 +279,27 @@ def run(setup, refinement, polynomial_degree, do_export=True, **options):
     ana_w_3d = sdict['w_3d']
     f = Function(solver_obj.function_spaces.U, name='ana w').project(ana_w_3d)
     if do_export:
-        File(options.output_directory + '/ana_w.pvd').write(f).write(f)
+        VTKFile(options.output_directory + '/ana_w.pvd').write(f).write(f)
 
     ana_temp_3d = sdict['temp_3d']
     f = Function(solver_obj.function_spaces.H, name='ana temp').project(ana_temp_3d)
     if do_export:
-        File(options.output_directory + '/ana_temp.pvd').write(f).write(f)
+        VTKFile(options.output_directory + '/ana_temp.pvd').write(f).write(f)
 
     ana_rho_3d = sdict['density_3d']
     f = Function(solver_obj.function_spaces.H, name='ana rho').project(ana_rho_3d)
     if do_export:
-        File(options.output_directory + '/ana_rho.pvd').write(f).write(f)
+        VTKFile(options.output_directory + '/ana_rho.pvd').write(f).write(f)
 
     ana_bhead_3d = sdict['baroc_head_3d']
     f = Function(solver_obj.function_spaces.H, name='ana bhead').project(ana_bhead_3d)
     if do_export:
-        File(options.output_directory + '/ana_bhead.pvd').write(f).write(f)
+        VTKFile(options.output_directory + '/ana_bhead.pvd').write(f).write(f)
 
     ana_intpg_3d = sdict['int_pg_3d']
     f = Function(solver_obj.function_spaces.U, name='ana int pg').project(ana_intpg_3d)
     if do_export:
-        File(options.output_directory + '/ana_intpg.pvd').write(f).write(f)
+        VTKFile(options.output_directory + '/ana_intpg.pvd').write(f).write(f)
 
     options.volume_source_2d = sdict['vol_source_2d']
     options.momentum_source_2d = sdict['mom_source_2d']

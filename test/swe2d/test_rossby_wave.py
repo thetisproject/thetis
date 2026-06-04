@@ -39,7 +39,7 @@ def asymptotic_expansion_uv(U_2d, order=1, time=0.0, soliton_amplitude=0.395):
     u_terms = phi*0.25*(-9 + 6*y*y)*psi
     v_terms = 2*y*dphidx*psi
     if order == 0:
-        return interpolate(as_vector([u_terms, v_terms]), U_2d)
+        return Function(U_2d).interpolate(as_vector([u_terms, v_terms]))
 
     # Unnormalised Hermite series coefficients for u
     u = numpy.zeros(28)
@@ -83,7 +83,7 @@ def asymptotic_expansion_uv(U_2d, order=1, time=0.0, soliton_amplitude=0.395):
     u_terms += phi*phi*psi*sum(u[i]*polynomials[i] for i in range(28))
     v_terms += dphidx*phi*psi*sum(v[i]*polynomials[i] for i in range(28))
 
-    return interpolate(as_vector([u_terms, v_terms]), U_2d)
+    return Function(U_2d).interpolate(as_vector([u_terms, v_terms]))
 
 
 def asymptotic_expansion_elev(H_2d, order=1, time=0.0, soliton_amplitude=0.395):
@@ -105,7 +105,7 @@ def asymptotic_expansion_elev(H_2d, order=1, time=0.0, soliton_amplitude=0.395):
     # Zeroth order terms
     eta_terms = phi*0.25*(3 + 6*y*y)*psi
     if order == 0:
-        return interpolate(eta_terms, H_2d)
+        return Function(H_2d).interpolate(eta_terms)
 
     # Unnormalised Hermite series coefficients for eta
     eta = numpy.zeros(28)
@@ -133,7 +133,7 @@ def asymptotic_expansion_elev(H_2d, order=1, time=0.0, soliton_amplitude=0.395):
     eta_terms += C*phi*0.5625*(-5 + 2*y*y)*psi
     eta_terms += phi*phi*psi*sum(eta[i]*polynomials[i] for i in range(28))
 
-    return interpolate(eta_terms, H_2d)
+    return Function(H_2d).interpolate(eta_terms)
 
 
 def run(refinement_level, **model_options):
@@ -172,7 +172,8 @@ def run(refinement_level, **model_options):
     options.use_grad_depth_viscosity_term = False
     options.horizontal_viscosity = None
     solver_obj.create_function_spaces()
-    options.coriolis_frequency = interpolate(y, solver_obj.function_spaces.P1_2d)
+    P1_2d = solver_obj.function_spaces.P1_2d
+    options.coriolis_frequency = Function(P1_2d).interpolate(y)
     options.swe_timestepper_options.solver_parameters['ksp_rtol'] = 1.0e-04
     options.no_exports = True
     options.fields_to_export = ['uv_2d', 'elev_2d', 'vorticity_2d']
@@ -202,8 +203,8 @@ def run(refinement_level, **model_options):
     physical_constants['g_grav'].assign(g)  # Revert g_grav value
 
     # Get mean peak heights
-    elev = interpolate(sign(y)*solver_obj.fields.elev_2d, P1_2d)  # Flip sign in southern hemisphere
-    xcoords = interpolate(mesh2d.coordinates[0], P1_2d)
+    elev = Function(P1_2d).interpolate(sign(y)*solver_obj.fields.elev_2d)  # Flip sign in southern hemisphere
+    xcoords = Function(P1_2d).interpolate(mesh2d.coordinates[0])
     with elev.dat.vec_ro as v:
         i_n, h_n = v.max()
         i_s, h_s = v.min()

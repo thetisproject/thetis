@@ -1,6 +1,7 @@
 all: invert plot
 
 CONTROLS	= Bathymetry Manning InitialElev
+STATIONS    = stationA stationB stationC stationD stationE
 
 invert:
 	for controls in $(CONTROLS); do \
@@ -9,7 +10,9 @@ invert:
 
 plot:
 	for controls in $(CONTROLS); do \
-		python3 plot_elevation_progress.py -c $$controls
+		for station in $(STATIONS); do \
+			python3 plot_elevation_progress.py -c $$controls -s $$station; \
+		done; \
 	done
 
 clean:
