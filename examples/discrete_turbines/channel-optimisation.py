@@ -4,11 +4,14 @@ Basic example of discrete turbine optimisation in a channel
 from thetis import *
 from firedrake.adjoint import *
 from pyadjoint import minimize
+from pyadjoint.optimization.optimization import SciPyConvergenceError
 import numpy as np
 import random
+import os
+script_dir = os.path.dirname(os.path.abspath(__file__))
 op2.init(log_level=INFO)
 
-output_dir = 'outputs'
+output_dir = 'outputs_optimisation'
 
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
     test_gradient = True  # test gradient using Taylor test (see below)
@@ -65,25 +68,8 @@ solver_obj.bnd_functions['shallow_water'] = {
     coasts_tag: freeslip_bc
 }
 
-# Define the thrust curve of the turbine using a tabulated approach:
-# thrusts_AR2000 contains the values for the thrust coefficient of an AR2000 tidal turbine at corresponding speeds in
-# speeds_AR2000 which have been determined using a curve fitting technique based on:
-# cut-in speed = 1m/s
-# rated speed = 3.05m/s
-# cut-out speed = 5m/s
-# There is a ramp up and down to cut-in and at cut-out speeds for model stability.
-speeds_AR2000 = [0., 0.75, 0.85, 0.95, 1., 3.05, 3.3, 3.55, 3.8, 4.05, 4.3, 4.55, 4.8, 5., 5.001, 5.05, 5.25, 5.5, 5.75,
-                 6.0, 6.25, 6.5, 6.75, 7.0]
-thrusts_AR2000 = [0.010531, 0.032281, 0.038951, 0.119951, 0.516484, 0.516484, 0.387856, 0.302601, 0.242037, 0.197252,
-                  0.16319, 0.136716, 0.115775, 0.102048, 0.060513, 0.005112, 0.00151, 0.00089, 0.000653, 0.000524,
-                  0.000442, 0.000384, 0.000341, 0.000308]
-
-# initialise discrete turbine farm characteristics
-farm_options = DiscreteTidalTurbineFarmOptions()
-farm_options.turbine_type = 'table'
-farm_options.turbine_options.thrust_speeds = speeds_AR2000
-farm_options.turbine_options.thrust_coefficients = thrusts_AR2000
-farm_options.turbine_options.diameter = 20
+# initialise discrete turbine farm characteristics using YAML file
+farm_options = turbines.load_turbine(os.path.join(script_dir, "turbine_files", "AR2000.yaml"), mesh2d)
 farm_options.upwind_correction = False  # higher SNES tolerance required when using upwind correction
 
 site_x = 320.
@@ -93,7 +79,7 @@ site_y_start = 80.
 r = farm_options.turbine_options.diameter/2.
 
 # a list contains the coordinates of all turbines: regular, non-staggered 4 x 2 layout
-farm_options.turbine_coordinates = [[Constant(x+cos(y), domain=mesh2d), Constant(y+numpy.sin(x), domain=mesh2d)]
+farm_options.turbine_coordinates = [[domain_constant(x+cos(y), mesh2d), domain_constant(y+numpy.sin(x), mesh2d)]
                                     for x in np.linspace(site_x_start + 4*r, site_x_start + site_x - 4*r, 4)
                                     for y in np.linspace(site_y_start + 0.5*site_y-2*r,
                                                          site_y_start + 0.5*site_y+2*r, 2)]
@@ -199,11 +185,11 @@ if test_gradient:
         # ensure we use the same perturbation on all processes when parallel:
         return mesh2d.comm.bcast(dx, 0)
 
-    m0 = [Constant(float(x) + perturbation(r), domain=mesh2d) for xy in farm_options.turbine_coordinates for x in xy]
+    m0 = [domain_constant(float(x) + perturbation(r), mesh2d) for xy in farm_options.turbine_coordinates for x in xy]
 
     # the perturbation over which we test the Taylor approximation
     # (the taylor test below starts with a 1/100th of that, followed by a series of halvings
-    h0 = [Constant(perturbation(1), domain=mesh2d) for xy in farm_options.turbine_coordinates for x in xy]
+    h0 = [domain_constant(perturbation(1), mesh2d) for xy in farm_options.turbine_coordinates for x in xy]
 
     # this tests whether the above Taylor series residual indeed converges to zero at 2nd order in h as h->0
     minconv = taylor_test(rf, m0, h0)
@@ -234,5 +220,13 @@ if optimise:
     # box constraints, but use SLSQP which also handles more general constraints
     # see https://docs.scipy.org/doc/scipy/reference/optimize.minimize-slsqp.html
     # for further options
-    td_opt = minimize(rf, method='SLSQP', constraints=mdc, bounds=[lb, ub],
-                      options={'maxiter': 75, 'ftol': 1e-06})
+    try:
+        td_opt = minimize(rf, method='SLSQP', constraints=mdc, bounds=[lb, ub],
+                          options={'maxiter': 75, 'ftol': 1e-06})
+    except SciPyConvergenceError as e:
+        msg = str(e).lower()
+        if "iteration limit" in msg:
+            print_output("Optimization stopped: reached iteration limit.")
+            td_opt = None  # or some last-known state if you want
+        else:
+            raise

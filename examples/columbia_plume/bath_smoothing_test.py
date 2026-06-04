@@ -3,6 +3,7 @@ Columbia river plume simulation
 ===============================
 """
 from thetis import *
+from firedrake.output.vtk_output import VTKFile
 from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_bnd
 comm = COMM_WORLD
 
@@ -26,7 +27,7 @@ new_bathymetry_2d = smooth_bathymetry(
     alpha=1e2, exponent=2.5,
     minimum_depth=3.5, niter=30)
 
-out = File('bath.pvd')
+out = VTKFile('bath.pvd')
 out.write(bathymetry_2d)
 out.write(new_bathymetry_2d)
 
@@ -58,7 +59,7 @@ def compute_hcc(bathymetry_2d, nlayers):
     return f_hcc
 
 
-out = File('hcc.pvd')
+out = VTKFile('hcc.pvd')
 hcc = compute_hcc(bathymetry_2d, nlayers)
 out.write(hcc)
 hcc = compute_hcc(new_bathymetry_2d, nlayers)

@@ -89,8 +89,8 @@ def test():
     pres_fn = 'tmp/AtmPressure2d.pvd'
     wind_fn = 'tmp/WindStress2d.pvd'
     print('Saving output to {:} {:}'.format(pres_fn, wind_fn))
-    out_pres = File(pres_fn)
-    out_wind = File(wind_fn)
+    out_pres = VTKFile(pres_fn)
+    out_wind = VTKFile(wind_fn)
     hours = 24*1.5
     granule = 4
     simtime = numpy.arange(granule*hours)*3600./granule

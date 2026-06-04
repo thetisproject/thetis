@@ -209,6 +209,7 @@ class DiagnosticCallback(ABC):
         if init_date is not None and include_time:
             time_units = 'seconds since ' + init_date.isoformat()
             self.var_attrs['time'] = {'units': time_units}
+            self.attrs['simulation_initial_date'] = init_date.isoformat()
 
     def set_write_mode(self, mode):
         """
@@ -524,10 +525,18 @@ class DetectorsCallback(DiagnosticCallback):
         else:
             assert ndetectors == len(detector_names), "Different number of detector locations and names"
             self.detector_names = detector_names
+        for i, det_name in enumerate(self.detector_names):
+            self.var_attrs[det_name] = {
+                'x': detector_locations[i][0],
+                'y': detector_locations[i][1]
+            }
         self._variable_names = self.detector_names
         self.detector_locations = detector_locations
         self.field_names = field_names
         self._name = name
+
+        # initialise interpolation functions using vom_interpolator_functions
+        self.interp_functions = vom_interpolator_functions(solver_obj, field_names, detector_locations)
 
     @property
     def name(self):
@@ -539,7 +548,8 @@ class DetectorsCallback(DiagnosticCallback):
 
     def _values_per_field(self, values):
         """
-        Given all values evaulated in a detector location, return the values per field"""
+        Given all values evaulated in a detector location, return the values per field
+        """
         i = 0
         result = []
         for dim in self.field_dims:
@@ -554,7 +564,11 @@ class DetectorsCallback(DiagnosticCallback):
             for name, values in zip(self.detector_names, args))
 
     def _evaluate_field(self, field_name):
-        return self.solver_obj.fields[field_name](self.detector_locations)
+        field = self.solver_obj.fields[field_name]
+        f_at_points, f_at_input_points = self.interp_functions[field_name]
+        f_at_points.interpolate(field)
+        f_at_input_points.interpolate(f_at_points)
+        return f_at_input_points.dat.data_ro[:]
 
     def __call__(self):
         """
@@ -649,7 +663,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         self.location_name = location_name
         attrs = {'x': x, 'y': y}
         attrs['location_name'] = self.location_name
-        self.on_sphere = solver_obj.mesh2d.geometric_dimension() == 3
+        self.on_sphere = solver_obj.mesh2d.geometric_dimension == 3
         if self.on_sphere:
             assert z is not None, 'z coordinate must be defined on a manifold mesh'
             attrs['z'] = z
@@ -684,10 +698,16 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         xyz = (self.x, self.y, self.z) if self.on_sphere else (self.x, self.y)
         self.xyz = numpy.array([xyz])
 
+        # initialise interpolation functions using vom_interpolator_functions
+        self.interp_functions = vom_interpolator_functions(self.solver_obj, self.fieldnames, self.xyz)
+
         # test evaluation
         try:
             if self.eval_func is None:
-                self.solver_obj.fields.bathymetry_2d.at(self.xyz, tolerance=self.tolerance)
+                field = self.solver_obj.fields[self.fieldnames[0]]
+                f_at_points, f_at_input_points = self.interp_functions[self.fieldnames[0]]
+                f_at_points.interpolate(field)
+                f_at_input_points.interpolate(f_at_points)
             else:
                 self.eval_func(self.solver_obj.fields.bathymetry_2d, self.xyz, tolerance=self.tolerance)
         except PointNotInDomainError as e:
@@ -707,7 +727,10 @@ class TimeSeriesCallback2D(DiagnosticCallback):
             try:
                 field = self.solver_obj.fields[fieldname]
                 if self.eval_func is None:
-                    val = field.at(self.xyz, tolerance=self.tolerance)
+                    f_at_points, f_at_input_points = self.interp_functions[fieldname]
+                    f_at_points.interpolate(field)
+                    f_at_input_points.interpolate(f_at_points)
+                    val = f_at_input_points.dat.data_ro[:]
                 else:
                     val = self.eval_func(field, self.xyz, tolerance=self.tolerance)
                 arr = numpy.array(val)

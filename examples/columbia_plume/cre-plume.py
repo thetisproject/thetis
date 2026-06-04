@@ -175,7 +175,7 @@ get_boundary_relaxation_field(viscosity_bnd_2d,
                               visc_bnd_dist, scalar=visc_bnd_value)
 viscosity_bnd_2d.assign(viscosity_bnd_2d + options.horizontal_viscosity)
 ExpandFunctionTo3d(viscosity_bnd_2d, viscosity_bnd_3d).solve()
-# File('bnd_visc.pvd').write(viscosity_bnd_2d)
+# VTKFile('bnd_visc.pvd').write(viscosity_bnd_2d)
 solver_obj.function_spaces.P1_2d.restore_work_function(viscosity_bnd_2d)
 options.horizontal_viscosity = viscosity_bnd_3d
 
@@ -313,7 +313,7 @@ get_boundary_relaxation_field(mask_tmp_2d,
                               lx_relax, scalar=1.0/t_bnd_relax)
 ExpandFunctionTo3d(mask_tmp_2d, mask_uv_relax_3d).solve()
 solver_obj.function_spaces.P1_2d.restore_work_function(mask_tmp_2d)
-# File('mask.pvd').write(mask_tracer_relax_3d)
+# VTKFile('mask.pvd').write(mask_tracer_relax_3d)
 # options.temperature_source_3d = mask_tracer_relax_3d*(temp_bnd_3d - solver_obj.fields.temp_3d)
 # options.salinity_source_3d = mask_tracer_relax_3d*(salt_bnd_3d - solver_obj.fields.salt_3d)
 # options.momentum_source_3d = mask_uv_relax_3d*(uv_bnd_3d - solver_obj.fields.uv_3d)

@@ -1,4 +1,5 @@
 import pytest
+import sys
 import os
 import subprocess
 import glob
@@ -21,5 +22,4 @@ def ipynb_file(request):
 
 def test_notebook_runs(ipynb_file, tmpdir, monkeypatch):
     monkeypatch.chdir(tmpdir)
-    pytest = os.path.join(os.environ.get("VIRTUAL_ENV"), "bin", "pytest")
-    subprocess.check_call([pytest, "--nbval-lax", ipynb_file])
+    subprocess.check_call([sys.executable, "-m", "pytest", "--nbval-lax", ipynb_file])

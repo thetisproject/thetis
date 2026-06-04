@@ -40,7 +40,7 @@ def run_bottom_friction(do_assert=True, do_export=False, **model_options):
     mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x', reorder=True)
 
     print_output('Exporting to ' + outputdir)
-    dt = 25.0
+    dt = 250.0
     t_end = 5 * 3600.0  # sufficient to reach ~steady state
     t_export = 400.0
     u_mag = 1.0
@@ -78,6 +78,12 @@ def run_bottom_friction(do_assert=True, do_export=False, **model_options):
         options.use_ale_moving_mesh = True
     if hasattr(options.timestepper_options, 'use_automatic_timestep'):
         options.timestepper_options.use_automatic_timestep = False
+    if options.element_family == 'bdm-dg':
+        # FIXME: the "single-ilu(0)-sweep" trick to achieve a vertical implicit solver
+        # does not appear to work very well for bdm-dg (and rt-dg?) and is very sensitive to horizontal ordering
+        # For now make it more robust by using ILU(1) instead if ILU(0) here. Need to find
+        # more robust solution in general
+        options.timestepper_options.implicit_momentum_options.solver_parameters['sub_pc_factor_levels'] = 1
 
     solver_obj.create_function_spaces()
 
@@ -106,7 +112,7 @@ def run_bottom_friction(do_assert=True, do_export=False, **model_options):
         log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')
         log_uv.project(as_vector((u_b / kappa * ln((xyz[2] + depth + z_0)/z_0), 0, 0)))
         if do_export:
-            out = File(outputdir + '/log_uv/log_uv.pvd')
+            out = VTKFile(outputdir + '/log_uv/log_uv.pvd')
             out.write(log_uv)
 
     solver_obj.iterate()

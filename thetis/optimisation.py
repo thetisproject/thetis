@@ -94,7 +94,7 @@ class UserExportManager(ExportManager):
                 else:
                     field_metadata[field_name]['filename'] = filename_prefix + field_name
         else:
-            for field_name, filename in zipt(field_name_list, filenames):
+            for field_name, filename in zip(field_name_list, filenames):
                 field_metadata[field_name]['filename'] = filename
 
         super().__init__(outputdir, field_name_list, field_dict, field_metadata, **kwargs)
@@ -137,7 +137,7 @@ class DeferredExportManager(object):
                 self.functions = [Function(function.function_space(), name=name) for function, name in zip(functions, suggested_names)]
             self.export_manager = UserExportManager(self.solver_obj_or_outputdir, self.functions, **self.kwargs)
         for function, function_arg in zip(self.functions, functions):
-            assert function.function_space() is function_arg.function_space()
+            assert function.function_space() == function_arg.function_space()
             function.assign(function_arg)
         self.export_manager.export()
 
@@ -310,7 +310,7 @@ class DerivativeConstantControlOptimisationCallback(DiagnosticOptimisationCallba
         derivatives = args[1]
         if self.array_dim != len(derivatives):
             raise ValueError("Need array_dim argument in ConstantControlOptimisationCallback set to the number of controls")
-        return [[float(d) for d in derivatives]]
+        return [[float(d.dat.data[0]) for d in derivatives]]
 
     def message_str(self, *derivatives):
         return 'Derivatives: {}'.format(derivatives)

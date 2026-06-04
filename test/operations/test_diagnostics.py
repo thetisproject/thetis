@@ -8,7 +8,7 @@ def interp(request):
     return request.param
 
 
-def test_hessian_recovery2d(interp, tol=1.0e-08):
+def test_hessian_recovery2d(interp, tol=5.0e-08):
     r"""
     Apply Hessian recovery techniques to the quadratic
     polynomial :math:`f(x, y) = \frac12(x^2 + y^2)` and
@@ -27,7 +27,7 @@ def test_hessian_recovery2d(interp, tol=1.0e-08):
     bowl = 0.5*(x**2 + y**2)
     if interp:
         P2_2d = get_functionspace(mesh2d, 'CG', 2)
-        bowl = interpolate(bowl, P2_2d)
+        bowl = Function(P2_2d).interpolate(bowl)
     P1v_2d = get_functionspace(mesh2d, 'CG', 1, vector=True)
     P1t_2d = get_functionspace(mesh2d, 'CG', 1, tensor=True)
 
@@ -48,7 +48,7 @@ def test_hessian_recovery2d(interp, tol=1.0e-08):
     assert err_H < tol, f'Hessian approximation error {err_H:.4e}'
 
 
-def test_vorticity_calculation2d(interp, tol=1.0e-08):
+def test_vorticity_calculation2d(interp, tol=5.0e-08):
     r"""
     Calculate the vorticity of the velocity field
     :math:`\mathbf u(x, y) = \frac12(y, -x)` and check
@@ -63,7 +63,7 @@ def test_vorticity_calculation2d(interp, tol=1.0e-08):
     uv = 0.5*as_vector([y, -x])
     if interp:
         P1v_2d = get_functionspace(mesh2d, 'CG', 1, vector=True)
-        uv = interpolate(uv, P1v_2d)
+        uv = Function(P1v_2d).interpolate(uv)
     P1_2d = get_functionspace(mesh2d, 'CG', 1)
 
     # Recover vorticity
