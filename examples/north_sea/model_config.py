@@ -104,8 +104,6 @@ def construct_solver(mesh2d, spinup=False, store_station_time_series=True, **mod
     dt = 3600.0
     t_export = 3600.0
     t_end = (end_date - start_date).total_seconds()
-    if os.getenv("THETIS_REGRESSION_TEST") is not None:
-        end_date = datetime.datetime(2022, 1, 1, 5, 0, tzinfo=sim_tz)
 
     # Create solver
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
