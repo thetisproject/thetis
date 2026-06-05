@@ -58,6 +58,7 @@ exclude_files = [
     'north_sea/plot_setup.py',
     'north_sea/spinup.py',
     'north_sea/run.py',
+    'tidalInlet/inlet.py',
 ]
 
 cwd = os.path.abspath(os.path.dirname(__file__))
