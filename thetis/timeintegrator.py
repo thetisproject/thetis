@@ -334,17 +334,20 @@ class PressureProjectionPicard(TimeIntegrator):
         iterations = options.picard_iterations
 
         self.equation_mom = equation_mom
+        self.solver_parameters_pressure = {}
+        if solver_parameters is not None:
+            self.solver_parameters_pressure.update(solver_parameters)
         self.solver_parameters_mom = {}
         if solver_parameters_mom is not None:
             self.solver_parameters_mom.update(solver_parameters_mom)
         if semi_implicit:
             # solve a preliminary linearized momentum equation before
             # solving the linearized wave equation terms in a coupled system
-            self.solver_parameters.setdefault('snes_type', 'ksponly')
+            self.solver_parameters_pressure.setdefault('snes_type', 'ksponly')
             self.solver_parameters_mom.setdefault('snes_type', 'ksponly')
         else:
             # not sure this combination makes much sense: keep both systems nonlinear
-            self.solver_parameters.setdefault('snes_type', 'newtonls')
+            self.solver_parameters_pressure.setdefault('snes_type', 'newtonls')
             self.solver_parameters_mom.setdefault('snes_type', 'newtonls')
         self.iterations = iterations
 
@@ -431,12 +434,12 @@ class PressureProjectionPicard(TimeIntegrator):
                                                      options_prefix=self.name+'_mom',
                                                      ad_block_tag=self.ad_block_tag + '_mom')
         # Ensure LU assembles monolithic matrices
-        if self.solver_parameters.get('pc_type') == 'lu':
-            self.solver_parameters['mat_type'] = 'aij'
+        if self.solver_parameters_pressure.get('pc_type') == 'lu':
+            self.solver_parameters_pressure['mat_type'] = 'aij'
         prob = NonlinearVariationalProblem(self.F, self.solution)
         self.solver = NonlinearVariationalSolver(prob,
                                                  appctx={'a': derivative(self.F, self.solution)},
-                                                 solver_parameters=self.solver_parameters,
+                                                 solver_parameters=self.solver_parameters_pressure,
                                                  options_prefix=self.name,
                                                  ad_block_tag=self.ad_block_tag)
 
