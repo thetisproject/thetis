@@ -532,6 +532,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
             sname = f'{self.name}_stage{i}_'
             self.solver.append(
                 NonlinearVariationalSolver(p,
+                                           appctx={'a': derivative(self.F[i], self.k[i])},
                                            solver_parameters=self.solver_parameters,
                                            options_prefix=sname,
                                            ad_block_tag=self.ad_block_tag + f'_stage{i}'))
@@ -661,7 +662,8 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
             p = NonlinearVariationalProblem(self.F[i], self.solution)
             sname = f'{self.name}_stage{i}_'
             s = NonlinearVariationalSolver(
-                p, solver_parameters=self.solver_parameters,
+                p, appctx={'a': derivative(self.F[i], self.solution)},
+                solver_parameters=self.solver_parameters,
                 options_prefix=sname,
                 ad_block_tag=self.ad_block_tag + f'_stage{i}')
             self.solver.append(s)

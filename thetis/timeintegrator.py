@@ -221,6 +221,7 @@ class CrankNicolson(TimeIntegrator):
             self.solver_parameters['mat_type'] = 'aij'
         prob = NonlinearVariationalProblem(self.F, self.solution)
         self.solver = NonlinearVariationalSolver(prob,
+                                                 appctx={'a': derivative(self.F, self.solution)},
                                                  solver_parameters=self.solver_parameters,
                                                  options_prefix=self.name,
                                                  ad_block_tag=self.ad_block_tag)
