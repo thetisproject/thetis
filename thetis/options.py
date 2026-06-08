@@ -760,8 +760,8 @@ class CommonModelOptions(FrozenConfigurable):
 class SedimentModelOptions(FrozenHasTraits):
     # seime.turn on waves:
     wave_forcing = Bool(False,
-                    help='Activate wave forcing. This implies providing the following wave parameters: orbital velocity, height, direction, frequency, and period.'
-                ).tag(config=True)
+                        help='Activate wave forcing. This implies providing the following wave parameters: orbital velocity, height, direction, frequency, and period.'
+                        ).tag(config=True)
     van_Rijn_bedload = Bool(False, help='Use van Rijn (2007) bedload formulation').tag(config=True)
     solve_exner = Bool(False, help='Solve exner equation for bed morphology').tag(config=True)
     solve_suspended_sediment = Bool(False, help='Solve suspended sediment transport equation').tag(config=True)
@@ -951,13 +951,13 @@ class ModelOptions2d(CommonModelOptions):
         False, help="Enable wave-current interaction").tag(config=True)
     use_swan = Bool(
         False, help="Use SWAN's gradient of radiation stress").tag(config=True)
-    use_mellor =  Bool(
+    use_mellor = Bool(
         False, help="Use Mellor's formulation for radiation stress").tag(config=True)
     use_roller = Bool(
         False, help="Add Roller effects").tag(config=True)
     use_monochromatic = Bool(
         False, help="Wave conditions are monochromatic").tag(config=True)
-    
+
     def __init__(self, *args, **kwargs):
         self.tracer = OrderedDict()
         self.tracer_fields = OrderedDict()

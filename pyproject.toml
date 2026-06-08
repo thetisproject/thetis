@@ -49,3 +49,8 @@ docs = [
   "sphinxcontrib-youtube",
   "vtk",  # needed to resolve API
 ]
+
+# Dependencies needed for mesh generation
+meshing = [
+  "gmsh>=4.13",
+]

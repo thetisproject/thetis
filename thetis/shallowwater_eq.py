@@ -659,13 +659,12 @@ class GradRadStressTerm(ShallowWaterMomentumTerm):
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         grad_rad_stress = fields_old.get('rad_stress_2d')
-        P1_2d = get_functionspace(self.mesh, "CG", 1)
-        eta0 = Function(P1_2d).assign(Constant(0.))
         total_h = self.depth.get_total_depth(eta_old)
         f = 0
         if grad_rad_stress is not None:
             f += dot(grad_rad_stress, self.u_test)/total_h/rho_0*self.dx
         return f
+
 
 class WaveRollerTerm(ShallowWaterMomentumTerm):
     r"""
@@ -675,8 +674,6 @@ class WaveRollerTerm(ShallowWaterMomentumTerm):
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         roller_stress = fields_old.get('roller_2d')
-        P1_2d = get_functionspace(self.mesh, "CG", 1)
-        eta0 = Function(P1_2d).assign(Constant(0.))
         total_h = self.depth.get_total_depth(eta_old)
         f = 0
         if roller_stress is not None:

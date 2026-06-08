@@ -57,10 +57,9 @@ class CorrectiveVelocityFactor:
 
 class SedimentModel(object):
     # def __init__(self, options, mesh2d, uv, elev, depth):
-    def __init__(self, options, mesh2d, uv, elev, depth, 
+    def __init__(self, options, mesh2d, uv, elev, depth,
                  uw=Constant(0), hs=Constant(0), wdir=Constant(0), fp=Constant(0), tm=Constant(0)):
-    # def __init__(self, options, mesh2d, uv, elev, depth, uw):
-
+        # def __init__(self, options, mesh2d, uv, elev, depth, uw):
         """
         Set up a full morphological model simulation based on provided velocity and elevation functions.
 
@@ -97,11 +96,11 @@ class SedimentModel(object):
         self.use_wave_forcing = options.sediment_model_options.wave_forcing
         self.use_vanRijn_2007_bedload = options.sediment_model_options.van_Rijn_bedload
 
-        self.uw = uw # near-bed wave-orbital velocity magnitude [m/s]
-        self.fp = fp # peak wave frequency [s-1]
-        self.tm = tm # mean wave period [s]
-        self.wdir = wdir # wave direction [deg]
-        self.hs = hs # significant wave height [m]
+        self.uw = uw  # near-bed wave-orbital velocity magnitude [m/s]
+        self.fp = fp  # peak wave frequency [s-1]
+        self.tm = tm  # mean wave period [s]
+        self.wdir = wdir  # wave direction [deg]
+        self.hs = hs  # significant wave height [m]
         # bedload transport constants, Van Rijn, 2007
         self.eta = Constant(1.0)
         self.gamma = Constant(0.5)
@@ -159,7 +158,7 @@ class SedimentModel(object):
         self.thetacr = Function(self.P1_2d).interpolate(conditional(self.dstar < 4, 0.24*(self.dstar**(-1)),
                                                         conditional(self.dstar < 10, 0.14*(self.dstar**(-0.64)),
                                                         conditional(self.dstar < 20, 0.04*(self.dstar**(-0.1)),
-                                                        conditional(self.dstar < 150, 0.013*(self.dstar**(0.29)), 0.055)))))
+                                                                    conditional(self.dstar < 150, 0.013*(self.dstar**(0.29)), 0.055)))))
 
         # critical bed shear stress
         self.taucr = Function(self.P1_2d).interpolate((self.rhos-self.rhow)*self.g*self.average_size*self.thetacr)
@@ -208,14 +207,14 @@ class SedimentModel(object):
 
             # Compute angle between waves and currents (converted to radians)
             CDIR = atan2(self.v, self.u)*180.0/pi
-            WDIR = (90.0 - self.wdir) # convert from meteo format (0deg North) to math system (0deg East)
+            WDIR = (90.0 - self.wdir)  # convert from meteo format (0deg North) to math system (0deg East)
             # WDIR = self.wdir
             # smallest angular difference in degrees
             diff = abs(CDIR - WDIR)
             diff = min_value(diff,
                              min_value(abs(180.0 - diff),
                                        360.0 - diff))
-            phase_shift = diff * pi/180.0
+            # phase_shift = diff * pi/180.0
             # the wave source file has weird wave direction pattern
             # so not using it for now. -> perhaps specify as option for sediments?
             # ustar_wc_norm = ustar_c**2 + ustar_w**2 + 2.*ustar_c*ustar_w * cos(phase_shift)
@@ -263,7 +262,7 @@ class SedimentModel(object):
 
         if self.use_bedload:
             # calculate angle of flow
-            self.calfa = Function(self.P1_2d).interpolate(self.uv_cg[0]/sqrt(self.unorm)) #seime. consider waves dir and vel here
+            self.calfa = Function(self.P1_2d).interpolate(self.uv_cg[0]/sqrt(self.unorm))  # seime. consider waves dir and vel here
             self.salfa = Function(self.P1_2d).interpolate(self.uv_cg[1]/sqrt(self.unorm))
 
             if self.use_angle_correction:
@@ -348,8 +347,8 @@ class SedimentModel(object):
             qb_total = slopecoef*phi*sqrt(self.g*self.R*self.average_size**3)
 
             if (self.use_vanRijn_2007_bedload):
-                tauprime = self.rhow * self.ustar**2 
-                qb_total = self.gamma * self.d_sand * self.dstar**(-0.3) * sqrt(tauprime/self.rhow) * ( (tauprime - self.taucr) / self.taucr )**self.eta
+                tauprime = self.rhow * self.ustar**2
+                qb_total = self.gamma * self.d_sand * self.dstar**(-0.3) * sqrt(tauprime/self.rhow) * ((tauprime - self.taucr) / self.taucr)**self.eta
 
         # formulate bedload transport flux with correct angle depending on corrections implemented
         if self.use_angle_correction and self.use_secondary_current is False:
