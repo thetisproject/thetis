@@ -35,7 +35,6 @@ from thetis import *
 
 import numpy as np
 from scipy.spatial import cKDTree
-import os
 import netCDF4 as nc
 from bathymetry_utils import generate_bathymetry
 
@@ -52,6 +51,8 @@ op2.init(log_level=INFO)
 # ---------------------------------------------
 # FUNCTIONS:
 # ---------------------------------------------
+
+
 def interpolate_at_dt(wavefield, time_array, dt_seconds):
     """
     linearly interpolates wave fields to a time step given in seconds
@@ -88,6 +89,7 @@ def interpolate_at_dt(wavefield, time_array, dt_seconds):
     wavefield_interp = (1 - w) * wavefield[idx_before] + w * wavefield[idx_after]
     return wavefield_interp
 
+
 # ---------------------------------------------
 # MESH
 # ---------------------------------------------
@@ -109,7 +111,7 @@ bathymetry_2d.dat.data[:] = generate_bathymetry(mesh2d, P1_2d).dat.data[:]
 # ---------------------------------------------
 # Wave Fields
 # ---------------------------------------------
-ww3waves = './waves/ww3inlet9mc_12h.nc' # pre-generated wave forcing file from ww3
+ww3waves = './waves/ww3inlet9mc_12h.nc'  # pre-generated wave forcing file from ww3
 _ds = nc.Dataset(ww3waves)
 
 # Extract coordinates and variables as plain numpy arrays
@@ -192,6 +194,7 @@ def update_wave_forcing(t_new, P1_2d, solver_obj):
 
     # return rad_stress_2d
     return
+
 
 # ---------------------------------------------
 # TIMING

@@ -2,14 +2,14 @@
 gen_ww3_bc_spectra_simple.py
 ========================
 Generate N identical WW3 BOUNC spectral boundary-condition files plus the
-matching ww3_bounc.inp, using Hasselmann et al., 1973 JONSWAP directional spectra 
+matching ww3_bounc.inp, using Hasselmann et al., 1973 JONSWAP directional spectra
 
 Note:
-    set N_POINTS to the number of spectral files to generate.  
+    set N_POINTS to the number of spectral files to generate.
     Every file carries the same JONSWAP spectrum, so WW3 (ww3_bounc) maps the open-boundary points defined
     in ww3_grid.inp onto these files by nearest-neighbour.
     BC nodes in ww3_grid.inp are set manually based on the mesh boundary nodes selected
-    WW3 v6071 is run on .msh v2.2 (v4.1 must be converted to v2.2 for WW3 compatibility, e.g. gmsh -> export -> v2.2) 
+    WW3 v6071 is run on .msh v2.2 (v4.1 must be converted to v2.2 for WW3 compatibility, e.g. gmsh -> export -> v2.2)
 
 Usage:
     python gen_ww3_bc_spectra_simple.py
@@ -297,8 +297,8 @@ def verify_bc_files(pattern):
         df = np.diff(frq, prepend=frq[0])
         dtheta = np.deg2rad(np.diff(np.hstack((drs, drs[0] + 360.0))))
         m0 = np.nansum(
-            ef * df[np.newaxis, None, :, None] *
-            dtheta[np.newaxis, None, None, :],
+            ef * df[np.newaxis, None, :, None]
+            * dtheta[np.newaxis, None, None, :],
             axis=(2, 3))
         Hs = 4.0 * np.sqrt(m0)
         print(
