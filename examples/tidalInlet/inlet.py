@@ -17,14 +17,13 @@ Usage:
     Reusults visualization:
         python plot_results.py
 
-    If the mesh file is not present, run (required gmsh):
+    If the mesh file is not present, run (requires gmsh):
         python generate_tidalinlet_mesh.py
         -> export in 4.1 .msh format to handle physical groups (default save format)
     If wave frocing is not present, or a different wave forcing is desired,
         the WW3 model can be set-up and run using v6.07.1 version:
             [https://github.com/NOAA-EMC/WW3/releases/tag/6.07.1]
-
-        requirements: switch file (physics namelist) with the following settings:
+        see README.md for details on how to set up and run the wave model.
 
 
 
@@ -50,8 +49,9 @@ op2.init(log_level=INFO)
 # turn OFF reverse Cuthill-McKee reordering to optimize mesh inside Firedrake
 # parameters["reorder_meshes"] = False
 
-
+# ---------------------------------------------
 # FUNCTIONS:
+# ---------------------------------------------
 def interpolate_at_dt(wavefield, time_array, dt_seconds):
     """
     linearly interpolates wave fields to a time step given in seconds
@@ -88,18 +88,17 @@ def interpolate_at_dt(wavefield, time_array, dt_seconds):
     wavefield_interp = (1 - w) * wavefield[idx_before] + w * wavefield[idx_after]
     return wavefield_interp
 
-
+# ---------------------------------------------
 # MESH
 # ---------------------------------------------
-# mesh2dfile = './inlet_v1_2.2.msh'
-mesh2dfile = 'inlet_v1_4.1.msh'
+mesh2dfile = './mesh/inlet_v1_4.1.msh'
 mesh2d = Mesh(mesh2dfile)
 
 # define function spaces
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 vectorP1_2d = VectorFunctionSpace(mesh2d, 'DG', 1)
 
-
+# ---------------------------------------------
 # BATHYMETRY
 # ---------------------------------------------
 # Replicates the Warner et al. (2008) tidal inlet profile:
@@ -107,9 +106,10 @@ vectorP1_2d = VectorFunctionSpace(mesh2d, 'DG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
 bathymetry_2d.dat.data[:] = generate_bathymetry(mesh2d, P1_2d).dat.data[:]
 
+# ---------------------------------------------
 # Wave Fields
 # ---------------------------------------------
-ww3waves = 'ww3inlet9mc_12h.nc'
+ww3waves = './waves/ww3inlet9mc_12h.nc' # pre-generated wave forcing file from ww3
 _ds = nc.Dataset(ww3waves)
 
 # Extract coordinates and variables as plain numpy arrays
@@ -193,24 +193,16 @@ def update_wave_forcing(t_new, P1_2d, solver_obj):
     # return rad_stress_2d
     return
 
-
+# ---------------------------------------------
 # TIMING
 # ---------------------------------------------
 # Simulation window:
 timestep = 20       # -> time-stepping (if not adaptive)
 t_end = 3600 * 48   # -> total run time in sec.: 2 days
-t_export = 600      # -> export interval in sec: every 10min
+# t_export = 600      # -> export interval in sec (every 10 min)
+t_export = 3600      # -> export interval in sec
 
-
-# Copied from other test cases, perhaps not needed here
-if os.getenv('THETIS_REGRESSION_TEST') is not None:
-    # when run as a pytest test, only run 5 timesteps
-    # and test the gradient
-    t_end = 5*timestep
-
-print(t_end)
-
-
+# ---------------------------------------------
 # Solver
 # ---------------------------------------------
 outputdir = f'outputs_sed_{t_export}s'
@@ -249,8 +241,9 @@ options.timestep = timestep
 if hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
     options.swe_timestepper_options.use_automatic_timestep = True
 
-# options.swe_timestepper_options.use_semi_implicit_linearization = False # this is forbidden if automatic timestepper = True
+# options.swe_timestepper_options.use_semi_implicit_linearization = False # forbidden if automatic timestepper = True
 
+# ---------------------------------------------
 # Chose (uncomment) only one of the following friction formulations:
 # ---------------------------------------------
 # # Manning drag coeff:
@@ -337,7 +330,7 @@ def update_forcings(t_new,):
 # Define the boundary conditions for the SWE
 # ---------------------------------------------
 # boundary condtitions are defined for each external boundary using their ID.
-# Ids taken as physical groups from mesh - predefined in gmsh
+# Ids taken as physical groups from mesh - predefined in gmsh v4.1
 openboundary = 2
 coastline = 3
 domain_surf = 1

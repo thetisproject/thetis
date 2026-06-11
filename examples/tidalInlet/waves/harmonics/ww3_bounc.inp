@@ -1,0 +1,18 @@
+$ boundary option: READ or WRITE
+  WRITE
+$ Interpolation method. 1: nearest, 2: linear interpolation
+  1
+0
+$ list of spectra files.
+./harmonics/id_1_spec.nc
+./harmonics/id_2_spec.nc
+./harmonics/id_3_spec.nc
+./harmonics/id_4_spec.nc
+./harmonics/id_5_spec.nc
+./harmonics/id_6_spec.nc
+./harmonics/id_7_spec.nc
+./harmonics/id_8_spec.nc
+./harmonics/id_9_spec.nc
+./harmonics/id_10_spec.nc
+'STOPSTRING'
+$

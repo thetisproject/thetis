@@ -244,8 +244,7 @@ TIME_WINDOW = np.arange(96, 98, 1)  # ~ 48 hours if half-hourly export (t_export
 LAST_FRAME = True
 
 # - output files:
-coredirout = './outputs_sed'
-coredirout = './outputs_sed_600s_bkp'
+coredirout = './outputs_sed_3600s'
 
 # - color map settings
 trunc_cmap_min = 0.1
@@ -254,9 +253,9 @@ trunc_cmap_max = 1.0
 # - bar plot sections -
 NUM_CBARS = 20
 
-# - extension for file reading
+# - extension for file reading # CHANGE ME DEPENDING ON THE OUTPUT TYPE (single-core = .vtu, multi-core = .pvtu)
 extension = 'vtu'  # for single core
-extension = 'pvtu'  # for multi-core
+# extension = 'pvtu'  # for multi-core
 
 # - figure params
 # COLORMAP_NAME = 'cet_rainbow4'
