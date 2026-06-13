@@ -1,5 +1,6 @@
 # 🌊 Thetis
 
+[![Weekly Tests (release)](https://github.com/thetisproject/thetis/actions/workflows/weekly-release.yml/badge.svg?branch=release)](https://github.com/thetisproject/thetis/actions/workflows/weekly-release.yml)
 [![Weekly Tests (main)](https://github.com/thetisproject/thetis/actions/workflows/weekly-main.yml/badge.svg?branch=main)](https://github.com/thetisproject/thetis/actions/workflows/weekly-main.yml)
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)
 
@@ -47,16 +48,13 @@ pip install -e .
 > The latest development branch of Thetis (main) will require the corresponding main branch of Firedrake. See the
 > website for more details.
 
-### Release branch weekly status
-[![Weekly Tests (release)](https://github.com/thetisproject/thetis/actions/workflows/weekly-release.yml/badge.svg?branch=release)](https://github.com/thetisproject/thetis/actions/workflows/weekly-release.yml)
-
 ---
 
 ## Getting Started
 
 To get up and running with Thetis once it has been installed, we recommend checking out the [basic tutorials and 
 documentation](https://thetisproject.org/documentation.html#tutorials). Further examples can then be found in the 
-repository at [`examples`](./examples). See [`examples/README.md`](./examples/readme.md) for 
+repository at [`examples`](./examples). See [`examples/README.md`](./examples/README.md) for
 detailed descriptions of each example script.
 
 
@@ -83,4 +81,3 @@ If Thetis is helpful in your research, please cite:
 ## License
 
 Thetis is available under the MIT License. See the [LICENSE](./LICENSE) file for details.
-

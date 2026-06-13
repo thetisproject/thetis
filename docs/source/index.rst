@@ -2,18 +2,23 @@
 
 .. only:: html
 
-  .. sidebar:: Current release branch status
+  .. sidebar:: Branch status
 
     .. container:: buildstatus
 
-    |thetisbuild|
+    |thetisbuild_release|
 
-    Thetis source code is hosted on  `Github
+    |thetisbuild_main|
+
+    Thetis source code is hosted on  `GitHub
     <https://github.com/thetisproject/thetis/>`__ and is being
     continually tested using GitHub Actions.
 
-    .. |thetisbuild| image:: https://github.com/thetisproject/thetis/actions/workflows/weekly-release.yml/badge.svg?branch=release
-                             :target: https://github.com/thetisproject/thetis/actions/workflows/weekly-release.yml?query=branch%3Arelease
+    .. |thetisbuild_release| image:: https://github.com/thetisproject/thetis/actions/workflows/weekly-release.yml/badge.svg
+                             :target: https://github.com/thetisproject/thetis/actions/workflows/weekly-release.yml
+
+    .. |thetisbuild_main| image:: https://github.com/thetisproject/thetis/actions/workflows/weekly-main.yml/badge.svg
+                             :target: https://github.com/thetisproject/thetis/actions/workflows/weekly-main.yml
 
 The Thetis project
 ==================
@@ -23,9 +28,8 @@ Thetis is an unstructured grid coastal ocean model built using the
 Currently Thetis consists of 2D depth averaged and full 3D baroclinic models.
 
 Some example animations are shown below. More animations can be found in the
-`Youtube channel <https://www.youtube.com/channel/UC0FYtpH1unCy_qcoI46CnRA>`__.
+`YouTube channel <https://www.youtube.com/channel/UC0FYtpH1unCy_qcoI46CnRA>`__.
 
 .. only:: html
 
   .. include:: animationgrid.rst
-
