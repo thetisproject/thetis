@@ -1,10 +1,15 @@
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+# This wrapper uses setuptools' normal build logic, but lets setuptools-scm
+# import _thetis_version.py to determine the version during installation.
+# Using setuptools.build_meta directly does not put this checkout on the
+# build import path.
+build-backend = "_thetis_build_backend"
+backend-path = ["."]
 
 [project]
 name = "thetis"
-version = "2026.4.0"
+dynamic = ["version"]
 dependencies = [
   "netCDF4",
   "pylit",
@@ -32,6 +37,12 @@ Repository = "https://github.com/thetisproject/thetis.git"
 
 [tool.setuptools]
 packages = ["thetis", "test", "examples"]
+
+[tool.setuptools_scm]
+tag_regex = "^(?P<version>[0-9]+\\.[0-9]+(?:\\.[0-9]+(?:\\.[0-9]+)?|\\.post[0-9]+)?)$"
+version_scheme = "_thetis_version:thetis_version_scheme"
+local_scheme = "no-local-version"
+fallback_version = "0+unknown"
 
 [project.optional-dependencies]
 # Dependencies needed to build the docs
