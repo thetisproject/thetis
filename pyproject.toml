@@ -76,5 +76,4 @@ test = [
   "pytest-timeout",
   "pytest-xdist",
   "vtk",
-  "decorator<=4.4.2",  # Firedrake
 ]
