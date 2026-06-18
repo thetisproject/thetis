@@ -12,6 +12,10 @@ on:
         required: true
         type: string
 
+env:
+  FIREDRAKE_RUN_SPLIT_TESTS_TIMEOUT: 660s
+  FIREDRAKE_RUN_SPLIT_TESTS_KILL_AFTER: 30s
+
 jobs:
   build:
     name: "Build & Test"
@@ -73,24 +77,46 @@ jobs:
         if: success() || steps.install.conclusion == 'success'
         run: |
           . venv-thetis/bin/activate
-          : # Run the serial tests
+          : # Run the serial tests, excluding examples which are tested separately
           python -m pytest -n 12 --verbose --durations=0 --durations-min=60.0 \
-            -m "parallel[1] or not parallel" thetis-repo/test
+            --ignore=thetis-repo/test/examples \
+            -m parallel[match] thetis-repo/test
 
       - name: Test Thetis (parallel)
         if: success() || steps.install.conclusion == 'success'
         run: |
           . venv-thetis/bin/activate
-          : # Run the parallel tests (note that xdist is not valid in parallel)
-          mpiexec -n 2 python -m pytest --verbose --durations=0 --durations-min=60.0 \
-            -m parallel[2] thetis-repo/test
+          : # Split the parallel tests into multiple mpiexec jobs to utilise all cores
+          firedrake-run-split-tests 2 4 \
+            --durations=0 --durations-min=60.0 \
+            --timeout=600 --timeout-method=thread \
+            thetis-repo/test
 
-      - name: Test Thetis adjoint
+      - name: Test Thetis examples (serial)
         if: success() || steps.install.conclusion == 'success'
         run: |
-          firedrake-clean
           . venv-thetis/bin/activate
-          python -m pytest -n 8 --verbose --durations=0 thetis-repo/test_adjoint
+          python -m pytest -n 12 --verbose --durations=0 --durations-min=60.0 \
+            -m parallel[match] \
+            thetis-repo/test/examples thetis-repo/test_adjoint/examples
+
+      - name: Test Thetis adjoint (serial)
+        if: success() || steps.install.conclusion == 'success'
+        run: |
+          . venv-thetis/bin/activate
+          python -m pytest -n 2 --verbose --durations=0 --durations-min=60.0 \
+            --ignore=thetis-repo/test_adjoint/examples \
+            -m parallel[match] thetis-repo/test_adjoint
+
+      - name: Test Thetis adjoint (parallel)
+        if: success() || steps.install.conclusion == 'success'
+        run: |
+          . venv-thetis/bin/activate
+          : # Split the parallel tests into multiple mpiexec jobs to utilise all cores
+          firedrake-run-split-tests 2 1 \
+            --durations=0 --durations-min=60.0 \
+            --timeout=600 --timeout-method=thread \
+            thetis-repo/test_adjoint
 
       - name: Post-cleanup
         if: always()

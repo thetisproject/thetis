@@ -12,5 +12,5 @@ jobs:
     uses: thetisproject/thetis/.github/workflows/core.yml@release
     with:
       branch: release
-      image: firedrakeproject/firedrake-vanilla-default:latest
+      image: firedrakeproject/firedrake-vanilla-default:dev-release
     secrets: inherit

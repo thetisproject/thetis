@@ -21,12 +21,13 @@ Thetis has two long-lived branches:
 The temporary branch ``release-candidate`` is used only while preparing a new
 Thetis release after a Firedrake release. It is force-updated to the intended
 ``main`` release commit, and GitHub Actions tests it against the same Firedrake
-``latest`` Docker image used for ``release``. This gives maintainers a tested
-candidate before the public ``release`` branch is force-updated and tagged.
+``dev-release`` Docker image used for ``release``. This gives maintainers a
+tested candidate before the public ``release`` branch is force-updated and
+tagged.
 
 CI reflects this by testing ``main`` against the Firedrake ``dev-main`` Docker
 image and testing ``release`` and ``release-candidate`` against the Firedrake
-``latest`` Docker image.
+``dev-release`` Docker image.
 
 
 Installing Firedrake
@@ -116,20 +117,41 @@ The reusable workflow (``core.yml``):
   * serial tests via pytest-xdist::
 
       python -m pytest -n 12 --verbose --durations=0 --durations-min=60.0 \
-        -m "parallel[1] or not parallel" thetis-repo/test
+        --ignore=thetis-repo/test/examples \
+        -m parallel[match] thetis-repo/test
 
-  * MPI-parallel tests (2 ranks)::
+  * MPI-parallel tests, split into 2-rank jobs::
 
-      mpiexec -n 2 python -m pytest --verbose --durations=0 \
-        --durations-min=60.0 \
-        -m parallel[2] thetis-repo/test
+      firedrake-run-split-tests 2 4 \
+        --durations=0 --durations-min=60.0 \
+        --timeout=600 --timeout-method=thread \
+        thetis-repo/test
 
-  * adjoint tests::
+  * examples via pytest-xdist::
 
-      python -m pytest -n 8 --verbose --durations=0 thetis-repo/test_adjoint
+      python -m pytest -n 12 --verbose --durations=0 --durations-min=60.0 \
+        -m parallel[match] \
+        thetis-repo/test/examples thetis-repo/test_adjoint/examples
+
+  * adjoint tests via pytest-xdist::
+
+      python -m pytest -n 2 --verbose --durations=0 --durations-min=60.0 \
+        --ignore=thetis-repo/test_adjoint/examples \
+        -m parallel[match] thetis-repo/test_adjoint
+
+  * MPI-parallel adjoint tests, split into 2-rank jobs::
+
+      firedrake-run-split-tests 2 1 \
+        --durations=0 --durations-min=60.0 \
+        --timeout=600 --timeout-method=thread \
+        thetis-repo/test_adjoint
 
 The workflow sets ``PYTEST_MPI_MAX_NPROCS=2`` to avoid silently skipping tests
-that request more ranks than are available.
+that request more ranks than are available. It also sets
+``FIREDRAKE_RUN_SPLIT_TESTS_TIMEOUT`` and
+``FIREDRAKE_RUN_SPLIT_TESTS_KILL_AFTER`` for the split MPI test jobs.
+This ensures that if there are any issues with the parallel running of tests,
+the processes are killed so they don't hang indefinitely.
 
 Pull requests
 --------------
@@ -172,8 +194,8 @@ Thetis follows Firedrake's major release cadence:
 * ``release`` is the current stable branch. It tracks the latest stable
   Firedrake release and is the branch used for the published website.
 * When Firedrake makes a major release, Thetis ``release`` is hard-reset
-  to a ``main`` commit that has been tested in the latest stable Firedrake
-  release container.
+  to a ``main`` commit that has been tested in the Firedrake ``dev-release``
+  container.
 * Between these reset points, keep ``release`` conservative. Bug fixes may be
   cherry-picked when they should be available on the stable line, but do not
   backport new functionality, API changes, substantial rewrites, or changes
@@ -284,8 +306,8 @@ Workflow: Hard-Reset **release** to **main**
 
 This is the normal workflow when Firedrake makes a major release and
 Thetis ``release`` should become the compatible state from ``main``. The goal is
-to tag only a commit that has passed Thetis CI in the latest stable Firedrake
-release container.
+to tag only a commit that has passed Thetis CI in the Firedrake release
+container.
 
 Before moving ``release``, check whether the final state of the old stable line
 already has the intended tag. If it does not, preserve it with a tag using the
@@ -301,7 +323,7 @@ tag convention below.
 
 Prepare and test a temporary ``release-candidate`` branch. Pushes to this branch
 run the same ``push.yml`` workflow as ``release`` and use the Firedrake
-``latest`` Docker image.
+``dev-release`` Docker image.
 
 .. code-block:: none
 
@@ -416,7 +438,7 @@ Tags are normally created only:
 * before a hard reset, if the final installable state of the old stable line has
   not already been tagged;
 * after a hard reset, after CI has passed for the new Thetis release against the
-  latest stable Firedrake release container; or
+  Firedrake release container; or
 * after a tested release-only fix or backported bug fix has been merged to
   ``release``.
 
