@@ -9,7 +9,6 @@ import numpy as np
 import random
 import os
 script_dir = os.path.dirname(os.path.abspath(__file__))
-op2.init(log_level=INFO)
 
 output_dir = 'outputs_optimisation'
 

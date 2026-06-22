@@ -9,7 +9,6 @@ import pytest
 from thetis import *
 from firedrake.adjoint import *
 
-op2.init(log_level=INFO)
 
 continue_annotation()
 

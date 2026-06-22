@@ -724,18 +724,21 @@ def get_cell_widths_2d(mesh2d):
     except AssertionError:
         raise NotImplementedError("Cell widths only currently implemented for triangles.")
     cell_widths = Function(VectorFunctionSpace(mesh2d, "DG", 0)).assign(numpy.finfo(0.0).min)
-    coords_cell_node_map = mesh2d.coordinates.function_space().cell_node_map()
-    widths_cell_node_map = cell_widths.function_space().cell_node_map()
-    kernel = op2.Kernel("""
+    kernel = op3.Function.from_c_string("""
         void cell_width_kernel(double *coords, double *widths) {
             for (int i=0; i<%(nodes)d; i++) {
                   widths[0] = fmax(widths[0], fabs(coords[2*i] - coords[(2*i+2)%%6]));
                   widths[1] = fmax(widths[1], fabs(coords[2*i+1] - coords[(2*i+3)%%6]));
             }
-        }""" % {"nodes": coords_cell_node_map.arity}, "cell_width_kernel")
-    op2.par_loop(kernel, mesh2d.cell_set,
-                 mesh2d.coordinates.dat(op2.READ, coords_cell_node_map),
-                 cell_widths.dat(op2.MAX, widths_cell_node_map))
+        }""" % {"nodes": coords_cell_node_map.arity}, "cell_width_kernel",
+        ((nodes,), ScalarType, op3.READ),
+        ((2, ), ScalarType, op3.READ),
+    )
+    op3.loop(
+        c := mesh2d.cells.owned,
+        kernel(pack(mesh2d.coordinates, c), pack(cell_widths, c)),
+        eager=True,
+    )
     return cell_widths
 
 
