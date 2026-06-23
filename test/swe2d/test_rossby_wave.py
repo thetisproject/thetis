@@ -190,7 +190,7 @@ def run(refinement_level, **model_options):
                              preproc_func=vorticity_calculator)
 
     # Apply boundary conditions
-    for tag in mesh2d.exterior_facets.unique_markers:
+    for tag in mesh2d.facets_markers:
         solver_obj.bnd_functions['shallow_water'][tag] = {'uv': Constant(as_vector([0., 0.]))}
 
     # Apply initial conditions (asymptotic solution at initial time)

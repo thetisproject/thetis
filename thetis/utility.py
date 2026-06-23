@@ -724,15 +724,15 @@ def get_cell_widths_2d(mesh2d):
     except AssertionError:
         raise NotImplementedError("Cell widths only currently implemented for triangles.")
     cell_widths = Function(VectorFunctionSpace(mesh2d, "DG", 0)).assign(numpy.finfo(0.0).min)
-    kernel = op3.Function.from_c_string("""
-        void cell_width_kernel(double *coords, double *widths) {
-            for (int i=0; i<%(nodes)d; i++) {
-                  widths[0] = fmax(widths[0], fabs(coords[2*i] - coords[(2*i+2)%%6]));
-                  widths[1] = fmax(widths[1], fabs(coords[2*i+1] - coords[(2*i+3)%%6]));
-            }
-        }""" % {"nodes": coords_cell_node_map.arity}, "cell_width_kernel",
-        ((nodes,), ScalarType, op3.READ),
-        ((2, ), ScalarType, op3.READ),
+    kernel = op3.Function.from_c_string(
+        "cell_width_kernel",
+        f"""\
+for (int i=0; i<{mesh2d.coordinates.cell_node_list.shape[1]}; i++) {{
+    widths[0] = fmax(widths[0], fabs(coords[2*i] - coords[(2*i+2)%%6]));
+    widths[1] = fmax(widths[1], fabs(coords[2*i+1] - coords[(2*i+3)%%6]));
+}}""",
+        ("coords", "double", op3.READ),
+        ("widths", "double", op3.MAX),
     )
     op3.loop(
         c := mesh2d.cells.owned,
@@ -826,7 +826,7 @@ def compute_boundary_length(mesh2d):
     Computes the length of the boundary segments in given 2d mesh
     """
     p1 = get_functionspace(mesh2d, 'CG', 1)
-    boundary_markers = sorted(mesh2d.exterior_facets.unique_markers)
+    boundary_markers = sorted(mesh2d.facet_markers)
     boundary_len = OrderedDict()
     for i in boundary_markers:
         ds_restricted = ds(int(i))
@@ -1039,7 +1039,7 @@ class DepthIntegratedPoissonSolver(object):
         fs_q = self.q_2d.function_space()
         test_q = TestFunction(fs_q)
         normal = FacetNormal(fs_q.mesh())
-        boundary_markers = fs_q.mesh().exterior_facets.unique_markers
+        boundary_markers = fs_q.mesh().facet_markers
 
         bath_2d = self.depth.bathymetry_2d
         h_star = self.depth.get_total_depth(self.elev_2d)

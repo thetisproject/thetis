@@ -105,7 +105,7 @@ class VerticalVelocitySolver(object):
                   + uv[1]*normal[1] + uv[2]*normal[2])*test[2]*self.ds_surf
         l_vol = inner(uv, nabla_grad(test[2]))*self.dx
         l = l_vol - l_v_facet - l_h_facet - l_surf
-        for bnd_marker in sorted(mesh.exterior_facets.unique_markers):
+        for bnd_marker in sorted(mesh.facet_markers):
             funcs = boundary_funcs.get(bnd_marker)
             ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
             if funcs is None:
