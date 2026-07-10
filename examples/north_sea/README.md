@@ -42,7 +42,7 @@ Given the shape files for the boundary and coastline data, saved in the
 `data` subdirectory, we are able to run the `generate_mesh.py` script.
 The output is the mesh `north_sea.msh`, which has been included here.
 Note that this script requires the geoscientific mesh generator package
-[qmesh](https://www.qmesh.org/) [2].
+[qmesh3](https://github.com/qmesh3/qmesh3) [2].
 
 ### Bathymetry
 
