@@ -1,0 +1,136 @@
+ $ -------------------------------------------------------------------- $
+$ WAVEWATCH III Grid preprocessor input file                           $
+$ -------------------------------------------------------------------- $
+  tidesin  
+$
+   1.1  0.052  32  24  0.5
+   F T T T F T
+   50 50 50 10
+$
+$ Start of namelist input section ------------------------------------ $
+$.
+$
+  &SIN4 BETAMAX=1.45//
+  &UNST UGOBCAUTO=F, EXPFSFCT=T //  $ IMPFSN= T//
+END OF NAMELISTS
+$
+ UNST F F
+$
+    0  0.1   20  -1 1 1 '(20f10.2)'  'NAME'  tidalinlet.msh
+$
+$ If the above unit number equals 10, the bottom data is read from
+$ this file and follows below (no intermediate comment lines allowed).
+$
+$   1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+$
+$ If sub-grid information is avalaible as indicated by FLAGTR above,
+$ additional input to define this is needed below. In such cases a
+$ field of fractional obstructions at or between grid points needs to
+$ be supplied.  First the location and format of the data is defined
+$ by (as above) :
+$  - Unit number of file (can be 10, and/or identical to bottem depth
+$    unit), scale factor for fractional obstruction, IDLA, IDFM,
+$    format for formatted read, FROM and filename
+$
+$   10 0.2  3 1 '(....)' 'NAME' 'obstr.inp'
+$
+$ *** NOTE if this unit number is the same as the previous bottom
+$     depth unit number, it is assumed that this is the same file
+$     without further checks.                                      ***
+$
+$ If the above unit number equals 10, the bottom data is read from
+$ this file and follows below (no intermediate comment lines allowed,
+$ except between the two fields).
+$
+   10 3 1 '(....)' 'PART' 'mapsta.inp'
+$ Input boundary points ---------------------------------------------- $
+        5078 1 F
+		5075 1 F
+		5071 1 F
+		5065 1 F
+		5058 1 F
+		5050 1 F
+		5040 1 F
+		5029 1 F
+		5016 1 F
+		5001 1 F
+		4985 1 F
+		4967 1 F
+		4948 1 F
+		4927 1 F
+		4904 1 F
+		4880 1 F
+		4854 1 F
+		4827 1 F
+		4798 1 F
+		4768 1 F
+		4736 1 F
+		4702 1 F
+		4667 1 F
+		4630 1 F
+		4592 1 F
+		4552 1 F
+		4510 1 F
+		4467 1 F
+		4422 1 F
+		4376 1 F
+		4328 1 F
+		4278 1 F
+		4227 1 F
+		4175 1 F
+		4127 1 F
+		4079 1 F
+		4034 1 F
+		3994 1 F
+		3954 1 F
+		3915 1 F
+		3877 1 F
+		3839 1 F
+		3800 1 F
+		3759 1 F
+		3718 1 F
+		3676 1 F
+		3633 1 F
+		3587 1 F
+		3541 1 F
+		3494 1 F
+		3447 1 F
+		3396 1 F
+		3343 1 F
+		3289 1 F
+		3232 1 F
+		3172 1 F
+		3108 1 F
+		3040 1 F
+		2968 1 F
+		2893 1 F
+		2815 1 F
+		2742 1 F
+		2672 1 F
+		2598 1 F
+		2525 1 F
+	0 0 F
+$
+$
+$
+$ Excluded grid points from segment data ( FROM != PART )
+$   First defined as lines, identical to the definition of the input
+$   boundary points, and closed the same way.
+$
+      0   0   F
+$
+$   Second, define a point in a closed body of sea points to remove
+$   the entire body os sea points. Also close by point (0,0)
+$
+      0   0
+$
+$ Output boundary points --------------------------------------------- $
+$ Output boundary points are defined as a number of straight lines,
+$
+$  Close list by defining line with 0 points (mandatory)
+$
+       0.    0.    0.    0.       0
+$
+$ -------------------------------------------------------------------- $
+$ End of input file                                                    $
+$ -------------------------------------------------------------------- $

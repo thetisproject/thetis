@@ -405,6 +405,16 @@ class FlowSolver2d(FrozenClass):
                                      use_nonlinear_equations=self.options.use_nonlinear_equations,
                                      use_wetting_and_drying=self.options.use_wetting_and_drying,
                                      wetting_and_drying_alpha=self.options.wetting_and_drying_alpha)
+        self.fields.rad_stress_2d = Function(self.function_spaces.P1v_2d,
+                                             name='rad_stress_2d')
+        self.fields.roller_2d = Function(self.function_spaces.P1v_2d,
+                                         name='roller_2d')
+
+        self.fields.wave_height_2d = Function(self.function_spaces.P1_2d, name='wave_height_2d')
+        self.fields.wave_peak_freq_2d = Function(self.function_spaces.P1_2d, name='wave_peak_freq_2d')
+        self.fields.wave_dir_2d = Function(self.function_spaces.P1_2d, name='wave_dir_2d')
+        self.fields.wave_orbital_vel_2d = Function(self.function_spaces.P1_2d, name='wave_orbital_vel_2d')
+        self.fields.wave_mean_period_2d = Function(self.function_spaces.P1_2d, name='wave_mean_period_2d')
 
         # Add fields for shallow water modelling
         self.fields.solution_2d = Function(self.function_spaces.V_2d, name='solution_2d')
@@ -507,8 +517,16 @@ class FlowSolver2d(FrozenClass):
         sediment_options = self.options.sediment_model_options
         if sediment_options.solve_suspended_sediment or sediment_options.solve_exner:
             sediment_model_class = self.options.sediment_model_options.sediment_model_class
+            # seime.passing new fields into sediment model object
             self.sediment_model = sediment_model_class(
-                self.options, self.mesh2d, uv_2d, elev_2d, self.depth)
+                self.options, self.mesh2d, uv_2d, elev_2d, self.depth,
+                self.fields.wave_orbital_vel_2d,
+                self.fields.wave_height_2d,
+                self.fields.wave_dir_2d,
+                self.fields.wave_peak_freq_2d,
+                self.fields.wave_mean_period_2d
+            )
+
         if sediment_options.solve_suspended_sediment:
             self.equations.sediment = sediment_eq_2d.SedimentEquation2D(
                 self.function_spaces.Q_2d, self.depth, self.options, self.sediment_model,
@@ -555,6 +573,14 @@ class FlowSolver2d(FrozenClass):
             'atmospheric_pressure': self.options.atmospheric_pressure,
             'momentum_source': self.options.momentum_source_2d,
             'volume_source': self.options.volume_source_2d,
+            'rad_stress_2d': self.fields.rad_stress_2d,
+            "roller_2d": self.fields.roller_2d,
+            "wave_height_2d": self.fields.wave_height_2d,
+            "wave_peak_freq_2d": self.fields.wave_peak_freq_2d,
+            "wave_dir_2d": self.fields.wave_dir_2d,
+            "wave_orbital_vel_2d": self.fields.wave_orbital_vel_2d,
+            "wave_mean_period_2d": self.fields.wave_mean_period_2d
+
         }
         bnd_conditions = self.bnd_functions['shallow_water']
         if self.options.swe_timestepper_type == 'PressureProjectionPicard':
@@ -564,6 +590,7 @@ class FlowSolver2d(FrozenClass):
                 self.depth,
                 options=self.options,
                 tidal_farms=self.tidal_farms
+
             )
             self.equations.mom.bnd_functions = bnd_conditions
             return integrator(self.equations.sw, self.equations.mom, self.fields.solution_2d,
