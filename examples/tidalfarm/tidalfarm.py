@@ -21,10 +21,18 @@ the forward model and automatically derives the adjoint.
 
 from thetis import *
 from firedrake.adjoint import *
+from checkpoint_schedules import SingleMemoryStorageSchedule
 op2.init(log_level=INFO)
 
 # start annotating all Firedrake opterations in the forward model
 continue_annotation()
+
+tape = get_working_tape()
+tape.enable_checkpointing(
+    SingleMemoryStorageSchedule(),
+    gc_timestep_frequency=56,  # every 56 time steps we will do garbage collection
+    gc_generation=2
+)
 
 # setup the Thetis solver obj as usual:
 mesh2d = Mesh('headland.msh')
@@ -131,7 +139,9 @@ solver_obj.add_callback(cb, 'timestep')
 
 # run as normal (this run will be annotated by firedrake adjoint)
 solver_obj.assign_initial_conditions(uv=as_vector((1e-7, 0.0)), elev=tidal_elev)
-solver_obj.iterate(update_forcings=update_forcings)
+num_steps = int(numpy.ceil(solver_obj.options.simulation_end_time / solver_obj.dt))
+adj_timestepper = tape.timestepper(iter(range(num_steps)))
+solver_obj.iterate(update_forcings=update_forcings, adj_timestepper=adj_timestepper)
 
 
 # compute maximum turbine density (based on a minimum of 1.5D between
@@ -164,11 +174,19 @@ c = Control(turbine_density)
 #            farm if multiple are defined)
 callback_list = optimisation.OptimisationCallbackList([
     optimisation.ControlsExportOptimisationCallback(solver_obj),
-    optimisation.DerivativesExportOptimisationCallback(solver_obj),
     optimisation.UserExportOptimisationCallback(solver_obj, (farm_density,)),
     optimisation.FunctionalOptimisationCallback(solver_obj),
     turbines.TurbineOptimisationCallback(solver_obj, cb),
 ])
+derivative_callback_list = optimisation.OptimisationCallbackList([
+    optimisation.DerivativesExportOptimisationCallback(solver_obj),
+])
+
+
+def update_control(value):
+    turbine_density.assign(value)
+    projector.project()
+
 
 # anything that follows, is no longer annotated:
 pause_annotation()
@@ -176,7 +194,13 @@ pause_annotation()
 # this reduces the functional J(u, td) to a function purely of the control td:
 # rf(td) = J(u(td), td) where the velocities u(td) of the entire simulation
 # are computed by replaying the forward model for any provided turbine density td
-rf = ReducedFunctional(scaled_functional, c, derivative_cb_post=callback_list)
+rf = ReducedFunctional(
+    scaled_functional,
+    c,
+    eval_cb_pre=update_control,
+    eval_cb_post=callback_list,
+    derivative_cb_post=derivative_callback_list,
+)
 
 
 if test_gradient:
