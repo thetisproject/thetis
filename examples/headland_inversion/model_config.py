@@ -64,18 +64,28 @@ def generate_bathymetry(mesh, H, output_directory, exporting=True):
         solve(F == 0, u, bcs, solver_parameters=solver_parameters)
 
     if exporting:
-        VTKFile(output_directory + "/dist.pvd").write(u)
+        VTKFile(output_directory + "/dist.pvd", comm=mesh.comm).write(u)
 
     bathymetry = Function(V, name="bathymetry")
     bathymetry.project(conditional(ge(u, L), H, (H - 5) * (u / L) + 5.))
     if exporting:
-        VTKFile(output_directory + '/bathymetry.pvd').write(bathymetry)
+        VTKFile(output_directory + '/bathymetry.pvd', comm=mesh.comm).write(bathymetry)
 
     return bathymetry
 
 
 def construct_solver(store_station_time_series=True, **model_options):
-    mesh2d = Mesh('headland.msh')
+    comm = model_options.pop('comm', COMM_WORLD)
+    distribution_parameters = model_options.pop('distribution_parameters', None)
+    # Ensuring that mesh elements are split between MPI processes evenly across ensemble members
+    mesh_kwargs = {}
+    if distribution_parameters is not None:
+        mesh_kwargs = dict(mesh_kwargs)
+        mesh_kwargs['distribution_parameters'] = distribution_parameters
+    mesh2d = Mesh('headland.msh', comm=comm, **mesh_kwargs)
+
+    time_offset = model_options.pop('time_offset', 0.0)
+    station_index = model_options.pop('station_index', None)
     pwd = os.path.abspath(os.path.dirname(__file__))
     output_directory = model_options.get('output_directory', f'{pwd}/outputs_forward')
     exporting = not model_options.get('no_exports', False)
@@ -108,12 +118,12 @@ def construct_solver(store_station_time_series=True, **model_options):
     manning_2d.interpolate(
         conditional(x < 11e3, manning_high, manning_low))
     if exporting:
-        VTKFile(output_directory + '/manning_init.pvd').write(manning_2d)
+        VTKFile(output_directory + '/manning_init.pvd', comm=mesh2d.comm).write(manning_2d)
 
     # viscosity
     h_viscosity = Function(P1_2d).interpolate(conditional(le(x, 1e3), 0.1*(1e3 - x), 1.0))
     if exporting:
-        VTKFile(output_directory + '/h_viscosity.pvd').write(h_viscosity)
+        VTKFile(output_directory + '/h_viscosity.pvd', comm=mesh2d.comm).write(h_viscosity)
 
     # create solver
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
@@ -155,7 +165,14 @@ def construct_solver(store_station_time_series=True, **model_options):
             ('stationF', (lx/4, ly/4)),
             ('stationG', (lx/4, 3*ly/4)),
         ]
-        for name, (sta_x, sta_y) in stations:
+        # Divide up stations across the ensemble members
+        if station_index is None:
+            selected_stations = stations
+        else:
+            if not 0 <= station_index < len(stations):
+                raise ValueError(f"station_index {station_index} out of range for {len(stations)} stations")
+            selected_stations = [stations[station_index]]
+        for name, (sta_x, sta_y) in selected_stations:
             cb = DetectorsCallback(solver_obj, [(sta_x, sta_y)], ['elev_2d', 'uv_2d'], name='timeseries_'+name,
                                    detector_names=[name], append_to_log=False)
             solver_obj.add_callback(cb)
@@ -178,9 +195,12 @@ def construct_solver(store_station_time_series=True, **model_options):
     omega = 2 * pi / tidal_period
 
     def update_forcings(t):
-        print_output("Updating tidal elevation at t = {}".format(t))
-        tidal_elev.project(tidal_amplitude * sin(omega * t + omega / pow(g * H, 0.5) * x))
+        # Add in the offset associated with each ensemble member
+        t_model = t + time_offset
+        print_output("Updating tidal elevation at t = {} (offset time = {})".format(t, t_model))
+        tidal_elev.project(tidal_amplitude * sin(omega * t_model + omega / pow(g * H, 0.5) * x))
 
+    update_forcings(0.0)
     # set initial condition for elevation, piecewise linear function
     solver_obj.assign_initial_conditions(uv=as_vector((1e-7, 0.0)), elev=tidal_elev)
 

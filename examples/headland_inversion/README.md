@@ -21,6 +21,61 @@ may be a simple split between areas of the domain or may be based on seabed part
 associated with a set of points. Between points, the value of the friction parameter is interpolated - see 
 [Lu and Zhang, 2006](https://doi.org/10.1016/j.csr.2006.06.007), for example.
 
+## Quick start
+
+This example can now be run in two modes:
+
+- **Regular run**: one forward solve and one inversion using all available stations together.
+- **Ensemble run**: one station per ensemble member, with a forcing phase offset applied to each member. The inversion
+  then combines all members into a single optimisation problem.
+
+Typical regular workflow:
+
+```sh
+source ~/firedrake/bin/activate
+make forward ENSEMBLE=false
+make plot_obs ENSEMBLE=false
+make invert CASE=GradientReg ENSEMBLE=false
+make plot CASE=GradientReg ENSEMBLE=false
+```
+
+Typical ensemble workflow:
+
+```sh
+source ~/firedrake/bin/activate
+make forward ENSEMBLE=true RANKS_PER_MEMBER=2 N_MEMBERS=7
+make plot_obs ENSEMBLE=true
+make invert CASE=GradientReg ENSEMBLE=true RANKS_PER_MEMBER=2 N_MEMBERS=7
+make plot CASE=GradientReg ENSEMBLE=true
+```
+
+or, to run using the default `Makefile` variable values, simply:
+
+```sh
+make
+```
+
+## Makefile options
+
+The example is driven through the local `Makefile`.
+
+Important variables are:
+
+- `CASE`: inversion parametrisation to use. One of
+  `Uniform`, `Regions`, `IndependentPointsScheme`, `GradientReg`, `HessianReg`.
+- `ENSEMBLE`: `true` or `false`.
+- `RANKS_PER_MEMBER`: MPI ranks per ensemble member in ensemble mode.
+- `N_MEMBERS`: number of ensemble members. At present this should match the number of configured stations, i.e. `7`.
+- `PARALLEL`: total number of MPI ranks used by `mpiexec`.
+
+In ensemble mode the intended layout is:
+
+```text
+PARALLEL = N_MEMBERS * RANKS_PER_MEMBER
+```
+
+In regular mode, `PARALLEL` is simply the total number of MPI ranks used for a single simulation.
+
 ## Forward run
 
 The synthetic data is stored in the time series `.hdf5` files for each station. The forward run is provided so that the
@@ -35,10 +90,34 @@ The idealised headland is 20km long and 6km wide, with a coastline depth of 3m a
 and right boundaries are forced by a sinusoidal elevation function, emulating a single tidal signal. A viscosity sponge 
 is used at the left hand boundary to provide some model stability.
 
+Run the forward model in regular mode with:
+
+In regular mode, all station time series are written into:
+
+```text
+outputs/outputs_forward/
+```
+
+In ensemble mode, one station is written per member into:
+
+```text
+outputs/outputs_forward/member_<k>/
+```
+
+with a forcing time offset of `800 * ensemble_rank` seconds. The current station/member mapping is:
+
+- member 0 -> stationA
+- member 1 -> stationB
+- member 2 -> stationC
+- member 3 -> stationD
+- member 4 -> stationE
+- member 5 -> stationF
+- member 6 -> stationG
+
+
 ## Inversion run
 
-The inversion problem is currently run from a `Makefile`. User arguments are specified here i.e. mapping to use, number
-of threads, and then the Makefile runs the scripts with the inputs provided.
+The inversion problem is run from the `Makefile`. The same `CASE` values can be used in both regular and ensemble modes.
 
 The solver object is set up using `construct_solver` and then initial values for each field (in this case we only 
 optimise for bed friction) are specified. The station manager, `StationObservationManager`, is then instantiated, which 
@@ -71,11 +150,24 @@ functional. These are the minimum and maximum values of bed friction allowed.
 
 The remainder of the script performs file saving and preparation for visualisation in ParaView.
 
+In regular mode, inversion outputs are written into:
+
+```text
+outputs/outputs_inverse/<case_dir>/
+```
+
+In ensemble mode, they are written into:
+
+```text
+outputs/outputs_inverse/<case_dir>/member_<k>/
+```
+
 ### Gradient/Hessian regularisation
 
 ```sh
 source ~/firedrake/bin/activate
-make invert CASE=GradientReg
+make invert CASE=GradientReg ENSEMBLE=false
+make invert CASE=GradientReg ENSEMBLE=true RANKS_PER_MEMBER=2 N_MEMBERS=7
 ```
 
 In these cases, the friction values can vary freely within the lower and upper limits defined by the control bounds. 
@@ -95,7 +187,8 @@ and `HessianRecoverer2D`, for calculating this loss can be found in `thetis.diag
 
 ```sh
 source ~/firedrake/bin/activate
-make invert CASE=Uniform
+make invert CASE=Uniform ENSEMBLE=false
+make invert CASE=Uniform ENSEMBLE=true RANKS_PER_MEMBER=2 N_MEMBERS=7
 ```
 
 For a uniform bed friction, there are some differences which are enforced by changing the case entry, as explained 
@@ -117,7 +210,8 @@ exporting.
 
 ```sh
 source ~/firedrake/bin/activate
-make invert CASE=Regions
+make invert CASE=Regions ENSEMBLE=false
+make invert CASE=Regions ENSEMBLE=true RANKS_PER_MEMBER=2 N_MEMBERS=7
 ```
 
 For region-based bed friction, we need to create a mapping that relates the Manning values to the regions of the mesh. 
@@ -138,7 +232,8 @@ forward, inverse and plotting scripts in order.
 
 ```sh
 source ~/firedrake/bin/activate
-make invert CASE=IndependentPointsScheme
+make invert CASE=IndependentPointsScheme ENSEMBLE=false
+make invert CASE=IndependentPointsScheme ENSEMBLE=true RANKS_PER_MEMBER=2 N_MEMBERS=7
 ```
 
 The independent point scheme approach works in the same way as the region-based approach, where we have a mapping 
@@ -155,25 +250,80 @@ would not be true RBF/quadratic/cubic interpolation.
 
 ```sh
 source ~/firedrake/bin/activate
-make plot CASE=GradientReg
-make plot CASE=Uniform
-make plot CASE=Regions
-make plot CASE=IndependentPointsScheme
+make plot_obs ENSEMBLE=false
+make plot_obs ENSEMBLE=true
+make plot CASE=GradientReg ENSEMBLE=false
+make plot CASE=GradientReg ENSEMBLE=true
 ```
 
-To plot the progress, we can use the Makefile to run `plot_velocity_progress.py`. This plots the velocity over time at 
-each of the station locations for each iteration of the optimisation, relative to the ground truth from the forward run.
+`plot_observed_elev.py` scans the selected forward-output directory layout and displays the observed elevation time
+series.
+
+`plot_velocity_progress.py` compares inversion progress against the forward data and saves PNG files named like:
+
+```text
+optimization_progress_<CASE>_<station>_ts.png
+```
 
 ## Running in parallel
 
-The default settings run these scripts in serial, however we can leverage parallel processing to accelerate the 
-simulations by partioning the mesh. To do so, simply provide the number of processors you would like to use after the 
-PARALLEL option, e.g.:
+The scripts can be run in parallel in both regular and ensemble modes.
+
+In regular mode, `PARALLEL` is the total MPI rank count for a single simulation, e.g.:
 
 ```sh
 source ~/firedrake/bin/activate
-make invert CASE=IndependentPointsScheme PARALLEL=4
+make invert CASE=IndependentPointsScheme ENSEMBLE=false PARALLEL=4
+```
+
+In ensemble mode, the intended rank layout is:
+
+```text
+PARALLEL = N_MEMBERS * RANKS_PER_MEMBER
+```
+
+for example:
+
+```sh
+source ~/firedrake/bin/activate
+make invert CASE=IndependentPointsScheme ENSEMBLE=true N_MEMBERS=7 RANKS_PER_MEMBER=2
 ```
 
 Note that if you try to use too many threads, the communication time between processes will dominate the runtime and 
 actually slow things down!
+
+## Running as ensemble
+
+`EnsembleReducedFunctional` can be leveraged to combine multiple inversions into a single optimisation problem. This is
+useful for cases where we have multiple sets of observations that do not coincide in time, but we want to use them all 
+to inform the same control field. 
+
+In this case, the forward model is run with the forcing offset by 800 s in each subsequent ensemble with one station 
+being logged in each case. Observations are therefore taken across different time windows. 
+Each ensemble member in the inversion corresponds to a respective observation window from the forward run.
+
+The recommended way to run the ensemble workflow is through the `Makefile`:
+
+```sh
+make forward ENSEMBLE=true RANKS_PER_MEMBER=2 N_MEMBERS=7
+make invert CASE=IndependentPointsScheme ENSEMBLE=true RANKS_PER_MEMBER=2 N_MEMBERS=7
+make plot_obs ENSEMBLE=true
+make plot CASE=IndependentPointsScheme ENSEMBLE=true
+```
+
+The number of cores must correspond to the number of ensemble members times the number of threads allocated to each 
+member (specified by parameter M in forward_run.py). 
+In this case 7 ensemble members are set up for seven stations, with each member splitting its mesh across 2 threads.
+
+If you prefer to run the scripts directly, the equivalent commands are, e.g.:
+
+```sh
+mpiexec -n 14 python forward_run.py --ensemble --ranks-per-member 2
+mpiexec -n 14 python inverse_problem.py --ensemble --ranks-per-member 2 --case IndependentPointsScheme --no-taylor-test
+python plot_observed_elev.py --ensemble
+python plot_velocity_progress.py -s stationA --case IndependentPointsScheme --ensemble
+```
+
+For additional examples of Ensemble usage in firedrake, see
+https://www.firedrakeproject.org/ensemble_parallelism.html
+https://www.firedrakeproject.org/demos/full_waveform_inversion.py.html
