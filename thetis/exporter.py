@@ -39,15 +39,16 @@ class ExporterBase(object):
     """
     Base class for exporter objects.
     """
-    def __init__(self, filename, outputdir, next_export_ix=0, verbose=False):
+    def __init__(self, filename, outputdir, next_export_ix=0, verbose=False, comm=COMM_WORLD):
         """
         :arg string filename: output file name (without directory)
         :arg string outputdir: directory where file is stored
         :kwarg int next_export_ix: set the index for next output
         :kwarg bool verbose: print debug info to stdout
+        :kwarg comm: communicator used to create the output directory
         """
         self.filename = filename
-        self.outputdir = create_directory(outputdir)
+        self.outputdir = create_directory(outputdir, comm=comm)
         self.verbose = verbose
         # keeps track of export numbers
         self.next_export_ix = next_export_ix
@@ -68,19 +69,8 @@ class VTKExporter(ExporterBase):
     @PETSc.Log.EventDecorator("thetis.VTKExporter.__init__")
     def __init__(self, fs_visu, func_name, outputdir, filename,
                  next_export_ix=0, project_output=False, verbose=False):
-        """
-        :arg fs_visu: function space where input function will be cast
-            before exporting
-        :arg func_name: name of the function
-        :arg outputdir: output directory
-        :arg filename: name of the pvd file
-        :kwarg int next_export_ix: index for next export (default 0)
-        :kwarg bool project_output: project function to output space instead of
-            interpolating
-        :kwarg bool verbose: print debug info to stdout
-        """
-        super(VTKExporter, self).__init__(filename, outputdir, next_export_ix,
-                                          verbose)
+        self.comm = fs_visu.mesh().comm
+        ExporterBase.__init__(self, filename, outputdir, next_export_ix, verbose, comm=self.comm)
         self.fs_visu = fs_visu
         self.func_name = func_name
         self.project_output = project_output
@@ -90,7 +80,7 @@ class VTKExporter(ExporterBase):
         if (len(filename) < len(suffix)+1 or filename[:len(suffix)] != suffix):
             self.filename += suffix
         path = os.path.join(path, self.filename)
-        self.outfile = VTKFile(path)
+        self.outfile = VTKFile(path, comm=self.comm)
         self.cast_operators = {}
 
     def set_next_export_ix(self, next_export_ix):
@@ -128,20 +118,8 @@ class HDF5Exporter(ExporterBase):
     def __init__(self, function_space, outputdir, filename_prefix,
                  next_export_ix=0, legacy_mode=False, verbose=False,
                  include_time=False, initial_time=None):
-        """
-        Create exporter object for given function.
-
-        :arg function_space: space where the exported functions belong
-        :type function_space: :class:`FunctionSpace`
-        :arg string outputdir: directory where outputs will be stored
-        :arg string filename_prefix: prefix of output filename. Filename is
-            prefix_nnnnn.h5 where nnnnn is the export number.
-        :kwarg int next_export_ix: index for next export (default 0)
-        :kwarg bool legacy_mode: use legacy DumbCheckpoint format
-        :kwarg bool verbose: print debug info to stdout
-        """
-        super(HDF5Exporter, self).__init__(filename_prefix, outputdir,
-                                           next_export_ix, verbose)
+        mesh_comm = function_space.mesh().comm
+        ExporterBase.__init__(self, filename_prefix, outputdir, next_export_ix, verbose, comm=mesh_comm)
         self.function_space = function_space
         self.dumb_checkpoint = legacy_mode
         self.include_time = include_time
@@ -174,7 +152,7 @@ class HDF5Exporter(ExporterBase):
             with DumbCheckpoint(filename, mode=FILE_CREATE, comm=function.comm) as f:
                 f.store(function)
         else:
-            with CheckpointFile(filename, 'w') as f:
+            with CheckpointFile(filename, 'w', comm=function.function_space().mesh().comm) as f:
                 mesh = function.function_space().mesh()
                 f.save_mesh(mesh)
 
@@ -381,6 +359,9 @@ class ExportManager(object):
 
         :arg bathymetry_2d: 2D bathymetry :class:`Function`
         """
-        bathfile = VTKFile(os.path.join(self.outputdir, 'init_bathymetry_2d/init_bathymetry_2d.pvd'))
+        bathfile = VTKFile(
+            os.path.join(self.outputdir, 'init_bathymetry_2d/init_bathymetry_2d.pvd'),
+            comm=bathymetry_2d.function_space().mesh().comm,
+        )
 
         bathfile.write(bathymetry_2d)
