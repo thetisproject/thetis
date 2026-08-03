@@ -296,7 +296,7 @@ class InversionManager(FrozenHasTraits):
         """Update objective bookkeeping consistently in serial and ensemble modes."""
         self.J_reg = self._reduce_scalar(self.J_reg_local)
         self.J_misfit = self._reduce_scalar(self.J_misfit_local)
-        self.J = float(j) if j is not None else self.J_reg + self.J_misfit
+        self.J = self._reduce_scalar(self.J_local)
 
     def start_clock(self):
         self.tic = time_mod.perf_counter()
@@ -528,11 +528,10 @@ class InversionManager(FrozenHasTraits):
         Create a Pyadjoint :class:`ReducedFunctional` for the optimization.
         """
         if self.Jhat is None:
-            rf_cls = EnsembleReducedFunctional if self.ensemble is not None else ReducedFunctional
-            rf_args = [self.J, self.control_list]
             if self.ensemble is not None:
-                rf_args.append(self.ensemble)
-            self.Jhat = rf_cls(*rf_args, **self.rf_kwargs)
+                self.Jhat = EnsembleReducedFunctional(self.J, self.control_list, self.ensemble, **self.rf_kwargs)
+            else:
+                self.Jhat = ReducedFunctional(self.J, self.control_list, **self.rf_kwargs)
         return self.Jhat
 
     @property
@@ -584,7 +583,7 @@ class InversionManager(FrozenHasTraits):
         self.start_clock()
         J = self.reduced_functional(self.control_coeff_list)
         self._update_objective_from_evaluation(J)
-        self.set_initial_state(self.J if self.ensemble is not None else J,
+        self.set_initial_state(self.J,
                                self.reduced_functional.derivative(apply_riesz=True), self.control_coeff_list)
         if self.is_export_root:
             self.sta_manager.collect_time_series(self.i)
