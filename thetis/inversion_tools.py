@@ -544,13 +544,6 @@ class InversionManager(FrozenHasTraits):
             return True
         return self.ensemble.ensemble_rank == 0
 
-    @property
-    def is_station_export_root(self):
-        """Return True on ranks that should write station time-series outputs."""
-        if self.no_exports:
-            return False
-        return True
-
     def stop_annotating(self):
         """
         Stop recording operations for the adjoint solver.
@@ -573,7 +566,7 @@ class InversionManager(FrozenHasTraits):
 
         def optimization_callback(m):
             self.update_progress()
-            if self.is_station_export_root:
+            if not self.no_exports:
                 self.sta_manager.dump_time_series()
 
         return optimization_callback
