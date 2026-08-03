@@ -612,7 +612,6 @@ class InversionManager(FrozenHasTraits):
         """
         print_output("Running consistency test")
         J = self.reduced_functional(self.control_coeff_list)
-        self._update_objective_from_evaluation(J)
         if not numpy.isclose(J, self.J):
             raise ValueError(f"Consistency test failed (expected {self.J}, got {J})")
         print_output("Consistency test passed!")
@@ -628,10 +627,7 @@ class InversionManager(FrozenHasTraits):
         for f in self.control_coeff_list:
             dc = f.copy(deepcopy=True)
             func_list.append(dc)
-        if self.ensemble:
-            minconv = taylor_test(self.reduced_functional.local_reduced_functional, self.control_coeff_list, func_list)
-        else:
-            minconv = taylor_test(self.reduced_functional, self.control_coeff_list, func_list)
+        minconv = taylor_test(self.reduced_functional, self.control_coeff_list, func_list)
         if minconv < 1.9:
             raise ValueError("Taylor test failed")  # NOTE: Pyadjoint already prints the testing
         print_output("Taylor test passed!")
