@@ -6,6 +6,7 @@ from model_config import construct_solver
 from shapely.geometry import Point
 from mpi4py import MPI
 import argparse
+import numpy as np
 
 # ---------------------------------------- Step 1: set up mesh and ground truth ----------------------------------------
 parser = argparse.ArgumentParser(
@@ -57,8 +58,8 @@ elev_init_2d = solver_obj.fields.elev_2d
 
 coordinates = mesh2d.coordinates.dat.data[:]
 x, y = coordinates[:, 0], coordinates[:, 1]
-lx = mesh2d.comm.allreduce(numpy.max(x), MPI.MAX)
-ly = mesh2d.comm.allreduce(numpy.max(y), MPI.MAX)
+lx = mesh2d.comm.allreduce(np.max(x), MPI.MAX)
+ly = mesh2d.comm.allreduce(np.max(y), MPI.MAX)
 
 # Create a FunctionSpace on the mesh (corresponds to Manning)
 V = get_functionspace(mesh2d, 'CG', 1)
