@@ -91,10 +91,10 @@ class ControlManager:
         # Initialize exporters if needed
         if not no_exports:
             fs = self.projection_space if not self.is_field else self.controls[0].function_space()
-            self.vtk_file = fd.VTKFile(f"{output_dir}/control_progress_{index:02d}.pvd", comm=fs.mesh().comm)
+            self.vtk_file = fd.VTKFile(f"{output_dir}/control_progress_{index:02d}.pvd", comm=fs.comm)
             prefix = f"control_{index:02d}"
             self.hdf5_exporter = HDF5Exporter(fs, output_dir + "/hdf5", prefix)
-            self.gradient_vtk_file = fd.VTKFile(f"{output_dir}/gradient_progress_{index:02d}.pvd", comm=fs.mesh().comm)
+            self.gradient_vtk_file = fd.VTKFile(f"{output_dir}/gradient_progress_{index:02d}.pvd", comm=fs.comm)
 
     def project_control(self, updated_controls):
         """Project masked combination or domain_constant to CG1 field for export."""
@@ -171,7 +171,7 @@ class InversionManager(FrozenHasTraits):
             which the :class:`ReducedFunctional` can recompute values
         :kwarg test_gradient: toggle testing the correctness with
             which the :class:`ReducedFunctional` can recompute gradients
-        :kwarg ensemble: an ensemble object
+        :kwarg ensemble: an :class: 'Ensemble' object to enable ensemble parallelism
         """
         assert isinstance(sta_manager, StationObservationManagerBase)
         self.sta_manager = sta_manager
@@ -209,7 +209,7 @@ class InversionManager(FrozenHasTraits):
         if not self.no_exports:
             if self.real:
                 raise ValueError("Exports are not supported in Real mode.")
-            comm = self.control_coeff_list[0].function_space().mesh().comm
+            comm = self.control_coeff_list[0].comm
             create_directory(self.output_dir, comm=comm)
             create_directory(self.output_dir + '/hdf5', comm=comm)
         self.initialized = True
@@ -598,6 +598,8 @@ class InversionManager(FrozenHasTraits):
             self.sta_manager.dump_time_series()
         objective = self.reduced_functional
         if self.ensemble is not None:
+            # as EnsembleReducedFunctional is a custom object implemented in firedrake/adjoint instead of being native
+            # to pyadjoint, it must be converted to the ReducedFunctionalNumPy pyadjoint object
             objective = ReducedFunctionalNumPy(self.reduced_functional)
         try:
             return minimize(
