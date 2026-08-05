@@ -12,14 +12,15 @@
 #
 from thetis import *
 import pytest
+import supported_elements
 
 
-@pytest.mark.parametrize("element_family", [
-    'dg-dg', 'rt-dg', 'dg-cg', 'bdm-dg'])
+@pytest.mark.parametrize("element_family_and_degree",
+                         supported_elements.cases)
 @pytest.mark.parametrize("timestepper", [
     'CrankNicolson', 'SSPRK33', ])
-def test_pressure_forcing(element_family, timestepper):
-    order = 1
+def test_pressure_forcing(element_family_and_degree, timestepper):
+    element_family, order = element_family_and_degree
 
     lx = 10000
     ly = 10000

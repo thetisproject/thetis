@@ -1,20 +1,13 @@
 from thetis import *
+from supported_elements import *
 import math
-import pytest
 
 
-cases = [('rt-dg', 0), ('rt-dg', 1), ('dg-dg', 1), ('dg-cg', 1), ('bdm-dg', 1)]
-case_ids = [f'{fam}{deg}' for fam, deg in cases]
-@pytest.fixture(params=cases, ids=case_ids)
-def element_family_and_order(request):
-    return request.param
-
-
-def test_steady_state_channel_mms(element_family_and_order, do_exports=False):
+def test_steady_state_channel_mms(element_family_and_degree, do_exports=False):
     lx = 5e3
     ly = 1e3
 
-    element_family, order = element_family_and_order
+    element_family, order = element_family_and_degree
     # minimum resolution
     min_cells = 48
     n = 1  # number of timesteps

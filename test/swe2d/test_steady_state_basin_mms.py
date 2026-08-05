@@ -10,6 +10,7 @@ MMS test for 2d shallow water equations.
 from thetis import *
 from scipy import stats
 import pytest
+from supported_elements import *
 
 
 def setup7(x, lx, ly, h0, f0, nu0, g):
@@ -325,21 +326,17 @@ def setup(request):
     return request.param
 
 
-@pytest.fixture(params=['rt-dg', 'dg-dg', 'dg-cg', 'bdm-dg'])
-def element_family(request):
-    return request.param
-
-
 @pytest.fixture(params=['CrankNicolson'])
 def timestepper_type(request):
     return request.param
 
 
-def test_steady_state_basin_convergence(setup, element_family, timestepper_type):
+def test_steady_state_basin_convergence(setup, element_family_and_degree, timestepper_type):
     sp = {'ksp_type': 'preonly', 'pc_type': 'lu', 'snes_monitor': None,
           'mat_type': 'aij'}
     options = {
-        'element_family': element_family,
+        'element_family': element_family_and_degree[0],
+        'polynomial_degree': element_family_and_degree[1],
         'swe_timestepper_type': timestepper_type
     }
     run_convergence(setup, [1, 2, 4, 6], 1, options=options,
