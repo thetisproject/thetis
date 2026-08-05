@@ -334,10 +334,10 @@ def timestepper_type(request):
 def test_steady_state_basin_convergence(setup, element_family_and_degree, timestepper_type):
     sp = {'ksp_type': 'preonly', 'pc_type': 'lu', 'snes_monitor': None,
           'mat_type': 'aij'}
+    element_family, degree = element_family_and_degree
     options = {
-        'element_family': element_family_and_degree[0],
-        'polynomial_degree': element_family_and_degree[1],
+        'element_family': element_family,
         'swe_timestepper_type': timestepper_type
     }
-    run_convergence(setup, [1, 2, 4, 6], 1, options=options,
+    run_convergence(setup, [1, 2, 4, 6], degree, options=options,
                     solver_parameters=sp, save_plot=False)
