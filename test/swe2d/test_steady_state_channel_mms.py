@@ -3,16 +3,18 @@ import math
 import pytest
 
 
-@pytest.fixture(params=['rt-dg', 'dg-dg', 'dg-cg', 'bdm-dg'])
-def element_family(request):
+cases = [('rt-dg', 0), ('rt-dg', 1), ('dg-dg', 1), ('dg-cg', 1), ('bdm-dg', 1)]
+case_ids = [f'{fam}{deg}' for fam, deg in cases]
+@pytest.fixture(params=cases, ids=case_ids)
+def element_family_and_order(request):
     return request.param
 
 
-def test_steady_state_channel_mms(element_family, do_exports=False):
+def test_steady_state_channel_mms(element_family_and_order, do_exports=False):
     lx = 5e3
     ly = 1e3
 
-    order = 1
+    element_family, order = element_family_and_order
     # minimum resolution
     min_cells = 48
     n = 1  # number of timesteps
@@ -31,7 +33,10 @@ def test_steady_state_channel_mms(element_family, do_exports=False):
     eta_errs = []
     u_errs = []
     for i in range(4):
-        mesh2d = RectangleMesh(min_cells*2**i, 1, lx, ly)
+        # for rt/bdm accuracy depends on triangle quality;
+        # avoid elements getting flatter by making channel narrower
+        # (wouldn't be an issue if we'd refine in both x and y)
+        mesh2d = RectangleMesh(min_cells*2**i, 1, lx, ly/2**i)
         x = mesh2d.coordinates
         eta_expr = eta0*cos(k*x[0])
         H = H0+eta0*cos(k*x[0])
