@@ -19,7 +19,7 @@ def test_steady_state_channel_mms(element_family_and_degree, do_exports=False):
     k = 4.0*math.pi/lx
     Q = H0*1.0  # flux (depth-integrated velocity)
     eta0 = 1.0  # free surface amplitude
-    C_D = 0.0025  # quadratic drag coefficient
+    C_D = 0.01  # quadratic drag coefficient
 
     xhat = Identity(2)[0, :]
 
