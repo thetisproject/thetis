@@ -10,6 +10,10 @@ Also see `instructions for citing Firedrake <https://firedrakeproject.org/citing
 
 2026
 ----
+Li, Y., Kramer, S. C. and Piggott, M. D.:
+Machine Learning Based Mesh Movement for Non-Hydrostatic Tsunami Simulation,
+*arXiv preprint*,
+doi: `10.48550/arXiv.2603.06152 <https://doi.org/10.48550/arXiv.2603.06152)>`_, 2026.
 
 Hill, J., Vila-Concejo, A. and Lee, K.C.:
 Toward a digital twin of the Great Barrier Reef: Impact of extreme model resolution on tidal simulations,
@@ -33,6 +37,11 @@ doi: `10.1016/j.renene.2025.124214 <https://doi.org/10.1016/j.renene.2025.124214
 
 2025
 ----
+Jordan, C. and Angeloudis, A.:
+Assimilation of velocity data for tidal hydrodynamics model calibration,
+*ESS Open Archive preprint*,
+doi: `10.22541/essoar.175431986.67973338/v2 <https://doi.org/10.22541/essoar.175431986.67973338/v2>`_, 2025.
+
 Chien, N.Q., Jordan, C., Brazovskis, E., Sellar, B., Ribeiro, J., Silva, A., Angeloudis, A.:
 Operational coastal ocean modelling for tidal stream turbine arrays,
 *Appl. Ocean Res.* 165, 104847.,
@@ -76,7 +85,6 @@ Iterative dynamics-based mesh discretisation for multi-scale coastal ocean model
 *J. Ocean Eng. Mar. Energy*, 10:313–334,
 doi: `10.1007/s40722-024-00314-4 <https://doi.org/10.1007/s40722-024-00314-4>`_, 2024
 
-
 Alday, M. and Lavidas, G.:
 Assessing the Tidal Stream Resource for energy extraction in The Netherlands,
 *Renewable Energy*, 220:119683,
@@ -92,7 +100,7 @@ Modelling the impacts of tropical cyclones on coral cover across the Great Barri
 *MSc by Research thesis*: University of York.
 eprint ID: `etheses.whiterose.ac.uk:36909 <https://etheses.whiterose.ac.uk/id/eprint/36909/>`_, 2024.
 
-Zhang, C. Cheng, X., Angeloudis, A., Kramer, S. C., Wu, C., Chen, Y. and Piggott, M. D.:
+Zhang, C., Cheng, X., Angeloudis, A., Kramer, S. C., Wu, C., Chen, Y. and Piggott, M. D.:
 Economics-constrained tidal turbine array layout optimisation at the Putuoshan–Hulu island waterway,
 *Ocean Engineering*, 314(1):119618,
 doi: `10.1016/j.oceaneng.2024.119618 <https://doi.org/10.1016/j.oceaneng.2024.119618>`_, 2024.
@@ -107,20 +115,20 @@ Objective representative flow field selection for tidal array layout design,
 *Renewable Energy*, 236:121381,
 doi: `10.1016/j.renene.2024.121381 <https://doi.org/10.1016/j.renene.2024.121381>`_, 2024.
 
+Rasheed, S., Warder, S. C., Plancherel, Y. and Piggott, M. D.:
+Nearshore tsunami amplitudes across the Maldives archipelago due to worst-case seismic scenarios in the Indian Ocean,
+*Natural Hazards and Earth System Sciences*, 24(3):737–755,
+doi: `10.5194/nhess-24-737-2024 <https://doi.org/10.5194/nhess-24-737-2024>`_, 2024.
+
 2023
 ----
-
-Wallwork, J. G., Angeloudis, A., Barral, N., Mackie, L., Kramer, S. C. and Piggott, M. D.:
-Tidal turbine array modelling using goal-oriented mesh adaptation,
-*Journal of Ocean Engineering and Marine Energy*,
-doi: `10.1007/s40722-023-00307-9 <https://doi.org/10.1007/s40722-023-00307-9>`_, 2023.
 
 Kärnä, T., Wallwork, J. G. and Kramer, S. C.:
 Adjoint-based optimization of a regional water elevation model,
 *Journal of Advances in Modeling Earth Systems*,
 doi: `10.1029/2022MS003169 <https://doi.org/10.1029/2022MS003169>`_, 2023.
 
-Woodroffe, S., Hill, J., Bustamante-Fernandez, E., Lloyd, JM., Luff, J., Richards, S. and Shennan, I:
+Woodroffe, S., Hill, J., Bustamante-Fernandez, E., Lloyd, J. M., Luff, J., Richards, S. and Shennan, I.:
 On the varied impact of the Storegga tsunami in northwest Scotland,
 *Journal of Quaternary Science*, 
 doi: `10.1002/jqs.3539 <https://doi.org/10.1002/jqs.3539>`_, 2023.
@@ -128,7 +136,7 @@ doi: `10.1002/jqs.3539 <https://doi.org/10.1002/jqs.3539>`_, 2023.
 Hill, J., Rush, G., Peakall, J., Johnson, M., Hodson, L. and Barlow, N.L.M.,
 Bowman, E.T., Gehrels, W.R., Hodgson, D.M., Kesserwani, G:
 Resolving tsunami wave dynamics: integrating sedimentology and numerical modelling,
-*The Depositional Record*
+*The Depositional Record*,
 doi: `10.1002/dep2.247 <https://doi.org/10.1002/dep2.247>`_, 2023.
 
 Zhang, C., Zhang, J., Angeloudis, A., Zhou, Y., Kramer, S.C. and Piggott, M.D.:
@@ -148,6 +156,10 @@ doi: `10.1016/j.coastaleng.2023.104303 <https://doi.org/10.1016/j.coastaleng.202
 
 2022
 ----
+Warder, S. C., Angeloudis, A. and Piggott, M. D.:
+Sedimentological data-driven bottom friction parameter estimation in modelling Bristol Channel tidal dynamics,
+*Ocean Dynamics*, 72:361–382,
+doi: `10.1007/s10236-022-01507-x <https://doi.org/10.1007/s10236-022-01507-x>`_, 2022.
 
 Lee, K.C., Webster, J.M., Salles, T., Mawson, E.E. and Hill, J.:
 Tidal dynamics drive ooid formation in the Capricorn Channel since the Last Glacial Maximum,
@@ -194,8 +206,17 @@ Combining shallow-water and analytical wake models for tidal array micro-siting,
 *J. Ocean Eng. Mar. Energy* 8:193–215,
 doi: `10.1007/s40722-022-00225-2 <https://doi.org/10.1007/s40722-022-00225-2>`_, 2022.
 
+Warder, S. C. and Piggott, M. D.:
+Optimal experiment design for a bottom friction parameter estimation problem,
+*GEM - International Journal on Geomathematics*, 13:7,
+doi: `10.1007/s13137-022-00196-4 <https://doi.org/10.1007/s13137-022-00196-4>`_, 2022.
+
 2021
 ----
+Warder, S. C., Kramer, S. C. and Piggott, M. D.:
+Non-deterministic effects in modelling the tidal currents in a high-energy coastal site,
+*EarthArXiv preprint*,
+doi: `10.31223/X55G7F <https://doi.org/10.31223/X55G7F>`_, 2021.
 
 Fofonova, V., Kärnä, T., Klingbeil, K., Androsov, A., Kuznetsov, I., Sidorenko, D., Danilov, S., Burchard, H. and Wiltshire, K. H.:
 Plume spreading test case for coastal ocean models,
@@ -210,7 +231,7 @@ doi:`10.1111/bor.12532 <https://doi.org/10.1111/bor.12532>`_, 2021.
 Mackie, L., Kramer, S. C., Piggott, M. D. and Angeloudis, A.:
 Assessing impacts of tidal power lagoons of a consistent design,
 *Ocean Engineering* 240, p. 109879.
-doi: `10.1016/j.oceaneng.2021.109879 <https://doi.org/10.1016/j.oceaneng.2021.109879>`
+doi: `10.1016/j.oceaneng.2021.109879 <https://doi.org/10.1016/j.oceaneng.2021.109879>`_, 2021.
 
 Pan, W., Kramer, S. C., and Piggott, M. D.:
 A sigma-coordinate non-hydrostatic discontinuous finite element coastal ocean model,
@@ -222,7 +243,7 @@ Response of tidal flow regime and sediment transport in North Malé Atoll, Maldi
 *Ocean Science*, 17:319–334,
 doi:`10.5194/os-17-319-2021 <https://doi.org/10.5194/os-17-319-2021>`_, 2021.
 
-Mackie, L., Evans, P. S., Harrold, M. J.,  O`Doherty, T., Piggott, M. D. and Angeloudis, A.:
+Mackie, L., Evans, P. S., Harrold, M. J.,  O'Doherty, T., Piggott, M. D. and Angeloudis, A.:
 Modelling an energetic tidal strait: investigating implications of common numerical configuration choices,
 *Applied Ocean Research*, 108:102494,
 doi:`10.1016/j.apor.2020.102494 <https://doi.org/10.1016/j.apor.2020.102494>`_, 2021.
@@ -312,3 +333,8 @@ Angeloudis, A., Kramer, S. C., Avdis, A., and Piggott,  M. D.:
 Optimising tidal range power plant operation,
 *Applied Energy*, 212:680–690,
 doi:`10.1016/j.apenergy.2017.12.052 <https://doi.org/10.1016/j.apenergy.2017.12.052>`_, 2018.
+
+Avdis, A., Candy, A. S., Hill, J., Kramer, S. C. and Piggott, M. D.:
+Efficient unstructured mesh generation for marine renewable energy applications,
+*Renewable Energy*, 116:842–856,
+doi: `10.1016/j.renene.2017.09.058 <https://doi.org/10.1016/j.renene.2017.09.058>`_, 2018.
