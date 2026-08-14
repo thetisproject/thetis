@@ -39,7 +39,7 @@ doi: `10.1016/j.renene.2025.124214 <https://doi.org/10.1016/j.renene.2025.124214
 ----
 Jordan, C. and Angeloudis, A.:
 Assimilation of velocity data for tidal hydrodynamics model calibration,
-*ESS Open Archive preprint*,
+*Journal of Advances in Modeling Earth Systems* 18, e2025MS005399,
 doi: `10.22541/essoar.175431986.67973338/v2 <https://doi.org/10.22541/essoar.175431986.67973338/v2>`_, 2025.
 
 Chien, N.Q., Jordan, C., Brazovskis, E., Sellar, B., Ribeiro, J., Silva, A., Angeloudis, A.:
