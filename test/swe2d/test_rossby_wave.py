@@ -15,6 +15,7 @@ compute the error metrics, we project onto the same high resolution mesh used fo
 (2008), Journal of Geophysical Research: Oceans, 113(C7).
 """
 from thetis import *
+from supported_elements import *
 import pytest
 
 
@@ -267,14 +268,10 @@ def stepper(request):
     return request.param
 
 
-@pytest.fixture(params=['dg-dg', 'dg-cg', 'rt-dg', 'bdm-dg'])
-def family(request):
-    return request.param
-
-
-def test_convergence(stepper, family):
+def test_convergence(stepper, element_family_and_degree):
+    family, degree = element_family_and_degree
     run_convergence([24, 48], swe_timestepper_type=stepper,
-                    simulation_end_time=30.0, polynomial_degree=1, element_family=family,
+                    simulation_end_time=30.0, polynomial_degree=degree, element_family=family,
                     no_exports=True, expansion_order=1)
 
 
