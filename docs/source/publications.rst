@@ -13,7 +13,7 @@ Also see `instructions for citing Firedrake <https://firedrakeproject.org/citing
 Li, Y., Kramer, S. C. and Piggott, M. D.:
 Machine Learning Based Mesh Movement for Non-Hydrostatic Tsunami Simulation,
 *arXiv preprint*,
-doi: `10.48550/arXiv.2603.06152 <https://doi.org/10.48550/arXiv.2603.06152)>`_, 2026.
+doi: `10.48550/arXiv.2603.06152 <https://doi.org/10.48550/arXiv.2603.06152>`_, 2026.
 
 Hill, J., Vila-Concejo, A. and Lee, K.C.:
 Toward a digital twin of the Great Barrier Reef: Impact of extreme model resolution on tidal simulations,
