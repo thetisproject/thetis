@@ -10,10 +10,15 @@ Also see `instructions for citing Firedrake <https://firedrakeproject.org/citing
 
 2026
 ----
+Jordan, C. and Angeloudis, A.:
+Assimilation of velocity data for tidal hydrodynamics model calibration,
+*Journal of Advances in Modeling Earth Systems* 18, e2025MS005399,
+doi: `10.1029/2025MS005399 <https://doi.org/10.1029/2025MS005399>`_, 2026.
+
 Li, Y., Kramer, S. C. and Piggott, M. D.:
 Machine Learning Based Mesh Movement for Non-Hydrostatic Tsunami Simulation,
 *arXiv preprint*,
-doi: `10.48550/arXiv.2603.06152 <https://doi.org/10.48550/arXiv.2603.06152)>`_, 2026.
+doi: `10.48550/arXiv.2603.06152 <https://doi.org/10.48550/arXiv.2603.06152>`_, 2026.
 
 Hill, J., Vila-Concejo, A. and Lee, K.C.:
 Toward a digital twin of the Great Barrier Reef: Impact of extreme model resolution on tidal simulations,
@@ -37,11 +42,6 @@ doi: `10.1016/j.renene.2025.124214 <https://doi.org/10.1016/j.renene.2025.124214
 
 2025
 ----
-Jordan, C. and Angeloudis, A.:
-Assimilation of velocity data for tidal hydrodynamics model calibration,
-*Journal of Advances in Modeling Earth Systems* 18, e2025MS005399,
-doi: `10.1029/2025MS005399 <https://doi.org/10.1029/2025MS005399>`_, 2026.
-
 Chien, N.Q., Jordan, C., Brazovskis, E., Sellar, B., Ribeiro, J., Silva, A., Angeloudis, A.:
 Operational coastal ocean modelling for tidal stream turbine arrays,
 *Appl. Ocean Res.* 165, 104847.,
