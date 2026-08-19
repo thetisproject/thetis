@@ -145,11 +145,20 @@ The independent point scheme approach works in the same way as the region-based 
 function which tells us how the Manning field changes with respect to our input independent point values. The only thing 
 we need to do is change the masks we generate. 
 
-Instead of masks with 0/1 values, we have masks which describe the contribution of each point to the rest of the 
-domain. Note that this will only work for linear interpolation, as we cannot generate static coefficients for non-linear
-mappings (RBF, quadratic, cubic etc.). In those cases, we would need to 'annotate' the interpolation functions for 
-`pyadjoint` to track the gradient through. We can generate a mapping in the same way to force a smooth surface, but it 
-would not be true RBF/quadratic/cubic interpolation.
+Instead of masks with 0/1 values, we have a mapping which describes the contribution of each point to the rest of the 
+domain. Linear interpolation uses fixed Firedrake basis fields. Cubic and radial-basis interpolation use Thetis'
+independent-point external operator, which evaluates the SciPy interpolation and provides the adjoint vector-Jacobian
+product required by `pyadjoint`.
+
+```sh
+source ~/firedrake/bin/activate
+make invert CASE=IndependentPointsScheme IP_INTERPOLATION=linear
+make invert CASE=IndependentPointsScheme IP_INTERPOLATION=cubic
+make invert CASE=IndependentPointsScheme IP_INTERPOLATION=rbf
+```
+
+The RBF mode uses SciPy's `RBFInterpolator`. The default kernel is `thin_plate_spline` with zero smoothing; these can be
+changed through `IP_RBF_KERNEL` and `IP_RBF_SMOOTHING`.
 
 ## Post-processing
 

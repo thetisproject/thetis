@@ -1,5 +1,6 @@
 import firedrake as fd
 from firedrake.adjoint import *
+from firedrake.external_operators import AbstractExternalOperator, assemble_method
 import ufl
 from .configuration import FrozenHasTraits
 from .solver2d import FlowSolver2d
@@ -11,7 +12,10 @@ from .callback import DiagnosticCallback
 import abc
 import numpy
 import h5py
-from scipy.interpolate import interp1d
+from scipy.interpolate import (
+    interp1d, LinearNDInterpolator, NearestNDInterpolator,
+    CloughTocher2DInterpolator, RBFInterpolator,
+)
 import time as time_mod
 from pyadjoint.optimization.optimization import SciPyConvergenceError
 import os
@@ -44,6 +48,211 @@ class CostFunctionCallback(DiagnosticCallback):
         return f"Cost function value: {cost_value}"
 
 
+def _function_space_node_coordinates(function_space):
+    return function_space.mesh().coordinates.dat.data_ro
+
+
+def _interpolate_independent_point_values(function_space, points, values, method,
+                                          rbf_kernel='thin_plate_spline', rbf_smoothing=0.0):
+    """Evaluate an independent-point interpolation on local mesh nodes."""
+    coordinates = _function_space_node_coordinates(function_space)
+    if method == 'linear':
+        interpolator = LinearNDInterpolator(points, values)
+        nearest_interpolator = NearestNDInterpolator(points, values)
+        interpolated = interpolator(coordinates)
+        nan_mask = numpy.isnan(interpolated)
+        if interpolated.ndim > 1:
+            nan_mask = nan_mask.any(axis=1)
+        if numpy.any(nan_mask):
+            interpolated[nan_mask] = nearest_interpolator(coordinates[nan_mask])
+        return interpolated
+    elif method == 'cubic':
+        interpolator = CloughTocher2DInterpolator(points, values)
+        nearest_interpolator = NearestNDInterpolator(points, values)
+        interpolated = interpolator(coordinates)
+        nan_mask = numpy.isnan(interpolated)
+        if interpolated.ndim > 1:
+            nan_mask = nan_mask.any(axis=1)
+        if numpy.any(nan_mask):
+            interpolated[nan_mask] = nearest_interpolator(coordinates[nan_mask])
+        return interpolated
+    elif method == 'rbf':
+        interpolator = RBFInterpolator(points, values, kernel=rbf_kernel, smoothing=rbf_smoothing)
+        return interpolator(coordinates)
+    else:
+        raise ValueError(f"Unsupported independent point interpolation method '{method}'")
+
+
+def _independent_point_coefficients(function_space, points, method,
+                                    rbf_kernel='thin_plate_spline', rbf_smoothing=0.0):
+    values = numpy.eye(len(points))
+    coefficients = _interpolate_independent_point_values(
+        function_space, points, values, method, rbf_kernel=rbf_kernel, rbf_smoothing=rbf_smoothing)
+    return tuple(tuple(float(v) for v in row) for row in coefficients)
+
+
+class IndependentPointInterpolator(AbstractExternalOperator):
+    """
+    External operator mapping independent point controls to a mesh field.
+
+    The forward pass evaluates the requested SciPy interpolation. The adjoint
+    action uses precomputed interpolation basis fields to provide pyadjoint with
+    the vector-Jacobian product with respect to each scalar point value.
+    """
+
+    def __init__(self, *operands, function_space, derivatives=None, argument_slots=(), operator_data):
+        AbstractExternalOperator.__init__(
+            self, *operands, function_space=function_space, derivatives=derivatives,
+            argument_slots=argument_slots, operator_data=operator_data)
+
+    @property
+    def points(self):
+        return numpy.asarray(self.operator_data['points'])
+
+    @property
+    def method(self):
+        return self.operator_data['method']
+
+    @property
+    def rbf_kernel(self):
+        return self.operator_data['rbf_kernel']
+
+    @property
+    def rbf_smoothing(self):
+        return self.operator_data['rbf_smoothing']
+
+    @property
+    def cubic_derivative_step(self):
+        return self.operator_data['cubic_derivative_step']
+
+    @property
+    def interpolation_coefficients(self):
+        return numpy.asarray(self.operator_data['coefficients'])
+
+    def control_values(self):
+        return numpy.array([float(control.dat.data_ro[0]) for control in self.ufl_operands])
+
+    def coefficient_function(self, index):
+        coefficient = fd.Function(self.function_space(), name=f'independent_point_basis_{index:02d}')
+        if self.method == 'cubic':
+            values = self.control_values()
+            step = self.cubic_derivative_step
+            values_plus = values.copy()
+            values_minus = values.copy()
+            values_plus[index] += step
+            values_minus[index] -= step
+            interp_plus = _interpolate_independent_point_values(
+                self.function_space(), self.points, values_plus, self.method,
+                rbf_kernel=self.rbf_kernel, rbf_smoothing=self.rbf_smoothing)
+            interp_minus = _interpolate_independent_point_values(
+                self.function_space(), self.points, values_minus, self.method,
+                rbf_kernel=self.rbf_kernel, rbf_smoothing=self.rbf_smoothing)
+            coefficient.dat.data_wo[:] = (interp_plus - interp_minus) / (2.0 * step)
+        else:
+            coefficient.dat.data_wo[:] = self.interpolation_coefficients[:, index]
+        return coefficient
+
+    @assemble_method(0, (0,))
+    def assemble_operator(self, *args, **kwargs):
+        field = fd.Function(self.function_space(), name='independent_point_field')
+        field.dat.data_wo[:] = _interpolate_independent_point_values(
+            self.function_space(), self.points, self.control_values(), self.method,
+            rbf_kernel=self.rbf_kernel, rbf_smoothing=self.rbf_smoothing)
+        return field
+
+    @assemble_method(1, (0, None))
+    def assemble_jacobian_action(self, *args, **kwargs):
+        index, = [j for j, d in enumerate(self.derivatives) if d == 1]
+        direction = self.argument_slots()[-1]
+        return fd.Function(self.function_space()).assign(
+            float(direction.dat.data_ro[0]) * self.coefficient_function(index))
+
+    @assemble_method(1, (None, 0))
+    def assemble_jacobian_adjoint_action(self, *args, **kwargs):
+        index, = [j for j, d in enumerate(self.derivatives) if d == 1]
+        output_adjoint = self.argument_slots()[0]
+        coefficient = self.coefficient_function(index)
+
+        with output_adjoint.dat.vec_ro as y, coefficient.dat.vec_ro as basis:
+            sensitivity = y.dot(basis)
+
+        control_space = self.ufl_operands[index].function_space()
+        result = fd.Cofunction(control_space.dual())
+        result.dat.data_wo[0] = sensitivity
+        return result
+
+
+class IndependentPointControlMapping:
+    """
+    Maps scalar independent point controls to a Firedrake field.
+
+    ``linear`` mappings use fixed Firedrake basis Functions. ``cubic`` and
+    ``rbf`` mappings use :class:`IndependentPointInterpolator` so that
+    pyadjoint can differentiate through SciPy interpolation calls.
+    """
+
+    def __init__(self, function_space, points, method='linear',
+                 rbf_kernel='thin_plate_spline', rbf_smoothing=0.0,
+                 cubic_derivative_step=1.0e-6):
+        if function_space.value_shape != ():
+            raise ValueError("IndependentPointControlMapping expects a scalar FunctionSpace")
+        self.function_space = function_space
+        self.points = numpy.asarray(points, dtype=float)
+        self.method = method.lower()
+        self.rbf_kernel = rbf_kernel
+        self.rbf_smoothing = float(rbf_smoothing)
+        self.cubic_derivative_step = float(cubic_derivative_step)
+        if self.method not in ('linear', 'cubic', 'rbf'):
+            raise ValueError(f"Unsupported independent point interpolation method '{method}'")
+
+        self.coefficients = _independent_point_coefficients(
+            self.function_space, self.points, self.method,
+            rbf_kernel=self.rbf_kernel, rbf_smoothing=self.rbf_smoothing)
+        self.num_controls = len(self.points)
+        self.masks = self._build_basis_functions() if self.method == 'linear' else None
+
+    def _build_basis_functions(self):
+        coefficients = numpy.asarray(self.coefficients)
+        masks = []
+        for i in range(self.num_controls):
+            mask = fd.Function(self.function_space, name=f'independent_point_basis_{i:02d}')
+            mask.dat.data_wo[:] = coefficients[:, i]
+            masks.append(mask)
+        return masks
+
+    @property
+    def operator_data(self):
+        return {
+            'points': tuple(tuple(float(v) for v in point) for point in self.points),
+            'method': self.method,
+            'rbf_kernel': self.rbf_kernel,
+            'rbf_smoothing': self.rbf_smoothing,
+            'cubic_derivative_step': self.cubic_derivative_step,
+            'coefficients': self.coefficients,
+        }
+
+    def operator(self, controls):
+        return IndependentPointInterpolator(*controls, function_space=self.function_space,
+                                            operator_data=self.operator_data)
+
+    def project(self, controls, name='control'):
+        if len(controls) != self.num_controls:
+            raise ValueError(f"Expected {self.num_controls} controls, got {len(controls)}")
+        if self.method == 'linear':
+            field = fd.Function(self.function_space, name=name)
+            field.assign(0.0)
+            for control, mask in zip(controls, self.masks):
+                field.assign(field + control * mask)
+        else:
+            field = fd.assemble(self.operator(controls))
+            field.rename(name)
+        return field
+
+    def assign(self, target, controls):
+        target.assign(self.project(controls, name=target.name()))
+        return target
+
+
 class ControlManager:
     """
     Handles an individual control (spatially varying Function, masked combination of Functions,
@@ -60,6 +269,7 @@ class ControlManager:
         self.mappings = mappings
         self.is_masked_combination = mappings is not None
         self.is_field = False
+        self.num_controls = len(self.controls)
 
         # Exporters
         self.vtk_file = None
@@ -71,8 +281,14 @@ class ControlManager:
             for c in self.controls:
                 if not isinstance(c, fd.Function):
                     raise ValueError("All masked combination controls must be Functions")
-            self.mesh = self.controls[0].function_space().mesh()
-            self.projection_space = fd.FunctionSpace(self.mesh, "CG", 1, variant="equispaced")
+            if hasattr(self.mappings, 'project'):
+                self.projection_space = self.mappings.function_space
+                self.mesh = self.projection_space.mesh()
+                self.num_controls = self.mappings.num_controls
+            else:
+                self.mesh = self.controls[0].function_space().mesh()
+                self.projection_space = fd.FunctionSpace(self.mesh, "CG", 1, variant="equispaced")
+                self.num_controls = len(self.mappings)
             self.is_field = False
         elif self.controls[0].function_space().ufl_element().family() == "Real":
             # domain_constant (uniform value Function in the real space)
@@ -97,12 +313,16 @@ class ControlManager:
 
     def project_control(self, updated_controls):
         """Project masked combination or domain_constant to CG1 field for export."""
-        field = fd.Function(self.projection_space, name="control")
-        field.assign(0)
         if self.is_masked_combination:
-            for m_, mask_ in zip(updated_controls, self.mappings):
-                field += m_ * mask_
+            if hasattr(self.mappings, 'project'):
+                field = self.mappings.project(updated_controls, name="control")
+            else:
+                field = fd.Function(self.projection_space, name="control")
+                field.assign(0)
+                for m_, mask_ in zip(updated_controls, self.mappings):
+                    field += m_ * mask_
         else:
+            field = fd.Function(self.projection_space, name="control")
             field.project(updated_controls[0])  # domain_constant
         return field
 
@@ -139,12 +359,16 @@ class ControlManager:
         else:
             if not isinstance(updated_gradient, list):
                 updated_gradient = [updated_gradient]
-            gradient = fd.Function(self.projection_space, name="Gradient")
-            gradient.assign(0)
             if self.is_masked_combination:
-                for g_, mask_ in zip(updated_gradient, self.mappings):
-                    gradient += g_ * mask_
+                if hasattr(self.mappings, 'project'):
+                    gradient = self.mappings.project(updated_gradient, name="Gradient")
+                else:
+                    gradient = fd.Function(self.projection_space, name="Gradient")
+                    gradient.assign(0)
+                    for g_, mask_ in zip(updated_gradient, self.mappings):
+                        gradient += g_ * mask_
             else:  # domain_constant
+                gradient = fd.Function(self.projection_space, name="Gradient")
                 gradient.project(updated_gradient[0])
 
         self.gradient_vtk_file.write(gradient)
@@ -217,9 +441,9 @@ class InversionManager(FrozenHasTraits):
         ----------
         controls : fd.Function or list/tuple of fd.Function
             The Function(s) representing the control parameters.
-        mappings : list of fd.Function, optional
-            Masks for multi-control cases. If provided, `controls` must be a list of Functions
-            matching the masks.
+        mappings : list of fd.Function or object with a ``project`` method, optional
+            Masks or a mapping object for multi-control cases. If provided,
+            `controls` must be a list of Functions matching the mapping.
 
         Notes
         -----
@@ -230,6 +454,9 @@ class InversionManager(FrozenHasTraits):
           but changing it mid-solve may lead to incorrect gradients or mis-evaluation
           of the ReducedFunctional.
         - Masked combinations are supported via lists of Functions combined with masks.
+          Mapping objects such as :class:`IndependentPointControlMapping` can
+          also be used when the control-to-field operation needs custom
+          adjoint handling.
         """
         if not isinstance(controls, (list, tuple)):
             controls = [controls]
@@ -335,7 +562,7 @@ class InversionManager(FrozenHasTraits):
         if not self.no_exports:
             ref_index = 0
             for cm in self.control_managers:
-                num_controls = len(cm.mappings) if cm.mappings is not None else 1
+                num_controls = cm.num_controls
                 controls_slice = self.m_list[ref_index: ref_index + num_controls]
                 cm.export(controls_slice)
                 gradient_slice = self.dJdm_list[ref_index: ref_index + num_controls]

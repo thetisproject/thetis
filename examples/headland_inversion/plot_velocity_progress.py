@@ -20,6 +20,10 @@ parser.add_argument(
     choices=['Uniform', 'Regions', 'IndependentPointsScheme', 'GradientReg', 'HessianReg'],
     default=['IndependentPointsScheme'],
 )
+parser.add_argument('--ip-interpolation',
+                    help='Interpolation method for the independent point scheme',
+                    choices=['linear', 'cubic', 'rbf'],
+                    default='linear')
 args = parser.parse_args()
 station_names = sorted(args.station)
 station_str = '-'.join(station_names)
@@ -35,6 +39,8 @@ case_to_output_dir = {
 selected_case = args.case[0]
 output_dir_forward = os.path.join('outputs', 'outputs_forward')
 output_dir_invert = os.path.join('outputs', 'outputs_inverse', case_to_output_dir[selected_case])
+if selected_case == 'IndependentPointsScheme' and args.ip_interpolation != 'linear':
+    output_dir_invert += f'_{args.ip_interpolation}'
 
 # --- Loop through stations ---
 for sta in station_names:
