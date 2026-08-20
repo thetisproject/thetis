@@ -585,7 +585,7 @@ class InversionManager(FrozenHasTraits):
         self._update_objective_from_evaluation(J)
         self.set_initial_state(self.J,
                                self.reduced_functional.derivative(apply_riesz=True), self.control_coeff_list)
-        if self.is_export_root:
+        if not self.no_exports:
             self.sta_manager.collect_time_series(self.i)
             self.sta_manager.dump_time_series()
         objective = self.reduced_functional
