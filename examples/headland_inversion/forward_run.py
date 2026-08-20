@@ -5,16 +5,50 @@ import geopandas as gpd
 from model_config import construct_solver
 from shapely.geometry import Point
 from mpi4py import MPI
+import argparse
+import numpy as np
 
 # ---------------------------------------- Step 1: set up mesh and ground truth ----------------------------------------
+parser = argparse.ArgumentParser(
+    description='Run the headland forward model in standard or ensemble mode.',
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+)
+parser.add_argument('--ensemble', action='store_true',
+                    help='Enable ensemble mode with one station/time offset per ensemble member')
+parser.add_argument('--ranks-per-member', type=int, default=2,
+                    help='Number of MPI ranks per ensemble member when --ensemble is used')
+args = parser.parse_args()
 
+ensemble = None
+comm = COMM_WORLD
+ensemble_rank = 0
+ensemble_size = 1
+distribution_parameters = None
 pwd = os.path.abspath(os.path.dirname(__file__))
 output_dir_forward = os.path.join(pwd, 'outputs', 'outputs_forward')
+time_offset = 0.
+station_index = None
+
+if args.ensemble:
+    ensemble = Ensemble(MPI.COMM_WORLD, args.ranks_per_member)
+    comm = ensemble.comm
+    ensemble_rank = ensemble.ensemble_rank
+    ensemble_size = ensemble.ensemble_size
+    distribution_parameters = {'partitioner_type': 'simple'}
+    output_dir_forward = os.path.join(pwd, 'outputs', 'outputs_forward', f'member_{ensemble_rank}')
+    # Each member set up to start its run at a slightly different point along the sinusoidal forcing.
+    time_offset = ensemble_rank * 800.0
+    # Each member then stores observations at its assigned station.
+    station_index = ensemble_rank
 
 solver_obj, update_forcings = construct_solver(
     output_directory=output_dir_forward,
     store_station_time_series=True,
     no_exports=False,
+    comm=comm,
+    distribution_parameters=distribution_parameters,
+    time_offset=time_offset,
+    station_index=station_index,
 )
 
 mesh2d = solver_obj.mesh2d
@@ -66,10 +100,10 @@ for i, (region_id, group) in enumerate(polygons_by_id):
     mask_values.append(values)
     m_true.append(domain_constant(manning_value, mesh2d))
 
-overlap_counts = np.zeros(len(x))
+overlap_counts = numpy.zeros(len(x))
 
 for values in mask_values:
-    overlap_counts += np.array(values)
+    overlap_counts += numpy.array(values)
 
 for values in mask_values:
     for i in range(len(values)):
@@ -84,8 +118,12 @@ for m_, mask_ in zip(m_true, masks):
     manning_2d += m_ * mask_
 
 # Overwrite the default initial manning value
-VTKFile(os.path.join(output_dir_forward, 'manning_init.pvd')).write(manning_2d)
+VTKFile(os.path.join(output_dir_forward, 'manning_init.pvd'), comm=comm).write(manning_2d)
 
+if comm.rank == 0 and args.ensemble:
+    print(f'Ensemble member {ensemble_rank + 1}/{ensemble_size}: '
+          f'time offset = {time_offset}; '
+          f'detector station index = {station_index}')
 print_output('Exporting to ' + solver_obj.options.output_directory)
 
 print_output('Solving the forward problem...')
