@@ -81,7 +81,7 @@ class VTKExporter(ExporterBase):
         :kwarg bool verbose: print debug info to stdout
         """
         super(VTKExporter, self).__init__(filename, outputdir, next_export_ix,
-                                          verbose)
+                                          verbose, fs_visu.comm)
         self.fs_visu = fs_visu
         self.func_name = func_name
         self.project_output = project_output
@@ -142,7 +142,7 @@ class HDF5Exporter(ExporterBase):
         :kwarg bool verbose: print debug info to stdout
         """
         super(HDF5Exporter, self).__init__(filename_prefix, outputdir,
-                                           next_export_ix, verbose)
+                                           next_export_ix, verbose, function_space.comm)
         self.function_space = function_space
         self.dumb_checkpoint = legacy_mode
         self.include_time = include_time
