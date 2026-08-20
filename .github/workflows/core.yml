@@ -126,7 +126,7 @@ jobs:
           firedrake-run-split-tests 4 1 \
             --durations=0 --durations-min=60.0 \
             --timeout=60 --timeout-method=thread \
-            thetis-repo/test/ensemble/test_channel2d_ensemble_exports.py
+            thetis-repo/test/ensemble/test_ensemble_exports.py
 
       - name: Test Thetis adjoint ensemble (parallel)
         if: success() || steps.install.conclusion == 'success'
