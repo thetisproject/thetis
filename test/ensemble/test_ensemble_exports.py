@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from thetis import *
 
+
 @pytest.mark.parallel(nprocs=4)
 def test_channel2d_ensemble_exports(tmp_path, monkeypatch):
     comm = MPI.COMM_WORLD
