@@ -39,15 +39,16 @@ class ExporterBase(object):
     """
     Base class for exporter objects.
     """
-    def __init__(self, filename, outputdir, next_export_ix=0, verbose=False):
+    def __init__(self, filename, outputdir, next_export_ix=0, verbose=False, comm=COMM_WORLD):
         """
         :arg string filename: output file name (without directory)
         :arg string outputdir: directory where file is stored
         :kwarg int next_export_ix: set the index for next output
         :kwarg bool verbose: print debug info to stdout
+        :kwarg comm: communicator used to create the output directory
         """
         self.filename = filename
-        self.outputdir = create_directory(outputdir)
+        self.outputdir = create_directory(outputdir, comm=comm)
         self.verbose = verbose
         # keeps track of export numbers
         self.next_export_ix = next_export_ix
@@ -80,7 +81,7 @@ class VTKExporter(ExporterBase):
         :kwarg bool verbose: print debug info to stdout
         """
         super(VTKExporter, self).__init__(filename, outputdir, next_export_ix,
-                                          verbose)
+                                          verbose, fs_visu.comm)
         self.fs_visu = fs_visu
         self.func_name = func_name
         self.project_output = project_output
@@ -90,7 +91,7 @@ class VTKExporter(ExporterBase):
         if (len(filename) < len(suffix)+1 or filename[:len(suffix)] != suffix):
             self.filename += suffix
         path = os.path.join(path, self.filename)
-        self.outfile = VTKFile(path)
+        self.outfile = VTKFile(path, comm=fs_visu.comm)
         self.cast_operators = {}
 
     def set_next_export_ix(self, next_export_ix):
@@ -141,7 +142,7 @@ class HDF5Exporter(ExporterBase):
         :kwarg bool verbose: print debug info to stdout
         """
         super(HDF5Exporter, self).__init__(filename_prefix, outputdir,
-                                           next_export_ix, verbose)
+                                           next_export_ix, verbose, function_space.comm)
         self.function_space = function_space
         self.dumb_checkpoint = legacy_mode
         self.include_time = include_time
@@ -174,7 +175,7 @@ class HDF5Exporter(ExporterBase):
             with DumbCheckpoint(filename, mode=FILE_CREATE, comm=function.comm) as f:
                 f.store(function)
         else:
-            with CheckpointFile(filename, 'w') as f:
+            with CheckpointFile(filename, 'w', comm=function.comm) as f:
                 mesh = function.function_space().mesh()
                 f.save_mesh(mesh)
 
@@ -381,6 +382,7 @@ class ExportManager(object):
 
         :arg bathymetry_2d: 2D bathymetry :class:`Function`
         """
-        bathfile = VTKFile(os.path.join(self.outputdir, 'init_bathymetry_2d/init_bathymetry_2d.pvd'))
+        bathfile = VTKFile(
+            os.path.join(self.outputdir, 'init_bathymetry_2d/init_bathymetry_2d.pvd'), comm=bathymetry_2d.comm)
 
         bathfile.write(bathymetry_2d)

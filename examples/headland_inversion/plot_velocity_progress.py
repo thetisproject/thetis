@@ -20,8 +20,10 @@ parser.add_argument(
     choices=['Uniform', 'Regions', 'IndependentPointsScheme', 'GradientReg', 'HessianReg'],
     default=['IndependentPointsScheme'],
 )
+parser.add_argument('--ensemble', action='store_true',
+                    help='Enable ensemble mode with one station/time offset per ensemble member')
 args = parser.parse_args()
-station_names = sorted(args.station)
+station_names = sorted(str(s) for s in args.station)
 station_str = '-'.join(station_names)
 
 case_to_output_dir = {
@@ -36,10 +38,42 @@ selected_case = args.case[0]
 output_dir_forward = os.path.join('outputs', 'outputs_forward')
 output_dir_invert = os.path.join('outputs', 'outputs_inverse', case_to_output_dir[selected_case])
 
+station_to_member = {
+    'stationA': 0,
+    'stationB': 1,
+    'stationC': 2,
+    'stationD': 3,
+    'stationE': 4,
+    'stationF': 5,
+    'stationG': 6,
+}
+
+
+def resolve_forward_file(station_name):
+    member = station_to_member[station_name]
+    if args.ensemble:
+        member_file = os.path.join(output_dir_forward, f'member_{member}', f'diagnostic_timeseries_{station_name}.hdf5')
+    else:
+        member_file = os.path.join(output_dir_forward, f'diagnostic_timeseries_{station_name}.hdf5')
+    return member_file
+
+
+def resolve_progress_file(station_name, variable_suffix):
+    member = station_to_member[station_name]
+    if args.ensemble:
+        member_file = os.path.join(output_dir_invert, f'member_{member}', f'diagnostic_timeseries_progress_{station_name}_{variable_suffix}.hdf5')
+    else:
+        member_file = os.path.join(output_dir_invert, f'diagnostic_timeseries_progress_{station_name}_{variable_suffix}.hdf5')
+    return member_file
+
+
 # --- Loop through stations ---
 for sta in station_names:
     init = False
-    f = os.path.join(output_dir_forward, f'diagnostic_timeseries_{sta}.hdf5')
+    iter_times = None
+    elev_iter_vals, u_iter_vals, v_iter_vals = None, None, None
+    niter = 0
+    f = resolve_forward_file(sta)
 
     if not os.path.exists(f):
         print(f"Skipping {sta}: forward file not found.")
@@ -68,12 +102,8 @@ for sta in station_names:
             raise ValueError(f"Unrecognized data format for {sta}: shape {var.shape}")
 
     # --- Try to load inverse progress files ---
-    elev_iter_vals, u_iter_vals, v_iter_vals = None, None, None
-    iter_times = None
-    niter = 0
-
-    elev_file = os.path.join(output_dir_invert, f'diagnostic_timeseries_progress_{sta}_elev.hdf5')
-    uv_file = os.path.join(output_dir_invert, f'diagnostic_timeseries_progress_{sta}_uv.hdf5')
+    elev_file = resolve_progress_file(sta, 'elev')
+    uv_file = resolve_progress_file(sta, 'uv')
 
     if os.path.exists(elev_file):
         with h5py.File(elev_file, 'r') as h5file:
@@ -106,9 +136,11 @@ for sta in station_names:
     # --- Plot elevation ---
     if plot_elev:
         init = True
+        assert elev_iter_vals is not None
+        elev_series = elev_iter_vals
         a = ax[panel_idx]
         a.plot(time, elev_vals, 'k:', lw=1.3, label='observation', zorder=3)
-        for j, eta in enumerate(elev_iter_vals):
+        for j, eta in enumerate(elev_series):
             a.plot(iter_times, eta, lw=0.5, label=f'iteration {j}')
         a.set_ylabel('Elevation (m)')
         a.set_title(f'{sta} (elevation)', size='small')
@@ -118,15 +150,18 @@ for sta in station_names:
 
     # --- Plot velocity ---
     if plot_uv:
+        assert u_iter_vals is not None and v_iter_vals is not None
+        u_series = u_iter_vals
+        v_series = v_iter_vals
         a_u = ax[panel_idx]
         a_v = ax[panel_idx + 1]
 
         a_u.plot(time, u_vals, 'k:', lw=1.3, label='observation', zorder=3)
         a_v.plot(time, v_vals, 'k:', lw=1.3, label='observation', zorder=3)
 
-        for j, u in enumerate(u_iter_vals):
+        for j, u in enumerate(u_series):
             a_u.plot(iter_times, u, lw=0.5, label=f'iteration {j}' if not init else None)
-        for j, v in enumerate(v_iter_vals):
+        for j, v in enumerate(v_series):
             a_v.plot(iter_times, v, lw=0.5)
 
         a_u.set_ylabel('u (m/s)')
