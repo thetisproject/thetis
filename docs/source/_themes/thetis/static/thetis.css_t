@@ -117,6 +117,36 @@ table.citation {
     border: none;
 }
 
+/* Publication category tabs. The first panel is also visible without JavaScript. */
+.publication-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 1.5em 0 0;
+    border-bottom: 1px solid #d0d0d0;
+}
+
+.publication-tab {
+    display: block;
+    padding: 8px 12px;
+    color: #1b61d6;
+    text-decoration: none;
+    border: 1px solid #d0d0d0;
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    background: #f4f4f4;
+}
+
+.publication-tab:hover,
+.publication-tab.active {
+    color: #3E4349;
+    background: #ffffff;
+}
+
+.publication-tab-panel {
+    padding-top: 0.5em;
+}
+
 /* Override some bibbase styles that make things look ugly. */
 td.label {
     background: inherit;
@@ -698,4 +728,3 @@ div.last {
 .field-list ul {
     text-align: left;
 }
-
