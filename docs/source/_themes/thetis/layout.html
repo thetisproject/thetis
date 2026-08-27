@@ -10,6 +10,10 @@
 {% if theme_favicon %}
 <link rel="shortcut icon" href="{{ pathto('_static/'+theme_favicon, 1) }}" />
 {% endif %}
+
+{% if pagename == 'publications' %}
+<script src="{{ pathto('_static/publications-tabs.js', 1) }}" defer></script>
+{% endif %}
 {% endblock %}
 
 {%- block document %}
