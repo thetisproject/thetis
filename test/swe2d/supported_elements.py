@@ -1,6 +1,6 @@
 import pytest
 
-cases = [('rt-dg', 0), ('rt-dg', 1), ('dg-dg', 1), ('dg-cg', 1), ('bdm-dg', 1)]
+cases = [('rt-dg', 0), ('rt-dg', 1), ('dg-dg', 1), ('dg-cg', 1), ('bdm-dg', 1), ('cg-cg', 1)]
 case_ids = [f'{fam}{deg}' for fam, deg in cases]
 
 

@@ -217,6 +217,8 @@ def estimate_error(mesh, **model_options):
 
 def test_sipg(element_family_and_degree):
     family, degree = element_family_and_degree
+    if family == 'cg-cg':
+        pytest.skip("CG-CG not good for steady state")
     snes_it = run(element_family=family, polynomial_degree=degree)
     expected = 3
     msg = f'snes iterations exceed expected: {snes_it} > {expected}'
@@ -227,6 +229,8 @@ def test_dwr(element_family_and_degree):
     n = 5
     mesh = RectangleMesh(12 * n, 5 * n, 1200, 500)
     family, degree = element_family_and_degree
+    if family == 'cg-cg':
+        pytest.skip("CG-CG not good for steady state")
     # NOTE: Building a MeshHierarchy on a mesh loaded
     #       from a DMPlex stored as HDF5 appears to
     #       be broken.
