@@ -359,11 +359,12 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
 
         if grad_eta_by_parts:
             f = -g_grav*head*nabla_div(self.u_test)*self.dx
-            if uv is not None:
-                head_star = avg(head) + sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
-            else:
-                head_star = avg(head)
-            f += g_grav*head_star*jump(self.u_test, self.normal)*self.dS
+            if self.u_continuity == 'dg':
+                if uv is not None:
+                    head_star = avg(head) + sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
+                else:
+                    head_star = avg(head)
+                f += g_grav*head_star*jump(self.u_test, self.normal)*self.dS
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
@@ -421,10 +422,14 @@ class HUDivTerm(ShallowWaterContinuityTerm):
         if hu_by_parts:
             f = -inner(grad(self.eta_test), total_h*uv)*self.dx
             if self.eta_is_dg:
-                h = avg(total_h)
-                uv_rie = avg(uv) + sqrt(g_grav/h)*jump(eta, self.normal)
-                hu_star = h*uv_rie
-                f += inner(jump(self.eta_test, self.normal), hu_star)*self.dS
+                if self.u_continuity == 'dg':
+                    h = avg(total_h)
+                    uv_rie = avg(uv) + sqrt(g_grav/h)*jump(eta, self.normal)
+                    hu_star = h*uv_rie
+                    f += inner(jump(self.eta_test, self.normal), hu_star)*self.dS
+                else:
+                    f += inner(jump(self.eta_test, self.normal), avg(total_h*uv))*self.dS
+
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
