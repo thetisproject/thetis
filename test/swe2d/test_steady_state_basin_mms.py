@@ -334,6 +334,12 @@ def timestepper_type(request):
 def test_steady_state_basin_convergence(setup, element_family_and_degree, timestepper_type):
     sp = {'ksp_type': 'preonly', 'pc_type': 'lu', 'snes_monitor': None,
           'mat_type': 'aij'}
+    if setup == setup9 and element_family_and_degree == ('rt-dg', 0):
+        # SIPG is invalid for lowest order RT:
+        # because the basis functions do not support shear within the element,
+        # first two terms with either grad(trial) or grad(test) filter out
+        # the shear component
+        pytest.xfail("No valid viscosity scheme for RT-DG0 available")
     element_family, degree = element_family_and_degree
     options = {
         'element_family': element_family,
