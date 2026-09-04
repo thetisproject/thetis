@@ -11,7 +11,7 @@ CFL_UNCONDITIONALLY_STABLE = numpy.inf
 
 
 def _assemble_from_solver_parameters(solver_parameters):
-    return {k: solver_parameters[k] for k in ['mat_type', 'sub_mat_type']}
+    return {k: solver_parameters[k] for k in ['mat_type', 'sub_mat_type'] if k in solver_parameters}
 
 
 class TimeIntegratorBase(ABC):
