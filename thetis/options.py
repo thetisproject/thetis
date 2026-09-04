@@ -155,8 +155,6 @@ class ExplicitSWETimeStepperOptions2d(ExplicitTimeStepperOptions2d):
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
-        'mat_type': 'nest',
-        'sub_mat_type': 'baij',
     }).tag(config=True)
 
 
@@ -229,8 +227,6 @@ class ExplicitMomentumTimeStepperOptions3d(TimeStepperOptions3d):
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
-        'mat_type': 'nest',
-        'sub_mat_type': 'baij',
     }).tag(config=True)
 
 
@@ -245,8 +241,6 @@ class ImplicitMomentumTimeStepperOptions3d(TimeStepperOptions3d):
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
-        'mat_type': 'nest',
-        'sub_mat_type': 'baij',
     }).tag(config=True)
 
 

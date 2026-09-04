@@ -13,6 +13,7 @@ CFL_UNCONDITIONALLY_STABLE = numpy.inf
 def _assemble_from_solver_parameters(solver_parameters):
     return {k: solver_parameters[k] for k in ['mat_type', 'sub_mat_type']}
 
+
 class TimeIntegratorBase(ABC):
     """
     Abstract class that defines the API for all time integrators
