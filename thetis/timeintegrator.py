@@ -216,9 +216,11 @@ class CrankNicolson(TimeIntegrator):
     @PETSc.Log.EventDecorator("thetis.CrankNicolson.update_solver")
     def update_solver(self):
         """Create solver objects"""
-        # Ensure LU assembles monolithic matrices
+        # Ensure LU has a matrix type it can factorize, unless the caller
+        # has already made an explicit choice (e.g. 'nest' with a 'baij'
+        # sub_mat_type, which PETSc can also factorize directly).
         if self.solver_parameters.get('pc_type') == 'lu':
-            self.solver_parameters['mat_type'] = 'aij'
+            self.solver_parameters.setdefault('mat_type', 'aij')
         prob = NonlinearVariationalProblem(self.F, self.solution)
         self.solver = NonlinearVariationalSolver(prob,
                                                  solver_parameters=self.solver_parameters,
@@ -279,9 +281,11 @@ class SteadyState(TimeIntegrator):
     @PETSc.Log.EventDecorator("thetis.SteadyState.update_solver")
     def update_solver(self):
         """Create solver objects"""
-        # Ensure LU assembles monolithic matrices
+        # Ensure LU has a matrix type it can factorize, unless the caller
+        # has already made an explicit choice (e.g. 'nest' with a 'baij'
+        # sub_mat_type, which PETSc can also factorize directly).
         if self.solver_parameters.get('pc_type') == 'lu':
-            self.solver_parameters['mat_type'] = 'aij'
+            self.solver_parameters.setdefault('mat_type', 'aij')
         prob = NonlinearVariationalProblem(self.F, self.solution)
         self.solver = NonlinearVariationalSolver(prob,
                                                  solver_parameters=self.solver_parameters,
@@ -429,9 +433,11 @@ class PressureProjectionPicard(TimeIntegrator):
                                                      solver_parameters=self.solver_parameters_mom,
                                                      options_prefix=self.name+'_mom',
                                                      ad_block_tag=self.ad_block_tag + '_mom')
-        # Ensure LU assembles monolithic matrices
+        # Ensure LU has a matrix type it can factorize, unless the caller
+        # has already made an explicit choice (e.g. 'nest' with a 'baij'
+        # sub_mat_type, which PETSc can also factorize directly).
         if self.solver_parameters.get('pc_type') == 'lu':
-            self.solver_parameters['mat_type'] = 'aij'
+            self.solver_parameters.setdefault('mat_type', 'aij')
         prob = NonlinearVariationalProblem(self.F, self.solution)
         self.solver = NonlinearVariationalSolver(prob,
                                                  appctx={'a': derivative(self.F, self.solution)},
