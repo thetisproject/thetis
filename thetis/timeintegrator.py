@@ -680,8 +680,7 @@ class SSPRK22ALE(TimeIntegrator):
         self.solution.assign(solution)
 
         mass_matrix = assemble(self.a, **self._pop_assemble_parameters())
-        self.lin_solver = LinearSolver(mass_matrix,
-                                       solver_parameters=self.solver_parameters)
+        self.lin_solver = LinearSolver(mass_matrix)
         # TODO: Linear solver is not annotated and does not accept ad_block_tag
         self._initialized = True
 
