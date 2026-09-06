@@ -66,9 +66,6 @@ class TimeIntegrator(TimeIntegratorBase):
                               self.equation.__class__.__name__])
         self.ad_block_tag = options.ad_block_tag or self.name
         self.solver_parameters = options.solver_parameters
-        self.assemble_parameters = {k: self.solver_parameters[k]
-                                    for k in ['mat_type', 'sub_mat_type']
-                                    if k in self.solver_parameters}
 
     def set_dt(self, dt):
         """Update time step"""
@@ -113,6 +110,16 @@ class TimeIntegrator(TimeIntegratorBase):
         for k in sorted(self.fields):
             if isinstance(self.fields[k], Function):
                 self.fields_old[k].assign(self.fields[k])
+
+    def _pop_assemble_parameters(self):
+        """Pop assemble parameters (sub_)mat_type from self.solver_parameters
+
+        For those time integrators that call assemble on the matrix and then
+        creates a LinearSolver, assemble needs to get the relevant mat_type options.
+        When creating the LinearSolver, these should not again be passed as Firedrake
+        may override the mat_type in assemble (e.g. "baij" for rt changes to "aij"),
+        therefore we pop them here from solver_parameters."""
+        return {k: self.solver_parameters.pop(k) for k in ['mat_type', 'sub_mat_type'] if k in self.solver_parameters}
 
 
 class ForwardEuler(TimeIntegrator):
@@ -535,11 +542,11 @@ class LeapFrogAM3(TimeIntegrator):
     @PETSc.Log.EventDecorator("thetis.LeapFrogAM3.initialize")
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
-        self.mass_matrix = assemble(self.a, **self.assemble_parameters)
+        self.mass_matrix = assemble(self.a, **self._pop_assemble_parameters())
         self.solution.assign(solution)
         self.solution_old.assign(solution)
         assemble(self.mass_new, tensor=self.msolution_old)
-        self.lin_solver = LinearSolver(self.mass_matrix, **self.solver_parameters)
+        self.lin_solver = LinearSolver(self.mass_matrix, solver_parameters=self.solver_parameters)
         # TODO: Linear solver is not annotated and does not accept ad_block_tag
 
     def _solve_system(self):
@@ -672,7 +679,7 @@ class SSPRK22ALE(TimeIntegrator):
         """Assigns initial conditions to all required fields."""
         self.solution.assign(solution)
 
-        mass_matrix = assemble(self.a, **self.assemble_parameters)
+        mass_matrix = assemble(self.a, **self._pop_assemble_parameters())
         self.lin_solver = LinearSolver(mass_matrix,
                                        solver_parameters=self.solver_parameters)
         # TODO: Linear solver is not annotated and does not accept ad_block_tag
