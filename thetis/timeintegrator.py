@@ -546,7 +546,7 @@ class LeapFrogAM3(TimeIntegrator):
         self.solution.assign(solution)
         self.solution_old.assign(solution)
         assemble(self.mass_new, tensor=self.msolution_old)
-        self.lin_solver = LinearSolver(self.mass_matrix, solver_parameters=self.solver_parameters)
+        self.lin_solver = LinearSolver(self.mass_matrix)
         # TODO: Linear solver is not annotated and does not accept ad_block_tag
 
     def _solve_system(self):
