@@ -115,6 +115,7 @@ class PressureProjectionSWETimeStepperOptions2d(TimeStepperOptions):
             'assembled_ksp_type': 'preonly',
             'assembled_pc_type': 'bjacobi',
             'assembled_sub_pc_type': 'ilu',
+            'assembled_mat_type': 'baij',
         },
         # schur system: explicitly assemble the schur system
         # this only works with pressureprojectionicard if the velocity block is just the mass matrix
@@ -133,6 +134,7 @@ class PressureProjectionSWETimeStepperOptions2d(TimeStepperOptions):
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'sor',
+        'mat_type': 'baij',
     }).tag(config=True)
     implicitness_theta = BoundedFloat(
         default_value=0.5, bounds=[0.5, 1.0],
@@ -227,6 +229,7 @@ class ExplicitMomentumTimeStepperOptions3d(TimeStepperOptions3d):
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
+        'mat_type': 'baij',
     }).tag(config=True)
 
 
@@ -241,6 +244,7 @@ class ImplicitMomentumTimeStepperOptions3d(TimeStepperOptions3d):
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
+        'mat_type': 'baij',
     }).tag(config=True)
 
 

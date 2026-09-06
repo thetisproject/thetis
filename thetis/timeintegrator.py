@@ -10,10 +10,6 @@ CFL_UNCONDITIONALLY_STABLE = numpy.inf
 # CFL coefficient for unconditionally stable methods
 
 
-def _assemble_from_solver_parameters(solver_parameters):
-    return {k: solver_parameters[k] for k in ['mat_type', 'sub_mat_type'] if k in solver_parameters}
-
-
 class TimeIntegratorBase(ABC):
     """
     Abstract class that defines the API for all time integrators
@@ -70,6 +66,9 @@ class TimeIntegrator(TimeIntegratorBase):
                               self.equation.__class__.__name__])
         self.ad_block_tag = options.ad_block_tag or self.name
         self.solver_parameters = options.solver_parameters
+        self.assemble_parameters = {k: self.solver_parameters[k]
+                                    for k in ['mat_type', 'sub_mat_type']
+                                    if k in self.solver_parameters}
 
     def set_dt(self, dt):
         """Update time step"""
@@ -536,11 +535,11 @@ class LeapFrogAM3(TimeIntegrator):
     @PETSc.Log.EventDecorator("thetis.LeapFrogAM3.initialize")
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
-        self.mass_matrix = assemble(self.a)
+        self.mass_matrix = assemble(self.a, **self.assemble_parameters)
         self.solution.assign(solution)
         self.solution_old.assign(solution)
         assemble(self.mass_new, tensor=self.msolution_old)
-        self.lin_solver = LinearSolver(self.mass_matrix)
+        self.lin_solver = LinearSolver(self.mass_matrix, **self.solver_parameters)
         # TODO: Linear solver is not annotated and does not accept ad_block_tag
 
     def _solve_system(self):
@@ -673,7 +672,7 @@ class SSPRK22ALE(TimeIntegrator):
         """Assigns initial conditions to all required fields."""
         self.solution.assign(solution)
 
-        mass_matrix = assemble(self.a, **_assemble_from_solver_parameters(self.solver_parameters))
+        mass_matrix = assemble(self.a, **self.assemble_parameters)
         self.lin_solver = LinearSolver(mass_matrix,
                                        solver_parameters=self.solver_parameters)
         # TODO: Linear solver is not annotated and does not accept ad_block_tag
