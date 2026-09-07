@@ -42,9 +42,9 @@ class SemiImplicitSWETimeStepperOptions2d(SemiImplicitTimeStepperOptions2d):
     applied to shallow water equations
     """
     solver_parameters = PETScSolverParameters({
-        'ksp_type': 'preonly',
-        'pc_type': 'lu',
-        'pc_factor_mat_solver_type': 'mumps',
+        'ksp_type': 'gmres',
+        'pc_type': 'fieldsplit',
+        'pc_fieldsplit_type': 'multiplicative',
         'mat_type': 'nest',
         'sub_mat_type': 'baij',
     }).tag(config=True)
@@ -56,9 +56,8 @@ class SemiImplicitTracerTimeStepperOptions2d(SemiImplicitTimeStepperOptions2d):
     applied to tracer equations
     """
     solver_parameters = PETScSolverParameters({
-        'ksp_type': 'preonly',
-        'pc_type': 'lu',
-        'pc_factor_mat_solver_type': 'mumps',
+        'ksp_type': 'gmres',
+        'pc_type': 'sor',
     }).tag(config=True)
 
 
@@ -131,9 +130,10 @@ class PressureProjectionSWETimeStepperOptions2d(TimeStepperOptions):
         },
     }).tag(config=True)
     solver_parameters_momentum = PETScSolverParameters({
-        'ksp_type': 'preonly',
-        'pc_type': 'lu',
-        'pc_factor_mat_solver_type': 'mumps',
+        'ksp_type': 'gmres',
+        'pc_type': 'bjacobi',
+        'sub_ksp_type': 'preonly',
+        'sub_pc_type': 'sor',
         'mat_type': 'baij',
     }).tag(config=True)
     implicitness_theta = BoundedFloat(
@@ -152,11 +152,11 @@ class ExplicitSWETimeStepperOptions2d(ExplicitTimeStepperOptions2d):
     applied to shallow water equations
     """
     solver_parameters = PETScSolverParameters({
-        'ksp_type': 'preonly',
-        'pc_type': 'lu',
-        'pc_factor_mat_solver_type': 'mumps',
-        'mat_type': 'nest',
-        'sub_mat_type': 'baij',
+        'snes_type': 'ksponly',
+        'ksp_type': 'cg',
+        'pc_type': 'bjacobi',
+        'sub_ksp_type': 'preonly',
+        'sub_pc_type': 'ilu',
     }).tag(config=True)
 
 
@@ -166,9 +166,8 @@ class ExplicitTracerTimeStepperOptions2d(ExplicitTimeStepperOptions2d):
     applied to tracer equations
     """
     solver_parameters = PETScSolverParameters({
-        'ksp_type': 'preonly',
-        'pc_type': 'lu',
-        'pc_factor_mat_solver_type': 'mumps',
+        'ksp_type': 'gmres',
+        'pc_type': 'sor',
     }).tag(config=True)
 
 
@@ -179,9 +178,9 @@ class IMEXSWETimeStepperOptions2d(SemiImplicitTimeStepperOptions2d):
     """
     # TODO: Meaningful solver parameters for DIRK
     solver_parameters = PETScSolverParameters({
-        'ksp_type': 'preonly',
-        'pc_type': 'lu',
-        'pc_factor_mat_solver_type': 'mumps',
+        'ksp_type': 'gmres',
+        'pc_type': 'fieldsplit',
+        'pc_fieldsplit_type': 'multiplicative',
         'mat_type': 'nest',
         'sub_mat_type': 'baij',
     }).tag(config=True)
@@ -588,6 +587,7 @@ class NonhydrostaticModelOptions(FrozenHasTraits):
     solver_parameters = PETScSolverParameters({
         'snes_type': 'ksponly',
         'ksp_type': 'preonly',
+        'mat_type': 'aij',
         'pc_type': 'lu',
         'pc_factor_mat_solver_type': 'mumps',
         'mat_mumps_icntl_14': 200,
