@@ -421,9 +421,10 @@ class Mesh3DConsistencyCalculator(object):
         assert self.output.function_space() == self.fs_3d
 
         nodes = get_facet_mask(self.fs_3d, 'bottom')
-        self.idx = op2.Global(len(nodes), nodes, dtype=numpy.int32, name='node_idx')
-        self.kernel = op2.Kernel("""
-            void my_kernel(double *output, double *z_field, int *idx) {
+        self.idx = op3.Dat.from_array(nodes, name='node_idx', constant=True, rank_equal=True)
+        self.kernel = op3.Function.from_c_string(
+            "my_kernel",
+            """
                 // compute max delta z on top and bottom facets
                 double z_top_max = -1e20;
                 double z_top_min = 1e20;
@@ -449,17 +450,24 @@ class Mesh3DConsistencyCalculator(object):
                     output[idx[d] + i_top] = delta_z_top/h;
                     output[idx[d] + i_bot] = delta_z_bot/h;
                 }
-            }""" % {'nodes': len(nodes)},
-            'my_kernel')
+            """ % {'nodes': len(nodes)},
+            [
+                ("output", op3.ScalarType, op3.WRITE),
+                ("z_field", op3.ScalarType, op3.READ),
+                ("idx", op3.IntType, op3.READ),
+            ],
+        )
 
     @PETSc.Log.EventDecorator("thetis.Mesh3DConsistencyCalculator.solve")
     def solve(self):
         """Compute the HCC metric"""
-        op2.par_loop(self.kernel, self.solver_obj.mesh.cell_set,
-                     self.output.dat(op2.WRITE, self.output.function_space().cell_node_map()),
-                     self.z_coord.dat(op2.READ, self.z_coord.function_space().cell_node_map()),
-                     self.idx(op2.READ),
-                     iteration_region=op2.ALL)
+        op3.loop(
+            c := self.solver_obj.mesh.iter("cell"),
+            self.kernel(
+                pack(self.output, c), pack(self.z_coord, c), self.idx
+            ),
+            eager=True,
+        )
         # compute global min/max
         r_min = self.output.dat.data.min()
         r_max = self.output.dat.data.max()
@@ -511,14 +519,16 @@ class ExpandFunctionTo3d(object):
         if self.do_hdiv_scaling and elem_height is None:
             raise Exception('elem_height must be provided for HDiv spaces')
 
-        self.iter_domain = op2.ALL
+        self.iter_domain = "cell"
 
         # number of nodes in vertical direction
         n_vert_nodes = self.fs_3d.finat_element.space_dimension() / self.fs_2d.finat_element.space_dimension()
 
         nodes = get_facet_mask(self.fs_3d, 'bottom')
-        self.idx = op2.Global(len(nodes), nodes, dtype=numpy.int32, name='node_idx')
-        self.kernel = op2.Kernel("""
+        self.idx = op3.Dat.from_array(nodes, name='node_idx', constant=True, rank_equal=True)
+        self.kernel = op3.Function.from_c_string(
+            "my_kernel",
+            """
             void my_kernel(double *func, double *func2d, int *idx) {
                 for ( int d = 0; d < %(nodes)d; d++ ) {
                     for ( int c = 0; c < %(func2d_dim)d; c++ ) {
@@ -531,7 +541,12 @@ class ExpandFunctionTo3d(object):
                     'func2d_dim': self.input_2d.function_space().block_size,
                     'func3d_dim': self.fs_3d.block_size,
                     'v_nodes': n_vert_nodes},
-            'my_kernel')
+            [
+                ("func", op3.ScalarType, op3.WRITE),
+                ("func2d", op3.ScalarType, op3.READ),
+                ("idx", int, op3.READ),
+            ],
+        )
 
         if self.do_hdiv_scaling:
             solver_parameters = {}
@@ -549,12 +564,13 @@ class ExpandFunctionTo3d(object):
     def solve(self):
         with timed_stage('copy_2d_to_3d'):
             # execute par loop
-            op2.par_loop(
-                self.kernel, self.fs_3d.mesh().cell_set,
-                self.output_3d.dat(op2.WRITE, self.fs_3d.cell_node_map()),
-                self.input_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
-                self.idx(op2.READ),
-                iteration_region=self.iter_domain)
+            op3.loop(
+                c := self.fs_3d.mesh().iter(self.iter_domain),
+                self.kernel(
+                    pack(self.output_3d, c), pack(self.input_2d, c), self.idx,
+                ),
+                eager=True,
+            )
 
             if self.do_hdiv_scaling:
                 self.rt_scale_solver.solve()
@@ -642,9 +658,9 @@ class SubFunctionExtractor(object):
         else:
             nodes = get_facet_mask(self.fs_3d, elem_facet)
         if boundary == 'top':
-            self.iter_domain = op2.ON_TOP
+            self.iter_domain = "exterior_facet_top"
         elif boundary == 'bottom':
-            self.iter_domain = op2.ON_BOTTOM
+            self.iter_domain = "exterior_facet_bottom"
 
         out_nodes = self.fs_2d.finat_element.space_dimension()
 
@@ -653,11 +669,12 @@ class SubFunctionExtractor(object):
         else:
             assert (len(nodes) == out_nodes)
 
-        self.idx = op2.Global(len(nodes), nodes, dtype=numpy.int32, name='node_idx')
+        self.idx = op3.Dat.from_array(nodes, name='node_idx', constant=True, rank_equal=True)
         if elem_facet == 'average':
             # compute average of top and bottom elem nodes
-            self.kernel = op2.Kernel("""
-                void my_kernel(double *func, double *func3d, int *idx) {
+            self.kernel = op3.Function.from_c_string(
+                "my_kernel",
+                """
                     int nnodes = %(nodes)d;
                     for ( int d = 0; d < nnodes; d++ ) {
                         for ( int c = 0; c < %(func2d_dim)d; c++ ) {
@@ -665,22 +682,33 @@ class SubFunctionExtractor(object):
                                               func3d[%(func3d_dim)d*idx[d + nnodes] + c]);
                         }
                     }
-                }""" % {'nodes': self.output_2d.cell_node_map().arity,
+                """ % {'nodes': self.output_2d.function_space().cell_node_list.shape[1],
                         'func2d_dim': self.output_2d.function_space().block_size,
                         'func3d_dim': self.fs_3d.block_size},
-                'my_kernel')
+                [
+                    ("func", op3.ScalarType, op3.WRITE),
+                    ("func3d", op3.ScalarType, op3.READ),
+                    ("idx", op3.IntType, op3.READ),
+                ],
+            )
         else:
-            self.kernel = op2.Kernel("""
-                void my_kernel(double *func, double *func3d, int *idx) {
+            self.kernel = op3.Function.from_c_string(
+                "my_kernel",
+                """
                     for ( int d = 0; d < %(nodes)d; d++ ) {
                         for ( int c = 0; c < %(func2d_dim)d; c++ ) {
                             func[%(func2d_dim)d*d + c] = func3d[%(func3d_dim)d*idx[d] + c];
                         }
                     }
-                }""" % {'nodes': self.output_2d.cell_node_map().arity,
+                """ % {'nodes': self.output_2d.function_space().cell_node_list.shape[1],
                         'func2d_dim': self.output_2d.function_space().block_size,
                         'func3d_dim': self.fs_3d.block_size},
-                'my_kernel')
+                [
+                    ("func", op3.ScalarType, op3.WRITE),
+                    ("func3d", op3.ScalarType, op3.READ),
+                    ("idx", op3.IntType, op3.READ),
+                ],
+            )
 
         if self.do_hdiv_scaling:
             solver_parameters = {}
@@ -698,11 +726,13 @@ class SubFunctionExtractor(object):
     def solve(self):
         with timed_stage('copy_3d_to_2d'):
             # execute par loop
-            op2.par_loop(self.kernel, self.fs_3d.mesh().cell_set,
-                         self.output_2d.dat(op2.WRITE, self.fs_2d.cell_node_map()),
-                         self.input_3d.dat(op2.READ, self.fs_3d.cell_node_map()),
-                         self.idx(op2.READ),
-                         iteration_region=self.iter_domain)
+            op3.loop(
+                c := self.fs_3d.mesh().iter(self.iter_domain),
+                self.kernel(
+                     pack(self.output_2d, c), pack(self.input_3d, c), self.idx,
+                ),
+                eager=True,
+            )
 
             if self.do_hdiv_scaling:
                 self.rt_scale_solver.solve()
@@ -759,9 +789,10 @@ class ALEMeshUpdater(object):
         n_vert_nodes = self.fs_3d.finat_element.space_dimension() / self.fs_2d.finat_element.space_dimension()
 
         nodes = get_facet_mask(self.fs_3d, 'bottom')
-        self.idx = op2.Global(len(nodes), nodes, dtype=numpy.int32, name='node_idx')
-        self.kernel_z_coord = op2.Kernel("""
-            void my_kernel(double *z_coord_3d, double *z_ref_3d, double *elev_2d, double *bath_2d, int *idx) {
+        self.idx = op3.Dat.from_array(nodes, name='node_idx', constant=True, rank_equal=True)
+        self.kernel_z_coord = op3.Function.from_c_string(
+            "my_kernel",
+            """
                 for ( int d = 0; d < %(nodes)d; d++ ) {
                     for ( int c = 0; c < %(func2d_dim)d; c++ ) {
                         for ( int e = 0; e < %(v_nodes)d; e++ ) {
@@ -773,14 +804,22 @@ class ALEMeshUpdater(object):
                         }
                     }
                 }
-            }""" % {'nodes': self.fs_2d.finat_element.space_dimension(),
+            """ % {'nodes': self.fs_2d.finat_element.space_dimension(),
                     'func2d_dim': self.fs_2d.block_size,
                     'func3d_dim': self.fs_3d.block_size,
                     'v_nodes': n_vert_nodes},
-            'my_kernel')
+            [
+                ("z_coord_3d", op3.ScalarType, op3.WRITE),
+                ("z_ref_3d", op3.ScalarType, op3.READ),
+                ("elev_2d", op3.ScalarType, op3.READ),
+                ("bath_2d", op3.ScalarType, op3.READ),
+                ("idx", op3.IntType, op3.READ),
+            ],
+        )
 
-        self.kernel_w_mesh = op2.Kernel("""
-            void my_kernel(double *w_mesh_3d, double *z_ref_3d, double *w_mesh_surf_2d, double *bath_2d, int *idx) {
+        self.kernel_w_mesh = op3.Function.from_c_string(
+            "my_kernel",
+            """
                 for ( int d = 0; d < %(nodes)d; d++ ) {
                     for ( int c = 0; c < %(func2d_dim)d; c++ ) {
                         for ( int e = 0; e < %(v_nodes)d; e++ ) {
@@ -792,11 +831,18 @@ class ALEMeshUpdater(object):
                         }
                     }
                 }
-            }""" % {'nodes': self.fs_2d.finat_element.space_dimension(),
+            """ % {'nodes': self.fs_2d.finat_element.space_dimension(),
                     'func2d_dim': self.fs_2d.block_size,
                     'func3d_dim': self.fs_3d.block_size,
                     'v_nodes': n_vert_nodes},
-            'my_kernel')
+            [
+                ("w_mesh_3d", op3.ScalarType, op3.WRITE),
+                ("z_ref_3d", op3.ScalarType, op3.READ),
+                ("w_mesh_surf_2d", op3.ScalarType, op3.READ),
+                ("bath_2d", op3.ScalarType, op3.READ),
+                ("idx", op3.IntType, op3.READ),
+            ],
+        )
 
     @PETSc.Log.EventDecorator("thetis.ALEMeshUpdater.intialize")
     def initialize(self):
@@ -839,14 +885,16 @@ class ALEMeshUpdater(object):
         else:
             # user-defined formulation
             self.w_mesh_surf_2d.assign(w_mesh_surf_expr)
-        op2.par_loop(
-            self.kernel_w_mesh, self.fs_3d.mesh().cell_set,
-            self.fields.w_mesh_3d.dat(op2.WRITE, self.fs_3d.cell_node_map()),
-            self.fields.z_coord_ref_3d.dat(op2.READ, self.fs_3d.cell_node_map()),
-            self.w_mesh_surf_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
-            self.fields.bathymetry_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
-            self.idx(op2.READ),
-            iteration_region=op2.ALL
+        op3.loop(
+            c := self.fs_3d.mesh().iter("cell"),
+            self.kernel_w_mesh(
+                pack(self.fields.w_mesh_3d, c),
+                pack(self.fields.z_coord_ref_3d, c),
+                pack(self.w_mesh_surf_2d, c),
+                pack(self.fields.bathymetry_2d, c),
+                self.idx,
+            ),
+            eager=True,
         )
 
     @PETSc.Log.EventDecorator("thetis.ALEMeshUpdater.update_mesh_coordinates")
@@ -861,14 +909,16 @@ class ALEMeshUpdater(object):
         self.proj_elev_cg_to_coords_2d.project()
 
         # compute new z coordinates -> self.fields.z_coord_3d
-        op2.par_loop(
-            self.kernel_z_coord, self.fs_3d.mesh().cell_set,
-            self.fields.z_coord_3d.dat(op2.WRITE, self.fs_3d.cell_node_map()),
-            self.fields.z_coord_ref_3d.dat(op2.READ, self.fs_3d.cell_node_map()),
-            self.fields.elev_cg_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
-            self.fields.bathymetry_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
-            self.idx(op2.READ),
-            iteration_region=op2.ALL
+        op3.loop(
+            c := self.fs_3d.mesh().iter("cell"),
+            self.kernel_z_coord(
+                pack(self.fields.z_coord_3d, c),
+                pack(self.fields.z_coord_ref_3d, c),
+                pack(self.fields.elev_cg_2d, c),
+                pack(self.fields.bathymetry_2d, c),
+                self.idx,
+            ),
+            eager=True,
         )
 
         self.solver.mesh.coordinates.dat.data[:, 2] = self.fields.z_coord_3d.dat.data[:]

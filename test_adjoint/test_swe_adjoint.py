@@ -118,7 +118,7 @@ def test_gradient_from_adjoint(setup):
     c = Function(solver_obj.options.quadratic_drag_coefficient)
     dc = Function(c)
     from numpy.random import rand
-    c.dat.data_wo[...] = rand(*c.dat.shape)
-    dc.dat.data_wo[...] = rand(*dc.dat.shape)
+    c.dat.data_wo[...] = rand(*c.dat.data_wo.shape)
+    dc.dat.data_wo[...] = rand(*dc.dat.data_wo.shape)
     minconv = taylor_test(Jhat, c, dc)
     assert minconv > 1.90

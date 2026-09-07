@@ -7,8 +7,6 @@ from scipy import stats
 import numpy
 import os
 
-op2.init(log_level=WARNING)
-
 
 def compute(refinement=1, order=1, do_export=False):
     print('--- soving refinement {:}'.format(refinement))
