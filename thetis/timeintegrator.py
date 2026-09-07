@@ -111,6 +111,16 @@ class TimeIntegrator(TimeIntegratorBase):
             if isinstance(self.fields[k], Function):
                 self.fields_old[k].assign(self.fields[k])
 
+    def _pop_assemble_parameters(self):
+        """Pop assemble parameters (sub_)mat_type from self.solver_parameters
+
+        For those time integrators that call assemble on the matrix and then
+        creates a LinearSolver, assemble needs to get the relevant mat_type options.
+        When creating the LinearSolver, these should not again be passed as Firedrake
+        may override the mat_type in assemble (e.g. "baij" for rt changes to "aij"),
+        therefore we pop them here from solver_parameters."""
+        return {k: self.solver_parameters.pop(k) for k in ['mat_type', 'sub_mat_type'] if k in self.solver_parameters}
+
 
 class ForwardEuler(TimeIntegrator):
     """Standard forward Euler time integration scheme."""
@@ -216,9 +226,11 @@ class CrankNicolson(TimeIntegrator):
     @PETSc.Log.EventDecorator("thetis.CrankNicolson.update_solver")
     def update_solver(self):
         """Create solver objects"""
-        # Ensure LU assembles monolithic matrices
+        # Ensure LU has a matrix type it can factorize, unless the caller
+        # has already made an explicit choice (e.g. 'nest' with a 'baij'
+        # sub_mat_type, which PETSc can also factorize directly).
         if self.solver_parameters.get('pc_type') == 'lu':
-            self.solver_parameters['mat_type'] = 'aij'
+            self.solver_parameters.setdefault('mat_type', 'aij')
         prob = NonlinearVariationalProblem(self.F, self.solution)
         self.solver = NonlinearVariationalSolver(prob,
                                                  solver_parameters=self.solver_parameters,
@@ -279,9 +291,11 @@ class SteadyState(TimeIntegrator):
     @PETSc.Log.EventDecorator("thetis.SteadyState.update_solver")
     def update_solver(self):
         """Create solver objects"""
-        # Ensure LU assembles monolithic matrices
+        # Ensure LU has a matrix type it can factorize, unless the caller
+        # has already made an explicit choice (e.g. 'nest' with a 'baij'
+        # sub_mat_type, which PETSc can also factorize directly).
         if self.solver_parameters.get('pc_type') == 'lu':
-            self.solver_parameters['mat_type'] = 'aij'
+            self.solver_parameters.setdefault('mat_type', 'aij')
         prob = NonlinearVariationalProblem(self.F, self.solution)
         self.solver = NonlinearVariationalSolver(prob,
                                                  solver_parameters=self.solver_parameters,
@@ -429,9 +443,11 @@ class PressureProjectionPicard(TimeIntegrator):
                                                      solver_parameters=self.solver_parameters_mom,
                                                      options_prefix=self.name+'_mom',
                                                      ad_block_tag=self.ad_block_tag + '_mom')
-        # Ensure LU assembles monolithic matrices
+        # Ensure LU has a matrix type it can factorize, unless the caller
+        # has already made an explicit choice (e.g. 'nest' with a 'baij'
+        # sub_mat_type, which PETSc can also factorize directly).
         if self.solver_parameters.get('pc_type') == 'lu':
-            self.solver_parameters['mat_type'] = 'aij'
+            self.solver_parameters.setdefault('mat_type', 'aij')
         prob = NonlinearVariationalProblem(self.F, self.solution)
         self.solver = NonlinearVariationalSolver(prob,
                                                  appctx={'a': derivative(self.F, self.solution)},
@@ -526,11 +542,11 @@ class LeapFrogAM3(TimeIntegrator):
     @PETSc.Log.EventDecorator("thetis.LeapFrogAM3.initialize")
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
-        self.mass_matrix = assemble(self.a)
+        self.mass_matrix = assemble(self.a, **self._pop_assemble_parameters())
         self.solution.assign(solution)
         self.solution_old.assign(solution)
         assemble(self.mass_new, tensor=self.msolution_old)
-        self.lin_solver = LinearSolver(self.mass_matrix)
+        self.lin_solver = LinearSolver(self.mass_matrix, solver_parameters=self.solver_parameters)
         # TODO: Linear solver is not annotated and does not accept ad_block_tag
 
     def _solve_system(self):
@@ -663,9 +679,8 @@ class SSPRK22ALE(TimeIntegrator):
         """Assigns initial conditions to all required fields."""
         self.solution.assign(solution)
 
-        mass_matrix = assemble(self.a)
-        self.lin_solver = LinearSolver(mass_matrix,
-                                       solver_parameters=self.solver_parameters)
+        mass_matrix = assemble(self.a, **self._pop_assemble_parameters())
+        self.lin_solver = LinearSolver(mass_matrix, solver_parameters=self.solver_parameters)
         # TODO: Linear solver is not annotated and does not accept ad_block_tag
         self._initialized = True
 

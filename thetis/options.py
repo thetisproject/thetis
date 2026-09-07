@@ -45,6 +45,8 @@ class SemiImplicitSWETimeStepperOptions2d(SemiImplicitTimeStepperOptions2d):
         'ksp_type': 'gmres',
         'pc_type': 'fieldsplit',
         'pc_fieldsplit_type': 'multiplicative',
+        'mat_type': 'nest',
+        'sub_mat_type': 'baij',
     }).tag(config=True)
 
 
@@ -61,11 +63,16 @@ class SemiImplicitTracerTimeStepperOptions2d(SemiImplicitTimeStepperOptions2d):
 
 class SteadyStateTimeStepperOptions2d(TimeStepperOptions):
     """Options for 2d steady state solver"""
+    # NOTE: this class is shared with tracer_timestepper_type='SteadyState';
+    # nest+baij is harmless there (tracer's H_2d block is scalar, block
+    # size 1, so it is equivalent to plain aij), but flagging since it is
+    # not purely SWE-specific.
     solver_parameters = PETScSolverParameters({
         'ksp_type': 'preonly',
         'pc_type': 'lu',
         'pc_factor_mat_solver_type': 'mumps',
-        'mat_type': 'aij'
+        'mat_type': 'nest',
+        'sub_mat_type': 'baij',
     }).tag(config=True)
 
 
@@ -108,6 +115,7 @@ class PressureProjectionSWETimeStepperOptions2d(TimeStepperOptions):
             'assembled_ksp_type': 'preonly',
             'assembled_pc_type': 'bjacobi',
             'assembled_sub_pc_type': 'ilu',
+            'assembled_mat_type': 'baij',
         },
         # schur system: explicitly assemble the schur system
         # this only works with pressureprojectionicard if the velocity block is just the mass matrix
@@ -126,6 +134,7 @@ class PressureProjectionSWETimeStepperOptions2d(TimeStepperOptions):
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'sor',
+        'mat_type': 'baij',
     }).tag(config=True)
     implicitness_theta = BoundedFloat(
         default_value=0.5, bounds=[0.5, 1.0],
@@ -148,7 +157,6 @@ class ExplicitSWETimeStepperOptions2d(ExplicitTimeStepperOptions2d):
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
-        'mat_type': 'aij',
     }).tag(config=True)
 
 
@@ -173,6 +181,8 @@ class IMEXSWETimeStepperOptions2d(SemiImplicitTimeStepperOptions2d):
         'ksp_type': 'gmres',
         'pc_type': 'fieldsplit',
         'pc_fieldsplit_type': 'multiplicative',
+        'mat_type': 'nest',
+        'sub_mat_type': 'baij',
     }).tag(config=True)
 
 
@@ -193,6 +203,8 @@ class SWETimeStepperOptions3d(TimeStepperOptions3d):
         'ksp_type': 'gmres',
         'pc_type': 'fieldsplit',
         'pc_fieldsplit_type': 'multiplicative',
+        'mat_type': 'nest',
+        'sub_mat_type': 'baij',
     }).tag(config=True)
 
 
@@ -217,6 +229,7 @@ class ExplicitMomentumTimeStepperOptions3d(TimeStepperOptions3d):
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
+        'mat_type': 'baij',
     }).tag(config=True)
 
 
@@ -231,6 +244,7 @@ class ImplicitMomentumTimeStepperOptions3d(TimeStepperOptions3d):
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
+        'mat_type': 'baij',
     }).tag(config=True)
 
 
