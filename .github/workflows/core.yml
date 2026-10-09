@@ -51,6 +51,8 @@ jobs:
       - name: Checkout Thetis
         uses: actions/checkout@v5
         with:
+          # Release branches derive package versions from the nearest release tag.
+          fetch-depth: 0
           # Download Thetis into a subdirectory not called 'thetis' to make sure
           # that the package installs correctly. Otherwise 'import thetis' may
           # work even if the installation failed because it is a subdirectory.
