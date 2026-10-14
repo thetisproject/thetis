@@ -27,6 +27,10 @@ parser.add_argument('--no-consistency-test', action='store_true',
                     help='Skip consistency test')
 parser.add_argument('--no-taylor-test', action='store_true',
                     help='Skip Taylor test')
+parser.add_argument('--ensemble', action='store_true',
+                    help='Enable ensemble mode with one station/time offset per ensemble member')
+parser.add_argument('--ranks-per-member', type=int, default=2,
+                    help='Number of MPI ranks per ensemble member when --ensemble is used')
 args = parser.parse_args()
 do_consistency_test = not args.no_consistency_test
 do_taylor_test = not args.no_taylor_test
@@ -44,6 +48,25 @@ selected_case = args.case[0]
 pwd = os.path.abspath(os.path.dirname(__file__))
 output_dir_forward = os.path.join(pwd, 'outputs', 'outputs_forward')
 output_dir_invert = os.path.join(pwd, 'outputs', 'outputs_inverse', case_to_output_dir[selected_case])
+ensemble = None
+comm = COMM_WORLD
+distribution_parameters = None
+time_offset = 0.0
+station_index = None
+ensemble_rank = 0
+ensemble_size = 1
+
+if args.ensemble:
+    ensemble = Ensemble(MPI.COMM_WORLD, args.ranks_per_member)
+    comm = ensemble.comm
+    ensemble_rank = ensemble.ensemble_rank
+    ensemble_size = ensemble.ensemble_size
+    distribution_parameters = {'partitioner_type': 'simple'}
+    time_offset = ensemble_rank * 800.0
+    station_index = ensemble_rank
+    output_dir_forward = os.path.join(pwd, 'outputs', 'outputs_forward', f'member_{ensemble_rank}')
+    output_dir_invert = os.path.join(pwd, 'outputs', 'outputs_inverse', case_to_output_dir[selected_case],
+                                     f'member_{ensemble_rank}')
 
 continue_annotation()
 
@@ -58,6 +81,10 @@ solver_obj, update_forcings = construct_solver(
     output_directory=output_dir_invert,
     store_station_time_series=False,
     no_exports=True,
+    comm=comm,
+    distribution_parameters=distribution_parameters,
+    time_offset=time_offset,
+    station_index=station_index,
 )
 options = solver_obj.options
 mesh2d = solver_obj.mesh2d
@@ -156,6 +183,15 @@ stations = [
 elev_stations = ['stationF', 'stationG']
 vel_stations = ['stationA', 'stationB', 'stationC', 'stationD', 'stationE']
 
+if args.ensemble:
+    if not 0 <= ensemble_rank < len(stations):
+        raise ValueError(f'ensemble_rank {ensemble_rank} out of range for {len(stations)} stations')
+    selected_stations = [stations[ensemble_rank]]
+    if comm.rank == 0:
+        print(f'Ensemble member {ensemble_rank + 1}/{ensemble_size}: time offset = {time_offset}')
+else:
+    selected_stations = stations
+
 # Apply cost function scaling so that dJ/dm ~ O(1)
 if selected_case in ('GradientReg', 'HessianReg'):
     cfs_scalar = 1e2 * solver_obj.dt / options.simulation_end_time
@@ -172,7 +208,7 @@ cfs_scalar_elev = cfs_scalar
 variable = 'uv'
 vel_sta_mgr = inversion_tools.StationObservationManager(mesh2d, output_directory=options.output_directory)
 vel_names, vel_coords, vel_times, vel_u, vel_v = [], [], [], [], []
-for name, (sta_x, sta_y) in [(s, (x, y)) for s, (x, y) in stations if s in vel_stations]:
+for name, (sta_x, sta_y) in [(s, (x, y)) for s, (x, y) in selected_stations if s in vel_stations]:
     file = os.path.join(output_dir_forward, f'diagnostic_timeseries_{name}.hdf5')
     with h5py.File(file) as h5file:
         t = h5file['time'][:].flatten()
@@ -182,19 +218,22 @@ for name, (sta_x, sta_y) in [(s, (x, y)) for s, (x, y) in stations if s in vel_s
         vel_times.append(t)
         vel_u.append(var[:, 1])
         vel_v.append(var[:, 2])
-vel_coords_x, vel_coords_y = numpy.array(vel_coords).T
-vel_sta_mgr.register_observation_data(vel_names, variable, vel_times, vel_coords_x, vel_coords_y,
-                                      data=(vel_u, vel_v), start_times=None, end_times=None)
-# must be assigned before constructing evaluator
-vel_sta_mgr.cost_function_scaling = domain_constant(cfs_scalar_vel, mesh2d)
-vel_sta_mgr.construct_evaluator()
-vel_sta_mgr.set_model_field(solver_obj.fields.uv_2d)
+if vel_names:
+    vel_coords_x, vel_coords_y = numpy.array(vel_coords).T
+    vel_sta_mgr.register_observation_data(vel_names, variable, vel_times, vel_coords_x, vel_coords_y,
+                                          data=(vel_u, vel_v), start_times=None, end_times=None)
+    # must be assigned before constructing evaluator
+    vel_sta_mgr.cost_function_scaling = domain_constant(cfs_scalar_vel, mesh2d)
+    vel_sta_mgr.construct_evaluator()
+    vel_sta_mgr.set_model_field(solver_obj.fields.uv_2d)
+else:
+    vel_sta_mgr = None
 
 # --- Elevation station manager ---
 variable = 'elev'
 elev_sta_mgr = inversion_tools.StationObservationManager(mesh2d, output_directory=options.output_directory)
 elev_names, elev_coords, elev_times, elev_data = [], [], [], []
-for name, (sta_x, sta_y) in [(s, (x, y)) for s, (x, y) in stations if s in elev_stations]:
+for name, (sta_x, sta_y) in [(s, (x, y)) for s, (x, y) in selected_stations if s in elev_stations]:
     file = os.path.join(output_dir_forward, f'diagnostic_timeseries_{name}.hdf5')
     with h5py.File(file) as h5file:
         t = h5file['time'][:].flatten()
@@ -203,18 +242,26 @@ for name, (sta_x, sta_y) in [(s, (x, y)) for s, (x, y) in stations if s in elev_
         elev_coords.append((sta_x, sta_y))
         elev_times.append(t)
         elev_data.append(var[:, 0])
-elev_coords_x, elev_coords_y = numpy.array(elev_coords).T
-elev_sta_mgr.register_observation_data(elev_names, variable, elev_times, elev_coords_x, elev_coords_y,
-                                       data=elev_data, start_times=None, end_times=None)
-elev_sta_mgr.cost_function_scaling = domain_constant(cfs_scalar_elev, mesh2d)
-elev_sta_mgr.construct_evaluator()
-elev_sta_mgr.set_model_field(solver_obj.fields.elev_2d)
+if elev_names:
+    elev_coords_x, elev_coords_y = numpy.array(elev_coords).T
+    elev_sta_mgr.register_observation_data(elev_names, variable, elev_times, elev_coords_x, elev_coords_y,
+                                           data=elev_data, start_times=None, end_times=None)
+    elev_sta_mgr.cost_function_scaling = domain_constant(cfs_scalar_elev, mesh2d)
+    elev_sta_mgr.construct_evaluator()
+    elev_sta_mgr.set_model_field(solver_obj.fields.elev_2d)
+else:
+    elev_sta_mgr = None
+
+manager_dict = {}
+if vel_sta_mgr is not None:
+    manager_dict['velocity'] = vel_sta_mgr
+if elev_sta_mgr is not None:
+    manager_dict['elevation'] = elev_sta_mgr
+if not manager_dict:
+    raise RuntimeError('No observation managers configured for the selected run mode')
 
 # --- Combine into a multi-station manager ---
-sta_manager = inversion_tools.MultiStationObservationManager({
-    'velocity': vel_sta_mgr,
-    'elevation': elev_sta_mgr
-})
+sta_manager = inversion_tools.MultiStationObservationManager(manager_dict)
 
 print_output('Multi-Station Manager set-up complete.')
 
@@ -237,7 +284,7 @@ control_bounds = numpy.array(control_bounds_list).T
 # Create inversion manager and add controls
 inv_manager = inversion_tools.InversionManager(
     sta_manager, output_dir=options.output_directory, no_exports=False, penalty_parameters=gamma_penalty_list,
-    test_consistency=do_consistency_test, test_gradient=do_taylor_test)
+    test_consistency=do_consistency_test, test_gradient=do_taylor_test, ensemble=ensemble)
 
 print_output('Inversion Manager instantiated.')
 
@@ -255,8 +302,8 @@ else:
     manning_2d.assign(0.04)
     inv_manager.add_control(manning_2d)
 
-if not no_exports:
-    VTKFile(os.path.join(output_dir_invert, 'manning_init.pvd')).write(manning_2d)
+if not no_exports and ensemble_rank == 0:
+    VTKFile(os.path.join(output_dir_invert, 'manning_init.pvd'), comm=comm).write(manning_2d)
 
 # Extract the regularized cost function
 if selected_case == 'GradientReg':
@@ -278,7 +325,6 @@ opt_verbose = -1  # scipy diagnostics -1, 0, 1, 99, 100, 101
 opt_options = {
     'maxiter': 10,  # NOTE increase to run iteration longer
     'ftol': 1e-5,
-    'disp': opt_verbose if mesh2d.comm.rank == 0 else -1,
 }
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
     opt_options['maxiter'] = 1
@@ -294,7 +340,7 @@ for oc, cc in zip(control_opt_list, inv_manager.control_coeff_list):
         manning_2d = Function(P1_2d, name='Manning coefficient')
         manning_2d.assign(domain_constant(inv_manager.m_list[-1], mesh2d))
         if not no_exports:
-            VTKFile(os.path.join(options.output_directory, 'manning_optimised.pvd')).write(manning_2d)
+            VTKFile(os.path.join(options.output_directory, 'manning_optimised.pvd'), comm=comm).write(manning_2d)
     elif selected_case == 'Regions' or selected_case == 'IndependentPointsScheme':
         P1_2d = get_functionspace(mesh2d, 'CG', 1)
         manning_2d = Function(P1_2d, name='manning2d')
@@ -302,13 +348,13 @@ for oc, cc in zip(control_opt_list, inv_manager.control_coeff_list):
         for m_, mask_ in zip(inv_manager.m_list, masks):
             manning_2d += m_ * mask_
         if not no_exports:
-            VTKFile(os.path.join(options.output_directory, 'manning_optimised.pvd')).write(manning_2d)
+            VTKFile(os.path.join(options.output_directory, 'manning_optimised.pvd'), comm=comm).write(manning_2d)
     else:
         name = cc.name()
         oc.rename(name)
         print_function_value_range(oc, prefix='Optimal')
         if not no_exports:
-            VTKFile(os.path.join(options.output_directory, f'{name}_optimised.pvd')).write(oc)
+            VTKFile(os.path.join(options.output_directory, f'{name}_optimised.pvd'), comm=comm).write(oc)
 
 if selected_case == 'Regions' or selected_case == 'IndependentPointsScheme':
     print_output("Optimised vector m:\n" + str(
