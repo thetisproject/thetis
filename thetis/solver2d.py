@@ -1090,7 +1090,7 @@ class FlowSolver2d(FrozenClass):
         init_date = self.options.simulation_initial_date
         end_date = self.options.simulation_end_date
         if (init_date is not None and end_date is not None):
-            now = init_date + datetime.timedelta(initial_simulation_time)
+            now = init_date + datetime.timedelta(seconds=initial_simulation_time)
             assert end_date > now, f'Simulation end date must be greater than initial time {now}'
             print_output(
                 f'Running simulation\n'
