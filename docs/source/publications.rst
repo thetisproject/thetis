@@ -8,17 +8,21 @@ Citing Thetis
 If you publish results obtained with Thetis, please cite the `2018 GMD paper <https://doi.org/10.5194/gmd-11-4359-2018>`_.
 Also see `instructions for citing Firedrake <https://firedrakeproject.org/citing.html>`_.
 
+.. raw:: html
+
+   <div class="publication-tabs" role="tablist" aria-label="Publication types">
+   <a class="publication-tab active" href="#papers" role="tab" aria-selected="true">Journal and conference papers</a>
+   <a class="publication-tab" href="#theses" role="tab" aria-selected="false">Theses</a>
+   <a class="publication-tab" href="#preprints" role="tab" aria-selected="false">Pre-prints</a>
+   </div>
+   <span class="publication-tab-marker" id="papers"></span>
+
 2026
 ----
 Jordan, C. and Angeloudis, A.:
 Assimilation of velocity data for tidal hydrodynamics model calibration,
 *Journal of Advances in Modeling Earth Systems* 18, e2025MS005399,
 doi: `10.1029/2025MS005399 <https://doi.org/10.1029/2025MS005399>`_, 2026.
-
-Li, Y., Kramer, S. C. and Piggott, M. D.:
-Machine Learning Based Mesh Movement for Non-Hydrostatic Tsunami Simulation,
-*arXiv preprint*,
-doi: `10.48550/arXiv.2603.06152 <https://doi.org/10.48550/arXiv.2603.06152>`_, 2026.
 
 Hill, J., Vila-Concejo, A. and Lee, K.C.:
 Toward a digital twin of the Great Barrier Reef: Impact of extreme model resolution on tidal simulations,
@@ -94,11 +98,6 @@ Fragkou, A. K., Old, C., Venugopal, V. and Angeloudis, A.:
 Thetis-SWAN: A Python-interfaced wave–current interactions coupled system,
 *Environmental Modelling & Software*, 177:106034,
 doi: `10.1016/j.envsoft.2024.106034 <https://doi.org/10.1016/j.envsoft.2024.106034>`_, 2024.
-
-Smith, H. A.:
-Modelling the impacts of tropical cyclones on coral cover across the Great Barrier Reef,
-*MSc by Research thesis*: University of York.
-eprint ID: `etheses.whiterose.ac.uk:36909 <https://etheses.whiterose.ac.uk/id/eprint/36909/>`_, 2024.
 
 Zhang, C., Cheng, X., Angeloudis, A., Kramer, S. C., Wu, C., Chen, Y. and Piggott, M. D.:
 Economics-constrained tidal turbine array layout optimisation at the Putuoshan–Hulu island waterway,
@@ -213,11 +212,6 @@ doi: `10.1007/s13137-022-00196-4 <https://doi.org/10.1007/s13137-022-00196-4>`_,
 
 2021
 ----
-Warder, S. C., Kramer, S. C. and Piggott, M. D.:
-Non-deterministic effects in modelling the tidal currents in a high-energy coastal site,
-*EarthArXiv preprint*,
-doi: `10.31223/X55G7F <https://doi.org/10.31223/X55G7F>`_, 2021.
-
 Fofonova, V., Kärnä, T., Klingbeil, K., Androsov, A., Kuznetsov, I., Sidorenko, D., Danilov, S., Burchard, H. and Wiltshire, K. H.:
 Plume spreading test case for coastal ocean models,
 *Geosci. Model Dev.*, 14:6945–6975,
@@ -338,3 +332,32 @@ Avdis, A., Candy, A. S., Hill, J., Kramer, S. C. and Piggott, M. D.:
 Efficient unstructured mesh generation for marine renewable energy applications,
 *Renewable Energy*, 116:842–856,
 doi: `10.1016/j.renene.2017.09.058 <https://doi.org/10.1016/j.renene.2017.09.058>`_, 2018.
+
+.. raw:: html
+
+   <span class="publication-tab-marker" id="theses"></span>
+
+PhD, MEng and other theses
+--------------------------
+
+Smith, H. A.:
+Modelling the impacts of tropical cyclones on coral cover across the Great Barrier Reef,
+*MSc by Research thesis*: University of York.
+eprint ID: `etheses.whiterose.ac.uk:36909 <https://etheses.whiterose.ac.uk/id/eprint/36909/>`_, 2024.
+
+.. raw:: html
+
+   <span class="publication-tab-marker" id="preprints"></span>
+
+Pre-prints
+----------
+
+Li, Y., Kramer, S. C. and Piggott, M. D.:
+Machine Learning Based Mesh Movement for Non-Hydrostatic Tsunami Simulation,
+*arXiv preprint*,
+doi: `10.48550/arXiv.2603.06152 <https://doi.org/10.48550/arXiv.2603.06152>`_, 2026.
+
+Warder, S. C., Kramer, S. C. and Piggott, M. D.:
+Non-deterministic effects in modelling the tidal currents in a high-energy coastal site,
+*EarthArXiv preprint*,
+doi: `10.31223/X55G7F <https://doi.org/10.31223/X55G7F>`_, 2021.
