@@ -653,9 +653,11 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
     @PETSc.Log.EventDecorator("thetis.DIRKGenericUForm.update_solver")
     def update_solver(self):
         """Create solver objects"""
-        # Ensure LU assembles monolithic matrices
+        # Ensure LU has a matrix type it can factorize, unless the caller
+        # has already made an explicit choice (e.g. 'nest' with a 'baij'
+        # sub_mat_type, which PETSc can also factorize directly).
         if self.solver_parameters.get('pc_type') == 'lu':
-            self.solver_parameters['mat_type'] = 'aij'
+            self.solver_parameters.setdefault('mat_type', 'aij')
         self.solver = []
         for i in range(self.n_stages):
             p = NonlinearVariationalProblem(self.F[i], self.solution)
