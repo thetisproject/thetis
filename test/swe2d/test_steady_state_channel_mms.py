@@ -1,18 +1,13 @@
 from thetis import *
+from supported_elements import *
 import math
-import pytest
 
 
-@pytest.fixture(params=['rt-dg', 'dg-dg', 'dg-cg', 'bdm-dg'])
-def element_family(request):
-    return request.param
-
-
-def test_steady_state_channel_mms(element_family, do_exports=False):
+def test_steady_state_channel_mms(element_family_and_degree, do_exports=False):
     lx = 5e3
     ly = 1e3
 
-    order = 1
+    element_family, order = element_family_and_degree
     # minimum resolution
     min_cells = 48
     n = 1  # number of timesteps
@@ -24,14 +19,17 @@ def test_steady_state_channel_mms(element_family, do_exports=False):
     k = 4.0*math.pi/lx
     Q = H0*1.0  # flux (depth-integrated velocity)
     eta0 = 1.0  # free surface amplitude
-    C_D = 0.0025  # quadratic drag coefficient
+    C_D = 0.01  # quadratic drag coefficient
 
     xhat = Identity(2)[0, :]
 
     eta_errs = []
     u_errs = []
     for i in range(4):
-        mesh2d = RectangleMesh(min_cells*2**i, 1, lx, ly)
+        # for rt/bdm accuracy depends on triangle quality;
+        # avoid elements getting flatter by making channel narrower
+        # (wouldn't be an issue if we'd refine in both x and y)
+        mesh2d = RectangleMesh(min_cells*2**i, 1, lx, ly/2**i)
         x = mesh2d.coordinates
         eta_expr = eta0*cos(k*x[0])
         H = H0+eta0*cos(k*x[0])

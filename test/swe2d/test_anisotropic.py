@@ -16,10 +16,10 @@ resulting from this process is used in this test. The mesh is anisotropic in the
     pp.1053--1063 (2020), DOI: 10.1007/s42452-020-2745-9, URL: https://rdcu.be/b35wZ.
 """
 from thetis import *
+from supported_elements import *
 import thetis.diagnostics as diagnostics
 from petsc4py import PETSc
 import numpy as np
-import pytest
 import os
 
 
@@ -215,25 +215,22 @@ def estimate_error(mesh, **model_options):
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=['dg-cg', 'dg-dg', 'rt-dg', 'bdm-dg'])
-def family(request):
-    return request.param
-
-
-def test_sipg(family):
-    snes_it = run(element_family=family)
+def test_sipg(element_family_and_degree):
+    family, degree = element_family_and_degree
+    snes_it = run(element_family=family, polynomial_degree=degree)
     expected = 3
     msg = f'snes iterations exceed expected: {snes_it} > {expected}'
     assert snes_it <= expected, msg
 
 
-def test_dwr(family):
+def test_dwr(element_family_and_degree):
     n = 5
     mesh = RectangleMesh(12 * n, 5 * n, 1200, 500)
+    family, degree = element_family_and_degree
     # NOTE: Building a MeshHierarchy on a mesh loaded
     #       from a DMPlex stored as HDF5 appears to
     #       be broken.
-    estimate_error(mesh, element_family=family, no_exports=True)
+    estimate_error(mesh, element_family=family, polynomial_degree=degree, no_exports=True)
 
 # ---------------------------
 # run individual setup for debugging
