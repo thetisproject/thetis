@@ -3,7 +3,6 @@ import thetis.inversion_tools as inversion_tools
 from firedrake import *
 from firedrake.adjoint import *
 from model_config import construct_solver
-from scipy.interpolate import LinearNDInterpolator, NearestNDInterpolator
 import h5py
 import numpy as np
 import argparse
@@ -27,10 +26,21 @@ parser.add_argument('--no-consistency-test', action='store_true',
                     help='Skip consistency test')
 parser.add_argument('--no-taylor-test', action='store_true',
                     help='Skip Taylor test')
+parser.add_argument('--ip-interpolation',
+                    help='Interpolation method for the independent point scheme',
+                    choices=['linear', 'cubic', 'rbf'],
+                    default='linear')
+parser.add_argument('--ip-rbf-kernel',
+                    help='SciPy RBFInterpolator kernel for the independent point scheme',
+                    default='thin_plate_spline')
+parser.add_argument('--ip-rbf-smoothing', type=float,
+                    help='SciPy RBFInterpolator smoothing parameter for the independent point scheme',
+                    default=0.0)
 args = parser.parse_args()
 do_consistency_test = not args.no_consistency_test
 do_taylor_test = not args.no_taylor_test
 no_exports = os.getenv('THETIS_REGRESSION_TEST') is not None
+ip_interpolation = args.ip_interpolation
 
 case_to_output_dir = {
     'Uniform': 'uniform_friction',
@@ -44,6 +54,8 @@ selected_case = args.case[0]
 pwd = os.path.abspath(os.path.dirname(__file__))
 output_dir_forward = os.path.join(pwd, 'outputs', 'outputs_forward')
 output_dir_invert = os.path.join(pwd, 'outputs', 'outputs_inverse', case_to_output_dir[selected_case])
+if selected_case == 'IndependentPointsScheme' and ip_interpolation != 'linear':
+    output_dir_invert += f'_{ip_interpolation}'
 
 continue_annotation()
 
@@ -71,7 +83,7 @@ ly = mesh2d.comm.allreduce(np.max(y), MPI.MAX)
 
 local_N = coordinates.shape[0]
 N = mesh2d.comm.allreduce(local_N, MPI.SUM)  # allreduce sums the local numbers to get the total number of coordinates
-masks, M, m_true = None, 0, []
+masks, point_mapping, M, m_true = None, None, 0, []
 
 # Create a FunctionSpace on the mesh (corresponds to Manning)
 V = get_functionspace(mesh2d, 'CG', 1)
@@ -104,6 +116,7 @@ elif selected_case == 'Regions':
     for m_, mask_ in zip(m_true, masks):
         manning_2d += m_ * mask_
 elif selected_case == 'IndependentPointsScheme':
+    print_output(f'Using {ip_interpolation} independent point interpolation')
     # Define our values for n
     points = np.array([
         [0, 0], [0, 0.5], [0, 1], [0.5, 0], [1, 0], [1, 0.5], [1, 1], [0.5, 0.5],
@@ -116,24 +129,11 @@ elif selected_case == 'IndependentPointsScheme':
     m_true = [domain_constant(0.03 - 0.0005 * i, mesh2d) for i in range(len(points))]
     M = len(m_true)
 
-    linear_interpolator = LinearNDInterpolator(points, np.eye(len(points)))
-    nearest_interpolator = NearestNDInterpolator(points, np.eye(len(points)))
-
-    # Apply the interpolators to the mesh coordinates
-    linear_coefficients = linear_interpolator(coordinates)
-    nan_mask = np.isnan(linear_coefficients).any(axis=1)
-    linear_coefficients[nan_mask] = nearest_interpolator(coordinates[nan_mask])
-
-    # Create Function objects to store the coefficients
-    masks = [Function(V) for _ in range(len(points))]
-
-    # Assign the linear coefficients to the masks
-    for i, mask in enumerate(masks):
-        mask.dat.data[:] = linear_coefficients[:, i]
-
-    manning_2d.assign(0)
-    for m_, mask_ in zip(m_true, masks):
-        manning_2d += m_ * mask_
+    point_mapping = inversion_tools.IndependentPointControlMapping(
+        V, points, method=ip_interpolation,
+        rbf_kernel=args.ip_rbf_kernel, rbf_smoothing=args.ip_rbf_smoothing)
+    masks = point_mapping.masks
+    point_mapping.assign(manning_2d, m_true)
 elif selected_case in ('GradientReg', 'HessianReg'):
     pass
 else:
@@ -245,12 +245,16 @@ if selected_case == 'Uniform':
     manning_const = domain_constant(0.03, mesh2d, name='Manning')
     manning_2d.project(manning_const)
     inv_manager.add_control(manning_const)
-elif selected_case in ('Regions', 'IndependentPointsScheme'):
+elif selected_case == 'Regions':
     m_values = [domain_constant(0.03 - 0.0005 * i, mesh2d) for i in range(M)]
     manning_2d.assign(0)
     for m_, mask_ in zip(m_values, masks):
         manning_2d += m_ * mask_
     inv_manager.add_control(m_values, mappings=masks)
+elif selected_case == 'IndependentPointsScheme':
+    m_values = [domain_constant(0.03 - 0.0005 * i, mesh2d) for i in range(M)]
+    point_mapping.assign(manning_2d, m_values)
+    inv_manager.add_control(m_values, mappings=point_mapping)
 else:
     manning_2d.assign(0.04)
     inv_manager.add_control(manning_2d)
@@ -295,12 +299,16 @@ for oc, cc in zip(control_opt_list, inv_manager.control_coeff_list):
         manning_2d.assign(domain_constant(inv_manager.m_list[-1], mesh2d))
         if not no_exports:
             VTKFile(os.path.join(options.output_directory, 'manning_optimised.pvd')).write(manning_2d)
-    elif selected_case == 'Regions' or selected_case == 'IndependentPointsScheme':
+    elif selected_case == 'Regions':
         P1_2d = get_functionspace(mesh2d, 'CG', 1)
         manning_2d = Function(P1_2d, name='manning2d')
         manning_2d.assign(0)
         for m_, mask_ in zip(inv_manager.m_list, masks):
             manning_2d += m_ * mask_
+        if not no_exports:
+            VTKFile(os.path.join(options.output_directory, 'manning_optimised.pvd')).write(manning_2d)
+    elif selected_case == 'IndependentPointsScheme':
+        manning_2d = point_mapping.project(inv_manager.m_list, name='manning2d')
         if not no_exports:
             VTKFile(os.path.join(options.output_directory, 'manning_optimised.pvd')).write(manning_2d)
     else:
