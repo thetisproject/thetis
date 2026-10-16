@@ -1,7 +1,6 @@
 from thetis import *
 import thetis.coordsys as coordsys
-from okada import *
-from sources import *
+from thetis.tsunami import *
 import csv
 import netCDF4
 import numpy
