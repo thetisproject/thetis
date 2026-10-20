@@ -104,11 +104,12 @@ options.simulation_export_time = t_export
 options.simulation_end_time = t_end
 options.output_directory = outputdir
 options.check_volume_conservation_2d = True
-options.fields_to_export = ['uv_2d', 'elev_2d']
+options.fields_to_export = ['uv_2d', 'elev_2d', 'smag_visc_2d']
 options.quadratic_drag_coefficient = Constant(0.0025)
 options.swe_timestepper_type = 'CrankNicolson'
 options.swe_timestepper_options.implicitness_theta = 0.5
 options.horizontal_viscosity = h_viscosity
+options.use_smagorinsky_viscosity = True
 options.use_wetting_and_drying = True
 options.wetting_and_drying_alpha = Constant(0.5)
 if not hasattr(options.swe_timestepper_options, 'use_automatic_timestep'):
