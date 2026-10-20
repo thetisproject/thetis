@@ -640,6 +640,83 @@ def get_horizontal_elem_size_2d(sol2d):
     solve(a == l, sol2d, solver_parameters=sp)
 
 
+class SmagorinskyViscosity2d(object):
+    r"""Computes 2D Smagorinsky subgrid-scale horizontal viscosity.
+
+    The closure is
+
+    .. math::
+        \nu = (C_s \Delta x)^2 \sqrt{D_T^2 + D_S^2},
+
+    where :math:`D_T = \partial_x u - \partial_y v` and
+    :math:`D_S = \partial_y u + \partial_x v`.  For piecewise-constant
+    velocity fields, gradients are recovered weakly using the two-dimensional
+    interior and exterior facet measures.
+    """
+
+    @PETSc.Log.EventDecorator("thetis.SmagorinskyViscosity2d.__init__")
+    def __init__(self, uv, output, coefficient, h_elem_size, max_val=None,
+                 min_val=1.0e-10, weak_form=False, solver_parameters=None):
+        if solver_parameters is None:
+            solver_parameters = {}
+        solver_parameters = solver_parameters.copy()
+        solver_parameters.setdefault('ksp_atol', 1.0e-12)
+        solver_parameters.setdefault('ksp_rtol', 1.0e-16)
+
+        if max_val is not None:
+            assert max_val.function_space() == output.function_space(), \
+                'max_val function must belong to the same space as output'
+        self.max_val = max_val
+        self.min_val = min_val
+        self.output = output
+        self.weak_form = weak_form
+
+        if weak_form:
+            mesh = output.function_space().mesh()
+            fs_grad = FunctionSpace(mesh, 'DG', 1)
+            self.grad = [[Function(fs_grad, name='uv_grad({:},{:})'.format(i, j))
+                          for j in range(2)] for i in range(2)]
+            trial = TrialFunction(fs_grad)
+            test = TestFunction(fs_grad)
+            normal = FacetNormal(mesh)
+            a = inner(trial, test)*dx
+            self.gradient_solvers = []
+            for i in range(2):
+                for j in range(2):
+                    l = -inner(Dx(test, j), uv[i])*dx
+                    l += inner(avg(uv[i]), jump(test, normal[j]))*dS
+                    l += inner(uv[i], test*normal[j])*ds
+                    problem = LinearVariationalProblem(a, l, self.grad[i][j])
+                    self.gradient_solvers.append(
+                        LinearVariationalSolver(problem, solver_parameters=solver_parameters))
+            d_t = self.grad[0][0] - self.grad[1][1]
+            d_s = self.grad[0][1] + self.grad[1][0]
+        else:
+            d_t = Dx(uv[0], 0) - Dx(uv[1], 1)
+            d_s = Dx(uv[0], 1) + Dx(uv[1], 0)
+
+        fs = output.function_space()
+        trial = TrialFunction(fs)
+        test = TestFunction(fs)
+        viscosity = coefficient**2*h_elem_size**2*sqrt(d_t**2 + d_s**2)
+        problem = LinearVariationalProblem(test*trial*dx, test*viscosity*dx, output)
+        self.solver = LinearVariationalSolver(problem, solver_parameters=solver_parameters)
+
+    @PETSc.Log.EventDecorator("thetis.SmagorinskyViscosity2d.solve")
+    def solve(self):
+        """Update the viscosity field from the current velocity."""
+        if self.weak_form:
+            for solver in self.gradient_solvers:
+                solver.solve()
+        self.solver.solve()
+        values = self.output.dat.data
+        values[values < self.min_val] = self.min_val
+        if self.max_val is not None:
+            max_values = self.max_val.dat.data
+            mask = values > max_values
+            values[mask] = max_values[mask]
+
+
 @PETSc.Log.EventDecorator("thetis.get_facet_areas")
 def get_facet_areas(mesh):
     """

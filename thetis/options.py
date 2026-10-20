@@ -717,6 +717,14 @@ class CommonModelOptions(FrozenConfigurable):
         """).tag(config=True)
     horizontal_viscosity = FiredrakeScalarExpression(
         None, allow_none=True, help="Horizontal viscosity").tag(config=True)
+    use_smagorinsky_viscosity = Bool(
+        False, help="Use Smagorinsky horizontal viscosity parametrization").tag(config=True)
+    smagorinsky_coefficient = FiredrakeConstantTraitlet(
+        Constant(0.1),
+        help="""Smagorinsky viscosity coefficient :math:`C_S`.
+
+        See the model-specific Smagorinsky viscosity calculator.
+        """).tag(config=True)
     coriolis_frequency = FiredrakeScalarExpression(
         None, allow_none=True, help="2D Coriolis parameter").tag(config=True)
     wind_stress = FiredrakeVectorExpression(
@@ -866,6 +874,12 @@ class SedimentModelOptions(FrozenHasTraits):
 class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
     name = 'Depth-averaged 2D model'
+    use_automatic_smagorinsky_viscosity_cap = Bool(
+        True, help="Limit 2D Smagorinsky viscosity using the explicit diffusion stability bound.").tag(config=True)
+    smagorinsky_viscosity_max = PositiveFloat(
+        None, allow_none=True,
+        help="Optional manual upper bound for 2D Smagorinsky viscosity. Only used when "
+             "automatic capping is disabled.").tag(config=True)
     sediment_model_options = Instance(SedimentModelOptions, args=()).tag(config=True)
     use_tracer_conservative_form = Bool(False, help='Solve 2D tracer transport in the conservative form').tag(config=True)
     use_wetting_and_drying = Bool(
@@ -1079,14 +1093,6 @@ class ModelOptions3d(CommonModelOptions):
         False, help="Activate turbulence model in the 3D model").tag(config=True)
     use_turbulence_advection = Bool(
         False, help="Advect TKE and Psi in the GLS turbulence model").tag(config=True)
-    use_smagorinsky_viscosity = Bool(
-        False, help="Use Smagorinsky horisontal viscosity parametrization").tag(config=True)
-    smagorinsky_coefficient = FiredrakeConstantTraitlet(
-        Constant(0.1),
-        help="""Smagorinsky viscosity coefficient :math:`C_S`
-
-        See :class:`.SmagorinskyViscosity`.""").tag(config=True)
-
     use_limiter_for_velocity = Bool(
         True, help="Apply P1DG limiter for 3D horizontal velocity field").tag(config=True)
     check_volume_conservation_3d = Bool(

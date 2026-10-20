@@ -412,6 +412,10 @@ class FlowSolver2d(FrozenClass):
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = elev_2d
 
+        if self.options.use_smagorinsky_viscosity:
+            self.fields.smag_visc_2d = Function(
+                self.function_spaces.P1_2d, name='Smagorinsky viscosity')
+
         # Add tracer fields
         self.solve_tracer = len(self.options.tracer_fields.keys()) > 0
         for system, parent in self.options.tracer_fields.copy().items():
@@ -548,7 +552,7 @@ class FlowSolver2d(FrozenClass):
             'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
             'manning_drag_coefficient': self.options.manning_drag_coefficient,
             'nikuradse_bed_roughness': self.options.nikuradse_bed_roughness,
-            'viscosity_h': self.options.horizontal_viscosity,
+            'viscosity_h': self.horizontal_viscosity_2d,
             'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
             'coriolis': self.options.coriolis_frequency,
             'wind_stress': self.options.wind_stress,
@@ -657,6 +661,28 @@ class FlowSolver2d(FrozenClass):
 
         self.compute_mesh_stats()
         self.set_time_step()
+
+        if self.options.use_smagorinsky_viscosity:
+            cap = None
+            if self.options.use_automatic_smagorinsky_viscosity_cap:
+                cap = Function(self.function_spaces.P1_2d, name='Maximum Smagorinsky viscosity')
+                degree = self.options.polynomial_degree
+                max_diff_alpha = 1.0/60.0/max(degree*(degree + 1), 1.0)
+                cap.interpolate(max_diff_alpha/self.dt*self.fields.h_elem_size_2d**2)
+            elif self.options.smagorinsky_viscosity_max is not None:
+                cap = Function(self.function_spaces.P1_2d, name='Maximum Smagorinsky viscosity')
+                cap.assign(self.options.smagorinsky_viscosity_max)
+            self.smagorinsky_viscosity_solver = SmagorinskyViscosity2d(
+                self.fields.uv_2d, self.fields.smag_visc_2d,
+                self.options.smagorinsky_coefficient, self.fields.h_elem_size_2d,
+                max_val=cap, weak_form=self.options.polynomial_degree == 0)
+            if self.options.horizontal_viscosity is None:
+                self.horizontal_viscosity_2d = self.fields.smag_visc_2d
+            else:
+                self.horizontal_viscosity_2d = (
+                    self.options.horizontal_viscosity + self.fields.smag_visc_2d)
+        else:
+            self.horizontal_viscosity_2d = self.options.horizontal_viscosity
 
         # ----- Time integrators
         steppers = {
@@ -1113,6 +1139,8 @@ class FlowSolver2d(FrozenClass):
                 self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
         while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
+            if self.options.use_smagorinsky_viscosity:
+                self.smagorinsky_viscosity_solver.solve()
             self.timestepper.advance(self.simulation_time, update_forcings)
 
             if adj_timestepper is not None:
