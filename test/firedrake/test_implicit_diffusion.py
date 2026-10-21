@@ -8,8 +8,6 @@ from firedrake import *
 from thetis.utility import get_functionspace
 import numpy
 
-op2.init(log_level=WARNING)
-
 
 def test_implicit_diffusion(do_export=False, do_assert=True):
 

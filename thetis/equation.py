@@ -26,7 +26,7 @@ class Term(object):
         self.tri = trial_function or TrialFunction(self.function_space)
         self.normal = FacetNormal(self.mesh)
         # TODO construct them here from mesh ?
-        self.boundary_markers = sorted(function_space.mesh().exterior_facets.unique_markers)
+        self.boundary_markers = sorted(function_space.mesh().facet_markers)
         self.boundary_len = function_space.mesh().boundary_len
 
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):

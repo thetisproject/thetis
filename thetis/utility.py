@@ -7,6 +7,7 @@ import sys
 from collections import OrderedDict, namedtuple  # NOQA
 
 import ufl  # NOQA
+import pyop3 as op3
 from firedrake import *
 from firedrake.petsc import PETSc
 from mpi4py import MPI  # NOQA
@@ -382,10 +383,11 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, z_stretch_fact=1.0,
             min_depth_arr[i] = v
 
     nodes = get_facet_mask(fs_3d, 'bottom')
-    idx = op2.Global(len(nodes), nodes, dtype=numpy.int32, name='node_idx')
-    min_depth_op2 = op2.Global(len(min_depth_arr), min_depth_arr, name='min_depth')
-    kernel = op2.Kernel("""
-        void my_kernel(double *new_coords, double *old_coords, double *bath2d, double *z_stretch, int *idx, double *min_depth) {
+    idx = op3.Dat.from_array(nodes, name='node_idx', constant=True, rank_equal=True)
+    min_depth_op3 = op3.Dat.from_array(min_depth_arr, name='min_depth', constant=True, rank_equal=True)
+    kernel = op3.Function.from_c_string(
+        "my_kernel",
+        """
             for ( int d = 0; d < %(nodes)d; d++ ) {
                 double s_fact = z_stretch[d];
                 for ( int e = 0; e < %(v_nodes)d; e++ ) {
@@ -399,19 +401,31 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, z_stretch_fact=1.0,
                     new_coords[3*(idx[d]+e) + 2] = new_z;
                 }
             }
-        }""" % {'nodes': fs_2d.finat_element.space_dimension(),
-                'v_nodes': n_vert_nodes,
-                'n_layers': n_layers},
-        'my_kernel')
+        """ % {'nodes': fs_2d.finat_element.space_dimension(),
+               'v_nodes': n_vert_nodes,
+               'n_layers': n_layers},
+        [
+            ("new_coords", op3.ScalarType, op3.WRITE),
+            ("old_coords", op3.ScalarType, op3.READ),
+            ("bath2d", op3.ScalarType, op3.READ),
+            ("z_stretch", op3.ScalarType, op3.READ),
+            ("idx", int, op3.READ),
+            ("min_depth", op3.ScalarType, op3.READ),
+        ],
+    )
 
-    op2.par_loop(kernel, mesh.cell_set,
-                 new_coordinates.dat(op2.WRITE, fs_3d.cell_node_map()),
-                 coordinates.dat(op2.READ, fs_3d.cell_node_map()),
-                 bathymetry_2d.dat(op2.READ, fs_2d.cell_node_map()),
-                 z_stretch_func.dat(op2.READ, fs_2d.cell_node_map()),
-                 idx(op2.READ),
-                 min_depth_op2(op2.READ),
-                 iteration_region=op2.ALL)
+    op3.loop(
+        c := mesh.iter("cell"),
+        kernel(
+            pack(new_coordinates, c),
+            pack(coordinates, c),
+            pack(bathymetry_2d, c),
+            pack(z_stretch_func, c),
+            idx,
+            min_depth_op3,
+        ),
+        eager=True,
+    )
 
     mesh.coordinates.assign(new_coordinates)
 
@@ -513,7 +527,7 @@ def extend_function_to_3d(func, mesh_extruded):
                                         dim=2, vector=True)
     else:
         fs_extended = get_functionspace(mesh_extruded, family, degree, 'R', 0)
-    func_extended = Function(fs_extended, name=name, val=func.dat._data)
+    func_extended = Function(fs_extended, name=name, val=func.dat.data_ro_with_halos)
     func_extended.source = func
     return func_extended
 
@@ -592,11 +606,10 @@ def compute_elem_height(zcoord, output):
     fs_in = zcoord.function_space()
     fs_out = output.function_space()
 
-    iterate = op2.ALL
-
     # NOTE height maybe <0 if mesh was extruded like that
-    kernel = op2.Kernel("""
-        void my_kernel(double *func, double *zcoord) {
+    kernel = op3.Function.from_c_string(
+        "my_kernel",
+        """
             for ( int d = 0; d < %(nodes)d/2; d++ ) {
                 for ( int c = 0; c < %(func_dim)d; c++ ) {
                     double dz = fabs(zcoord[%(func_dim)d*(2*d+1) + c] - zcoord[%(func_dim)d*2*d + c]);
@@ -604,15 +617,19 @@ def compute_elem_height(zcoord, output):
                     func[%(output_dim)d*(2*d+1) + c] = dz;
                 }
             }
-        }""" % {'nodes': zcoord.cell_node_map().arity,
+        """ % {'nodes': zcoord.function_space().cell_node_list.shape[1],
                 'func_dim': zcoord.function_space().block_size,
                 'output_dim': output.function_space().block_size},
-        'my_kernel')
-    op2.par_loop(
-        kernel, fs_out.mesh().cell_set,
-        output.dat(op2.WRITE, fs_out.cell_node_map()),
-        zcoord.dat(op2.READ, fs_in.cell_node_map()),
-        iteration_region=iterate)
+        [
+            ("func", op3.ScalarType, op3.WRITE),
+            ("zcoord", op3.ScalarType, op3.READ),
+        ],
+    )
+    op3.loop(
+        c := fs_out.mesh().iter("cell"),
+        kernel(pack(output, c), pack(zcoord, c)),
+        eager=True,
+    )
 
     return output
 
@@ -676,8 +693,7 @@ def get_minimum_angles_2d(mesh2d):
         raise NotImplementedError("Minimum angle only currently implemented for triangles.")
     edge_lengths = get_facet_areas(mesh2d)
     min_angles = Function(FunctionSpace(mesh2d, "DG", 0))
-    edge_cell_node_map = edge_lengths.function_space().cell_node_map()
-    min_angle_cell_node_map = min_angles.function_space().cell_node_map()
+    edge_cell_node_map = edge_lengths.function_space().cell_node_list
 
     kernel = op2.Kernel("""
         void minimum_angle_kernel(double *edges, double *angle) {
@@ -705,7 +721,7 @@ def get_minimum_angles_2d(mesh2d):
                   }
                   angle[0] = acos(numerator/denominator);
             }
-        }""" % {"nodes": edge_cell_node_map.arity}, "minimum_angle_kernel")
+        }""" % {"nodes": edge_cell_node_map.shape[1]}, "minimum_angle_kernel")
     op2.par_loop(kernel, mesh2d.cell_set,
                  edge_lengths.dat(op2.READ, edge_cell_node_map),
                  min_angles.dat(op2.RW, min_angle_cell_node_map))
@@ -724,18 +740,21 @@ def get_cell_widths_2d(mesh2d):
     except AssertionError:
         raise NotImplementedError("Cell widths only currently implemented for triangles.")
     cell_widths = Function(VectorFunctionSpace(mesh2d, "DG", 0)).assign(numpy.finfo(0.0).min)
-    coords_cell_node_map = mesh2d.coordinates.function_space().cell_node_map()
-    widths_cell_node_map = cell_widths.function_space().cell_node_map()
-    kernel = op2.Kernel("""
-        void cell_width_kernel(double *coords, double *widths) {
-            for (int i=0; i<%(nodes)d; i++) {
-                  widths[0] = fmax(widths[0], fabs(coords[2*i] - coords[(2*i+2)%%6]));
-                  widths[1] = fmax(widths[1], fabs(coords[2*i+1] - coords[(2*i+3)%%6]));
-            }
-        }""" % {"nodes": coords_cell_node_map.arity}, "cell_width_kernel")
-    op2.par_loop(kernel, mesh2d.cell_set,
-                 mesh2d.coordinates.dat(op2.READ, coords_cell_node_map),
-                 cell_widths.dat(op2.MAX, widths_cell_node_map))
+    kernel = op3.Function.from_c_string(
+        "cell_width_kernel",
+        f"""\
+for (int i=0; i<{mesh2d.coordinates.cell_node_list.shape[1]}; i++) {{
+    widths[0] = fmax(widths[0], fabs(coords[2*i] - coords[(2*i+2)%%6]));
+    widths[1] = fmax(widths[1], fabs(coords[2*i+1] - coords[(2*i+3)%%6]));
+}}""",
+        ("coords", "double", op3.READ),
+        ("widths", "double", op3.MAX),
+    )
+    op3.loop(
+        c := mesh2d.cells.owned,
+        kernel(pack(mesh2d.coordinates, c), pack(cell_widths, c)),
+        eager=True,
+    )
     return cell_widths
 
 
@@ -823,7 +842,7 @@ def compute_boundary_length(mesh2d):
     Computes the length of the boundary segments in given 2d mesh
     """
     p1 = get_functionspace(mesh2d, 'CG', 1)
-    boundary_markers = sorted(mesh2d.exterior_facets.unique_markers)
+    boundary_markers = sorted(mesh2d.facet_markers)
     boundary_len = OrderedDict()
     for i in boundary_markers:
         ds_restricted = ds(int(i))
@@ -1036,7 +1055,7 @@ class DepthIntegratedPoissonSolver(object):
         fs_q = self.q_2d.function_space()
         test_q = TestFunction(fs_q)
         normal = FacetNormal(fs_q.mesh())
-        boundary_markers = fs_q.mesh().exterior_facets.unique_markers
+        boundary_markers = fs_q.mesh().facet_markers
 
         bath_2d = self.depth.bathymetry_2d
         h_star = self.depth.get_total_depth(self.elev_2d)

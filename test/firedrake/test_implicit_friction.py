@@ -9,8 +9,6 @@ from thetis.utility import get_functionspace
 import time as time_mod
 import numpy
 
-op2.init(log_level=WARNING)
-
 
 def test_implicit_friction(do_export=False, do_assert=True):
     # set mesh resolution
