@@ -105,15 +105,33 @@ Supported combinations are:
 - ``'elev'`` and ``'uv'``: water elevation and 2d velocity vector
 - ``'elev'`` and ``'un'``: water elevation and normal velocity
 - ``'elev'`` and ``'flux'``: water elevation and normal flux
+- ``'flather'``: a Flather open boundary condition; see
+  :meth:`ShallowWaterTerm.get_flather_bnd_functions`.
 
 The boundary conditions are assigned to the :class:`.FlowSolver2d` or
-:class:`.FlowSolver` objects:
+:class:`.FlowSolver` objects. The ``'flather'`` condition is currently
+supported by :class:`.FlowSolver2d` only:
 
 .. code-block:: python
 
     solver_obj = solver2d.FlowSolver2d(...)
     ...
     solver_obj.bnd_functions['shallow_water'] = swe_bnd_funcs
+
+For example, a time-dependent Flather condition can be updated by assigning
+new values to the two coefficients before each time step:
+
+.. code-block:: python
+
+    eta_ext = Constant(0.0)
+    un_ext = Constant(0.0)
+    solver_obj.bnd_functions['shallow_water'] = {
+        1: {'flather': {'elev': eta_ext, 'un': un_ext}}
+    }
+
+    def update_forcings(t):
+        eta_ext.assign(tidal_elevation(t))
+        un_ext.assign(external_normal_velocity(t))
 
 Internally the boundary conditions passed to the :meth:`.Term.residual` method
 of each term:
@@ -271,6 +289,54 @@ class ShallowWaterTerm(Term):
                             f'{bnd_marker}: {funcs}')
         return eta_ext, uv_ext
 
+    def is_flather_bnd(self, bnd_funcs, bnd_id):
+        """Return whether *bnd_funcs* define a valid Flather condition."""
+        if bnd_funcs is None or 'flather' not in bnd_funcs:
+            return False
+
+        incompatible_tags = set(bnd_funcs) - {'flather'}
+        if incompatible_tags:
+            raise Exception(
+                'Flather boundary condition on boundary '
+                f'{bnd_id} cannot be combined with {sorted(incompatible_tags)}')
+        flather_funcs = bnd_funcs['flather']
+        if not isinstance(flather_funcs, dict):
+            raise Exception(
+                f'Flather boundary condition on boundary {bnd_id} must be a dictionary')
+        required_tags = {'elev', 'un'}
+        if set(flather_funcs) != required_tags:
+            raise Exception(
+                'Flather boundary condition on boundary '
+                f'{bnd_id} must define exactly {sorted(required_tags)}')
+        return True
+
+    def get_flather_bnd_functions(self, eta_in, uv_in, bnd_id, bnd_conditions):
+        r"""Return external elevation, total depth, and Flather normal velocity.
+
+        A Flather boundary is defined by
+
+        .. code-block:: python
+
+            {'flather': {'elev': eta_ext, 'un': un_ext}}
+
+        where ``un_ext`` is external normal velocity, positive out of the
+        domain. The imposed normal velocity and transport are
+
+        .. math::
+
+            u_n^F = u_{n,ext} + \sqrt{g/H_{ext}}(\eta-\eta_{ext}),
+            \qquad Q_n^F = H_{ext}u_n^F,
+
+        where :math:`H_{ext}` is the external total water depth. The ``elev``
+        and ``un`` coefficients may be time-dependent Firedrake expressions.
+        """
+        flather_funcs = bnd_conditions[bnd_id]['flather']
+        eta_ext = flather_funcs['elev']
+        un_ext = flather_funcs['un']
+        h_ext = self.depth.get_total_depth(eta_ext)
+        un_flather = un_ext + sqrt(g_grav/h_ext)*(eta_in - eta_ext)
+        return eta_ext, h_ext, un_flather
+
     def impose_dynamic_bnd(self, bnd_funcs, bnd_id):
         """
         Check if the prognostic variables have been specified on the boundary.
@@ -283,6 +349,9 @@ class ShallowWaterTerm(Term):
         :arg bnd_id: Boundary marker id
         :returns: True if elev or uv is defined, otherwise False.
         """
+        if self.is_flather_bnd(bnd_funcs, bnd_id):
+            return True
+
         open_tags = ['elev', 'uv', 'un', 'flux']
         all_tags = open_tags + ['drag']
         if bnd_funcs is None:
@@ -368,10 +437,13 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if self.impose_dynamic_bnd(funcs, bnd_marker):
-                    eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
-                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
-                    un_jump = inner(uv - uv_ext, self.normal)
-                    eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
+                    if self.is_flather_bnd(funcs, bnd_marker):
+                        eta_rie, _, _ = self.get_flather_bnd_functions(head, uv, bnd_marker, bnd_conditions)
+                    else:
+                        eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
+                        # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                        un_jump = inner(uv - uv_ext, self.normal)
+                        eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
                     f += g_grav*eta_rie*dot(self.u_test, self.normal)*ds_bnd
                 else:
                     # assume land boundary
@@ -385,10 +457,13 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if self.impose_dynamic_bnd(funcs, bnd_marker):
-                    eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
-                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
-                    un_jump = inner(uv - uv_ext, self.normal)
-                    eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
+                    if self.is_flather_bnd(funcs, bnd_marker):
+                        eta_rie, _, _ = self.get_flather_bnd_functions(head, uv, bnd_marker, bnd_conditions)
+                    else:
+                        eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
+                        # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                        un_jump = inner(uv - uv_ext, self.normal)
+                        eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
                     f += g_grav*(eta_rie-head)*dot(self.u_test, self.normal)*ds_bnd
         return -f
 
@@ -429,23 +504,31 @@ class HUDivTerm(ShallowWaterContinuityTerm):
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if self.impose_dynamic_bnd(funcs, bnd_marker):
-                    eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
-                    eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
-                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
-                    total_h_ext = self.depth.get_total_depth(eta_ext_old)
-                    h_av = 0.5*(total_h + total_h_ext)
-                    eta_jump = eta - eta_ext
-                    un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h_av)*eta_jump
-                    un_jump = inner(uv_old - uv_ext_old, self.normal)
-                    eta_rie = 0.5*(eta_old + eta_ext_old) + sqrt(h_av/g_grav)*un_jump
-                    h_rie = self.depth.get_total_depth(eta_rie)
-                    f += h_rie*un_rie*self.eta_test*ds_bnd
+                    if self.is_flather_bnd(funcs, bnd_marker):
+                        _, h_ext, un_flather = self.get_flather_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
+                        f += h_ext*un_flather*self.eta_test*ds_bnd
+                    else:
+                        eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
+                        eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
+                        # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                        total_h_ext = self.depth.get_total_depth(eta_ext_old)
+                        h_av = 0.5*(total_h + total_h_ext)
+                        eta_jump = eta - eta_ext
+                        un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h_av)*eta_jump
+                        un_jump = inner(uv_old - uv_ext_old, self.normal)
+                        eta_rie = 0.5*(eta_old + eta_ext_old) + sqrt(h_av/g_grav)*un_jump
+                        h_rie = self.depth.get_total_depth(eta_rie)
+                        f += h_rie*un_rie*self.eta_test*ds_bnd
         else:
             f = div(total_h*uv)*self.eta_test*self.dx
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if not self.impose_dynamic_bnd(funcs, bnd_marker) or 'un' in funcs:
+                if self.is_flather_bnd(funcs, bnd_marker):
+                    _, h_ext, un_flather = self.get_flather_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
+                    f += (h_ext*un_flather
+                          - total_h*dot(uv, self.normal))*self.eta_test*ds_bnd
+                elif not self.impose_dynamic_bnd(funcs, bnd_marker) or 'un' in funcs:
                     f += -total_h*dot(uv, self.normal)*self.eta_test*ds_bnd
         return -f
 
@@ -499,14 +582,20 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if self.impose_dynamic_bnd(funcs, bnd_marker):
-                    eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
-                    eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
-                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
-                    eta_jump = eta_old - eta_ext_old
-                    total_h = self.depth.get_total_depth(eta_old)
-                    un_rie = 0.5*inner(uv_old + uv_ext_old, self.normal) + sqrt(g_grav/total_h)*eta_jump
-                    uv_av = 0.5*(uv_ext + uv)
-                    f += un_rie*inner(uv_av, self.u_test)*ds_bnd
+                    if self.is_flather_bnd(funcs, bnd_marker):
+                        _, _, un_flather = self.get_flather_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
+                        # Flather only prescribes the normal component; retain the
+                        # interior tangential velocity (a free-slip condition).
+                        f += un_flather*inner(uv, self.u_test)*ds_bnd
+                    else:
+                        eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
+                        eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
+                        # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                        eta_jump = eta_old - eta_ext_old
+                        total_h = self.depth.get_total_depth(eta_old)
+                        un_rie = 0.5*inner(uv_old + uv_ext_old, self.normal) + sqrt(g_grav/total_h)*eta_jump
+                        uv_av = 0.5*(uv_ext + uv)
+                        f += un_rie*inner(uv_av, self.u_test)*ds_bnd
         return -f
 
 

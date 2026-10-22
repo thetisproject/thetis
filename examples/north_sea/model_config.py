@@ -64,7 +64,8 @@ def interpolate_bathymetry(bathymetry_2d, dataset="etopo1", cap=10.0):
     bathymetry_2d.dat.data[:] = numpy.maximum(-interp(lat, lon, grid=False), cap)
 
 
-def construct_solver(mesh2d, spinup=False, store_station_time_series=True, **model_options):
+def construct_solver(mesh2d, spinup=False, store_station_time_series=True,
+                     use_flather_boundary=False, **model_options):
     """
     Construct a :class:`FlowSolver2d` instance for inverse modelling
     in the North Sea.
@@ -73,6 +74,9 @@ def construct_solver(mesh2d, spinup=False, store_station_time_series=True, **mod
     :kwarg spinup: is this a spin-up run, or a subsequent simulation?
     :kwarg store_station_time_series: should gauge measurements be
         stored to disk?
+    :kwarg use_flather_boundary: use TPXO elevation and transport data in a
+        Flather condition at the open-ocean boundary. The default retains the
+        existing prescribed-elevation condition.
     :return: :class:`FlowSolver2d` instance, the start date for the
         simulation and a function for updating forcings
     """
@@ -151,6 +155,11 @@ def construct_solver(mesh2d, spinup=False, store_station_time_series=True, **mod
             solver_obj.add_callback(cb)
 
     elev_tide_2d = Function(solver_obj.function_spaces.P1_2d, name="Tidal elevation")
+    uv_tide_2d = None
+    if use_flather_boundary:
+        uv_tide_2d = Function(
+            solver_obj.function_spaces.P1v_2d, name="Tidal transport"
+        )
     if os.getenv("THETIS_REGRESSION_TEST") is None:
         # Setup forcings
         data_dir = os.path.join(os.environ.get("DATA", "./data"), "tpxo")
@@ -161,6 +170,7 @@ def construct_solver(mesh2d, spinup=False, store_station_time_series=True, **mod
             elev_tide_2d,
             start_date,
             coord_system,
+            uv_field=uv_tide_2d,
             data_dir=data_dir,
             constituents=forcing_constituents,
             boundary_ids=[100],
@@ -187,10 +197,16 @@ def construct_solver(mesh2d, spinup=False, store_station_time_series=True, **mod
         elev_ramp = Constant(1.0)
     tide_elev_expr_2d = elev_ramp * elev_tide_2d
 
-    # Setup boundary conditions for open ocean segments
-    solver_obj.bnd_functions["shallow_water"] = {
-        100: {"elev": tide_elev_expr_2d, "uv": Constant(as_vector([0, 0]))},
-    }
+    # Setup boundary conditions for open ocean segments. TPXO supplies
+    # depth-integrated transport, so divide by external total depth before
+    # projecting onto the outward normal for the Flather reference velocity.
+    if use_flather_boundary:
+        h_ext = solver_obj.depth.get_total_depth(tide_elev_expr_2d)
+        tide_un_expr_2d = elev_ramp*dot(uv_tide_2d, FacetNormal(mesh2d))/h_ext
+        open_ocean_bnd = {"flather": {"elev": tide_elev_expr_2d, "un": tide_un_expr_2d}}
+    else:
+        open_ocean_bnd = {"elev": tide_elev_expr_2d, "uv": Constant(as_vector([0, 0]))}
+    solver_obj.bnd_functions["shallow_water"] = {100: open_ocean_bnd}
 
     def update_forcings(t):
         bnd_time.assign(t)

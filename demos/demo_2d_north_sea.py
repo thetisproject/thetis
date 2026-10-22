@@ -178,10 +178,18 @@ if not os.path.exists(data_dir):
     raise IOError(f"Forcing data directory {data_dir} does not exist")
 forcing_constituents = ["Q1", "O1", "P1", "K1", "N2", "M2", "S2", "K2"]
 elev_tide_2d = Function(P1_2d, name="Tidal elevation")
+# Set this to ``True`` to use TPXO elevation and depth-integrated transport in
+# a Flather condition instead of the default prescribed-elevation condition.
+use_flather_boundary = False
+uv_tide_2d = None
+if use_flather_boundary:
+    P1v_2d = get_functionspace(mesh2d, "CG", 1, vector=True)
+    uv_tide_2d = Function(P1v_2d, name="Tidal transport")
 tbnd = forcing.TPXOTidalBoundaryForcing(
     elev_tide_2d,
     start_date,
     coord_system,
+    uv_field=uv_tide_2d,
     data_dir=data_dir,
     constituents=forcing_constituents,
     boundary_ids=[100],
@@ -191,14 +199,18 @@ tbnd = forcing.TPXOTidalBoundaryForcing(
 tbnd.set_tidal_field(0.0)
 
 # As mentioned above, the forcing data drives the boundary conditions on
-# boundary segments with tag 100. For open ocean boundaries in sufficiently deep
-# open water, it is usually sufficient to use a zero boundary condition for the
-# velocity because its magnitude is not significant. We pass this information to
-# the solver object as follows:
+# boundary segments with tag 100. The default elevation condition assumes zero
+# external velocity. Alternatively, the Flather option converts TPXO's
+# depth-integrated transport to outward-normal depth-mean velocity using
+# external total depth.
 
-solver_obj.bnd_functions["shallow_water"] = {
-    100: {"elev": elev_tide_2d, "uv": Constant(as_vector([0, 0]))},
-}
+if use_flather_boundary:
+    h_ext = solver_obj.depth.get_total_depth(elev_tide_2d)
+    un_ext = dot(uv_tide_2d, FacetNormal(mesh2d))/h_ext
+    open_ocean_bnd = {"flather": {"elev": elev_tide_2d, "un": un_ext}}
+else:
+    open_ocean_bnd = {"elev": elev_tide_2d, "uv": Constant(as_vector([0, 0]))}
+solver_obj.bnd_functions["shallow_water"] = {100: open_ocean_bnd}
 
 # Note that we have assumed a fully "spun-up" tidal model here. It is standard
 # practice to "spin-up" the model from a state of rest, slowly introducing the

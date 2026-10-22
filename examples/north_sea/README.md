@@ -66,6 +66,13 @@ Request the `tpxo9v5a` data set in NetCDF format and save it in some directory,
 which can be referenced by the `$DATA` environment variable, such as `./data`.
 The file has not been included here for copyright reasons.
 
+The default model configuration prescribes reconstructed TPXO elevation and
+zero boundary velocity. To use a Flather boundary condition driven by TPXO
+elevation and depth-integrated transport, call
+`construct_solver(..., use_flather_boundary=True)`. The configuration converts
+TPXO transport to outward-normal depth-mean velocity using external total
+depth before applying the condition.
+
 ### Optional extra: tide gauge data
 
 With the above resources, we are able to create and run a tidal model in Thetis.
