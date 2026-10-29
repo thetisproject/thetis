@@ -968,7 +968,7 @@ class TidalBoundaryForcing(ABC):
     @PETSc.Log.EventDecorator("thetis.TidalBoundaryForcing.__init__")
     def __init__(self, elev_field, init_date, coord_system, vect_rotator=None,
                  uv_field=None, constituents=None, boundary_ids=None,
-                 data_dir=None):
+                 data_dir=None, zero_missing_points=False):
         """
         :arg elev_field: Function where tidal elevation will be interpolated.
         :arg init_date: Datetime object defining the simulation init time.
@@ -982,12 +982,16 @@ class TidalBoundaryForcing(ABC):
             domain.
         :kwarg data_dir: path to directory where tidal model netCDF files are
             located.
+        :kwarg zero_missing_points: If True, points that cannot be interpolated
+            from the tidal model netCDF are set to zero. If False (default), a
+            uptide.netcdf_reader.CoordinateError is raised instead.
         """
         assert init_date.tzinfo is not None, 'init_date must have time zone information'
         if constituents is None:
             constituents = ['Q1', 'O1', 'P1', 'K1', 'N2', 'M2', 'S2', 'K2']
 
         self.data_dir = data_dir if data_dir is not None else ''
+        self.zero_missing_points = zero_missing_points
 
         if not self.compute_velocity and uv_field is not None:
             warning('{:}: uv_field is defined but velocity computation is not supported. uv_field will be ignored.'.format(__class__.__name__))
@@ -1020,7 +1024,7 @@ class TidalBoundaryForcing(ABC):
             fsy = Function(function_space).interpolate(y).dat.data_with_halos
             coords = (fsx, fsy)
 
-        lon, lat = coord_system.to_lonlat(*coords, positive_lon=True)
+        lon, lat = coord_system.to_lonlat(*coords)
         self.latlon = numpy.array([lat, lon]).T
 
         if not self._empty_set:
@@ -1069,13 +1073,17 @@ class TidalBoundaryForcing(ABC):
             try:
                 elev = self.tnci.get_val(point, allow_extrapolation=True)
                 elev_data[node] = elev
-            except uptide.netcdf_reader.CoordinateError:
+            except uptide.netcdf_reader.CoordinateError as e:
+                if not self.zero_missing_points:
+                    raise e
                 elev_data[node] = 0.
             if self.compute_velocity:
                 try:
                     lon_vel[node] = self.tnciu.get_val(point, allow_extrapolation=True)
                     lat_vel[node] = self.tnciv.get_val(point, allow_extrapolation=True)
                 except uptide.netcdf_reader.CoordinateError:
+                    if not self.zero_missing_points:
+                        raise e
                     uv_data[node, 0] = 0
                     uv_data[node, 1] = 0
         if self.compute_velocity:
@@ -1101,7 +1109,7 @@ class TPXOTidalBoundaryForcing(TidalBoundaryForcing):
                  vect_rotator=None, uv_field=None, constituents=None,
                  boundary_ids=None, data_dir=None, elev_file='h_tpxo9.v5a.nc',
                  uv_file='u_tpxo9.v5a.nc', grid_file='gridtpxo9v5a.nc',
-                 uv_is_transport=False):
+                 uv_is_transport=False, zero_missing_points=False):
         """
         :arg elev_field: Function where tidal elevation will be interpolated.
         :arg init_date: Datetime object defining the simulation init time.
@@ -1132,6 +1140,9 @@ class TPXOTidalBoundaryForcing(TidalBoundaryForcing):
             velocity in m/s. The transport can then be divided by the depth of
             the computational mesh, which is often more consistent than using
             the velocity from the TPXO model, which is based on the TPXO depth.
+        :kwarg zero_missing_points: If True, points that cannot be interpolated
+            from the tidal model netCDF are set to zero. If False (default), a
+            uptide.netcdf_reader.CoordinateError is raised instead.
         """
         self.compute_velocity = uv_field is not None
         self.uv_is_transport = uv_is_transport
@@ -1142,7 +1153,8 @@ class TPXOTidalBoundaryForcing(TidalBoundaryForcing):
             elev_field, init_date, coord_system,
             vect_rotator=vect_rotator, uv_field=uv_field,
             constituents=constituents, boundary_ids=boundary_ids,
-            data_dir=data_dir
+            data_dir=data_dir,
+            zero_missing_points=zero_missing_points
         )
 
     @PETSc.Log.EventDecorator("thetis.TPXOTidalBoundaryForcing._create_readers")

@@ -108,12 +108,16 @@ end_date = datetime.datetime(2022, 1, 18, tzinfo=sim_tz)
 dt = 3600.0
 t_export = 3600.0
 
+zero_missing_points = False  # used in tidal forcing below
+
 # .. raw:: html
 #
 #    <!-- in the CI we only run two timesteps; commented out in html for the web version
 
 if os.environ.get('THETIS_REGRESSION_TEST'):
     end_date = datetime.datetime(2022, 1, 15, 2, tzinfo=sim_tz)
+    # for CI we use a dummy incomplete forcing file
+    zero_missing_points = True
 
 # .. raw:: html
 #
@@ -185,6 +189,9 @@ tbnd = forcing.TPXOTidalBoundaryForcing(
     data_dir=data_dir,
     constituents=forcing_constituents,
     boundary_ids=[100],
+    # zero_missing_points=False raises exception if we fail to interpolate
+    # boundary points from the TPXO data (which shouldn't happen)
+    zero_missing_points=zero_missing_points,
 )
 
 # Set the tidal field at time zero (of the simulation).
