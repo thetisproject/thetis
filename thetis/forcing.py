@@ -968,7 +968,7 @@ class TidalBoundaryForcing(ABC):
     @PETSc.Log.EventDecorator("thetis.TidalBoundaryForcing.__init__")
     def __init__(self, elev_field, init_date, coord_system, vect_rotator=None,
                  uv_field=None, constituents=None, boundary_ids=None,
-                 data_dir=None):
+                 data_dir=None, zero_missing_points=False):
         """
         :arg elev_field: Function where tidal elevation will be interpolated.
         :arg init_date: Datetime object defining the simulation init time.
@@ -981,6 +981,9 @@ class TidalBoundaryForcing(ABC):
             domain.
         :kwarg data_dir: path to directory where tidal model netCDF files are
             located.
+        :kwarg zero_missing_points: If True, points that cannot be interpolated
+            from the tidal model netCDF are set to zero. If False (default), a
+            uptide.netcdf_reader.CoordinateError is raised instead.
         """
         assert init_date.tzinfo is not None, 'init_date must have time zone information'
         if constituents is None:
@@ -1019,7 +1022,7 @@ class TidalBoundaryForcing(ABC):
             fsy = Function(function_space).interpolate(y).dat.data_with_halos
             coords = (fsx, fsy)
 
-        lon, lat = coord_system.to_lonlat(*coords, positive_lon=True)
+        lon, lat = coord_system.to_lonlat(*coords)
         self.latlon = numpy.array([lat, lon]).T
 
         if not self._empty_set:
@@ -1068,13 +1071,17 @@ class TidalBoundaryForcing(ABC):
             try:
                 elev = self.tnci.get_val(point, allow_extrapolation=True)
                 elev_data[node] = elev
-            except uptide.netcdf_reader.CoordinateError:
+            except uptide.netcdf_reader.CoordinateError as e:
+                if not zero_missing_points:
+                    raise e
                 elev_data[node] = 0.
             if self.compute_velocity:
                 try:
                     lon_vel[node] = self.tnciu.get_val(point, allow_extrapolation=True)
                     lat_vel[node] = self.tnciv.get_val(point, allow_extrapolation=True)
                 except uptide.netcdf_reader.CoordinateError:
+                    if not zero_missing_points:
+                        raise e
                     uv_data[node, 0] = 0
                     uv_data[node, 1] = 0
         if self.compute_velocity:
