@@ -11,7 +11,6 @@ import pyop3 as op3
 from firedrake import *
 from firedrake.petsc import PETSc
 from mpi4py import MPI  # NOQA
-from pyop2.profiling import timed_stage  # NOQA
 import numpy
 from functools import wraps
 from pyadjoint.tape import no_annotations
@@ -22,6 +21,8 @@ from .physical_constants import physical_constants
 
 ds_surf = ds_t
 ds_bottom = ds_b
+
+timed_stage = PETSc.Log.Stage  # noqa: F401
 
 
 class FrozenClass(object):
@@ -497,12 +498,12 @@ def compute_baroclinic_head(solver):
     .. math::
         r = \frac{1}{\rho_0} \int_{z}^\eta  \rho' d\zeta.
     """
-    with timed_stage('density_solve'):
+    with PETSc.Log.Stage('density_solve'):
         solver.density_solver.solve()
-    with timed_stage('rho_integral'):
+    with PETSc.Log.Stage('rho_integral'):
         solver.rho_integrator.solve()
         solver.fields.baroc_head_3d *= -physical_constants['rho0_inv']
-    with timed_stage('int_pg_solve'):
+    with PETSc.Log.Stage('int_pg_solve'):
         solver.int_pg_calculator.solve()
 
 
@@ -695,36 +696,40 @@ def get_minimum_angles_2d(mesh2d):
     min_angles = Function(FunctionSpace(mesh2d, "DG", 0))
     edge_cell_node_map = edge_lengths.function_space().cell_node_list
 
-    kernel = op2.Kernel("""
-        void minimum_angle_kernel(double *edges, double *angle) {
-            for (int i=0; i<%(nodes)d; i++) {
-                  double min_edge = edges[0];
-                  int min_index = 0;
+    kernel = op3.Function.from_c_string(
+        "minimum_angle_kernel",
+        """\
+        for (int i=0; i<%(nodes)d; i++) {
+              double min_edge = edges[0];
+              int min_index = 0;
 
-                  for (int j=1; j<3; j++){
-                    if (edges[j] < min_edge) {
-                      min_edge = edges[j];
-                      min_index = j;
-                    }
-                  }
+              for (int j=1; j<3; j++){
+                if (edges[j] < min_edge) {
+                  min_edge = edges[j];
+                  min_index = j;
+                }
+              }
 
-                  double numerator = 0.0;
-                  double denominator = 2.0;
+              double numerator = 0.0;
+              double denominator = 2.0;
 
-                  for (int j=0; j<3; j++){
-                    if (j == min_index) {
-                      numerator -= edges[j]*edges[j];
-                    } else {
-                      numerator += edges[j]*edges[j];
-                      denominator *= edges[j];
-                    }
-                  }
-                  angle[0] = acos(numerator/denominator);
-            }
-        }""" % {"nodes": edge_cell_node_map.shape[1]}, "minimum_angle_kernel")
-    op2.par_loop(kernel, mesh2d.cell_set,
-                 edge_lengths.dat(op2.READ, edge_cell_node_map),
-                 min_angles.dat(op2.RW, min_angle_cell_node_map))
+              for (int j=0; j<3; j++){
+                if (j == min_index) {
+                  numerator -= edges[j]*edges[j];
+                } else {
+                  numerator += edges[j]*edges[j];
+                  denominator *= edges[j];
+                }
+              }
+              angle[0] = acos(numerator/denominator);
+        }""" % {"nodes": edge_cell_node_map.shape[1]},
+        [("edges", "double", op3.READ), ("angle", "double", op3.RW)],
+    )
+    op3.loop(
+        c := mesh2d.iter("cell"),
+        kernel(pack(edge_lengths, c), pack(min_angles, c)),
+        eager=True,
+    )
     return min_angles
 
 
@@ -743,15 +748,14 @@ def get_cell_widths_2d(mesh2d):
     kernel = op3.Function.from_c_string(
         "cell_width_kernel",
         f"""\
-for (int i=0; i<{mesh2d.coordinates.cell_node_list.shape[1]}; i++) {{
-    widths[0] = fmax(widths[0], fabs(coords[2*i] - coords[(2*i+2)%%6]));
-    widths[1] = fmax(widths[1], fabs(coords[2*i+1] - coords[(2*i+3)%%6]));
+for (int i=0; i<{mesh2d.coordinates.function_space().cell_node_list.shape[1]}; i++) {{
+    widths[0] = fmax(widths[0], fabs(coords[2*i] - coords[(2*i+2)%6]));
+    widths[1] = fmax(widths[1], fabs(coords[2*i+1] - coords[(2*i+3)%6]));
 }}""",
-        ("coords", "double", op3.READ),
-        ("widths", "double", op3.MAX),
+        [("coords", "double", op3.READ), ("widths", "double", op3.MAX)],
     )
     op3.loop(
-        c := mesh2d.cells.owned,
+        c := mesh2d.iter("cell"),
         kernel(pack(mesh2d.coordinates, c), pack(cell_widths, c)),
         eager=True,
     )

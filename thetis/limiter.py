@@ -1,10 +1,10 @@
 """
 Slope limiters for discontinuous fields
 """
+from petsc4py import PETSc
 import pyop3 as op3
 from .utility import *
 from firedrake import VertexBasedLimiter
-from pyop2.profiling import timed_stage
 import numpy
 
 
@@ -115,8 +115,12 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
 
         if self.is_2d:
             entity_dim = 1  # get 1D facets
+            iter_type = "exterior_facet"
+            facet_indices = self.P1DG.mesh().exterior_facet_local_facet_indices
         else:
             entity_dim = (1, 1)  # get vertical facets
+            iter_type = "exterior_facet_vert"
+            facet_indices = self.P1DG.mesh().exterior_facet_vert_local_facet_indices
         boundary_dofs = entity_support_dofs(self.P1DG.finat_element, entity_dim)
         local_facet_nodes = numpy.array([boundary_dofs[e] for e in sorted(boundary_dofs.keys())])
         n_bnd_nodes = local_facet_nodes.shape[1]
@@ -145,12 +149,12 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
             ],
         )
         op3.loop(
-            f := self.P1DG.mesh().iter("exterior_facet_vert"),
+            f := self.P1DG.mesh().iter(iter_type),
             bnd_kernel(
                 pack(self.max_field, f),
                 pack(self.min_field, f),
                 pack(field, f),
-                self.P1DG.mesh().exterior_facet_vert_local_facet_indices[f],
+                facet_indices[f],
                 local_facet_idx,
             ),
             eager=True,
@@ -212,7 +216,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
 
         :arg field: :class:`Function` to limit
         """
-        with timed_stage('limiter'):
+        with PETSc.Log.Stage('limiter'):
             if self.is_vector:
                 tmp_func = self.P1DG.get_work_function()
                 fs = field.function_space()

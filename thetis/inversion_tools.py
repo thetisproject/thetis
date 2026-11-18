@@ -816,7 +816,7 @@ class StationObservationManager(StationObservationManagerBase):
         self.local_station_index = []
 
         if len(mesh0d.coordinates.dat.data[:]) > 0:
-            for i in range(self.fs_points_0d_scalar.dof_dset.size):
+            for i in range(self.fs_points_0d_scalar.dof_count):
                 # loop over local DOFs and match coordinates to observations
                 # NOTE this must be done manually as VertexOnlyMesh reorders points
                 x_mesh, y_mesh = mesh0d.coordinates.dat.data[i, :]

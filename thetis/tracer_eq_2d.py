@@ -118,7 +118,7 @@ class TracerTerm(Term):
         """
         Return the component of a function corresponding to this tracer.
         """
-        return f if len(f.dof_dset.dim) == 1 else split(f)[self.index]
+        return f if len(f.shape) == 1 else split(f)[self.index]
 
 
 class HorizontalAdvectionTerm(TracerTerm):

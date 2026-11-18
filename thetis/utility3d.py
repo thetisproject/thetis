@@ -529,12 +529,10 @@ class ExpandFunctionTo3d(object):
         self.kernel = op3.Function.from_c_string(
             "my_kernel",
             """
-            void my_kernel(double *func, double *func2d, int *idx) {
-                for ( int d = 0; d < %(nodes)d; d++ ) {
-                    for ( int c = 0; c < %(func2d_dim)d; c++ ) {
-                        for ( int e = 0; e < %(v_nodes)d; e++ ) {
-                            func[%(func3d_dim)d*(idx[d]+e) + c] = func2d[%(func2d_dim)d*d + c];
-                        }
+            for ( int d = 0; d < %(nodes)d; d++ ) {
+                for ( int c = 0; c < %(func2d_dim)d; c++ ) {
+                    for ( int e = 0; e < %(v_nodes)d; e++ ) {
+                        func[%(func3d_dim)d*(idx[d]+e) + c] = func2d[%(func2d_dim)d*d + c];
                     }
                 }
             }""" % {'nodes': self.fs_2d.finat_element.space_dimension(),
@@ -562,7 +560,7 @@ class ExpandFunctionTo3d(object):
 
     @PETSc.Log.EventDecorator("thetis.ExpandFunctionTo3d.solve")
     def solve(self):
-        with timed_stage('copy_2d_to_3d'):
+        with PETSc.Log.Stage('copy_2d_to_3d'):
             # execute par loop
             op3.loop(
                 c := self.fs_3d.mesh().iter(self.iter_domain),
@@ -724,7 +722,7 @@ class SubFunctionExtractor(object):
 
     @PETSc.Log.EventDecorator("thetis.SubFunctionExtractor.solve")
     def solve(self):
-        with timed_stage('copy_3d_to_2d'):
+        with PETSc.Log.Stage('copy_3d_to_2d'):
             # execute par loop
             op3.loop(
                 c := self.fs_3d.mesh().iter(self.iter_domain),
