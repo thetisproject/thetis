@@ -14,18 +14,18 @@ import thetis.timezone as timezone      # NOQA
 import thetis.turbines  # NOQA
 import thetis.optimisation  # NOQA
 import thetis.diagnostics  # NOQA
-from thetis._version import get_versions
 from thetis.assembledschur import AssembledSchurPC  # NOQA
 from thetis.options import TidalTurbineFarmOptions, DiscreteTidalTurbineFarmOptions  # NOQA
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
 import os  # NOQA
 import datetime  # NOQA
 import numpy  # NOQA
 
-__version__ = get_versions()['version']
-del get_versions
+try:
+    __version__ = _pkg_version("thetis")
+except PackageNotFoundError:
+    __version__ = "0+unknown"
+del _pkg_version, PackageNotFoundError
 
 thetis_log_level(DEBUG)
 set_thetis_loggers(comm=COMM_WORLD)
-
-from . import _version
-__version__ = _version.get_versions()['version']

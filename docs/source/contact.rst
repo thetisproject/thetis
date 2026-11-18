@@ -5,11 +5,11 @@
 You can get in touch with the Thetis development team in a number of
 ways, for help, feature requests, bugs, or just to say hello.
 
-Github
+GitHub
 ======
 
 The best place to submit bug reports or feature requests is on the
-`github project page <https://github.com/thetisproject/thetis>`__.
+`GitHub project page <https://github.com/thetisproject/thetis>`__.
 
 Slack
 =====
