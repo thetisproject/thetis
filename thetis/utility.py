@@ -144,10 +144,11 @@ def domain_constant(value, mesh, **kwargs):
     Returns what used to be Constant(value, domain=mesh)"""
     try:
         shape = value.ufl_shape
-        value = value.dat.data.flatten()
+        value = value.dat.data_ro
     except AttributeError:
         shape = numpy.shape(value)
-        value = numpy.asarray(value).flatten()
+        value = numpy.asarray(value)
+    value = value.reshape(shape)
 
     if len(shape) == 0:
         R = FunctionSpace(mesh, "R", 0)
