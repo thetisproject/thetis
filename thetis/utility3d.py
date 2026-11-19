@@ -681,8 +681,8 @@ class SubFunctionExtractor(object):
                         }
                     }
                 """ % {'nodes': self.output_2d.function_space().cell_node_list.shape[1],
-                        'func2d_dim': self.output_2d.function_space().block_size,
-                        'func3d_dim': self.fs_3d.block_size},
+                       'func2d_dim': self.output_2d.function_space().block_size,
+                       'func3d_dim': self.fs_3d.block_size},
                 [
                     ("func", op3.ScalarType, op3.WRITE),
                     ("func3d", op3.ScalarType, op3.READ),
@@ -699,8 +699,8 @@ class SubFunctionExtractor(object):
                         }
                     }
                 """ % {'nodes': self.output_2d.function_space().cell_node_list.shape[1],
-                        'func2d_dim': self.output_2d.function_space().block_size,
-                        'func3d_dim': self.fs_3d.block_size},
+                       'func2d_dim': self.output_2d.function_space().block_size,
+                       'func3d_dim': self.fs_3d.block_size},
                 [
                     ("func", op3.ScalarType, op3.WRITE),
                     ("func3d", op3.ScalarType, op3.READ),
@@ -727,7 +727,7 @@ class SubFunctionExtractor(object):
             op3.loop(
                 c := self.fs_3d.mesh().iter(self.iter_domain),
                 self.kernel(
-                     pack(self.output_2d, c), pack(self.input_3d, c), self.idx,
+                    pack(self.output_2d, c), pack(self.input_3d, c), self.idx,
                 ),
                 eager=True,
             )
@@ -803,9 +803,9 @@ class ALEMeshUpdater(object):
                     }
                 }
             """ % {'nodes': self.fs_2d.finat_element.space_dimension(),
-                    'func2d_dim': self.fs_2d.block_size,
-                    'func3d_dim': self.fs_3d.block_size,
-                    'v_nodes': n_vert_nodes},
+                   'func2d_dim': self.fs_2d.block_size,
+                   'func3d_dim': self.fs_3d.block_size,
+                   'v_nodes': n_vert_nodes},
             [
                 ("z_coord_3d", op3.ScalarType, op3.WRITE),
                 ("z_ref_3d", op3.ScalarType, op3.READ),
@@ -830,9 +830,9 @@ class ALEMeshUpdater(object):
                     }
                 }
             """ % {'nodes': self.fs_2d.finat_element.space_dimension(),
-                    'func2d_dim': self.fs_2d.block_size,
-                    'func3d_dim': self.fs_3d.block_size,
-                    'v_nodes': n_vert_nodes},
+                   'func2d_dim': self.fs_2d.block_size,
+                   'func3d_dim': self.fs_3d.block_size,
+                   'v_nodes': n_vert_nodes},
             [
                 ("w_mesh_3d", op3.ScalarType, op3.WRITE),
                 ("z_ref_3d", op3.ScalarType, op3.READ),

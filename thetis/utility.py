@@ -605,7 +605,6 @@ def compute_elem_height(zcoord, output):
     :arg output: field where element height is stored
     :type output: :class:`Function`
     """
-    fs_in = zcoord.function_space()
     fs_out = output.function_space()
 
     # NOTE height maybe <0 if mesh was extruded like that
@@ -620,8 +619,8 @@ def compute_elem_height(zcoord, output):
                 }
             }
         """ % {'nodes': zcoord.function_space().cell_node_list.shape[1],
-                'func_dim': zcoord.function_space().block_size,
-                'output_dim': output.function_space().block_size},
+               'func_dim': zcoord.function_space().block_size,
+               'output_dim': output.function_space().block_size},
         [
             ("func", op3.ScalarType, op3.WRITE),
             ("zcoord", op3.ScalarType, op3.READ),
