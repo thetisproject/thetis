@@ -529,7 +529,7 @@ def extend_function_to_3d(func, mesh_extruded):
                                         dim=2, vector=True)
     else:
         fs_extended = get_functionspace(mesh_extruded, family, degree, 'R', 0)
-    func_extended = Function(fs_extended, name=name, val=func.dat.data_ro_with_halos)
+    func_extended = Function(fs_extended, name=name, val=func.dat.data_rw_with_halos)
     func_extended.source = func
     return func_extended
 
