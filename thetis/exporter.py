@@ -1,6 +1,7 @@
 """
 Routines for handling file exports.
 """
+import pyadjoint
 from .utility import *
 from firedrake.output.vtk_output import is_cg, VTKFile
 from collections import OrderedDict
@@ -101,6 +102,7 @@ class VTKExporter(ExporterBase):
         self.outfile.counter = itertools.count(start=self.next_export_ix)
 
     @PETSc.Log.EventDecorator("thetis.VTKExporter.export")
+    @pyadjoint.stop_annotating()
     def export(self, function):
         """Exports given function to disk"""
         op = self.cast_operators.get(function)

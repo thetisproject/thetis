@@ -1,9 +1,10 @@
 """
 Slope limiters for discontinuous fields
 """
+from petsc4py import PETSc
+import pyop3 as op3
 from .utility import *
 from firedrake import VertexBasedLimiter
-from pyop2.profiling import timed_stage
 import numpy
 
 
@@ -114,15 +115,17 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
 
         if self.is_2d:
             entity_dim = 1  # get 1D facets
+            iter_type = "exterior_facet"
+            facet_indices = self.P1DG.mesh().exterior_facet_local_facet_indices
         else:
             entity_dim = (1, 1)  # get vertical facets
+            iter_type = "exterior_facet_vert"
+            facet_indices = self.P1DG.mesh().exterior_facet_vert_local_facet_indices
         boundary_dofs = entity_support_dofs(self.P1DG.finat_element, entity_dim)
         local_facet_nodes = numpy.array([boundary_dofs[e] for e in sorted(boundary_dofs.keys())])
         n_bnd_nodes = local_facet_nodes.shape[1]
-        local_facet_idx = op2.Global(local_facet_nodes.shape, local_facet_nodes, dtype=numpy.int32, name='local_facet_idx')
+        local_facet_idx = op3.Dat.from_array(local_facet_nodes.ravel(), name='local_facet_idx', constant=True, rank_equal=True)
         code = """
-            void my_kernel(double *qmax, double *qmin, double *field, unsigned int *facet, unsigned int *local_facet_idx)
-            {
                 double face_mean = 0.0;
                 for (int i = 0; i < %(nnodes)d; i++) {
                     unsigned int idx = local_facet_idx[facet[0]*%(nnodes)d + i];
@@ -133,25 +136,37 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
                     unsigned int idx = local_facet_idx[facet[0]*%(nnodes)d + i];
                     qmax[idx] = fmax(qmax[idx], face_mean);
                     qmin[idx] = fmin(qmin[idx], face_mean);
-                }
-            }"""
-        bnd_kernel = op2.Kernel(code % {'nnodes': n_bnd_nodes}, 'my_kernel')
-        op2.par_loop(bnd_kernel,
-                     self.P1DG.mesh().exterior_facets.set,
-                     self.max_field.dat(op2.MAX, self.max_field.exterior_facet_node_map()),
-                     self.min_field.dat(op2.MIN, self.min_field.exterior_facet_node_map()),
-                     field.dat(op2.READ, field.exterior_facet_node_map()),
-                     self.P1DG.mesh().exterior_facets.local_facet_dat(op2.READ),
-                     local_facet_idx(op2.READ))
+                }"""
+        bnd_kernel = op3.Function.from_c_string(
+            "my_kernel",
+            code % {'nnodes': n_bnd_nodes},
+            [
+                ("qmax", op3.ScalarType, op3.MAX_RW),
+                ("qmin", op3.ScalarType, op3.MIN_RW),
+                ("field", op3.ScalarType, op3.READ),
+                ("facet", field.dat.dtype, op3.READ),
+                ("local_facet_idx", local_facet_idx.dtype, op3.READ),
+            ],
+        )
+        op3.loop(
+            f := self.P1DG.mesh().iter(iter_type),
+            bnd_kernel(
+                pack(self.max_field, f),
+                pack(self.min_field, f),
+                pack(field, f),
+                facet_indices[f],
+                local_facet_idx,
+            ),
+            eager=True,
+        )
         if not self.is_2d:
             # Add nodal values from surface/bottom boundaries
             # NOTE calling firedrake par_loop with measure=ds_t raises an error
             bottom_nodes = get_facet_mask(self.P1CG, 'bottom')
             top_nodes = get_facet_mask(self.P1CG, 'top')
-            bottom_idx = op2.Global(len(bottom_nodes), bottom_nodes, dtype=numpy.int32, name='node_idx')
-            top_idx = op2.Global(len(top_nodes), top_nodes, dtype=numpy.int32, name='node_idx')
+            bottom_idx = op3.Dat.from_array(bottom_nodes, name='node_idx', constant=True, rank_equal=True)
+            top_idx = op3.Dat.from_array(top_nodes, name='node_idx', constant=True, rank_equal=True)
             code = """
-                void my_kernel(double *qmax, double *qmin, double *field, int *idx) {
                     double face_mean = 0;
                     for (int i=0; i<%(nnodes)d; i++) {
                         face_mean += field[idx[i]];
@@ -160,23 +175,39 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
                     for (int i=0; i<%(nnodes)d; i++) {
                         qmax[idx[i]] = fmax(qmax[idx[i]], face_mean);
                         qmin[idx[i]] = fmin(qmin[idx[i]], face_mean);
-                    }
-                }"""
-            kernel = op2.Kernel(code % {'nnodes': len(bottom_nodes)}, 'my_kernel')
+                    }"""
+            kernel = op3.Function.from_c_string(
+                "my_kernel",
+                code % {'nnodes': len(bottom_nodes)},
+                [
+                    ("qmax", op3.ScalarType, op3.MAX_RW),
+                    ("qmin", op3.ScalarType, op3.MIN_RW),
+                    ("field", op3.ScalarType, op3.READ),
+                    ("idx", "int", op3.READ),
+                ],
+            )
 
-            op2.par_loop(kernel, self.mesh.cell_set,
-                         self.max_field.dat(op2.MAX, self.max_field.function_space().cell_node_map()),
-                         self.min_field.dat(op2.MIN, self.min_field.function_space().cell_node_map()),
-                         field.dat(op2.READ, field.function_space().cell_node_map()),
-                         bottom_idx(op2.READ),
-                         iteration_region=op2.ON_BOTTOM)
+            op3.loop(
+                f := self.mesh.iter("exterior_facet_bottom"),
+                kernel(
+                    pack(self.max_field, f),
+                    pack(self.min_field, f),
+                    pack(field, f),
+                    bottom_idx,
+                ),
+                eager=True,
+            )
 
-            op2.par_loop(kernel, self.mesh.cell_set,
-                         self.max_field.dat(op2.MAX, self.max_field.function_space().cell_node_map()),
-                         self.min_field.dat(op2.MIN, self.min_field.function_space().cell_node_map()),
-                         field.dat(op2.READ, field.function_space().cell_node_map()),
-                         top_idx(op2.READ),
-                         iteration_region=op2.ON_TOP)
+            op3.loop(
+                f := self.mesh.iter("exterior_facet_top"),
+                kernel(
+                    pack(self.max_field, f),
+                    pack(self.min_field, f),
+                    pack(field, f),
+                    top_idx,
+                ),
+                eager=True,
+            )
 
     @PETSc.Log.EventDecorator("thetis.VertexBasedP1DGLimiter.apply")
     def apply(self, field):
@@ -185,7 +216,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
 
         :arg field: :class:`Function` to limit
         """
-        with timed_stage('limiter'):
+        with PETSc.Log.Stage('limiter'):
             if self.is_vector:
                 tmp_func = self.P1DG.get_work_function()
                 fs = field.function_space()

@@ -137,7 +137,7 @@ class HessianRecoverer2D(DiagnosticCalculator):
         # Extract function spaces
         if element_continuity(Sigma.ufl_element()).horizontal != 'cg':
             raise ValueError('Hessians must be calculated in a continuous space')
-        if Sigma.dof_dset.dim != (2, 2):
+        if Sigma.shape != (2, 2):
             raise ValueError('Expecting a square tensor function')
         if gradient_2d is None:
             V = get_functionspace(mesh, 'CG', 1, vector=True)
@@ -145,7 +145,7 @@ class HessianRecoverer2D(DiagnosticCalculator):
             V = gradient_2d.function_space()
             if element_continuity(V.ufl_element()).horizontal != 'cg':
                 raise ValueError('Gradients must be calculated in a continuous space')
-            if V.dof_dset.dim != (2,):
+            if V.shape != (2,):
                 raise ValueError('Expecting a 2D vector function')
 
         # Setup function spaces

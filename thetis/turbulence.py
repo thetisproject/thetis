@@ -138,6 +138,7 @@ See :mod:`.stability_functions` for more information.
     Journal of Marine Systems, 21(1-4):29-53.
     http://dx.doi.org/10.1016/S0924-7963(99)00004-4
 """
+from petsc4py import PETSc
 from .utility import *
 from .equation import Equation
 from .tracer_eq import *
@@ -146,7 +147,6 @@ from .log import *
 from .options import GLSModelOptions, PacanowskiPhilanderModelOptions
 import numpy
 from abc import ABC, abstractmethod
-from pyop2.profiling import timed_stage
 
 
 def set_func_min_val(f, minval):
@@ -253,7 +253,7 @@ class ShearFrequencySolver(object):
         :kwarg bool init_solve: Set to True if solving for the first time, skips
             relaxation
         """
-        with timed_stage('shear_freq_solv'):
+        with PETSc.Log.Stage('shear_freq_solv'):
             mu_comp = [self.mu, self.mv]
             self.m2.assign(0.0)
             for i_comp, solver in enumerate(self.var_solvers):
@@ -311,7 +311,7 @@ class BuoyFrequencySolver(object):
         :kwarg bool init_solve: Set to True if solving for the first time, skips
             relaxation
         """
-        with timed_stage('buoy_freq_solv'):
+        with PETSc.Log.Stage('buoy_freq_solv'):
             if not self._no_op:
                 self.var_solver.solve()
                 gamma = self.relaxation if not init_solve else 1.0
@@ -514,7 +514,7 @@ class GenericLengthScaleModel(TurbulenceModel):
 
         To be called after updating the turbulence PDEs.
         """
-        with timed_stage('turb_postproc'):
+        with PETSc.Log.Stage('turb_postproc'):
             o = self.options
             cmu0 = o.cmu0
             p = o.p

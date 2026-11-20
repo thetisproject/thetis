@@ -203,6 +203,14 @@ def test_anisotropic_cell_size(mesh2d):
     assert numpy.allclose(cell_size.min(), (numpy.sqrt(5)-1)/10)
 
 
+def test_extruded_function_shares_data(mesh2d, mesh):
+    V = FunctionSpace(mesh2d, "CG", 3)
+    extr_func = utility.ExtrudedFunction(V, mesh_3d=mesh)
+
+    extr_func.dat.data_wo[3] = 666
+    assert extr_func.view_3d.dat.data_ro[3] == 666
+
+
 if __name__ == '__main__':
     """Run all tests"""
     import os

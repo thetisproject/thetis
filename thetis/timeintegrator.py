@@ -4,7 +4,6 @@ Generic time integration schemes to advance equations in time.
 from .utility import *
 from abc import ABC, abstractmethod
 import numpy
-from pyop2.profiling import timed_region, timed_stage
 
 CFL_UNCONDITIONALLY_STABLE = numpy.inf
 # CFL coefficient for unconditionally stable methods
@@ -456,9 +455,9 @@ class PressureProjectionPicard(TimeIntegrator):
         for it in range(self.iterations):
             if self.iterations > 1:
                 self.solution_lagged.assign(self.solution)
-            with timed_stage("Momentum solve"):
+            with PETSc.Log.Stage("Momentum solve"):
                 self.solver_mom.solve()
-            with timed_stage("Pressure solve"):
+            with PETSc.Log.Stage("Pressure solve"):
                 self.solver.solve()
 
         self.update_fields_old()
@@ -558,18 +557,18 @@ class LeapFrogAM3(TimeIntegrator):
         :math:`\Omega_n`.
         """
         if self._nontrivial:
-            with timed_region('lf_pre_asmb_sol'):
+            with PETSc.Log.Event('lf_pre_asmb_sol'):
                 assemble(self.mass_new, tensor=self.msolution_old)  # store current solution
-            with timed_region('lf_pre_asmb_rhs'):
+            with PETSc.Log.Event('lf_pre_asmb_rhs'):
                 assemble(self.l_prediction, tensor=self.rhs_func)
-            with timed_region('lf_pre_asgn_sol'):
+            with PETSc.Log.Event('lf_pre_asgn_sol'):
                 self.solution_old.assign(self.solution)  # time shift
-            with timed_region('lf_pre_solve'):
+            with PETSc.Log.Event('lf_pre_solve'):
                 self._solve_system()
 
     def eval_rhs(self):
         if self._nontrivial:
-            with timed_region('lf_cor_asmb_rhs'):
+            with PETSc.Log.Event('lf_cor_asmb_rhs'):
                 assemble(self.l, tensor=self.rhs_func)
 
     @PETSc.Log.EventDecorator("thetis.LeapFrogAM3.correct")
@@ -588,11 +587,11 @@ class LeapFrogAM3(TimeIntegrator):
         """
         if self._nontrivial:
             # NOTE must call eval_rhs in the old mesh first
-            with timed_region('lf_cor_incr_rhs'):
+            with PETSc.Log.Event('lf_cor_incr_rhs'):
                 self.rhs_func += self.msolution_old
-            with timed_region('lf_cor_asmb_mat'):
+            with PETSc.Log.Event('lf_cor_asmb_mat'):
                 assemble(self.a, tensor=self.mass_matrix)
-            with timed_region('lf_cor_solve'):
+            with PETSc.Log.Event('lf_cor_solve'):
                 self._solve_system()
 
     @PETSc.Log.EventDecorator("thetis.LeapFrogAM3.advance")
@@ -676,13 +675,13 @@ class SSPRK22ALE(TimeIntegrator):
         """
         if self._nontrivial:
             # Compute $Mu$ and assign $q_{old} = Mu$
-            with timed_region('pre1_asseble_mu'):
+            with PETSc.Log.Event('pre1_asseble_mu'):
                 assemble(self.mu_form, tensor=self.mu_old)
             # Evaluate $k = \Delta t F(u)$
-            with timed_region('pre1_asseble_f'):
+            with PETSc.Log.Event('pre1_asseble_f'):
                 assemble(self.l, tensor=self.tendency)
             # $q = q_{old} + k$
-            with timed_region('pre1_incr_rhs'):
+            with PETSc.Log.Event('pre1_incr_rhs'):
                 self.mu.assign(self.mu_old + self.tendency)
 
     @PETSc.Log.EventDecorator("thetis.SSPRK22ALE.stage_one_solve")
@@ -699,9 +698,9 @@ class SSPRK22ALE(TimeIntegrator):
         """
         if self._nontrivial:
             # Solve $u = M^{-1}q$
-            with timed_region('sol1_assemble_A'):
+            with PETSc.Log.Event('sol1_assemble_A'):
                 assemble(self.a, tensor=self.lin_solver.A)
-            with timed_region('sol1_solve'):
+            with PETSc.Log.Event('sol1_solve'):
                 self.lin_solver.solve(self.solution, self.mu)
 
     @PETSc.Log.EventDecorator("thetis.SSPRK22ALE.stage_two_prep")
@@ -711,10 +710,10 @@ class SSPRK22ALE(TimeIntegrator):
         """
         if self._nontrivial:
             # Evaluate $k = \Delta t F(u)$
-            with timed_region('pre2_asseble_f'):
+            with PETSc.Log.Event('pre2_asseble_f'):
                 assemble(self.l, tensor=self.tendency)
             # $q = \frac{1}{2}q + \frac{1}{2}q_{old} + \frac{1}{2}k$
-            with timed_region('pre2_incr_rhs'):
+            with PETSc.Log.Event('pre2_incr_rhs'):
                 self.mu.assign(0.5*self.mu + 0.5*self.mu_old + 0.5*self.tendency)
 
     @PETSc.Log.EventDecorator("thetis.SSPRK22ALE.stage_two_solve")
@@ -733,9 +732,9 @@ class SSPRK22ALE(TimeIntegrator):
         """
         if self._nontrivial:
             # Solve $u = M^{-1}q$
-            with timed_region('sol2_assemble_A'):
+            with PETSc.Log.Event('sol2_assemble_A'):
                 assemble(self.a, tensor=self.lin_solver.A)
-            with timed_region('sol2_solve'):
+            with PETSc.Log.Event('sol2_solve'):
                 self.lin_solver.solve(self.solution, self.mu)
 
     @PETSc.Log.EventDecorator("thetis.SSPRK22ALE.solve_stage")
