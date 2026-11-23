@@ -1112,7 +1112,11 @@ class TPXOTidalBoundaryForcing(TidalBoundaryForcing):
             domain.
         :kwarg data_dir: path to directory where tidal model netCDF files are
             located.
-        :kwarg elev_file: TPXO tidal elevation file
+        :kwarg elev_file: TPXO tidal elevation file. For TPXO atlas versions,
+            where each constituent is stored in a separate file, this should be
+            a format string containing ``{con}``, which is substituted by the
+            lower case constituent name, e.g.
+            ``elev_file='h_{con}_tpxo10_atlas_30_v2.nc'``
         :kwarg uv_file: TPXO transport/velocity file
         :kwarg grid_file: TPXO grid file
         """
@@ -1134,7 +1138,10 @@ class TPXOTidalBoundaryForcing(TidalBoundaryForcing):
         f_grid = os.path.join(self.data_dir, self.grid_nc_file)
         assert os.path.exists(f_grid), msg.format(f_grid)
         f_elev = os.path.join(self.data_dir, self.elev_nc_file)
-        assert os.path.exists(f_elev), msg.format(f_elev)
+        # a format string with {con} indicates separate files per constituent
+        # (TPXO atlas), which are checked by uptide
+        if '{con}' not in self.elev_nc_file:
+            assert os.path.exists(f_elev), msg.format(f_elev)
         self.tnci = uptide.tidal_netcdf.OTPSncTidalInterpolator(self.tide, f_grid, f_elev, ranges=self.ranges)
         if self.uv_field is not None:
             f_uv = os.path.join(self.data_dir, self.uv_nc_file)
