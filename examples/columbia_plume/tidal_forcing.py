@@ -22,7 +22,7 @@ def test():
     tide_cls = TPXOTidalBoundaryForcing
     tbnd = tide_cls(
         elev_field, init_date, COORDSYS,
-        uv_field=uv_field,
+        uv_field=uv_field, uv_is_transport=True,
         data_dir='forcings',
         constituents=['M2', 'K1'],
         boundary_ids=[2, 5, 7])

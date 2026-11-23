@@ -974,7 +974,8 @@ class TidalBoundaryForcing(ABC):
         :arg init_date: Datetime object defining the simulation init time.
         :arg coord_system: :class:`CoordinateSystem` object
         :kwarg vect_rotator: User-defined vector rotator function
-        :kwarg uv_field: Function where tidal transport will be interpolated.
+        :kwarg uv_field: Function where the tidal depth averaged velocity (in m/s)
+            will be interpolated.
         :kwarg constituents: list of tidal constituents, e.g. ['M2', 'K1']
         :kwarg boundary_ids: list of boundary_ids where tidal data will be
             evaluated. If not defined, tides will be in evaluated in the entire
@@ -1099,13 +1100,16 @@ class TPXOTidalBoundaryForcing(TidalBoundaryForcing):
     def __init__(self, elev_field, init_date, coord_system,
                  vect_rotator=None, uv_field=None, constituents=None,
                  boundary_ids=None, data_dir=None, elev_file='h_tpxo9.v5a.nc',
-                 uv_file='u_tpxo9.v5a.nc', grid_file='gridtpxo9v5a.nc'):
+                 uv_file='u_tpxo9.v5a.nc', grid_file='gridtpxo9v5a.nc',
+                 uv_is_transport=False):
         """
         :arg elev_field: Function where tidal elevation will be interpolated.
         :arg init_date: Datetime object defining the simulation init time.
         :arg coord_system: :class:`CoordinateSystem` object
         :kwarg vect_rotator: User-defined vector rotator function
-        :kwarg uv_field: Function where tidal transport will be interpolated.
+        :kwarg uv_field: Function where the tidal depth averaged velocity (in m/s),
+            or if `uv_is_transport` is True, the tidal transport (in m^2/s) will
+            be interpolated.
         :kwarg constituents: list of tidal constituents, e.g. ['M2', 'K1']
         :kwarg boundary_ids: list of boundary_ids where tidal data will be
             evaluated. If not defined, tides will be in evaluated in the entire
@@ -1117,10 +1121,20 @@ class TPXOTidalBoundaryForcing(TidalBoundaryForcing):
             a format string containing ``{con}``, which is substituted by the
             lower case constituent name, e.g.
             ``elev_file='h_{con}_tpxo10_atlas_30_v2.nc'``
-        :kwarg uv_file: TPXO transport/velocity file
+        :kwarg uv_file: TPXO transport/velocity file. If the file does not
+            contain depth averaged velocities (as in the TPXO atlas versions)
+            these are computed from the transports and the depth in `grid_file`.
+            For TPXO atlas versions this should be a format string containing
+            ``{con}``, e.g. ``uv_file='u_{con}_tpxo10_atlas_30_v2.nc'``
         :kwarg grid_file: TPXO grid file
+        :kwarg uv_is_transport: if True, interpolate the tidal (depth integrated)
+            transport in m^2/s into `uv_field`, instead of the depth averaged
+            velocity in m/s. The transport can then be divided by the depth of
+            the computational mesh, which is often more consistent than using
+            the velocity from the TPXO model, which is based on the TPXO depth.
         """
         self.compute_velocity = uv_field is not None
+        self.uv_is_transport = uv_is_transport
         self.elev_nc_file = elev_file
         self.uv_nc_file = uv_file
         self.grid_nc_file = grid_file
@@ -1145,9 +1159,12 @@ class TPXOTidalBoundaryForcing(TidalBoundaryForcing):
         self.tnci = uptide.tidal_netcdf.OTPSncTidalInterpolator(self.tide, f_grid, f_elev, ranges=self.ranges)
         if self.uv_field is not None:
             f_uv = os.path.join(self.data_dir, self.uv_nc_file)
-            assert os.path.exists(f_uv), msg.format(f_uv)
-            self.tnciu = uptide.tidal_netcdf.OTPSncTidalComponentInterpolator(self.tide, f_grid, f_uv, 'u', 'u', ranges=self.ranges)
-            self.tnciv = uptide.tidal_netcdf.OTPSncTidalComponentInterpolator(self.tide, f_grid, f_uv, 'v', 'v', ranges=self.ranges)
+            if '{con}' not in self.uv_nc_file:
+                assert os.path.exists(f_uv), msg.format(f_uv)
+            # field names 'U', 'V' for transports (m^2/s), 'u', 'v' for velocities (m/s)
+            u_name, v_name = ('U', 'V') if self.uv_is_transport else ('u', 'v')
+            self.tnciu = uptide.tidal_netcdf.OTPSncTidalComponentInterpolator(self.tide, f_grid, f_uv, 'u', u_name, ranges=self.ranges)
+            self.tnciv = uptide.tidal_netcdf.OTPSncTidalComponentInterpolator(self.tide, f_grid, f_uv, 'v', v_name, ranges=self.ranges)
 
 
 class FES2004TidalBoundaryForcing(TidalBoundaryForcing):
