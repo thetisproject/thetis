@@ -968,25 +968,30 @@ class TidalBoundaryForcing(ABC):
     @PETSc.Log.EventDecorator("thetis.TidalBoundaryForcing.__init__")
     def __init__(self, elev_field, init_date, coord_system, vect_rotator=None,
                  uv_field=None, constituents=None, boundary_ids=None,
-                 data_dir=None):
+                 data_dir=None, zero_missing_points=False):
         """
         :arg elev_field: Function where tidal elevation will be interpolated.
         :arg init_date: Datetime object defining the simulation init time.
         :arg coord_system: :class:`CoordinateSystem` object
         :kwarg vect_rotator: User-defined vector rotator function
-        :kwarg uv_field: Function where tidal transport will be interpolated.
+        :kwarg uv_field: Function where the tidal depth averaged velocity (in m/s)
+            will be interpolated.
         :kwarg constituents: list of tidal constituents, e.g. ['M2', 'K1']
         :kwarg boundary_ids: list of boundary_ids where tidal data will be
             evaluated. If not defined, tides will be in evaluated in the entire
             domain.
         :kwarg data_dir: path to directory where tidal model netCDF files are
             located.
+        :kwarg zero_missing_points: If True, points that cannot be interpolated
+            from the tidal model netCDF are set to zero. If False (default), a
+            uptide.netcdf_reader.CoordinateError is raised instead.
         """
         assert init_date.tzinfo is not None, 'init_date must have time zone information'
         if constituents is None:
             constituents = ['Q1', 'O1', 'P1', 'K1', 'N2', 'M2', 'S2', 'K2']
 
         self.data_dir = data_dir if data_dir is not None else ''
+        self.zero_missing_points = zero_missing_points
 
         if not self.compute_velocity and uv_field is not None:
             warning('{:}: uv_field is defined but velocity computation is not supported. uv_field will be ignored.'.format(__class__.__name__))
@@ -1019,7 +1024,7 @@ class TidalBoundaryForcing(ABC):
             fsy = Function(function_space).interpolate(y).dat.data_with_halos
             coords = (fsx, fsy)
 
-        lon, lat = coord_system.to_lonlat(*coords, positive_lon=True)
+        lon, lat = coord_system.to_lonlat(*coords)
         self.latlon = numpy.array([lat, lon]).T
 
         if not self._empty_set:
@@ -1068,13 +1073,17 @@ class TidalBoundaryForcing(ABC):
             try:
                 elev = self.tnci.get_val(point, allow_extrapolation=True)
                 elev_data[node] = elev
-            except uptide.netcdf_reader.CoordinateError:
+            except uptide.netcdf_reader.CoordinateError as e:
+                if not self.zero_missing_points:
+                    raise e
                 elev_data[node] = 0.
             if self.compute_velocity:
                 try:
                     lon_vel[node] = self.tnciu.get_val(point, allow_extrapolation=True)
                     lat_vel[node] = self.tnciv.get_val(point, allow_extrapolation=True)
                 except uptide.netcdf_reader.CoordinateError:
+                    if not self.zero_missing_points:
+                        raise e
                     uv_data[node, 0] = 0
                     uv_data[node, 1] = 0
         if self.compute_velocity:
@@ -1099,24 +1108,44 @@ class TPXOTidalBoundaryForcing(TidalBoundaryForcing):
     def __init__(self, elev_field, init_date, coord_system,
                  vect_rotator=None, uv_field=None, constituents=None,
                  boundary_ids=None, data_dir=None, elev_file='h_tpxo9.v5a.nc',
-                 uv_file='u_tpxo9.v5a.nc', grid_file='gridtpxo9v5a.nc'):
+                 uv_file='u_tpxo9.v5a.nc', grid_file='gridtpxo9v5a.nc',
+                 uv_is_transport=False, zero_missing_points=False):
         """
         :arg elev_field: Function where tidal elevation will be interpolated.
         :arg init_date: Datetime object defining the simulation init time.
         :arg coord_system: :class:`CoordinateSystem` object
         :kwarg vect_rotator: User-defined vector rotator function
-        :kwarg uv_field: Function where tidal transport will be interpolated.
+        :kwarg uv_field: Function where the tidal depth averaged velocity (in m/s),
+            or if `uv_is_transport` is True, the tidal transport (in m^2/s) will
+            be interpolated.
         :kwarg constituents: list of tidal constituents, e.g. ['M2', 'K1']
         :kwarg boundary_ids: list of boundary_ids where tidal data will be
             evaluated. If not defined, tides will be in evaluated in the entire
             domain.
         :kwarg data_dir: path to directory where tidal model netCDF files are
             located.
-        :kwarg elev_file: TPXO tidal elevation file
-        :kwarg uv_file: TPXO transport/velocity file
+        :kwarg elev_file: TPXO tidal elevation file. For TPXO atlas versions,
+            where each constituent is stored in a separate file, this should be
+            a format string containing ``{con}``, which is substituted by the
+            lower case constituent name, e.g.
+            ``elev_file='h_{con}_tpxo10_atlas_30_v2.nc'``
+        :kwarg uv_file: TPXO transport/velocity file. If the file does not
+            contain depth averaged velocities (as in the TPXO atlas versions)
+            these are computed from the transports and the depth in `grid_file`.
+            For TPXO atlas versions this should be a format string containing
+            ``{con}``, e.g. ``uv_file='u_{con}_tpxo10_atlas_30_v2.nc'``
         :kwarg grid_file: TPXO grid file
+        :kwarg uv_is_transport: if True, interpolate the tidal (depth integrated)
+            transport in m^2/s into `uv_field`, instead of the depth averaged
+            velocity in m/s. The transport can then be divided by the depth of
+            the computational mesh, which is often more consistent than using
+            the velocity from the TPXO model, which is based on the TPXO depth.
+        :kwarg zero_missing_points: If True, points that cannot be interpolated
+            from the tidal model netCDF are set to zero. If False (default), a
+            uptide.netcdf_reader.CoordinateError is raised instead.
         """
         self.compute_velocity = uv_field is not None
+        self.uv_is_transport = uv_is_transport
         self.elev_nc_file = elev_file
         self.uv_nc_file = uv_file
         self.grid_nc_file = grid_file
@@ -1124,7 +1153,8 @@ class TPXOTidalBoundaryForcing(TidalBoundaryForcing):
             elev_field, init_date, coord_system,
             vect_rotator=vect_rotator, uv_field=uv_field,
             constituents=constituents, boundary_ids=boundary_ids,
-            data_dir=data_dir
+            data_dir=data_dir,
+            zero_missing_points=zero_missing_points
         )
 
     @PETSc.Log.EventDecorator("thetis.TPXOTidalBoundaryForcing._create_readers")
@@ -1134,13 +1164,19 @@ class TPXOTidalBoundaryForcing(TidalBoundaryForcing):
         f_grid = os.path.join(self.data_dir, self.grid_nc_file)
         assert os.path.exists(f_grid), msg.format(f_grid)
         f_elev = os.path.join(self.data_dir, self.elev_nc_file)
-        assert os.path.exists(f_elev), msg.format(f_elev)
+        # a format string with {con} indicates separate files per constituent
+        # (TPXO atlas), which are checked by uptide
+        if '{con}' not in self.elev_nc_file:
+            assert os.path.exists(f_elev), msg.format(f_elev)
         self.tnci = uptide.tidal_netcdf.OTPSncTidalInterpolator(self.tide, f_grid, f_elev, ranges=self.ranges)
         if self.uv_field is not None:
             f_uv = os.path.join(self.data_dir, self.uv_nc_file)
-            assert os.path.exists(f_uv), msg.format(f_uv)
-            self.tnciu = uptide.tidal_netcdf.OTPSncTidalComponentInterpolator(self.tide, f_grid, f_uv, 'u', 'u', ranges=self.ranges)
-            self.tnciv = uptide.tidal_netcdf.OTPSncTidalComponentInterpolator(self.tide, f_grid, f_uv, 'v', 'v', ranges=self.ranges)
+            if '{con}' not in self.uv_nc_file:
+                assert os.path.exists(f_uv), msg.format(f_uv)
+            # field names 'U', 'V' for transports (m^2/s), 'u', 'v' for velocities (m/s)
+            u_name, v_name = ('U', 'V') if self.uv_is_transport else ('u', 'v')
+            self.tnciu = uptide.tidal_netcdf.OTPSncTidalComponentInterpolator(self.tide, f_grid, f_uv, 'u', u_name, ranges=self.ranges)
+            self.tnciv = uptide.tidal_netcdf.OTPSncTidalComponentInterpolator(self.tide, f_grid, f_uv, 'v', v_name, ranges=self.ranges)
 
 
 class FES2004TidalBoundaryForcing(TidalBoundaryForcing):
