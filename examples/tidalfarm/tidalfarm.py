@@ -21,7 +21,6 @@ the forward model and automatically derives the adjoint.
 
 from thetis import *
 from firedrake.adjoint import *
-op2.init(log_level=INFO)
 
 # start annotating all Firedrake opterations in the forward model
 continue_annotation()
