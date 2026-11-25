@@ -118,7 +118,7 @@ class TracerTerm(Term):
         """
         Return the component of a function corresponding to this tracer.
         """
-        return f if len(f) == 1 else split(f)[self.index]
+        return f if len(f.function_space()) == 1 else split(f)[self.index]
 
 
 class HorizontalAdvectionTerm(TracerTerm):
