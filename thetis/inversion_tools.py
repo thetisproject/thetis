@@ -792,7 +792,7 @@ class StationObservationManager(StationObservationManagerBase):
         Builds evaluators needed to compute the error functional.
         """
         # Create 0D mesh for station evaluation
-        xy = numpy.array((self.observation_x, self.observation_y)).T
+        xy = numpy.array((self.observation_x, self.observation_y)).T.copy()
         mesh0d = fd.VertexOnlyMesh(self.mesh, xy)
         self.fs_points_0d_scalar = fd.FunctionSpace(mesh0d, 'DG', 0)
         if self.observed_quantity_is_scalar:
